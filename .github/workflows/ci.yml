@@ -1,0 +1,84 @@
+# Galaxy-JEPA CI — PROPOSAL (see docs/spec/testing.md), not yet wired to a live runner.
+#
+# Staged by cost, fail-fast: lint+type-check (seconds) -> unit+invariant on every push
+# (the gate, ~2 min) -> integration on PR. The e2e job is workflow_dispatch-only until a
+# GPU runner is wired (GPU CI is deferred; run e2e locally via `make e2e`).
+#
+# MERGE-BLOCKING RULE: the invariant/property tests (run in the `fast` job) are a
+# merge-blocking gate. A change that breaks the frozen-encoder guarantee, the
+# format+stretch+normalisation parity, or the uncertainty-geometry label firewall must
+# not be mergeable — the CI mirror of the structural guardrails. Enforce via a required
+# status check on `fast` once this is wired.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Keep install cheap and the gate fast: CPU torch wheels, no CUDA.
+  UV_TORCH_BACKEND: cpu
+
+jobs:
+  lint:
+    name: lint + type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src
+
+  fast:
+    name: unit + invariant (the gate)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev
+      # Default (unmarked) selection = unit + invariant. Must stay ~2 min.
+      - run: uv run pytest -m "not integration and not e2e and not gpu" --durations=10
+
+  integration:
+    name: integration (CPU, fixtures)
+    runs-on: ubuntu-latest
+    needs: fast
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev --extra data
+      - run: uv run pytest -m integration
+
+  e2e:
+    name: e2e (GPU — deferred; run locally via `make e2e`)
+    runs-on: ubuntu-latest
+    # GPU CI is deferred: manual trigger only until a GPU runner is wired. When a GPU
+    # runner exists, switch `runs-on` to it and add a nightly schedule trigger above.
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev --extra data
+      - run: uv run pytest -m e2e

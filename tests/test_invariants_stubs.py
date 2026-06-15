@@ -17,11 +17,13 @@ fill the body.
 import pytest
 
 
+@pytest.mark.invariant
 @pytest.mark.skip(reason="TODO(P3): build masking/ then assert β=0 block stats == I-JEPA")
 def test_masking_beta_zero_is_ijepa():
     raise NotImplementedError
 
 
+@pytest.mark.invariant
 @pytest.mark.skip(
     reason="TODO(P2): build data/ then assert format+stretch+norm parity across corpora"
 )

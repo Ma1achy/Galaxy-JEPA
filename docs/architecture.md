@@ -161,6 +161,7 @@ and ends with a flagged forks list.
 | [`spec/callbacks.md`](spec/callbacks.md) | Control-flow ownership | `callbacks/` |
 | [`spec/data.md`](spec/data.md) | The data stack — pretrain-probe parity | `data/` |
 | [`spec/objectives.md`](spec/objectives.md) | Package layout (`objectives/`) | `objectives/` |
+| [`spec/testing.md`](spec/testing.md) | Validation tiers (cross-cutting) — code-correctness *and* science-validity | `tests/` + CI |
 
 ## What we deliberately do not build
 

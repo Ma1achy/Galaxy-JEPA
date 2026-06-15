@@ -22,7 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 # Populated in later phases; declared here so the layout is visible.
 data = ["galaxy-datasets", "astroquery", "pillow"]
-dev = ["pytest>=8", "ruff>=0.6", "pre-commit>=3.8"]
+dev = ["pytest>=8", "ruff>=0.6", "pre-commit>=3.8", "hypothesis>=6", "mypy>=1.10"]
 
 [build-system]
 requires = ["hatchling"]
@@ -46,3 +46,13 @@ select = ["E", "F", "I", "W", "UP", "B"]
 testpaths = ["tests"]
 addopts = "-q"
 pythonpath = ["src"]
+# Tiers (docs/spec/testing.md). Unmarked = the fast unit gate; `invariant` runs in
+# the gate too. `integration`/`e2e`/`gpu`/`slow` are guarded so the fast suite stays
+# fast. The default CI selection excludes integration/e2e/gpu.
+markers = [
+    "invariant: science-protecting property/invariant test (merge-blocking)",
+    "integration: component-seam test on a fixture (CPU, PR stage)",
+    "e2e: tiny end-to-end run (GPU/slow; nightly or `make e2e`)",
+    "gpu: requires a GPU",
+    "slow: not part of the fast gate",
+]
