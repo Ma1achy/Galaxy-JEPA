@@ -27,38 +27,47 @@ from typing import Any
 
 # --- SQL templates (deterministic via ORDER BY) ------------------------------------
 
+# Pretraining is unlabelled: it needs petroRad (+ pixel scale) for the masking box and
+# the frame coords to cut stamps (D6) — not the nuisance battery (that is on the probing
+# corpus). psfWidth_r is not on PhotoPrimary anyway (it lives in Field); omitted here.
 PRETRAIN_SQL = """\
 SELECT TOP {limit}
     p.objID, p.ra, p.dec,
     p.petroRad_r, p.petroRadErr_r,
-    p.modelMag_r, p.modelMagErr_r,
-    p.psfWidth_r,
+    p.modelMag_r,
     p.run, p.camcol, p.field, p.rerun
 FROM PhotoPrimary AS p
 WHERE p.type = 3 AND p.clean = 1
   AND p.modelMag_r BETWEEN {mag_min} AND {mag_max}
 ORDER BY p.objID"""
 
+# Join keys confirmed against the live DR17 schema:
+#   * PhotoObjAll on dr8objid (dr7objid does not match DR17 objIDs → zero rows);
+#   * psfWidth_r lives in the Field table, not PhotoObjAll;
+#   * redshift is SpecObj.z joined on specObjID = zoo2MainSpecz.specobjid
+#     (zoo2MainSpecz itself has no redshift column — only GZ2 vote fractions).
 PROBE_SQL = """\
 SELECT TOP {limit}
-    g.dr7objid, g.ra, g.dec,
-    g.specz,
+    g.dr8objid AS objID, g.ra, g.dec,
+    s.z AS specz,
     p.petroRad_r, p.petroRadErr_r,
     p.modelMag_r, p.modelMagErr_r,
-    p.psfWidth_r,
+    f.psfWidth_r,
     p.run, p.camcol, p.field, p.rerun
 FROM zoo2MainSpecz AS g
-JOIN PhotoObjAll AS p ON p.objID = g.dr7objid
-ORDER BY g.dr7objid"""
+JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
+JOIN Field AS f ON f.fieldID = p.fieldID
+JOIN SpecObj AS s ON s.specObjID = g.specobjid
+ORDER BY g.dr8objid"""
 
 # Selects BOTH sides' ra/dec so the join key can be validated before it is trusted.
 JOIN_CHECK_SQL = """\
 SELECT TOP {limit}
-    g.dr7objid, g.ra AS gz_ra, g.dec AS gz_dec,
-    p.objID, p.ra AS phot_ra, p.dec AS phot_dec
+    g.dr8objid AS objID, g.ra AS gz_ra, g.dec AS gz_dec,
+    p.ra AS phot_ra, p.dec AS phot_dec
 FROM zoo2MainSpecz AS g
-JOIN PhotoObjAll AS p ON p.objID = g.dr7objid
-ORDER BY g.dr7objid"""
+JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
+ORDER BY g.dr8objid"""
 
 
 def pretrain_sql(limit: int, *, mag_min: float = 14.0, mag_max: float = 19.0) -> str:
@@ -116,7 +125,7 @@ def assert_radec_agree(rows: list[dict[str, Any]], *, tol_arcsec: float = 1.0) -
         )
         if sep > tol_arcsec:
             raise ValueError(
-                f"GZ2↔PhotoObjAll join mismatch for dr7objid={row.get('dr7objid')}: "
+                f"GZ2↔PhotoObjAll join mismatch for objID={row.get('objID', row.get('dr7objid'))}: "
                 f"sky positions differ by {sep:.2f}″ (> {tol_arcsec}″). The join key is "
                 "wrong — metadata would belong to a different galaxy."
             )
@@ -125,11 +134,26 @@ def assert_radec_agree(rows: list[dict[str, Any]], *, tol_arcsec: float = 1.0) -
 # --- networked execution (devcontainer) ---------------------------------------------
 
 
-def run_sql(sql: str, *, data_release: int = 17) -> list[dict[str, Any]]:
-    """Execute a SkyServer SQL query and return rows as dicts (lazy ``astroquery``)."""
-    from astroquery.sdss import SDSS
+def run_sql(sql: str, *, data_release: int = 17, timeout: int = 300) -> list[dict[str, Any]]:
+    """Execute a SkyServer SQL query via the SqlSearch REST endpoint, returning row dicts.
 
-    table = SDSS.query_sql(sql, data_release=data_release)
-    if table is None:
-        return []
-    return [dict(zip(table.colnames, row, strict=True)) for row in table]
+    Uses the ``SkyServerWS/SearchTools/SqlSearch`` endpoint rather than
+    ``astroquery.sdss.query_sql`` — the latter returns an HTML error page on the heavier
+    multi-table joins (zoo2 ⋈ PhotoObjAll ⋈ Field ⋈ SpecObj), whereas this endpoint
+    returns clean CSV. Fails loudly on a SkyServer error body (rather than letting a CSV
+    parser choke on it).
+    """
+    import csv
+    import io
+
+    import requests
+
+    url = f"https://skyserver.sdss.org/dr{data_release}/SkyServerWS/SearchTools/SqlSearch"
+    resp = requests.get(url, params={"cmd": sql, "format": "csv"}, timeout=timeout)
+    resp.raise_for_status()
+    text = resp.text.lstrip()
+    if text.startswith("{") and "ErrorMessage" in text:
+        raise RuntimeError(f"SkyServer SQL error: {text[:300]}")
+    # The CSV body opens with a '#Table1' comment line, then the header, then rows.
+    body = "\n".join(ln for ln in resp.text.splitlines() if not ln.startswith("#"))
+    return [dict(row) for row in csv.DictReader(io.StringIO(body))]

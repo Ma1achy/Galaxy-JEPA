@@ -1,0 +1,16 @@
+Q-sweep readout — the GAP (faint − sky) is the signal, not retention height.
+
+    Q     faint       sky       gap  valid/total
+    1    0.0707    0.1147   -0.0474  95/100
+    2    0.0861    0.1433   -0.0606  95/100
+    3    0.0984    0.1683   -0.0702  95/100
+    4    0.1068    0.1911   -0.0778  95/100
+    6    0.1191    0.2256   -0.1009  95/100
+    8    0.1406    0.2546   -0.1153  95/100
+   12    0.1787    0.3074   -0.1324  95/100
+
+- Gap plateaus around Q≈1: beyond it, real signal-above-noise barely grows (diminishing returns).
+- Sky-noise floor rises smoothly across the grid (no sharp knee).
+- SUSPECT (retention rises but gap does not — amplified noise): Q=2, 3, 4, 6, 8, 12.
+
+Decision (yours): pick the highest Q whose sky-floor stays under your ceiling while the gap is still near its plateau. Nothing is frozen here.

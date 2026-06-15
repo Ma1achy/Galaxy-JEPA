@@ -21,7 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Populated in later phases; declared here so the layout is visible.
-data = ["astropy>=6", "astroquery", "galaxy-datasets", "pillow"]
+data = ["astropy>=6", "astroquery", "galaxy-datasets", "matplotlib>=3.8", "pillow"]
 dev = ["pytest>=8", "ruff>=0.6", "pre-commit>=3.8", "hypothesis>=6", "mypy>=1.10"]
 
 [build-system]
@@ -49,7 +49,7 @@ files = ["src"]
 [[tool.mypy.overrides]]
 # Astronomy libraries ship no type stubs (no py.typed); ignore their missing imports
 # rather than littering call sites with per-line ignores.
-module = ["astropy.*", "astroquery.*", "galaxy_datasets.*"]
+module = ["astropy.*", "astroquery.*", "galaxy_datasets.*", "matplotlib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

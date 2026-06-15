@@ -12,23 +12,34 @@ Implements ``docs/spec/data.md`` §3 ("The CasJobs join") and ``docs/architectur
   the class so the module imports without it, and so tests (which use
   :class:`DirectorySource`) never hit the network. ``galaxy-datasets`` cannot be this
   source — it serves lossy 8-bit JPG (``docs/spec/data.md`` §2).
+
+Install the networked dependencies (astropy + astroquery + pillow) with::
+
+    uv sync --extra data
 """
 
 from __future__ import annotations
 
 import csv
+import threading
+from collections import OrderedDict
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
-from astropy.io import fits
 
 Array = np.ndarray
 
 # SDSS frame FITS are calibrated in nanomaggies at the native pixel scale.
 NATIVE_PIXEL_SCALE = 0.396  # arcsec/pixel
 DEFAULT_BANDS = ("g", "r", "i")
+
+# Calibrated frame FITS on the SDSS Science Archive Server (bz2-compressed nanomaggies).
+_FRAME_URL = (
+    "https://dr{dr}.sdss.org/sas/dr{dr}/eboss/photoObj/frames/"
+    "{rerun}/{run}/{camcol}/frame-{band}-{run:06d}-{camcol}-{field:04d}.fits.bz2"
+)
 
 
 @runtime_checkable
@@ -48,8 +59,11 @@ def load_fits_stamp(path: str | Path) -> Array:
     """Load a per-galaxy FITS stamp as a float ``(C, H, W)`` array.
 
     The stamp stores channels-first flux in the primary HDU. Fails loudly on a malformed
-    shape rather than guessing an axis order.
+    shape rather than guessing an axis order. ``astropy`` is imported lazily so the module
+    (and ``import galaxy_jepa.data``) loads without the ``data`` extra installed.
     """
+    from astropy.io import fits
+
     with fits.open(path) as hdul:
         data = np.asarray(hdul[0].data, dtype=np.float64)
     if data.ndim != 3:
@@ -109,9 +123,10 @@ FixtureSource = DirectorySource
 class FitsFrameSource:
     """Networked SDSS source: frame FITS → per-object cutout (``docs/spec/data.md`` §3).
 
-    Built for the devcontainer (network + ``astroquery``); **not exercised by tests**.
-    Given metadata rows carrying ``ra``/``dec`` (and optionally ``run``/``camcol``/
-    ``field``), it fetches the calibrated SDSS frame in each band and cuts a fixed-size
+    Not exercised by tests. Each row carries ``ra``/``dec`` + ``run``/``camcol``/
+    ``field``/``rerun``, so it downloads the calibrated frame FITS straight from the SDSS
+    Science Archive Server (more reliable than ``astroquery.get_images``, whose
+    coordinate path re-resolves run/camcol/field and is flaky), then cuts a fixed-size
     stamp centred on the galaxy at the **native 0.396″/px** scale — no rebin (rebinning
     interacts with the Rung-4 resolution question; keep it out of the data layer).
     """
@@ -123,11 +138,22 @@ class FitsFrameSource:
         bands: tuple[str, ...] = DEFAULT_BANDS,
         stamp_px: int = 64,
         data_release: int = 17,
+        timeout: int = 120,
+        frame_cache_size: int = 24,
     ):
         self.rows = list(rows)
         self.bands = bands
         self.stamp_px = stamp_px
         self.data_release = data_release
+        self.timeout = timeout
+        # Download is server/IO-bound, so a thread pool over one shared source is the right
+        # tool — these back an HTTP keep-alive session (avoid re-handshaking dr17.sdss.org)
+        # and a small LRU frame cache (consecutive ORDER-BY-objID galaxies share a field
+        # frame, so cache it instead of re-downloading). Both are guarded for thread use.
+        self._frame_cache_size = frame_cache_size
+        self._frame_cache: OrderedDict[tuple, tuple[Array, Any]] = OrderedDict()
+        self._lock = threading.Lock()
+        self._session: Any = None
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -136,21 +162,63 @@ class FitsFrameSource:
         row = self.rows[index]
         return self._fetch_stamp(row), row
 
+    def _get_session(self) -> Any:
+        if self._session is None:
+            with self._lock:
+                if self._session is None:
+                    import requests
+                    from requests.adapters import HTTPAdapter
+
+                    session = requests.Session()
+                    adapter = HTTPAdapter(pool_connections=32, pool_maxsize=32, max_retries=2)
+                    session.mount("https://", adapter)
+                    self._session = session
+        return self._session
+
+    def _get_frame(self, key: tuple, url: str) -> tuple[Array, Any]:
+        """Return ``(frame_data, wcs)`` from the LRU cache, downloading on a miss."""
+        with self._lock:
+            cached = self._frame_cache.get(key)
+            if cached is not None:
+                self._frame_cache.move_to_end(key)
+                return cached
+
+        # Download outside the lock so concurrent fetches of *different* frames overlap.
+        import bz2
+        import io
+
+        from astropy.io import fits
+        from astropy.wcs import WCS
+
+        resp = self._get_session().get(url, timeout=self.timeout)
+        resp.raise_for_status()
+        with fits.open(io.BytesIO(bz2.decompress(resp.content))) as hdul:
+            data = np.asarray(hdul[0].data, dtype=np.float64)
+            wcs = WCS(hdul[0].header)
+
+        with self._lock:
+            self._frame_cache[key] = (data, wcs)
+            self._frame_cache.move_to_end(key)
+            while len(self._frame_cache) > self._frame_cache_size:
+                self._frame_cache.popitem(last=False)
+        return data, wcs
+
     def _fetch_stamp(self, row: dict[str, Any]) -> Array:
-        # Lazy imports: keep the module importable (and tests offline) without astroquery.
+        # Lazy imports: keep the module importable (and tests offline) without the extra.
         import astropy.units as u
         from astropy.coordinates import SkyCoord
         from astropy.nddata import Cutout2D
-        from astropy.wcs import WCS
-        from astroquery.sdss import SDSS
 
-        coord = SkyCoord(row["ra"] * u.deg, row["dec"] * u.deg)
+        coord = SkyCoord(float(row["ra"]) * u.deg, float(row["dec"]) * u.deg)
+        run, camcol = int(row["run"]), int(row["camcol"])
+        field, rerun = int(row["field"]), int(row["rerun"])
         planes: list[Array] = []
         for band in self.bands:
-            images = SDSS.get_images(coordinates=coord, band=band, data_release=self.data_release)
-            if not images:
-                raise RuntimeError(f"no SDSS {band}-band frame for object {row.get('object_id')}")
-            hdu = images[0][0]
-            cut = Cutout2D(hdu.data, coord, size=self.stamp_px, wcs=WCS(hdu.header))
+            url = _FRAME_URL.format(
+                dr=self.data_release, rerun=rerun, run=run, camcol=camcol,
+                field=field, band=band,
+            )
+            data, wcs = self._get_frame((rerun, run, camcol, field, band), url)
+            cut = Cutout2D(data, coord, size=self.stamp_px, wcs=wcs)
             planes.append(np.asarray(cut.data, dtype=np.float64))
         return np.stack(planes)

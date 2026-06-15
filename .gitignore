@@ -37,3 +37,4 @@ tests/fixtures/synthetic/
 .DS_Store
 .idea/
 .vscode/
+.env

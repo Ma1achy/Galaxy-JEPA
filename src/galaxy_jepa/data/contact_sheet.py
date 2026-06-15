@@ -18,6 +18,7 @@ import numpy as np
 
 from galaxy_jepa.data.bbox import DEFAULT_K, fallback_rate, petrosian_box
 from galaxy_jepa.data.sources import NATIVE_PIXEL_SCALE, DataSource
+from galaxy_jepa.data.transforms import AsinhStretch
 
 Array = np.ndarray
 
@@ -95,8 +96,13 @@ def build_contact_sheet(
     for idx in range(n, rows * cols):
         axes[idx // cols][idx % cols].axis("off")
 
+    qval = next(
+        (t.q for t in getattr(pipeline, "transforms", ()) if isinstance(t, AsinhStretch)),
+        None,
+    )
+    qstr = f"asinh Q={qval:g}, " if qval is not None else ""
     fig.suptitle(
-        f"Galaxy-JEPA contact sheet — k={k}, global-box fallback rate "
+        f"Galaxy-JEPA contact sheet — {qstr}k={k}, global-box fallback rate "
         f"{fallback_rate(boxes):.1%} (cyan=per-galaxy box, yellow=fallback)",
         fontsize=10,
     )
