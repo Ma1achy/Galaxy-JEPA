@@ -21,6 +21,7 @@ SciServer (written to your workspace), never the 10 MB frames.
 from __future__ import annotations
 
 import glob
+import os
 import time
 
 import numpy as np
@@ -30,13 +31,14 @@ from astropy.io import fits
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
 
-# A handful of real DR17 probe galaxies (run 752, camcol 1) — ra/dec + frame coords.
+# The SAME faint GZ2 spirals from the hips2fits fidelity comparison (objID, ra, dec,
+# run, camcol, field, rerun) — real, from the live join, not guessed.
 TARGETS = [
-    # objID, ra, dec, run, camcol, field, rerun
-    (1237648702966792270, 182.9253, -1.0924, 752, 1, 263, 301),
-    (1237648702967251093, 183.30,  -0.95,    752, 1, 267, 301),
-    (1237648702967906488, 183.70,  -0.80,    752, 1, 273, 301),
-    (1237648702968103043, 183.95,  -0.70,    752, 1, 277, 301),
+    (1237648702966792270, 184.07200, -1.16268, 752, 1, 271, 301),  # r=17.0 Rp=5.7 fsp=1.00
+    (1237648702967251093, 185.21060, -1.10330, 752, 1, 278, 301),  # r=16.5 Rp=8.6 fsp=0.87
+    (1237648702967906488, 186.73500, -1.20012, 752, 1, 288, 301),  # r=16.5 Rp=7.6 fsp=0.90
+    (1237648702968103043, 187.08630, -1.06760, 752, 1, 291, 301),  # r=16.5 Rp=7.3 fsp=0.93
+    (1237648702968299615, 187.53170, -1.15970, 752, 1, 294, 301),  # r=17.0 Rp=5.2 fsp=0.62
 ]
 BANDS = ("g", "r", "i")
 STAMP = 64
@@ -96,6 +98,18 @@ def cut_stamp(root: str, ra: float, dec: float, run: int, camcol: int, field: in
     return np.stack(planes)
 
 
+_ROOT = None
+
+
+def _cut_worker(tgt):
+    return cut_stamp(_ROOT, *tgt[1:])
+
+
+def _init(root):
+    global _ROOT
+    _ROOT = root
+
+
 def main() -> None:
     root = find_root()
     print(f"[1] FEASIBILITY: SAS frame root = {root!r}")
@@ -115,20 +129,35 @@ def main() -> None:
           f"sky lag-1 autocorr={lag1:.3f} (≈0 white)  sky high-k frac={hkf:.3f} "
           f"(~0.4-0.7 white; hips2fits was 0.36/0.44)")
 
-    # Throughput: cut all targets repeatedly, time it.
-    reps = 10
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+
+    ncpu = os.cpu_count() or 1
+    work = [t for _ in range(20) for t in TARGETS]  # 100 cuts (distinct frames, re-read)
+
+    # Serial baseline.
     t0 = time.time()
-    n = 0
-    for _ in range(reps):
-        for tgt in TARGETS:
-            cut_stamp(root, *tgt[1:])
-            n += 1
-    dt = time.time() - t0
-    rate = n / dt
-    print(f"[3] THROUGHPUT: {n} galaxies (x3 bands) in {dt:.1f}s = {rate:.1f} gal/s "
-          f"→ 250k ≈ {250_000/rate/3600:.1f} h  (native HTTP was ~0.25 gal/s → 11.5 days)")
-    print(f"\nSUMMARY: root={root!r} sky_lag1={lag1:.3f} sky_highk={hkf:.3f} "
-          f"rate_gal_per_s={rate:.1f} est_250k_hours={250_000/rate/3600:.1f}")
+    for tgt in work:
+        cut_stamp(root, *tgt[1:])
+    dt_s = time.time() - t0
+    rate_s = len(work) / dt_s
+
+    # Parallel — the real test: no per-IP throttle here, so does it scale across cores?
+    t0 = time.time()
+    with ProcessPoolExecutor(max_workers=ncpu, initializer=_init, initargs=(root,),
+                             mp_context=mp.get_context("spawn")) as ex:
+        list(ex.map(_cut_worker, work))
+    dt_p = time.time() - t0
+    rate_p = len(work) / dt_p
+
+    print(f"[3] THROUGHPUT ({len(work)} cuts, {ncpu} cores):")
+    print(f"    serial   = {rate_s:.2f} gal/s ({1000/rate_s:.0f} ms/gal)")
+    print(f"    parallel = {rate_p:.2f} gal/s ({1000/rate_p:.0f} ms/gal)  speedup {rate_p/rate_s:.1f}x")
+    print(f"    → 250k probe ≈ {250_000/rate_p/3600:.1f} h ;  1M pretraining ≈ "
+          f"{1_000_000/rate_p/3600:.1f} h   (parallel rate)")
+    print(f"\nSUMMARY root={root!r} ncpu={ncpu} sky_lag1={lag1:.3f} sky_highk={hkf:.3f} "
+          f"rate_serial={rate_s:.2f} rate_parallel={rate_p:.2f} "
+          f"est_250k_h={250_000/rate_p/3600:.1f} est_1M_h={1_000_000/rate_p/3600:.1f}")
 
 
 if __name__ == "__main__":
