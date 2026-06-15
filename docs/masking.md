@@ -62,19 +62,36 @@ shared box is a reasonable approximation — but it is the *floor*, not the ceil
 ### 3.1 Paper-1 default — per-galaxy box from the Petrosian radius
 
 A single shared box is **too loose for small, distant galaxies** (it includes a
-lot of sky) and can **clip large, nearby ones**. GZ2 cutouts vary substantially
-in apparent galaxy size, so a fixed box leaves accuracy on the table. The fix is
-nearly free: we are **already pulling the Petrosian radius** from CasJobs for the
-nuisance battery (P2 data layer), so we can **scale the box per galaxy** by it —
-e.g. a box of half-width `k · R_petro` (in pixels, via the cutout's arcsec/pixel),
-clamped to the frame, with `k` a small multiplier (~2–3) tuned so the box
-comfortably contains the galaxy.
+lot of sky) and can **clip large, nearby ones**. Cutouts vary substantially in
+apparent galaxy size, so a fixed box leaves accuracy on the table. The fix is to
+**scale the box per galaxy** by the Petrosian radius — a box of half-width
+`k · R_petro` (in pixels, via the cutout's arcsec/pixel), clamped to the frame,
+with `k` a small multiplier (~2–3) tuned so the box comfortably contains the
+galaxy.
 
-This gives a tight, per-image galaxy prior at near-zero extra cost. **Decision:
-the Petrosian-scaled per-galaxy box is the Paper-1 default.** The global
-average-image box (§3) is retained as the **β / ablation fallback and degradation
-reference** — and as the fallback for any galaxy whose Petrosian radius is missing.
-*(A per-image flux-threshold saliency box remains a further option.)*
+**Which corpus the radius is for.** Masking runs during **pretraining**, which
+(per `DECISIONS.md` D6) is the **large unlabelled SDSS** sample — *not* the
+GZ2-labelled probing set. So the radius cannot be borrowed from the nuisance
+battery (that join is on the probing set): it must be a **distinct pull on the
+pretraining corpus**. This is still cheap — `petroRad` lives in SDSS
+`PhotoObjAll` for *every photometrically-detected* galaxy (not just spectroscopic
+ones), so it is available for the unlabelled set — but the pretraining data layer
+must fetch **petroRad + the cutout's arcsec/pixel scale**, which the
+nuisance-battery pull does not already cover.
+
+**Faint-end caveat.** Reaching ≫250k unlabelled galaxies likely means going
+fainter than the GZ2 spectroscopic limit (r < 17.77), where Petrosian radii get
+**noisier** → per-galaxy boxes degrade on the faint end. The **global-average-box
+fallback** (§3) and the **`k` slack** absorb this (an over-generous box only costs
+a little extra sky, the failure mode we tolerate). This also implies a mild
+**pretraining-vs-probing distribution shift** (pretraining skews fainter / smaller
+apparent size) — acceptable, but worth tracking.
+
+**Decision: the Petrosian-scaled per-galaxy box is the Paper-1 default.** The
+global average-image box (§3) is retained as the **β / ablation fallback and
+degradation reference**, and as the fallback for any galaxy whose `petroRad` is
+missing or unreliable. *(A per-image flux-threshold saliency box remains a further
+option.)*
 
 ---
 

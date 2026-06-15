@@ -112,6 +112,17 @@ subset would quietly undercut the "we don't need labels" claim. Cost: **one extr
 SkyServer pull** of galaxy cutouts beyond GZ2, which slots straight into the P2
 data layer.
 
+**Data-layer consequence:** the unlabelled pretraining pull must also fetch
+**petroRad + the cutout's arcsec/pixel scale** per galaxy — needed for the
+per-galaxy masking box (`docs/masking.md` §3.1), since masking runs on this
+*pretraining* corpus, **not** the GZ2 probing set the nuisance battery covers.
+`petroRad` is in SDSS `PhotoObjAll` for every photometrically-detected galaxy
+(not just spectroscopic), so it is available — but it is a **distinct pull**, not
+covered by the nuisance-battery join. Going fainter than the GZ2 spectroscopic
+limit (r < 17.77) to reach ≫250k makes petroRad noisier on the faint end (the
+global-box fallback + the *k* slack absorb this), implying a mild
+pretraining-vs-probing distribution shift (fainter, smaller apparent size).
+
 Multi-survey scaling + the survey-leakage merge experiment remain **Paper 2**.
 
 ---
@@ -165,11 +176,23 @@ threshold; the mean+2σ filter is net-new and must be implemented.)*
 ## D12 — Cross-objective ladder — *decided (scratchpad): JEPA vs MAE vs contrastive*
 
 - [x] **Same probe ladder across JEPA, MAE, contrastive** — the **Rung-3
-  control**, attributing a rung to the *objective* vs the *images*. MAE baseline =
-  the public model from **Wu & Walmsley (arXiv 2510.23749)** — author list verified
-  (John F. Wu & Michael Walmsley; the MAE is released as part of that paper); see
-  `docs/related-work.md`. Contrastive = MoCo or BYOL (**sub-decision: train ours vs
-  adapt published — needs your call**).
+  control**, attributing a rung to the *objective* vs the *images*.
+- [x] **Every cross-objective baseline (MAE and contrastive) must be trained on the
+  *same SDSS pretraining corpus* as the JEPA (D6).** The Rung-3 control holds the
+  **dataset** fixed and varies only the **objective**; an off-the-shelf baseline
+  trained on a different instrument varies objective *and* instrument, confounding
+  exactly what the control isolates. This **resolves the earlier "train ours vs
+  adapt published" sub-decision → train ours on SDSS.**
+
+**MAE:** reproduce the **Wu & Walmsley (arXiv 2510.23749)** recipe — a ViT, ~30M
+params, 3-layer decoder, **8×8 patches** (same patch size as the D11 Rung-4
+control) — on our SDSS corpus. Their **released Euclid MAE is a reference / a way
+to validate the reimplementation, *not* the controlled baseline** (it is
+Euclid-trained). Byline verified and **unchanged**: John F. Wu & Michael Walmsley,
+two co-first authors (see `docs/related-work.md`).
+
+**Contrastive:** MoCo or BYOL, likewise trained on the SDSS corpus (**which of
+MoCo / BYOL — needs your call**).
 
 ---
 
@@ -184,7 +207,8 @@ threshold; the mean+2σ filter is net-new and must be implemented.)*
 | D5 | Masking | **Bounding-box-biased** (`docs/masking.md`) |
 | D6 | Pretraining vs probing corpus | **Decouple** — pretrain on large unlabelled SDSS, probe on GZ2 ~250k (both single-survey) |
 | D8 | Reliable-label filter | **Reuse v1 mean+2σ** (separate from uncertainty protocol) |
-| D12 (sub) | Contrastive baseline | **Train ours vs adapt published** — your call |
+| D12 | Cross-objective baselines | **All trained on the same SDSS corpus** (MAE = reproduce Wu & Walmsley recipe on SDSS; Euclid MAE is reference only) |
+| D12 (sub) | Contrastive choice | **MoCo or BYOL** (both SDSS-trained) — your call |
 
 Everything else is already settled in the scratchpad and repeated above for the
 record.

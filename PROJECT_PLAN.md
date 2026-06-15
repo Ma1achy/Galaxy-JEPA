@@ -50,14 +50,14 @@ This plan is **Paper 1**; Paper 2 items appear only as deferred markers.
 |---|---|---|---|
 | **P0** Planning & scaffolding | This round | Plan docs + masking note signed off; repo skeleton green (`uv sync`, `pytest`, `pre-commit`) | — |
 | **P1** Env & repo skeleton | Reproducible env | devcontainer builds; `import galaxy_jepa`; CI-lint clean | P0 |
-| **P2** Data layer | GZ2 probing set + **large unlabelled SDSS pretraining set** + nuisance metadata, **small sample end-to-end first** | A small labelled+metadata sample loads as tensors; CasJobs/SkyServer join verified (z, Petrosian mag/radius, SNR, PSF); reliable-label (mean+2σ) filter; **separate unlabelled SDSS pretraining pull** (≫250k) wired in (D6) | P1 |
+| **P2** Data layer | GZ2 probing set + **large unlabelled SDSS pretraining set** + nuisance metadata, **small sample end-to-end first** | A small labelled+metadata sample loads as tensors; CasJobs/SkyServer join verified (z, Petrosian mag/radius, SNR, PSF); reliable-label (mean+2σ) filter; **separate unlabelled SDSS pretraining pull** (≫250k) wired in, **including petroRad + arcsec/pixel for the per-galaxy masking box** (distinct from the nuisance join) (D6) | P1 |
 | **P3** Masking module | Bounding-box-biased masking + bbox computation | Mean-image bbox computed; masking matches `docs/masking.md`; β=0 reproduces I-JEPA; sky-waste metric falls with β | P2 |
 | **P4** JEPA model | ViT encoder + predictor + EMA target + latent-MSE | **Overfit-one-batch passes**; **collapse monitor** live (rep variance / rank); shapes correct | P3 |
 | **P5** Pretraining loop | Config-driven pretraining, small scale first | A small pretrain run completes without collapse; EMA + masking-ratio sweep harness (lightweight) | P4 |
 | **P6** Probing harness | Logistic concept directions + ladder + **controls** + uncertainty geometry | Per-feature AUC + calibration; selectivity; negative controls; nuisance battery; non-circular uncertainty Spearman | P5 |
 | **P7** Figures | The three headline figures | All three render from real probe outputs | P6 |
 | **Parallel** arXiv sweep | `docs/related-work.md` | First pass done (this round); follow-ups closed before write-up | — (runs from day 1) |
-| **Baselines** (control) | MAE + contrastive, **same probe ladder** | Each baseline encoder probed identically; cross-objective comparison table | P6 (+ external MAE / trained contrastive) |
+| **Baselines** (control) | MAE + contrastive, **same probe ladder**, **all trained on the same SDSS pretraining corpus** | Each baseline encoder probed identically; cross-objective comparison table. MAE = Wu & Walmsley recipe reproduced on SDSS (released Euclid MAE = reference/validation only); contrastive trained on SDSS (D12) | P5 (SDSS-trained baselines) → P6 |
 
 ### Sanity gates (non-negotiable, from the scratchpad)
 - **Before any real pretrain run:** overfit-one-batch **and** the collapse monitor
@@ -118,8 +118,10 @@ v1 is 100% TF/Keras → **port logic, not code**, into PyTorch.
 **Net-new (must build):** average-image **bounding box** (README documents it;
 code absent — rebuild, see `docs/masking.md` §3); **mean+2σ reliable-label
 filter** (v1 only thresholds at 0.5); **all CasJobs/SkyServer metadata**; a
-**large unlabelled SDSS pretraining pull** beyond the GZ2-labelled set (D6); the
-**entire PyTorch JEPA stack**.
+**large unlabelled SDSS pretraining pull** beyond the GZ2-labelled set, with
+**petroRad + arcsec/pixel** for the per-galaxy masking box (D6); **SDSS-trained MAE
++ contrastive baselines** (reproduce the Wu & Walmsley MAE recipe on SDSS, not the
+off-the-shelf Euclid model — D12); the **entire PyTorch JEPA stack**.
 
 ---
 

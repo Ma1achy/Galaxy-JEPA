@@ -74,12 +74,17 @@ GZ-label alignment than PCA**. Framed as an engine for discovery beyond
 human-defined classes.
 
 **Why it matters to us.**
-- **The MAE is our head-to-head baseline.** Both **code and trained MAE weights
-  are public** (HuggingFace, with an interactive demo). This is the
-  pixel-reconstruction foil for JEPA's latent prediction — same probe ladder,
-  both objectives. *Action: pull the MAE; confirm licence, input resolution,
-  patch size, and whether Euclid-trained weights transfer to SDSS/GZ2 or whether
-  we retrain the MAE on our corpus for a fair single-survey comparison.*
+- **The MAE recipe is our head-to-head baseline — but it must be retrained on
+  SDSS.** Both **code and trained MAE weights are public** (HuggingFace, with an
+  interactive demo), *but the released weights are **Euclid-trained***. The Rung-3
+  control holds the **dataset** fixed and varies only the **objective**, so the
+  controlled baseline is the **Wu & Walmsley recipe reproduced on our SDSS
+  pretraining corpus** — comparing against the off-the-shelf Euclid model would
+  vary objective *and* instrument at once. The released model is a **reference /
+  way to validate our reimplementation**, not the baseline. *Action: pull the
+  released MAE to confirm the recipe (a ViT, ~30M params, 3-layer decoder, 8×8
+  patches — note 8×8 = the D11 Rung-4 patch size) and licence, then **retrain on
+  SDSS**.* (See `DECISIONS.md` D12.)
 - **Our distinction is clean and complementary, not competing:**
   1. **Objective** — our **JEPA latent-prediction** vs their **MAE
      pixel-reconstruction** (and vs Zoobot supervised).
@@ -125,10 +130,12 @@ the **images**.
   parking lot).
 
 **Suggested baseline set for the cross-objective ladder (Paper 1):** JEPA (ours)
-vs Wu & Walmsley **MAE** vs a **contrastive** encoder (MoCo per Hayat, or
-BYOL per Walmsley) — all probed identically. *Decision to confirm: train the
-contrastive baseline ourselves on the GZ2 corpus for fairness, or adapt a
-published encoder.*
+vs **MAE** (Wu & Walmsley recipe) vs a **contrastive** encoder (MoCo per Hayat, or
+BYOL per Walmsley) — **all trained on the same SDSS pretraining corpus** and probed
+identically (D12). Training the baselines ourselves on SDSS is **required for the
+control**, not a fairness nicety: an off-the-shelf encoder trained on another
+instrument confounds objective with instrument. *Open sub-decision: MoCo vs BYOL
+for the contrastive arm.*
 
 **Adjacent / scaling context (not baselines):**
 - Walmsley et al. 2023 — *Galaxy Zoo DESI*, 8.7M galaxies (arXiv 2309.11425);
@@ -168,7 +175,8 @@ published encoder.*
 ## Open follow-ups before paper-writing
 
 - [ ] Fetch and read the Wu & Walmsley **MAE** card on HuggingFace: licence,
-      resolution, patch size, training corpus; decide transfer vs retrain.
+      resolution, patch size, exact recipe — then **retrain on SDSS** (transfer vs
+      retrain is decided: retrain, per D12).
 - [ ] Verify all `*verify*`-tagged arXiv IDs and dates against primary PDFs.
 - [ ] Decide the contrastive baseline (MoCo vs BYOL) and whether we train it.
 - [ ] Confirm no direct **JEPA-for-galaxy-morphology** paper exists via a

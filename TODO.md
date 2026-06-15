@@ -22,7 +22,7 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 
 ## Epic B — Data layer `[P2]` — *small sample end-to-end first*
 - [ ] (P0) Pull a **small** GZ2 sample via `galaxy-datasets`; load images + vote-fraction catalogue. Port loading logic from v1 `main/dataframe/dataframe.py`. *(this is the **probing** corpus)*
-- [ ] (P0) **Large unlabelled SDSS pretraining pull** (≫250k, beyond the GZ2-labelled subset) via SkyServer — the **pretraining** corpus, decoupled from probing. *(D6; net-new; biggest de-risk for from-scratch D4)*
+- [ ] (P0) **Large unlabelled SDSS pretraining pull** (≫250k, beyond the GZ2-labelled subset) via SkyServer — the **pretraining** corpus, decoupled from probing. **Include petroRad (from PhotoObjAll) + arcsec/pixel scale** per galaxy for the per-galaxy masking box — distinct from the nuisance-battery join. *(D6; net-new; biggest de-risk for from-scratch D4)*
 - [ ] (P0) Centre-crop to 256² (256-token grid). Port v1 `dataframe.py:284`.
 - [ ] (P0) Label schemes (Hubble / Reduced / All, Q0–Q10) as v2 config. Port v1 `main/dataframe/keys.py`.
 - [ ] (P1) Q10 "bulge present" construction. Port v1 `image_preprocessing/cleandataset.py:94`.
@@ -33,7 +33,7 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 
 ## Epic C — Masking & bounding box `[P3]` — per `docs/masking.md`
 - [ ] (P0) **Average-image bbox**: mean of ~2,000 cutouts, threshold τ=0.085, centred box → fractional box → `G×G` token mask. *(net-new; v1 code absent — the cheap fallback / β-degradation reference)*
-- [ ] (P1) **Per-galaxy Petrosian-scaled bbox** (half-width k·R_petro, k~2–3, clamped) — recommended default once metadata join lands; handle missing R_petro. *(docs/masking.md §3.1; reuses CasJobs pull)*
+- [ ] (P1) **Per-galaxy Petrosian-scaled bbox** (half-width k·R_petro, k~2–3, clamped) — **Paper-1 default**; uses petroRad + arcsec/pixel from the **pretraining** pull (not the nuisance join); global-box + k-slack fallback on the noisy faint end. *(docs/masking.md §3.1)*
 - [ ] (P1) Re-tune EMA/masking-ratio per β — β=0 tuning does **not** transfer to β=1 (β removes the easy sky-prediction task). *(docs/masking.md §7)*
 - [ ] (P0) Token weight map `w` from box + bias strength β.
 - [ ] (P0) Bounding-box-biased multi-block sampler (M=4 targets, I-JEPA scale/aspect; position ∝ mean weight; optional φ floor). *(D5)*
@@ -61,9 +61,9 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 - [ ] (P1) Confidence as a probe target (separate axis from the uncertainty test). *(D9)*
 - [ ] (P1) Ladder rungs 3/4: MLP / k-NN **only** with controls; never standalone.
 
-## Epic G — Baselines as controls `[baseline]` — *same probe ladder*
-- [ ] (P1) `[baseline]` **MAE** — pull Wu & Walmsley public model (`docs/related-work.md`); decide transfer vs retrain on GZ2; probe identically. *(D12, Rung-3 control)*
-- [ ] (P1) `[baseline]` **Contrastive** (MoCo or BYOL) — train ours vs adapt published *(D12 sub — needs your call)*; probe identically.
+## Epic G — Baselines as controls `[baseline]` — *same probe ladder, all SDSS-trained*
+- [ ] (P1) `[baseline]` **MAE** — **reproduce the Wu & Walmsley recipe (ViT ~30M, 3-layer decoder, 8×8 patches) on our SDSS pretraining corpus** — the controlled Rung-3 baseline. Use the released **Euclid** MAE only as a reference to validate the reimplementation (it is Euclid-trained, so not the baseline). *(D12)*
+- [ ] (P1) `[baseline]` **Contrastive** (MoCo or BYOL) — **trained on the same SDSS corpus**; probe identically. *(D12 sub: which of MoCo/BYOL — needs your call)*
 - [ ] (P1) Cross-objective comparison table (rung per feature × objective).
 
 ## Epic H — Figures & eval `[P7]`
