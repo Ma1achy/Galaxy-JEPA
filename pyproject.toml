@@ -1,0 +1,45 @@
+[project]
+name = "galaxy-jepa"
+version = "0.0.0"
+description = "Label-free galaxy representation learning with an I-JEPA; Galaxy Zoo labels used only to name and test directions (nameability ladder + uncertainty geometry). v2 of Galaxy-Zoo-Classifier."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "malachy" }]
+
+# Core dependencies only. Heavy training deps (torch, etc.) are added when the
+# model/training code lands — this round is planning + scaffolding, no model code.
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pyarrow>=15.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Populated in later phases; declared here so the layout is visible.
+data = ["galaxy-datasets", "astroquery", "pillow"]
+dev = ["pytest>=8", "ruff>=0.6", "pre-commit>=3.8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/galaxy_jepa"]
+
+[tool.uv]
+# uv manages the project environment; see .devcontainer for the pinned setup.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["src"]

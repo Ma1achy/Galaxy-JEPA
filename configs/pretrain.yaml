@@ -1,0 +1,27 @@
+# Pretraining config (PLACEHOLDER — no training code yet).
+# Values reflect the proposed defaults in DECISIONS.md / docs/masking.md; they are
+# documentation, not a runnable spec, until phases P4–P5 land.
+
+model:
+  backbone: vit_s_16        # DECISIONS.md D2
+  image_size: 256           # -> 16x16 = 256 tokens
+  patch_size: 16
+  from_scratch: true        # DECISIONS.md D4
+
+masking:                    # docs/masking.md
+  scheme: bbox_biased
+  beta: 0.0                 # 0.0 == standard I-JEPA (control); sweep {0, 0.5, 1.0}
+  tau: 0.085                # mean-image brightness threshold for the bbox
+  num_targets: 4
+  target_scale: [0.15, 0.20]
+  target_aspect: [0.75, 1.50]
+  context_scale: [0.85, 1.00]
+  min_overlap_floor: 0.0    # optional hard constraint, off by default
+
+data:
+  survey: sdss_gz2          # single-survey (Paper 1)
+  augment: [rotate, reflect]
+
+train:
+  ema_schedule: null        # to be specified in P5
+  collapse_monitor: true    # gate before any real run (P4)

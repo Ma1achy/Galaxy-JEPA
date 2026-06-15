@@ -1,0 +1,24 @@
+{
+  "name": "Galaxy-JEPA",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  // Create the project environment and install dependencies (incl. dev extras) with uv.
+  "postCreateCommand": "uv sync --extra dev",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+        "python.terminal.activateEnvInCurrentTerminal": true
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "charliermarsh.ruff"
+      ]
+    }
+  }
+}

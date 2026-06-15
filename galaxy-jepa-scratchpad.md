@@ -136,7 +136,7 @@ The point: a feature is "linearly nameable" only if the logistic direction clear
 
 ## Galaxy-specific design
 
-- **Masking must target the galaxy.** Block-masking a mostly-black SDSS cutout wastes budget on empty sky. Bias mask sampling toward the galaxy — reuse v1's average-image bounding box.
+- **Masking must target the galaxy.** Block-masking a mostly-black SDSS cutout wastes budget on empty sky. Bias mask sampling toward the galaxy — reuse v1's average-image bounding box. **Upgrade:** a **per-galaxy box scaled by the Petrosian radius** (already pulled for the nuisance battery) handles apparent-size variation that a single global box cannot — loose on small/distant galaxies, clipping large/near ones. Full scheme + the β-generalisation (β=0 ⇒ standard I-JEPA) in `docs/masking.md`.
 - **Rotational symmetry is a free inductive bias.** No canonical orientation → start with rotation/reflection *augmentation* (simplest, derisks the minimal run). The principled extension is an **E(2)-equivariant ViT** (bakes in continuous rotation/reflection, freeing capacity otherwise spent learning that a rotated galaxy is the same object) — but it reshapes the encoder geometry, so establish the vanilla-ViT ladder first, then ablate. Precedent for physics-baked JEPA: Lens-JEPA beats supervised + vanilla I-JEPA.
 - **Data scale / multi-survey** — its own section below. More (and more diverse) data could mean richer axes — *if* survey identity doesn't become a shortcut.
 - **Resolution / patch size.** v1 cropped to 224/256. The token grid (256 ÷ 16 = 16×16 tokens) sets the spatial-resolution floor — the model can't attend below a patch, and the patch projection compresses sub-patch structure (not aliasing per se; the patch embed is a linear map, not a resampling filter). Thin arms / tight winding may live below that floor, so an **8×8-patch (or higher-res) ablation** is the Rung-4 control — it distinguishes *absent from the pixels* from *under-resolved by the tokeniser*.
@@ -249,9 +249,9 @@ Don't reach for JWST to prove the point. SDSS + DESI Legacy are both ground-base
 - [x] **Nuisance metadata — tractable.** GZ2 → SDSS join via **CasJobs / SkyServer**; z, apparent magnitude, Petrosian radius complete for the GZ2 spectroscopic main sample (it's built on SDSS DR7 main-sample galaxies); SNR / PSF width derivable from the photometric + field tables. *(Confirm exact completeness fractions when pulling.)*
 - [ ] Confidence — probe target, validation axis, or both? (Lean both; different questions.)
 - [ ] Backbone size — ViT-S/16 to start, scale later?
-- [ ] Pretrain corpus size — v1 image set only, or scale to millions from DESI Legacy? (Single-vs-multi merge ablation specced in **Data / multi-survey** = Paper 2.)
+- [x] **Pretrain corpus — decided: decouple from the probing corpus.** Pretrain on a *large unlabelled SDSS* sample (≫250k); probe on the GZ2-labelled ~250k. Pretraining needs no labels, so there's no reason to cap it at the labelled set — and from-scratch I-JEPA on only ~250k is thin (I-JEPA used 1.3M–14M), the biggest risk to the from-scratch call: an undertrained encoder can't tell "info absent" from "encoder never learned it". Stays **single-survey** (Paper 1); also more on-thesis (the LSST "unlabelled deluge" framing). Multi-survey scaling = Paper 2. (See DECISIONS.md D6.)
 - [ ] From-scratch vs warm-start the encoders from an ImageNet ViT? (From-scratch is cleaner.)
-- [ ] Masking specifics — multi-block biased *how exactly* by the bounding box?
+- [~] Masking specifics — **proposed in `docs/masking.md`**: bounding-box-biased multi-block with a single bias strength β, a strict generalisation of I-JEPA (β=0 ⇒ standard I-JEPA), so β ∈ {0, 0.5, 1.0} is a free ablation. Open sub-points: per-galaxy **Petrosian-radius-scaled** box as the default vs the global average-image box; and re-tuning the EMA schedule / masking ratio per β, since biasing all targets onto the galaxy shifts the prediction-difficulty distribution (removing the easy, collapse-adjacent sky-prediction task).
 - [ ] Symmetry — augmentation first (decided for the minimal run); E(2)-equivariant ViT as a later ablation.
 - [ ] "Reliable" labels — reuse v1's vote-agreement filter (mean + 2σ)?
 - [ ] Resolution / patch-size ablation — does 8×8 (or higher res) recover winding / arm count? (Rung-4 control.)
@@ -274,6 +274,6 @@ Don't reach for JWST to prove the point. SDSS + DESI Legacy are both ground-base
 
 1. **arXiv sweep** — confirm the JEPA-for-galaxy-morphology gap; read Wu et al. 2510.23749 properly (and grab their MAE as a baseline); pin the contrastive baselines + probing/CAV refs.
 2. **Pull the data + metadata** — galaxy-datasets / SDSS imaging; and the nuisance battery (z, Petrosian mag/radius, SNR, PSF) via **CasJobs / SkyServer**. Single-survey (SDSS / GZ2) for Paper 1.
-3. **Minimal Stage-1 run** — ViT-S/16, 256-patch pipeline, bounding-box-biased masking, pretrain on the v1 image set.
+3. **Minimal Stage-1 run** — ViT-S/16, 256-patch pipeline, bounding-box-biased masking, pretrain on a *large unlabelled SDSS* sample (probe later on the GZ2-labelled set — corpora decoupled, see Open questions).
 4. **Logistic concept-direction probing on the Reduced Set** — AUC + calibration per feature, the cosine matrix, **plus selectivity + negative controls + core nuisance probes** from the start.
 5. **First headline figure** — projection vs vote-fraction scatter for a clean feature (bar) and a confused one (winding), with a shuffled-label control overlaid. If the clean one shows the confidence gradient, the confused one doesn't, and the control is flat — the ladder *and* uncertainty geometry are already speaking.

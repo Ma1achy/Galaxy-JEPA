@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+.python-version.local
+
+# uv
+uv.lock.local
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Data / artefacts (never commit cutouts, catalogues, checkpoints)
+data/
+datasets/
+checkpoints/
+runs/
+wandb/
+*.parquet
+*.ckpt
+*.pt
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,18 @@
+# Probing config (PLACEHOLDER — no probing code yet).
+# Documents the canonical probe + mandatory controls (PROJECT_PLAN.md P6).
+
+probe:
+  canonical: l2_logistic    # DECISIONS.md D7
+  robustness: mean_diff_cav # entanglement signal via logistic-vs-CAV disagreement
+  label_scheme: reduced     # hubble | reduced | all (ported from v1 keys.py)
+  reliable_label_filter: mean_plus_2sigma  # DECISIONS.md D8
+
+controls:                   # mandatory, ship with the probe (not after)
+  selectivity: true         # Hewitt-Liang real-minus-control
+  negative_controls: [shuffled_votes, random_labels, random_embeddings, metadata_bins, sky_noise]
+  nuisance_probes: [redshift, magnitude, petrosian_radius, snr, psf]
+
+uncertainty_geometry:       # non-circular protocol
+  train_split: extremes     # v > 0.8 vs v < 0.2 (binary)
+  test_split: middle        # held-out 0.2 < v < 0.8
+  metric: spearman          # margin distance vs vote fraction
