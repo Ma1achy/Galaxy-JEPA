@@ -20,7 +20,8 @@ from SciServer import Authentication, Files, Jobs
 
 load_dotenv()  # read SCISERVER_TOKEN from the gitignored .env
 TOKEN = os.environ.get("SCISERVER_TOKEN", "").strip()
-TEST_SCRIPT = Path(__file__).with_name("sciserver_native_test.py").read_text()
+_script = os.environ.get("SCISERVER_SCRIPT") or str(Path(__file__).with_name("sciserver_native_test.py"))
+TEST_SCRIPT = Path(_script).read_text()
 
 
 def _auth() -> None:

@@ -8,8 +8,10 @@ serialises into the run-stamp and its ``config_hash`` is the parity guarantee:
 
 * :class:`AsinhStretch` — the dynamic-range stretch. Its parameters (softening ``q`` +
   per-channel ``flux_scale``) are config and therefore stamped — never a notebook
-  constant. **Provisional defaults until the eyeball gate** (the asinh scale is a
-  look-at-the-images decision, ``docs/spec/data.md`` §2).
+  constant. **Frozen at Q=4** (``docs/spec/data.md`` §2): chosen from the Q-sweep
+  (`data/q_sweep.py` — no single-number metric picks an interior optimum because asinh is
+  monotonic, so Q=4 is the perceptual sweet spot, mid-range/robust) and confirmed on a
+  SciServer-cut **native** stamp (byte-identical to the HTTP-pulled stamp, so it transfers).
 * :class:`Normalise` — a *stateful* transform: per-channel mean/std fitted **after** the
   stretch, **once on the pretraining corpus**, then frozen and carried everywhere. The
   fitted statistics are constructor fields, so they enter the config hash too.
@@ -49,10 +51,15 @@ class AsinhStretch(Configurable):
     Rung-4 measurement depends on; ``docs/spec/data.md`` §2). Larger ``q`` ⇒ a stronger
     faint-end boost.
 
-    Defaults are **provisional** — frozen only after the eyeball gate on real cutouts.
+    **Frozen defaults (stamped):** ``q = 4.0``, ``flux_scale = (1, 1, 1)``. Q=4 chosen from
+    the Q-sweep on a 100-galaxy native sample (no single-number metric picks an interior
+    optimum — asinh is monotonic — so Q=4 is the perceptual sweet spot, mid-range/robust)
+    and confirmed byte-identical on a SciServer-cut native stamp. The per-channel flux scale
+    was held at unity across the sweep (Q isolated); a flux-scale sweep is a deferred
+    follow-on, revisited only if the collapse monitor flags colour-channel imbalance.
     """
 
-    def __init__(self, q: float = 8.0, flux_scale: tuple[float, ...] = (1.0, 1.0, 1.0)):
+    def __init__(self, q: float = 4.0, flux_scale: tuple[float, ...] = (1.0, 1.0, 1.0)):
         if q <= 0:
             raise ValueError(f"asinh softening q must be > 0, got {q!r}")
         if not flux_scale or any(s <= 0 for s in flux_scale):

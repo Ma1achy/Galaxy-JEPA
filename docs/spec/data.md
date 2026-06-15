@@ -172,6 +172,20 @@ resolution question; it is kept out of the data layer).
 > encoder input size). It does **not** affect the asinh-`Q` choice (the median/IQR is
 > over the in-frame majority).
 
+**The pull runs server-side on SciServer Compute (confirmed native-fidelity path).** A
+direct SDSS frame download is infeasible at corpus scale — a hard per-IP HTTP throttle
+(~1 MB/s, parallelism-proof: 8 connections aggregate the same as 1; a process pool is
+*slower*) means ~10 MB/galaxy → ~11.5 days for 250k. So the cutout is done **next to the
+data**: the SDSS **SAS** volume mounts the native frames inside a SciServer compute
+container (`/home/idies/workspace/sdss_sas/dr17/eboss/photoObj/frames/...`); `Cutout2D`
+runs server-side and only the ~50 KB stamps cross the link, never the 10 MB frames. This
+preserves fidelity exactly — a server-side stamp is **byte-identical** to the HTTP-pulled
+native stamp (verified `max|Δ| = 0.0`), so it passes the Rung-4 test (sky lag-1 noise
+autocorr 0.026 white, high-k power fraction 0.683 full) where `hips2fits` failed. Measured
+throughput (32-core container) parallelises **17.6×** (no per-IP throttle on the mounted
+volume) to **3.79 gal/s → ~18 h for 250k, ~73 h for 1M** (one-time, chunked across jobs).
+Driven from the repo via the SciServer Jobs API (`artifacts/sciserver_*.py`).
+
 ---
 
 ## 4. Forks
