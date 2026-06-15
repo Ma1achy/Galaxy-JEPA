@@ -19,12 +19,16 @@ uv.lock.local
 .ruff_cache/
 .mypy_cache/
 
-# Data / artefacts (never commit cutouts, catalogues, checkpoints)
-data/
-datasets/
+# Data / artefacts (never commit cutouts, catalogues, checkpoints).
+# Anchored to the repo root so the source package src/galaxy_jepa/data/ is NOT ignored.
+/data/
+/datasets/
 checkpoints/
 runs/
 wandb/
+
+# Generated test fixtures (the seeded generator is committed, its output is not).
+tests/fixtures/synthetic/
 *.parquet
 *.ckpt
 *.pt

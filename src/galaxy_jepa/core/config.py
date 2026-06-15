@@ -32,7 +32,7 @@ import json
 import subprocess
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict
 
@@ -95,11 +95,12 @@ def _deserialise(value: Any) -> Any:
     """Inverse of :func:`_serialise`."""
     if isinstance(value, dict):
         if _CLASSREF_KEY in value and "__pydantic__" in value:
-            return resolve_ref(value[_CLASSREF_KEY]).model_validate(value["__pydantic__"])
+            model_cls = cast("type[BaseModel]", resolve_ref(value[_CLASSREF_KEY]))
+            return model_cls.model_validate(value["__pydantic__"])
         if _CLASSREF_KEY in value and len(value) == 1:
             return resolve_ref(value[_CLASSREF_KEY])
         if _CONFIG_CLASS_KEY in value and _CONFIG_FIELDS_KEY in value:
-            cls = resolve_ref(value[_CONFIG_CLASS_KEY])
+            cls = cast("type[Configurable]", resolve_ref(value[_CONFIG_CLASS_KEY]))
             return cls.from_config(value)
         return {k: _deserialise(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -144,7 +145,7 @@ class Configurable:
             original_init(self, *args, **kw)
             object.__setattr__(self, "_captured_config", captured)
 
-        cls.__init__ = _capturing_init  # type: ignore[method-assign]
+        cls.__init__ = _capturing_init  # type: ignore[assignment,method-assign]
 
     def to_config(self) -> dict[str, Any]:
         """Return the JSON-safe, recursively-serialised config for this instance."""
