@@ -130,12 +130,14 @@ the **images**.
   parking lot).
 
 **Suggested baseline set for the cross-objective ladder (Paper 1):** JEPA (ours)
-vs **MAE** (Wu & Walmsley recipe) vs a **contrastive** encoder (MoCo per Hayat, or
-BYOL per Walmsley) — **all trained on the same SDSS pretraining corpus** and probed
+vs **MAE** (Wu & Walmsley recipe) vs a **contrastive** encoder — **MoCo (per Hayat),
+decided** — **all trained on the same SDSS pretraining corpus** and probed
 identically (D12). Training the baselines ourselves on SDSS is **required for the
 control**, not a fairness nicety: an off-the-shelf encoder trained on another
-instrument confounds objective with instrument. *Open sub-decision: MoCo vs BYOL
-for the contrastive arm.*
+instrument confounds objective with instrument. *Contrastive arm decided: **MoCo**,
+not BYOL — BYOL's negative-free + EMA-target design is too close to JEPA for a clean
+Rung-3 contrast, whereas MoCo's explicit negatives are a genuinely different objective
+(and the established galaxy-SSL baseline on SDSS).*
 
 **Adjacent / scaling context (not baselines):**
 - Walmsley et al. 2023 — *Galaxy Zoo DESI*, 8.7M galaxies (arXiv 2309.11425);
@@ -178,7 +180,8 @@ for the contrastive arm.*
       resolution, patch size, exact recipe — then **retrain on SDSS** (transfer vs
       retrain is decided: retrain, per D12).
 - [ ] Verify all `*verify*`-tagged arXiv IDs and dates against primary PDFs.
-- [ ] Decide the contrastive baseline (MoCo vs BYOL) and whether we train it.
+- [x] Contrastive baseline decided: **MoCo** (per Hayat), trained ourselves on SDSS
+      (D12 sub). BYOL rejected — too close to JEPA for a clean Rung-3 contrast.
 - [ ] Confirm no direct **JEPA-for-galaxy-morphology** paper exists via a
       dedicated ADS/arXiv full-text search (this sweep used web search only).
 

@@ -191,8 +191,10 @@ to validate the reimplementation, *not* the controlled baseline** (it is
 Euclid-trained). Byline verified and **unchanged**: John F. Wu & Michael Walmsley,
 two co-first authors (see `docs/related-work.md`).
 
-**Contrastive:** MoCo or BYOL, likewise trained on the SDSS corpus (**which of
-MoCo / BYOL — needs your call**).
+**Contrastive: MoCo (decided), trained on the SDSS corpus.** BYOL is negative-free +
+EMA-target — *too architecturally close to JEPA* for a clean Rung-3 contrast; MoCo's
+explicit negatives make it a genuinely different objective, and it is the established
+galaxy-SSL baseline (Hayat et al. 2021, on SDSS — see `docs/related-work.md`).
 
 ---
 
@@ -208,7 +210,7 @@ MoCo / BYOL — needs your call**).
 | D6 | Pretraining vs probing corpus | **Decouple** — pretrain on large unlabelled SDSS, probe on GZ2 ~250k (both single-survey) |
 | D8 | Reliable-label filter | **Reuse v1 mean+2σ** (separate from uncertainty protocol) |
 | D12 | Cross-objective baselines | **All trained on the same SDSS corpus** (MAE = reproduce Wu & Walmsley recipe on SDSS; Euclid MAE is reference only) |
-| D12 (sub) | Contrastive choice | **MoCo or BYOL** (both SDSS-trained) — your call |
+| D12 (sub) | Contrastive choice | **MoCo** (SDSS-trained) — explicit negatives = clean contrast vs JEPA; established galaxy baseline (Hayat) |
 
 Everything else is already settled in the scratchpad and repeated above for the
 record.

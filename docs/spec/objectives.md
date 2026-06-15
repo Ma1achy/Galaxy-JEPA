@@ -53,4 +53,4 @@ probe run is reproducible from a stamped artefact. (It also means probing never 
 |---|---|---|---|
 | Handoff | stamped checkpoint reloaded frozen / in-memory handle | **stamped checkpoint** | **decided** |
 | Objective base | shared `Objective` ABC / duck-typed `run()` | duck-typed `run(config) -> checkpoint path` (no premature ABC) | proposed |
-| Contrastive variant | MoCo / BYOL | **open — your call** (both SDSS-trained; `DECISIONS.md` D12 sub) | open (science) |
+| Contrastive variant | MoCo / BYOL | **MoCo** — BYOL is negative-free + EMA-target, too close to JEPA for a clean Rung-3 contrast; MoCo's explicit negatives are a genuinely different objective and the established galaxy-SSL baseline (Hayat et al.). SDSS-trained. (`DECISIONS.md` D12 sub) | **decided** |
