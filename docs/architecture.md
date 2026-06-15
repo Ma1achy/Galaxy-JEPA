@@ -145,6 +145,23 @@ tests/          # property tests for the hard invariants (β=0, frozen-encoder, 
 
 ---
 
+## Component specs
+
+The high-level contracts above are fleshed into implementation-ready detail under
+`docs/spec/` (one focused doc per concern). Each names the section here that it expands
+and ends with a flagged forks list.
+
+| Spec | Expands | Built |
+|---|---|---|
+| [`spec/encoder.md`](spec/encoder.md) | The keystone — the `Encoder` Protocol | `core/encoder.py` |
+| [`spec/config.md`](spec/config.md) | Config is the experiment record | `core/config.py` |
+| [`spec/gates.md`](spec/gates.md) | Controls as gates | `core/gates.py` (+ `probing/`) |
+| [`spec/escape-hatches.md`](spec/escape-hatches.md) | Power paths | with the deviating subsystem |
+| [`spec/validation.md`](spec/validation.md) | Validation tiers | grown one rule at a time |
+| [`spec/callbacks.md`](spec/callbacks.md) | Control-flow ownership | `callbacks/` |
+| [`spec/data.md`](spec/data.md) | The data stack — pretrain-probe parity | `data/` |
+| [`spec/objectives.md`](spec/objectives.md) | Package layout (`objectives/`) | `objectives/` |
+
 ## What we deliberately do not build
 
 The boundary, held firmly — none of this earns its place in Paper 1:

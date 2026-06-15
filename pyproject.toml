@@ -7,13 +7,16 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "malachy" }]
 
-# Core dependencies only. Heavy training deps (torch, etc.) are added when the
-# model/training code lands — this round is planning + scaffolding, no model code.
+# Core dependencies. torch backs the Encoder Protocol + frozen-state checks
+# (core/encoder.py); pydantic backs the typed config base + provenance stamp
+# (core/config.py). See docs/architecture.md "Sequencing".
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.2",
     "pyarrow>=15.0",
     "pyyaml>=6.0",
+    "pydantic>=2",
+    "torch>=2",
 ]
 
 [project.optional-dependencies]
