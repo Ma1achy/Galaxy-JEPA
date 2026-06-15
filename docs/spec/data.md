@@ -77,17 +77,41 @@ corpus. Declared columns (existence checked at Tier-1 `T1.metadata-columns-real`
 
 | Column | Source | Used by |
 |---|---|---|
-| `z` (redshift) | spec/photo-z | nuisance probe |
-| apparent magnitude (`mag_r`, …) | SDSS photometry | nuisance probe |
-| `petroRad` (Petrosian radius) | SDSS `PhotoObjAll` | nuisance probe **and** per-galaxy masking box |
-| SNR | photometric/field tables | nuisance probe |
-| PSF width | field tables | nuisance probe |
+| `z` (redshift) | `zoo2MainSpecz.specz` (GZ2 spec sample) | nuisance probe |
+| apparent magnitude (`modelMag_r`) | SDSS `PhotoObjAll` | nuisance probe |
+| `petroRad_r` (Petrosian radius) | SDSS `PhotoObjAll` | nuisance probe **and** per-galaxy masking box |
+| **`SNR_r`** (image-domain) | **derived: `1.0857 / modelMagErr_r`** | nuisance probe |
+| PSF width (`psfWidth_r`) | SDSS `PhotoObjAll` | nuisance probe |
+
+**SNR is photometric, not spectroscopic.** The image-quality nuisance probe asks "does
+the concept axis read off image *depth*", so the SNR must be an **image-domain** quantity:
+the r-band SNR derived from the photometry, `SNR_r ≈ 1.0857 / modelMagErr_r` (computed in
+`data/metadata.py`, **not** in SQL). `SpecObj.snMedian` measures the *spectrum*
+(fibre/exposure), the wrong domain — it is **not** joined.
 
 **Distinct pretraining pull (D6).** The per-galaxy Petrosian masking box (`docs/masking.md`
 §3.1) needs `petroRad` + the cutout's **arcsec/pixel** scale for the **pretraining**
 corpus — the large unlabelled SDSS set, *not* the GZ2 probing set the nuisance join
 covers. `petroRad` is in `PhotoObjAll` for every photometrically-detected galaxy, so it
 is available, but it is a **distinct pull** the pretraining `DataSource` must fetch.
+
+**The two pulls, concretely** (`data/metadata.py`):
+
+- **Probing** — `zoo2MainSpecz` joined to `PhotoObjAll` on `dr7objid = objID`. The join
+  key is **verified before it is trusted**: a 10-row check confirms ra/dec agree between
+  the GZ2 row and the matched `PhotoObjAll` row (a silent key mismatch returns
+  wrong-galaxy metadata with *no* error), and the bulk join does not run until it passes.
+- **Pretraining** — `PhotoPrimary` with `type = 3 AND clean = 1` and
+  `modelMag_r ∈ [14.0, 19.0]`. This reaches ≫250k but goes ~1.2 mag **fainter** than the
+  GZ2 spectroscopic limit (`r < 17.77`), so the corpus skews fainter / smaller in apparent
+  size (a mild, acceptable pretrain–probe shift) and `petroRad` gets **noisier on the
+  faint end** → the global-box fallback rate (`data/bbox.py`) is a quantity to **watch at
+  the eyeball gate**.
+
+Both pulls carry **`ORDER BY objID`** so a `TOP n` slice is deterministic — without it the
+slice (and so the manifest hash / `data_snapshot`) is non-reproducible in T-SQL. Stamps
+are cut at the **native 0.396″/px**, **no rebin** (rebinning interacts with the Rung-4
+resolution question; it is kept out of the data layer).
 
 ---
 
