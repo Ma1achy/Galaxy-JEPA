@@ -58,9 +58,11 @@ contrastive and masked-reconstruction*, not *first*.
 ## 2. Closest neighbour — Wu & Walmsley 2025 (arXiv 2510.23749)
 
 **Re-envisioning Euclid Galaxy Morphology: Identifying and Interpreting Features
-with Sparse Autoencoders.** John F. Wu & Michael Walmsley. Accepted to the
-NeurIPS *Machine Learning and the Physical Sciences* workshop 2025 (submitted
-2025-10-27, revised 2025-11-12).
+with Sparse Autoencoders.** John F. Wu & Michael Walmsley. *(Author list verified
+against the arXiv abstract, June 2026 — exactly these two authors, in this order;
+the MAE is released as part of this paper, so "Wu & Walmsley MAE" is the correct
+attribution.)* Accepted to the NeurIPS *Machine Learning and the Physical
+Sciences* workshop 2025 (submitted 2025-10-27, revised 2025-11-12).
 - arXiv: <https://arxiv.org/abs/2510.23749> · HTML: <https://arxiv.org/html/2510.23749v2>
 
 **What they do.** Train **sparse autoencoders (SAEs)** on the embeddings of two

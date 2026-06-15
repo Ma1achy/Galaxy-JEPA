@@ -41,7 +41,7 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 - [ ] (P1) Diagnostics: sky-waste metric vs β; coverage; mask-overlay visualisations.
 
 ## Epic D — JEPA model `[P4]`
-- [ ] (P0) ViT-S/16 context encoder (256² → 256 tokens), from-scratch. *(D2, D4)*
+- [ ] (P0) **Clean** ViT-S/16 context encoder (256² → 256 tokens), from-scratch — clean ViT chosen to keep masking semantics unambiguous (no conv-stem pixel bleed). *(D2, D4)*
 - [ ] (P0) Predictor + EMA target encoder + latent-MSE loss (I-JEPA recipe).
 - [ ] (P0) **Overfit-one-batch sanity check** — gate before any real run.
 - [ ] (P0) **Collapse monitor** — representation variance / rank / std tracking — gate before any real run.
@@ -81,6 +81,7 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 ## Epic R — Rung controls / ablations `[control]`
 - [ ] (P1) **Masking β-sweep** {0, 0.5, 1.0} as the masking ablation (β=0 control).
 - [ ] (P1) **8×8-patch (higher-res) ablation** — Rung-4 control (under-resolved vs absent). *(D11)*
+- [ ] (P1) **Backbone sweep** — clean ViT → conv-stem hybrid (CCT/CvT) → E(2)-equivariant ViT — architecture rung confound control; CCT is also the data-efficient fallback if the pretraining corpus stays thin. *(D2, depends on D6)*
 
 ## Deferred — Paper 2 `[P2-paper]`
 - [ ] Multi-survey corpus (SDSS + DESI Legacy → space-based); homogenisation (degrade-down first).

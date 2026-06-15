@@ -59,7 +59,7 @@ deterministic. Because GZ2 cutouts are centred on the target galaxy, a single
 shared box is a reasonable approximation — but it is the *floor*, not the ceiling
 (see §3.1).
 
-### 3.1 Recommended upgrade — per-galaxy box from the Petrosian radius
+### 3.1 Paper-1 default — per-galaxy box from the Petrosian radius
 
 A single shared box is **too loose for small, distant galaxies** (it includes a
 lot of sky) and can **clip large, nearby ones**. GZ2 cutouts vary substantially
@@ -70,12 +70,11 @@ e.g. a box of half-width `k · R_petro` (in pixels, via the cutout's arcsec/pixe
 clamped to the frame, with `k` a small multiplier (~2–3) tuned so the box
 comfortably contains the galaxy.
 
-This gives a tight, per-image galaxy prior at near-zero extra cost, and is
-arguably the **cleaner version even for Paper 1**. **Recommendation:** keep the
-global average-image box as the cheap fallback / β-degradation reference, but adopt
-the **Petrosian-scaled per-galaxy box** as the default once the metadata join is
-in place. *(A per-image flux-threshold saliency box remains a further option if
-Petrosian radius is missing for some galaxies.)*
+This gives a tight, per-image galaxy prior at near-zero extra cost. **Decision:
+the Petrosian-scaled per-galaxy box is the Paper-1 default.** The global
+average-image box (§3) is retained as the **β / ablation fallback and degradation
+reference** — and as the fallback for any galaxy whose Petrosian radius is missing.
+*(A per-image flux-threshold saliency box remains a further option.)*
 
 ---
 
@@ -182,11 +181,10 @@ separate code path.
   predictor, EMA target, and latent-MSE loss are unchanged from I-JEPA.
 - Rotational symmetry is handled separately (augmentation first; E(2)-equivariant
   ViT as a later ablation — see `DECISIONS.md`).
-- The **per-galaxy Petrosian-scaled box** (§3.1) is in scope as the recommended
-  default once the metadata join lands; the global average-image box is the cheap
-  fallback / β-degradation reference. Flux-threshold saliency boxes, context
-  biasing, and learned masking remain **future options**, out of scope for the
-  first run.
+- The **per-galaxy Petrosian-scaled box** (§3.1) is the **Paper-1 default**; the
+  global average-image box is the β / ablation fallback and the missing-radius
+  fallback. Flux-threshold saliency boxes, context biasing, and learned masking
+  remain **future options**, out of scope for the first run.
 
 ---
 
@@ -194,8 +192,7 @@ separate code path.
 
 - Default **β** for the headline run (recommend reporting the **β sweep** rather
   than committing to one value, with β=0 as the published control).
-- Box granularity: **recommend the per-galaxy Petrosian-scaled box (§3.1) as the
-  default** once the CasJobs metadata join is in place, with the global
-  average-image box retained as the cheap fallback and β-degradation reference.
-  Sub-question: the multiplier `k` (~2–3) and behaviour when Petrosian radius is
-  missing.
+- Box granularity is **decided: per-galaxy Petrosian-scaled box (§3.1) is the
+  Paper-1 default**, global average-image box as the β / ablation + missing-radius
+  fallback. Remaining sub-question for sign-off: the multiplier `k` (~2–3) and the
+  exact missing-radius fallback behaviour.

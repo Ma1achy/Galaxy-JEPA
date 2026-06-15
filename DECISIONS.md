@@ -24,15 +24,31 @@ re-express (label schemes, crop, vote handling). This matches your stated lean.
 
 ---
 
-## D2 — Backbone — *needs your call (recommend ViT-S/16)*
+## D2 — Backbone — *an ablation axis, not a one-time pick (default: clean ViT-S/16)*
 
-- [ ] **ViT-S/16 @ 256²** ☐  ·  ViT-B/16 ☐  ·  other ☐
+- [x] **Paper-1 default: clean ViT-S/16 @ 256²** (→ 16×16 = 256 tokens; matches v1 patchification).
+- [ ] **Backbone sweep (rung confound control):** clean ViT → conv-stem hybrid (CCT/CvT) → E(2)-equivariant ViT ☐
 
-**Recommendation: ViT-S/16 with 256×256 input** → 16×16 = 256 tokens, which
-matches v1's patchification exactly and keeps from-scratch pretraining within FMX
-hardware. Scale to ViT-B once the ladder + collapse monitor are derisked. The
-**8×8-patch (higher-token) variant is a deliberate Rung-4 control** (see D10), not
-the default backbone.
+**Reframe — the backbone is a controlled variable, not a perf pick to defer to
+"ViT-B later".** "Architecture" is the same term in the
+*(feature × SSL-objective × architecture × probe)* decomposition, so the backbone
+sweep is a **rung confound control** sitting alongside the patch-size (Rung-4,
+**D11**) and cross-objective (Rung-3, **D12**) controls — a feature can be Rung 3
+under a clean ViT but Rung 1 under a conv stem or an equivariant prior.
+
+**Why clean ViT is the Paper-1 default (I-JEPA-specific reason):** a conv stem's
+receptive field **bleeds target-region pixels into context tokens *before*
+masking**, leaking the exact masking mechanism this project is built to study and
+muddying the β sky-fraction diagnostic (`docs/masking.md`). Clean ViT keeps the
+novel masking semantics unambiguous — **principled, not inherited from v1**.
+
+**Dependency on D6:** from-scratch ViT is viable *conditional on* the larger
+unlabelled corpus (D6). If the corpus stays thin, v1's conv-stem **CCT is the
+data-efficient fallback**.
+
+**Caveat (no over-claiming):** Zoobot settled on ConvNeXt/MaxViT, so make **no
+"ViT is best for galaxy morphology" claim** anywhere — clean ViT is chosen for
+masking cleanliness, not assumed-optimal accuracy.
 
 ---
 
@@ -150,8 +166,10 @@ threshold; the mean+2σ filter is net-new and must be implemented.)*
 
 - [x] **Same probe ladder across JEPA, MAE, contrastive** — the **Rung-3
   control**, attributing a rung to the *objective* vs the *images*. MAE baseline =
-  Wu & Walmsley public model (see `docs/related-work.md`); contrastive = MoCo or
-  BYOL (**sub-decision: train ours vs adapt published — needs your call**).
+  the public model from **Wu & Walmsley (arXiv 2510.23749)** — author list verified
+  (John F. Wu & Michael Walmsley; the MAE is released as part of that paper); see
+  `docs/related-work.md`. Contrastive = MoCo or BYOL (**sub-decision: train ours vs
+  adapt published — needs your call**).
 
 ---
 
@@ -160,7 +178,7 @@ threshold; the mean+2σ filter is net-new and must be implemented.)*
 | # | Fork | Recommendation |
 |---|---|---|
 | D1 | Framework | **PyTorch** |
-| D2 | Backbone | **ViT-S/16 @ 256²** |
+| D2 | Backbone | **Clean ViT-S/16 default** (masking-clean); backbone sweep (ViT→CCT/CvT→E(2)) is a rung confound control; CCT fallback if corpus thin |
 | D3 | Env / Python version | **uv + devcontainer; Python 3.11** |
 | D4 | From-scratch vs warm-start | **From-scratch** |
 | D5 | Masking | **Bounding-box-biased** (`docs/masking.md`) |
