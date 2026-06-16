@@ -120,8 +120,10 @@ def assert_radec_agree(rows: list[dict[str, Any]], *, tol_arcsec: float = 1.0) -
     """
     for row in rows:
         sep = _angular_sep_arcsec(
-            float(row["gz_ra"]), float(row["gz_dec"]),
-            float(row["phot_ra"]), float(row["phot_dec"]),
+            float(row["gz_ra"]),
+            float(row["gz_dec"]),
+            float(row["phot_ra"]),
+            float(row["phot_dec"]),
         )
         if sep > tol_arcsec:
             raise ValueError(

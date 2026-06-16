@@ -47,7 +47,11 @@ def test_metric_recovers_planted_signal_and_noise_on_a_pedestal():
     S, sigma, pedestal = 0.5, 0.1, 5.0
     petro_rad_arcsec = 8.0 * PIXEL_SCALE  # inner 8 px, outer 20 px (k=2.5), inside 64 px
     img = _planted_stamp(
-        pedestal=pedestal, sigma=sigma, signal=S, inner_px=8.0, outer_px=20.0,
+        pedestal=pedestal,
+        sigma=sigma,
+        signal=S,
+        inner_px=8.0,
+        outer_px=20.0,
     )
     zm = galaxy_zone_metrics(img, petro_rad_arcsec, PIXEL_SCALE, k=2.5)
 
@@ -66,7 +70,11 @@ def test_gap_goes_negative_when_signal_sits_inside_the_noise():
     S, sigma, pedestal = 0.02, 0.2, 3.0
     petro_rad_arcsec = 8.0 * PIXEL_SCALE
     img = _planted_stamp(
-        pedestal=pedestal, sigma=sigma, signal=S, inner_px=8.0, outer_px=20.0,
+        pedestal=pedestal,
+        sigma=sigma,
+        signal=S,
+        inner_px=8.0,
+        outer_px=20.0,
     )
     zm = galaxy_zone_metrics(img, petro_rad_arcsec, PIXEL_SCALE, k=2.5)
     assert zm.faint_retention == pytest.approx(S, abs=0.05)

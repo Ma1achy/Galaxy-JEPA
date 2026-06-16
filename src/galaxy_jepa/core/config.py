@@ -263,9 +263,7 @@ class RunStamp:
         return dataclasses.asdict(self)
 
 
-def write_stamp(
-    stamp: RunStamp, artefact_dir: Path, config: dict[str, Any] | None = None
-) -> Path:
+def write_stamp(stamp: RunStamp, artefact_dir: Path, config: dict[str, Any] | None = None) -> Path:
     """Write ``stamp.json`` (and optionally the full ``config.json``) into an artefact dir.
 
     Returns the path to the written ``stamp.json``. The directory is created if needed.

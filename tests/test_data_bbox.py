@@ -31,8 +31,9 @@ def test_missing_radius_falls_back_loudly(bad, caplog):
         box = petrosian_box(bad, 0.396, stamp_px=64, global_half_width_px=22.0, object_id=42)
     assert box.used_fallback
     assert box.half_width_px == 22.0
-    assert any("fall" in rec.message.lower() or "global" in rec.message.lower()
-               for rec in caplog.records)
+    assert any(
+        "fall" in rec.message.lower() or "global" in rec.message.lower() for rec in caplog.records
+    )
 
 
 def test_pixel_scale_must_be_positive():

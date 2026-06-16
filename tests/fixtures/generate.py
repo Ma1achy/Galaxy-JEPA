@@ -63,8 +63,9 @@ def _stamp(rng: np.random.Generator, size: int, *, bulge: float, arm: float) -> 
     return np.clip(plane, 0.0, None)[None, :, :] * _BAND_GAIN[:, None, None]
 
 
-def generate_fixture_corpus(out_dir: str | Path, *, n: int = 12, seed: int = 0,
-                            size: int = 64) -> Path:
+def generate_fixture_corpus(
+    out_dir: str | Path, *, n: int = 12, seed: int = 0, size: int = 64
+) -> Path:
     """Write ``n`` deterministic FITS stamps + ``metadata.csv`` under ``out_dir``."""
     root = Path(out_dir)
     root.mkdir(parents=True, exist_ok=True)

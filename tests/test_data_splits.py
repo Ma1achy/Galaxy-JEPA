@@ -62,9 +62,7 @@ def test_firewall_passes_on_extremes_only(extremes):
 
 @pytest.mark.invariant
 @given(
-    middle=st.lists(
-        st.floats(min_value=0.2001, max_value=0.7999), min_size=1, max_size=20
-    ),
+    middle=st.lists(st.floats(min_value=0.2001, max_value=0.7999), min_size=1, max_size=20),
     extremes=st.lists(st.sampled_from([0.0, 1.0]), max_size=10),
 )
 def test_firewall_rejects_any_ambiguous_value_in_the_fit_set(middle, extremes):
@@ -93,9 +91,10 @@ def test_assignment_is_deterministic_and_bounded(oid, seed):
     assert a == b  # stable across calls (and processes — SHA-256, not salted hash())
     assert 0.0 <= a < 1.0
     # A different salt namespaces an independent partition: same id+seed, different coord.
-    assert assignment_unit(oid, seed, salt="probe") != a or assignment_unit(
-        oid, seed, salt="pretrain-monitor"
-    ) != a
+    assert (
+        assignment_unit(oid, seed, salt="probe") != a
+        or assignment_unit(oid, seed, salt="pretrain-monitor") != a
+    )
 
 
 def test_object_id_coercion_rejects_ambiguous_types():

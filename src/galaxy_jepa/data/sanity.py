@@ -116,8 +116,10 @@ def galaxy_zone_metrics(
     p = sky_patch_px
     corners = np.concatenate(
         [
-            img[:, :p, :p].ravel(), img[:, :p, -p:].ravel(),
-            img[:, -p:, :p].ravel(), img[:, -p:, -p:].ravel(),
+            img[:, :p, :p].ravel(),
+            img[:, :p, -p:].ravel(),
+            img[:, -p:, :p].ravel(),
+            img[:, -p:, -p:].ravel(),
         ]
     )
     sky_median = float(np.median(corners))
@@ -127,7 +129,8 @@ def galaxy_zone_metrics(
     if petro_rad_arcsec is None or not math.isfinite(petro_rad_arcsec) or petro_rad_arcsec <= 0:
         logger.warning(
             "petroRad missing/invalid (%r) for object %r; excluding from faint-retention.",
-            petro_rad_arcsec, object_id,
+            petro_rad_arcsec,
+            object_id,
         )
         return ZoneMetrics(float("nan"), sky_floor, False)
 
@@ -137,7 +140,10 @@ def galaxy_zone_metrics(
         logger.warning(
             "petroRad %.2f″ → inner radius %.1f px ≥ stamp half %.1f px for object %r; "
             "annulus empty, excluding from faint-retention.",
-            petro_rad_arcsec, inner_px, stamp_half, object_id,
+            petro_rad_arcsec,
+            inner_px,
+            stamp_half,
+            object_id,
         )
         return ZoneMetrics(float("nan"), sky_floor, False)
 

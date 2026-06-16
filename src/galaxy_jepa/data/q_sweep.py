@@ -101,8 +101,11 @@ def _sweep_one_q(
     gap: list[float] = []
     for image, meta in pairs:
         zm = galaxy_zone_metrics(
-            pipeline(image), _radius(meta), pixel_scale,
-            k=k, object_id=meta.get("object_id"),
+            pipeline(image),
+            _radius(meta),
+            pixel_scale,
+            k=k,
+            object_id=meta.get("object_id"),
         )
         sky.append(zm.sky_floor)
         if zm.faint_valid:
@@ -114,7 +117,12 @@ def _sweep_one_q(
     gm, glo, ghi = _med_iqr(gap)
     logger.info(
         "Q=%-4g faint=%.4f sky=%.4f gap=%.4f (%d/%d valid)",
-        q, fm, sm, gm, len(faint), len(pairs),
+        q,
+        fm,
+        sm,
+        gm,
+        len(faint),
+        len(pairs),
     )
     return QRecord(float(q), fm, flo, fhi, sm, slo, shi, gm, glo, ghi, len(faint), len(pairs))
 
@@ -173,16 +181,33 @@ def write_curve(records: Sequence[QRecord], out_path: str | Path) -> Path:
     qs = [r.q for r in records]
     fig, ax = plt.subplots(figsize=(7.5, 5.0))
 
-    ax.plot(qs, [r.faint_med for r in records], "o-", color="tab:blue",
-            label="faint-retention (annulus)")
-    ax.fill_between(qs, [r.faint_lo for r in records], [r.faint_hi for r in records],
-                    color="tab:blue", alpha=0.15)
-    ax.plot(qs, [r.sky_med for r in records], "s-", color="tab:red",
-            label="sky-noise floor (corner MAD)")
-    ax.fill_between(qs, [r.sky_lo for r in records], [r.sky_hi for r in records],
-                    color="tab:red", alpha=0.15)
-    ax.plot(qs, [r.gap_med for r in records], "D--", color="tab:green",
-            label="gap = signal above noise")
+    ax.plot(
+        qs,
+        [r.faint_med for r in records],
+        "o-",
+        color="tab:blue",
+        label="faint-retention (annulus)",
+    )
+    ax.fill_between(
+        qs,
+        [r.faint_lo for r in records],
+        [r.faint_hi for r in records],
+        color="tab:blue",
+        alpha=0.15,
+    )
+    ax.plot(
+        qs,
+        [r.sky_med for r in records],
+        "s-",
+        color="tab:red",
+        label="sky-noise floor (corner MAD)",
+    )
+    ax.fill_between(
+        qs, [r.sky_lo for r in records], [r.sky_hi for r in records], color="tab:red", alpha=0.15
+    )
+    ax.plot(
+        qs, [r.gap_med for r in records], "D--", color="tab:green", label="gap = signal above noise"
+    )
 
     ax.set_xlabel("asinh Q (softening)")
     ax.set_ylabel("post stretch+normalise (normalised-flux units)")
@@ -247,8 +272,7 @@ def elbow_readout(records: Sequence[QRecord]) -> str:
     suspect = [
         recs[i + 1].q
         for i in range(len(recs) - 1)
-        if recs[i + 1].faint_med > recs[i].faint_med
-        and recs[i + 1].gap_med <= recs[i].gap_med
+        if recs[i + 1].faint_med > recs[i].faint_med and recs[i + 1].gap_med <= recs[i].gap_med
     ]
     if suspect:
         lines.append(
@@ -275,18 +299,26 @@ def _fit_pipeline(source: DataSource, q: float, flux_scale: tuple[float, ...]) -
 def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description="asinh Q-sweep — measured stretch curve.")
-    parser.add_argument("--corpus", type=Path, required=True,
-                        help="DirectorySource corpus for the sweep")
-    parser.add_argument("--out", type=Path, required=True,
-                        help="output dir for curve/csv/sheets/readout")
-    parser.add_argument("--q", default=",".join(f"{q:g}" for q in DEFAULT_Q_GRID),
-                        help="comma-separated Q grid")
-    parser.add_argument("--contact-q", default=",".join(f"{q:g}" for q in DEFAULT_CONTACT_Q),
-                        help="comma-separated Q values for contact sheets")
-    parser.add_argument("--contact-corpus", type=Path,
-                        help="corpus for contact sheets (defaults to --corpus)")
-    parser.add_argument("--flux-scale", default="1,1,1",
-                        help="per-channel flux scale (fixed across sweep)")
+    parser.add_argument(
+        "--corpus", type=Path, required=True, help="DirectorySource corpus for the sweep"
+    )
+    parser.add_argument(
+        "--out", type=Path, required=True, help="output dir for curve/csv/sheets/readout"
+    )
+    parser.add_argument(
+        "--q", default=",".join(f"{q:g}" for q in DEFAULT_Q_GRID), help="comma-separated Q grid"
+    )
+    parser.add_argument(
+        "--contact-q",
+        default=",".join(f"{q:g}" for q in DEFAULT_CONTACT_Q),
+        help="comma-separated Q values for contact sheets",
+    )
+    parser.add_argument(
+        "--contact-corpus", type=Path, help="corpus for contact sheets (defaults to --corpus)"
+    )
+    parser.add_argument(
+        "--flux-scale", default="1,1,1", help="per-channel flux scale (fixed across sweep)"
+    )
     args = parser.parse_args(argv)
 
     q_grid = tuple(float(x) for x in args.q.split(","))
@@ -311,8 +343,11 @@ def main(argv: list[str] | None = None) -> None:
     for q in (float(x) for x in args.contact_q.split(",")):
         pipeline = _fit_pipeline(contact_source, q, flux_scale)
         build_contact_sheet(contact_source, pipeline, out / f"sheet_q{q:g}.png")
-    logger.info("wrote curve.png, metrics.csv, readout.txt and %s contact sheets to %s",
-                len(args.contact_q.split(",")), out)
+    logger.info(
+        "wrote curve.png, metrics.csv, readout.txt and %s contact sheets to %s",
+        len(args.contact_q.split(",")),
+        out,
+    )
 
 
 if __name__ == "__main__":

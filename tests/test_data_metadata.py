@@ -34,8 +34,9 @@ def test_sql_templates_are_deterministic():
 
 
 def test_join_guard_passes_on_agreement():
-    rows = [{"dr7objid": 1, "gz_ra": 150.0, "gz_dec": 2.0, "phot_ra": 150.00001,
-             "phot_dec": 2.00001}]
+    rows = [
+        {"dr7objid": 1, "gz_ra": 150.0, "gz_dec": 2.0, "phot_ra": 150.00001, "phot_dec": 2.00001}
+    ]
     assert_radec_agree(rows)  # sub-arcsec agreement -> no raise
 
 

@@ -38,6 +38,11 @@ packages = ["src/galaxy_jepa"]
 line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
+# `artifacts/` holds one-off investigation scripts (the fidelity / SciServer / petroRad
+# provenance trail referenced in docs/spec/data.md) — deliberately terse, not package
+# code. Excluded from lint, mirroring mypy's `files = ["src"]` scoping; `src` + `tests`
+# remain fully linted.
+extend-exclude = ["artifacts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]
@@ -48,8 +53,10 @@ files = ["src"]
 
 [[tool.mypy.overrides]]
 # Astronomy libraries ship no type stubs (no py.typed); ignore their missing imports
-# rather than littering call sites with per-line ignores.
-module = ["astropy.*", "astroquery.*", "galaxy_datasets.*", "matplotlib.*"]
+# rather than littering call sites with per-line ignores. `requests` is the same case
+# (its stubs live in the separate `types-requests` package, not vendored here) and is
+# imported lazily in data/metadata.py + data/sources.py for the SDSS REST pulls.
+module = ["astropy.*", "astroquery.*", "galaxy_datasets.*", "matplotlib.*", "requests.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

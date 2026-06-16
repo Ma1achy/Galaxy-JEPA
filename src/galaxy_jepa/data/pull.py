@@ -67,8 +67,6 @@ def check_join(*, limit: int = 10, data_release: int = 17) -> None:
     logger.info("join check OK: %d rows agree on ra/dec within tolerance", len(rows))
 
 
-
-
 def pull_corpus(
     corpus: str,
     limit: int,
@@ -155,13 +153,16 @@ def summarise_pull(rows: list[dict[str, Any]]) -> None:
     join, so report the ranges that would expose a silently-wrong join (e.g. all-NaN
     redshifts, absurd radii) plus the global-box fallback rate (missing/≤0 petroRad).
     """
+
     def rng(key: str) -> str:
         vals = _finite([r.get(key) for r in rows])
         if not vals:
             return f"{key}: NONE finite (!) of {len(rows)}"
         arr = np.asarray(vals)
-        return (f"{key}: [{arr.min():.4g}, {arr.max():.4g}] "
-                f"median {np.median(arr):.4g} (n={len(vals)}/{len(rows)})")
+        return (
+            f"{key}: [{arr.min():.4g}, {arr.max():.4g}] "
+            f"median {np.median(arr):.4g} (n={len(vals)}/{len(rows)})"
+        )
 
     def _bad_petro(r: dict[str, Any]) -> bool:
         good = _finite([r.get("petroRad_r")])
@@ -173,8 +174,12 @@ def summarise_pull(rows: list[dict[str, Any]]) -> None:
     for key in ("specz", "petroRad_r", "snr_r", "modelMag_r", "psfWidth_r"):
         if any(key in r for r in rows):
             logger.info("  %s", rng(key))
-    logger.info("  global-box fallback rate (missing/≤0 petroRad_r): %.1f%% (%d/%d)",
-                fallback, bad_petro, len(rows))
+    logger.info(
+        "  global-box fallback rate (missing/≤0 petroRad_r): %.1f%% (%d/%d)",
+        fallback,
+        bad_petro,
+        len(rows),
+    )
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -194,8 +199,14 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.out is None:
         parser.error("--out is required for a pull")
-    pull_corpus(args.corpus, args.limit, args.out, stamp_px=args.stamp_px,
-                data_release=args.data_release, workers=args.workers)
+    pull_corpus(
+        args.corpus,
+        args.limit,
+        args.out,
+        stamp_px=args.stamp_px,
+        data_release=args.data_release,
+        workers=args.workers,
+    )
 
 
 if __name__ == "__main__":

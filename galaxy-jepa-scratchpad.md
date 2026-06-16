@@ -204,7 +204,7 @@ Don't reach for JWST to prove the point. SDSS + DESI Legacy are both ground-base
 
 ## Prior art / landscape
 
-> ⚠ Verify with a proper arXiv sweep — some IDs/details from search snippets. **Do not claim firstness.** Safest framing: *JEPA-style (latent-prediction) SSL appears underexplored for galaxy morphology relative to contrastive and masked-reconstruction approaches.*
+> ⚠ Verify with a proper arXiv sweep — some IDs/details from search snippets. **Do not claim firstness — and the bar is now lower than it looks.** JEPA *has* been applied in-domain to galaxy morphology: **LeJEPA** (arXiv 2511.08544) pretrains a JEPA on **Galaxy10** and reports linear-probe + full-finetune accuracy, beating DINOv2/v3 transfer by 8–10 pts. So the old framing ("JEPA underexplored for galaxy morphology") is **retired** — it is no longer safe. The narrowed, defensible claim: *no known **SDSS/GZ2 I-JEPA** study focused on **frozen concept directions, the nameability ladder, nuisance controls, and non-circular Galaxy Zoo uncertainty geometry**.* Our contribution is the **measurement instrument** (which morphological concepts are nameable directions, and does the latent geometry reproduce human uncertainty *without* training on votes) — not "first JEPA on galaxies". Frame the paper on the instrument, never on priority.
 
 **Galaxy SSL — contrastive, and (newer) masked-reconstruction:**
 - Hayat et al. 2021 — contrastive (MoCo) SSL on SDSS; downstream morphology + photo-z.
@@ -219,8 +219,11 @@ Don't reach for JWST to prove the point. SDSS + DESI Legacy are both ground-base
 - Wu 2025 — *Insights into Galaxy Evolution from Interpretable Sparse Feature Networks* (ApJ 980; arXiv 2501.00089).
 - **Our distinction:** (1) **JEPA latent-prediction vs their MAE pixel-reconstruction** — their MAE recipe is the ideal head-to-head baseline *only once reproduced on our SDSS corpus*; the released Euclid MAE varies instrument too, so it serves as a reference, not the controlled baseline (see Evaluation → SSL baselines); (2) **top-down hypothesis-testing** (probe a *named* human concept, walk the ladder) vs **bottom-up discovery** (read features off an SAE dictionary); (3) **uncertainty geometry** — we test vote-fraction *recovery*, not just label alignment. Complementary, not competing (could run an SAE on the JEPA encoder — see parking lot).
 
-**JEPA — proven adjacent, not (apparently) galaxy morphology:**
-- Assran et al. 2023 — I-JEPA. · Lens-JEPA — physics-informed, gravitational lensing (NeurIPS ML4PS 2025); beats supervised + vanilla I-JEPA. · HEP-JEPA — collider physics (arXiv 2502.03933).
+**JEPA — including in-domain galaxy morphology (the boundary that narrows our claim):**
+- **LeJEPA (arXiv 2511.08544)** — "Latent-Euclidean JEPA"; a *general* SSL method whose benchmark suite **includes in-domain JEPA pretraining on Galaxy10** (~11k images, 10 morphology classes, derived from GZ DECaLS — *not* SDSS/GZ2), linear-probe + finetune, beating DINOv2/v3 transfer. It is a **classification benchmark** demo of the method's generality, **not** a study of concept directions / nameability / nuisance controls / uncertainty geometry — so it bounds the firstness claim (see the warning above) without touching our actual contribution.
+- Assran et al. 2023 — I-JEPA (the base architecture we build on).
+- **Lens-JEPA** — physics-informed JEPA for **gravitational lensing** (lens detection, mass modelling, dark-matter substructure; NeurIPS ML4PS 2025); beats supervised + vanilla I-JEPA. A *different astrophysical task* (lensing, not morphology) — cited here as precedent for **physics-baked JEPA** (motivates the E(2)-equivariant ViT ablation), not as a morphology-probing competitor.
+- HEP-JEPA — collider physics (arXiv 2502.03933).
 
 **Cross-survey domain gap:**
 - DeepAstroUDA (Ćiprijanović et al., ML:S&T 2023) — frames cross-survey morphology as domain adaptation; warns models extract dataset-specific, non-robust features.

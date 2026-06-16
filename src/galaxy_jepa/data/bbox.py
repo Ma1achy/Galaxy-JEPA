@@ -49,7 +49,9 @@ def petrosian_box(
         logger.warning(
             "petroRad missing/invalid (%r) for object %r; falling back to the global "
             "average box (half-width %.1f px).",
-            petro_rad_arcsec, object_id, global_half_width_px,
+            petro_rad_arcsec,
+            object_id,
+            global_half_width_px,
         )
         return Box(half_width_px=float(global_half_width_px), used_fallback=True)
 

@@ -215,8 +215,12 @@ class FitsFrameSource:
         planes: list[Array] = []
         for band in self.bands:
             url = _FRAME_URL.format(
-                dr=self.data_release, rerun=rerun, run=run, camcol=camcol,
-                field=field, band=band,
+                dr=self.data_release,
+                rerun=rerun,
+                run=run,
+                camcol=camcol,
+                field=field,
+                band=band,
             )
             data, wcs = self._get_frame((rerun, run, camcol, field, band), url)
             cut = Cutout2D(data, coord, size=self.stamp_px, wcs=wcs)

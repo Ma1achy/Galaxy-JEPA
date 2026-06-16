@@ -68,8 +68,12 @@ def build_contact_sheet(
             global_half_width_px = 0.7 * stamp_px / 2.0  # v1-style provisional global box
         rgb = _to_rgb(pipeline(image))
         box = petrosian_box(
-            _radius(meta), pixel_scale, k=k, stamp_px=stamp_px,
-            global_half_width_px=global_half_width_px, object_id=meta.get("object_id"),
+            _radius(meta),
+            pixel_scale,
+            k=k,
+            stamp_px=stamp_px,
+            global_half_width_px=global_half_width_px,
+            object_id=meta.get("object_id"),
         )
         boxes.append(box)
 
@@ -80,14 +84,17 @@ def build_contact_sheet(
         ax.add_patch(
             Rectangle(
                 (centre - box.half_width_px, centre - box.half_width_px),
-                2 * box.half_width_px, 2 * box.half_width_px,
-                fill=False, edgecolor=edge, linewidth=1.2,
+                2 * box.half_width_px,
+                2 * box.half_width_px,
+                fill=False,
+                edgecolor=edge,
+                linewidth=1.2,
             )
         )
         rad = _radius(meta)
         ax.set_title(
             f"r={meta.get('modelMag_r', meta.get('mag_r', float('nan'))):.1f}  "
-            f"R={rad:.1f}\"" + ("  [fallback]" if box.used_fallback else ""),
+            f'R={rad:.1f}"' + ("  [fallback]" if box.used_fallback else ""),
             fontsize=7,
         )
         ax.set_xticks([])
