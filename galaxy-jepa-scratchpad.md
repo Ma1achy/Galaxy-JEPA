@@ -77,6 +77,23 @@ Attribution is the whole game: a rung only means something about *the images* on
 
 I-JEPA (Assran et al. 2023): context-encoder ViT, EMA target encoder (anti-collapse), predictor; predict masked-block *embeddings* from context, MSE in latent space, **no pixel reconstruction** (this is the axis that distinguishes it from MAE — see prior art). Reuse v1's 256×256 → 256 × (16×16) patchification as the tokeniser. (Galaxy-specific design below.)
 
+> **Stage-1 vertical slice — BUILT (this session), not yet run.** The minimal end-to-end
+> path to *one number* is implemented and green offline: small split-orchestration (the
+> dedup guard + seed-reproducible assignment exercised, `data/orchestrate.py`), an **fp16
+> pre-bake cache** (parity-locked pipeline run once to a memmap; hash-keyed, incremental
+> top-up, normalisation fitted once on a subsample and frozen *before* the pilot —
+> `data/cache.py`), the from-scratch **ViT-S/16 @256²** (`models/vit.py`), the bbox-biased
+> masking (β default 0.5; β=0 ≡ I-JEPA, `masking/blocks.py`), the JEPA objective +
+> **collapse monitor** (std / effective-rank / mean-cosine; `objectives/jepa.py`,
+> `callbacks/collapse.py`), the frozen **L2-logistic probe** + UMAP (`probing/`, `eval/`),
+> and the run wiring + calibration verdict (`vertical_slice.py`). **Probe label:** GZ2 t01
+> debiased featured-fraction at 0.5, AUC on the confident extremes only. **Run plan:** Mac
+> M3 Pro / MPS; calibration smoke → ~20–30k-galaxy / ~10–15k-step **pilot** (signs-of-life
+> gate) → full ~100k / ~50k-step run gated on the pilot. **Go/no-go reading:** AUC clearly
+> above chance + no collapse + visible clustering = premise alive; flat AUC = *null but
+> inconclusive* at this scale (not a kill — could be undertraining); collapse = a finding
+> (report the trace + what was tried, β→0 first). The pilot's read is **not** the headline.
+
 ### Stage 2 — readout = **measurement** (the heart)
 
 Encoder **frozen throughout** — labels never reach it. Stage 2 is a measurement protocol, not a training stage.

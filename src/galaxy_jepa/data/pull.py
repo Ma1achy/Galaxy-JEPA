@@ -30,6 +30,7 @@ import numpy as np
 
 from galaxy_jepa.data.manifest import manifest_hash
 from galaxy_jepa.data.metadata import (
+    FEATURED_FRACTION_COL,
     assert_radec_agree,
     join_check_sql,
     photometric_snr,
@@ -171,9 +172,22 @@ def summarise_pull(rows: list[dict[str, Any]]) -> None:
     bad_petro = sum(1 for r in rows if _bad_petro(r))
     fallback = 100.0 * bad_petro / len(rows) if rows else 0.0
     logger.info("--- pull summary (n=%d) ---", len(rows))
-    for key in ("specz", "petroRad_r", "snr_r", "modelMag_r", "psfWidth_r"):
+    for key in ("specz", "petroRad_r", "snr_r", "modelMag_r", "psfWidth_r", FEATURED_FRACTION_COL):
         if any(key in r for r in rows):
             logger.info("  %s", rng(key))
+    # The probe label balance — a degenerate (all-smooth / all-featured) pull would make
+    # the headline AUC meaningless, so surface it at scale before training.
+    fracs = _finite([r.get(FEATURED_FRACTION_COL) for r in rows])
+    if fracs:
+        arr = np.asarray(fracs)
+        featured = int((arr >= 0.5).sum())
+        extremes = int(((arr <= 0.2) | (arr >= 0.8)).sum())
+        logger.info(
+            "  label balance: %d/%d featured (>=0.5); %d confident extremes (<=0.2 or >=0.8)",
+            featured,
+            len(fracs),
+            extremes,
+        )
     logger.info(
         "  global-box fallback rate (missing/≤0 petroRad_r): %.1f%% (%d/%d)",
         fallback,

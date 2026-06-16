@@ -22,6 +22,9 @@ dependencies = [
 [project.optional-dependencies]
 # Populated in later phases; declared here so the layout is visible.
 data = ["astropy>=6", "astroquery", "galaxy-datasets", "matplotlib>=3.8", "pillow"]
+# The frozen-probe read-out + gut-check figures (probing/, eval/): sklearn for the
+# L2-logistic probe + ROC-AUC, umap-learn for the embedding scatter.
+eval = ["scikit-learn>=1.3", "umap-learn>=0.5", "matplotlib>=3.8"]
 dev = ["pytest>=8", "ruff>=0.6", "pre-commit>=3.8", "hypothesis>=6", "mypy>=1.10"]
 
 [build-system]
@@ -56,7 +59,15 @@ files = ["src"]
 # rather than littering call sites with per-line ignores. `requests` is the same case
 # (its stubs live in the separate `types-requests` package, not vendored here) and is
 # imported lazily in data/metadata.py + data/sources.py for the SDSS REST pulls.
-module = ["astropy.*", "astroquery.*", "galaxy_datasets.*", "matplotlib.*", "requests.*"]
+module = [
+    "astropy.*",
+    "astroquery.*",
+    "galaxy_datasets.*",
+    "matplotlib.*",
+    "requests.*",
+    "sklearn.*",
+    "umap.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
