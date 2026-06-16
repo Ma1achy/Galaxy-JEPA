@@ -17,6 +17,10 @@ import torch
 from galaxy_jepa.eval.embed import plot_collapse_trace
 from galaxy_jepa.probing.logistic import Embeddings, extract_embeddings, probe_auc
 
+# Integration tier: the probe needs sklearn and the figures need matplotlib at runtime
+# (the `eval` extra), so these run in the integration job, not the dependency-light gate.
+pytestmark = pytest.mark.integration
+
 _HAS_UMAP = importlib.util.find_spec("umap") is not None
 
 

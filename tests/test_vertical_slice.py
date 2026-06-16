@@ -13,7 +13,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from astropy.io import fits
 
 from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
 from galaxy_jepa.masking.blocks import MaskConfig
@@ -37,6 +36,8 @@ _CFG = JepaConfig(
 
 def _make_corpus(root: Path, *, n: int, base_id: int, labelled: bool, seed: int) -> Path:
     """A tiny corpus: two visually-distinct classes, with the GZ2 fraction at the extremes."""
+    from astropy.io import fits  # lazy: integration-only, keep module import dev-light
+
     root.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
     rows = []

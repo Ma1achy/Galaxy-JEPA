@@ -19,8 +19,6 @@ from typing import cast
 
 import numpy as np
 import torch
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader, Dataset
 
 from galaxy_jepa.core.encoder import Encoder, assert_frozen
@@ -66,6 +64,9 @@ def probe_auc(train: Embeddings, test: Embeddings, *, c: float = 1.0) -> float:
         raise ValueError("probe training set has a single class — cannot fit a logistic axis")
     if len(np.unique(test.y)) < 2:
         raise ValueError("probe test set has a single class — AUC undefined")
+    from sklearn.linear_model import LogisticRegression  # lazy: the eval extra, not the gate
+    from sklearn.metrics import roc_auc_score
+
     clf = LogisticRegression(C=c, max_iter=2000)  # L2 is the default penalty
     clf.fit(train.x, train.y)
     scores = clf.predict_proba(test.x)[:, 1]
