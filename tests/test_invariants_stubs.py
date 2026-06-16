@@ -4,13 +4,13 @@ These invariants are structural to the methodology, so each has a live test (or 
 registered, skipped stub naming the TODO) — an untested invariant is just a comment.
 
 * ``test_masking_beta_zero_is_ijepa`` — the masking module is a strict generalisation
-  of I-JEPA: at β=0 the block-sampling statistics must be identical to standard I-JEPA
-  (``docs/masking.md`` §6, ``docs/architecture.md`` hard invariant 4). This is
-  deterministic code-correctness, hence a property test rather than a control gate.
-  Still a stub: ``masking/`` is not built yet.
-* ``test_normalisation_parity`` — **live**. Format + stretch + normalisation are
-  byte-identical across the pretraining corpus, the probing corpus, and every baseline
-  (``docs/spec/data.md`` §1; protects D6 and the Rung-4 result).
+  of I-JEPA: at β=0 the token weighting must be uniform (so block sampling is identical
+  to standard I-JEPA — ``docs/masking.md`` §6, ``docs/architecture.md`` hard invariant 4).
+  Deterministic code-correctness, hence a property test. **Live** now ``masking/`` exists.
+* ``test_normalisation_parity`` — **live** (integration: needs the fixture corpora, hence
+  the data extra). Format + stretch + normalisation are byte-identical across the
+  pretraining corpus, the probing corpus, and every baseline (``docs/spec/data.md`` §1;
+  protects D6 and the Rung-4 result).
 """
 
 import numpy as np
@@ -22,9 +22,12 @@ from galaxy_jepa.data.transforms import AsinhStretch, Normalise, Pipeline
 
 
 @pytest.mark.invariant
-@pytest.mark.skip(reason="TODO(P3): build masking/ then assert β=0 block stats == I-JEPA")
 def test_masking_beta_zero_is_ijepa():
-    raise NotImplementedError
+    # β=0 ⇒ every token weight is 1 regardless of the box ⇒ uniform sampling = I-JEPA.
+    from galaxy_jepa.masking.blocks import box_to_token_mask, token_weight_map
+
+    in_box = box_to_token_mask(half_width_px=40, stamp_px=256, grid_size=16)
+    assert np.allclose(token_weight_map(in_box, beta=0.0), 1.0)
 
 
 def _fit_on(corpus) -> Pipeline:
@@ -37,6 +40,7 @@ def _fit_on(corpus) -> Pipeline:
 
 
 @pytest.mark.invariant
+@pytest.mark.integration  # needs the fixture corpora (data extra); runs in the PR integration job
 def test_normalisation_parity(pretraining_corpus, probing_corpus):
     # The rule: fit ONCE on the pretraining corpus, then apply that same frozen pipeline
     # to the probing corpus and every baseline (docs/spec/data.md §1).

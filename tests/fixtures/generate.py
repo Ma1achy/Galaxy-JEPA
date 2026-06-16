@@ -23,7 +23,6 @@ import csv
 from pathlib import Path
 
 import numpy as np
-from astropy.io import fits
 
 PIXEL_SCALE = 0.396  # SDSS native arcsec/pixel
 SKY_STD = 0.02  # sky-noise floor (calibrated-flux units)
@@ -67,6 +66,9 @@ def generate_fixture_corpus(
     out_dir: str | Path, *, n: int = 12, seed: int = 0, size: int = 64
 ) -> Path:
     """Write ``n`` deterministic FITS stamps + ``metadata.csv`` under ``out_dir``."""
+    from astropy.io import fits  # lazy: only materialising a corpus needs the data extra,
+
+    # so importing this module (which conftest does at collection) stays dev-only.
     root = Path(out_dir)
     root.mkdir(parents=True, exist_ok=True)
     rows: list[dict[str, object]] = []

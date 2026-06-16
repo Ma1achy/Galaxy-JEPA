@@ -40,6 +40,29 @@ Enforced by a **same-pipeline requirement**: both corpora are pulled the *same w
 do not mix a FITS+asinh pipeline for one with a pre-stretched-cutout pipeline for the
 other.
 
+### 1.1 The fp16 pre-bake cache — parity locked, run once, on disk
+
+The training dataloader must **never** read FITS and run asinh+normalise per batch (the
+per-step CPU cost starves the device). So the frozen `Pipeline` runs **once** over the
+pulled corpus and the result is written as **fp16** to a memory-mapped array
+(`data/cache.py`), which the dataloader reads with zero per-batch preprocessing (fp16
+halves the working set vs fp32 — decisive on an 18 GB unified-memory Mac). The cache is
+the parity rule made physical: one baked tensor set, shared by pretraining and probing.
+
+Two contract points make it correct across the staged pilot → full run:
+
+- **Hash-keyed, auto-invalidating.** The cache lives under `<base>/<pipeline_hash>/`, where
+  `pipeline_hash = config_hash(pipeline)`. A different `Q` / flux-scale / normalisation
+  statistic ⇒ a different directory ⇒ stale stats can never silently mix with fresh ones.
+- **Normalisation fitted once, before the pilot; incremental top-up.** The per-channel
+  mean/std are fitted on a **seeded ~5–10k subsample** drawn to represent the *final*
+  corpus (streaming, low-memory — fitting on the full ≫100k×256² set will not fit in RAM)
+  and **frozen before the pilot**. Because the pilot and the full run then share one frozen
+  pipeline, they share the `pipeline_hash`, so topping the pilot's corpus up to the full
+  size **appends** new stamps and **reuses every pilot stamp** — never a re-bake. (Re-fitting
+  the stats on the top-up would move the hash, invalidate the cache, and — worse — train the
+  pilot encoder under different preprocessing than the full run.)
+
 ---
 
 ## 2. Format + stretch — **decided: FITS + asinh for both corpora**
@@ -121,10 +144,20 @@ corpus. Declared columns (existence checked at Tier-1 `T1.metadata-columns-real`
 | `petroRad_r` (Petrosian radius) | SDSS `PhotoObjAll` | nuisance probe **and** per-galaxy masking box |
 | **`SNR_r`** (image-domain) | **derived: `1.0857 / modelMagErr_r`** | nuisance probe |
 | PSF width (`psfWidth_r`) | SDSS **`Field`** table, joined on `fieldID` | nuisance probe |
+| **t01 debiased vote fractions** (`..._a01_smooth`, `..._a02_features_or_disk`, `..._a03_star_or_artifact`) | `zoo2MainSpecz` | **probe label** + the uncertainty firewall |
 
-*(Schema verified live against DR17: `zoo2MainSpecz` carries only ids/coords + the GZ2
-vote fractions — no redshift column — so `z` comes from `SpecObj`; `psfWidth_r` is in
-`Field`, not `PhotoObjAll`.)*
+*(Schema verified live against DR17: `zoo2MainSpecz` carries ids/coords + the GZ2 vote
+fractions — no redshift column — so `z` comes from `SpecObj`; `psfWidth_r` is in `Field`,
+not `PhotoObjAll`.)*
+
+**The probe label (smooth-vs-featured).** The headline read-out's target is derived
+downstream (`data/metadata.featured_label`, **not** in SQL) from the t01 **featured/disk
+debiased** fraction `v = a02_debiased`: `featured = v ≥ 0.5`. The headline AUC is reported
+on the **confident extremes** only (`v ≥ 0.8` or `v ≤ 0.2`; `is_confident_extreme`), the
+same high-consensus set the uncertainty firewall (`data/splits.py`) keeps in the axis-fit
+set — so the number reflects the clean signal, not the genuinely ambiguous middle. The
+`a03` (star/artifact) fraction lets a caller drop non-galaxies. **asinh `Q` stays frozen at
+4; only the label columns are added to the probe pull.**
 
 **SNR is photometric, not spectroscopic.** The image-quality nuisance probe asks "does
 the concept axis read off image *depth*", so the SNR must be an **image-domain** quantity:

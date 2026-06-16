@@ -46,6 +46,12 @@ ORDER BY p.objID"""
 #   * psfWidth_r lives in the Field table, not PhotoObjAll;
 #   * redshift is SpecObj.z joined on specObjID = zoo2MainSpecz.specobjid
 #     (zoo2MainSpecz itself has no redshift column — only GZ2 vote fractions).
+#
+# The t01 (smooth-or-features) debiased vote fractions come from zoo2MainSpecz itself.
+# They are the probe label source (docs/spec/data.md): the binary smooth-vs-featured
+# label is derived downstream as `featured = a02_debiased >= 0.5`, and the confident
+# extremes (a02 > 0.8 / < 0.2) are what the uncertainty firewall (data/splits.py) keeps
+# in the axis-fit set. a03 (star/artifact) lets a caller drop non-galaxies.
 PROBE_SQL = """\
 SELECT TOP {limit}
     g.dr8objid AS objID, g.ra, g.dec,
@@ -53,6 +59,9 @@ SELECT TOP {limit}
     p.petroRad_r, p.petroRadErr_r,
     p.modelMag_r, p.modelMagErr_r,
     f.psfWidth_r,
+    g.t01_smooth_or_features_a01_smooth_debiased,
+    g.t01_smooth_or_features_a02_features_or_disk_debiased,
+    g.t01_smooth_or_features_a03_star_or_artifact_debiased,
     p.run, p.camcol, p.field, p.rerun
 FROM zoo2MainSpecz AS g
 JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
@@ -80,6 +89,35 @@ def probe_sql(limit: int) -> str:
 
 def join_check_sql(limit: int = 10) -> str:
     return JOIN_CHECK_SQL.format(limit=int(limit))
+
+
+# --- GZ2 t01 label derivation -------------------------------------------------------
+
+#: The featured/disk debiased vote fraction — the probe's label source. v -> 1 means
+#: a confident "featured/disk", v -> 0 a confident "smooth". The smooth fraction
+#: (a01_debiased) is very nearly 1 - this for two-way responses, so a02 alone defines
+#: the binary axis without double-counting.
+FEATURED_FRACTION_COL = "t01_smooth_or_features_a02_features_or_disk_debiased"
+
+
+def featured_label(featured_fraction: float) -> int:
+    """Binary smooth-vs-featured label: ``1`` = featured/disk, ``0`` = smooth.
+
+    The headline split at 0.5 (``docs/spec/data.md``). Independent of the firewall: this
+    is the *target*, :func:`is_confident_extreme` decides which galaxies enter the fit.
+    """
+    return int(float(featured_fraction) >= 0.5)
+
+
+def is_confident_extreme(featured_fraction: float, *, low: float = 0.2, high: float = 0.8) -> bool:
+    """True for a high-consensus extreme (``v >= high`` or ``v <= low``).
+
+    These are the galaxies the uncertainty firewall (``data/splits.py``) keeps in the
+    axis-fit set, and — for this slice — the ones the headline AUC is reported on, so the
+    number is not drowned by the genuinely ambiguous middle.
+    """
+    v = float(featured_fraction)
+    return v >= high or v <= low
 
 
 # --- derived columns ----------------------------------------------------------------
