@@ -160,17 +160,49 @@ slice (and so the manifest hash / `data_snapshot`) is non-reproducible in T-SQL.
 are cut at the **native 0.396″/px**, **no rebin** (rebinning interacts with the Rung-4
 resolution question; it is kept out of the data layer).
 
-> **⚠ Stamp size vs the largest galaxies (open — revisit before the corpus slice).** The
-> current stamp is **64 px** = 25.3″ across (half-width 12.67″). A galaxy with
-> `petroRad_r > ~12.7″` has its whole faint-outskirt annulus `[R_petro, 2.5·R_petro]`
-> **off-frame** — so it is excluded from the `T2` faint-retention metric, *and* the
-> `k = 2.5` masking box clips it. On a 100-galaxy probe slice this is ~5% (`petroRad_r`
-> ranges to ~23″), and it bites **disproportionately the extended, morphology-rich
-> galaxies the nameability/uncertainty probes most want**. Holding `2.5·R_petro` for a
-> 23″ galaxy needs ~290 px. The stamp size is therefore a **fork to settle before the
-> ≥250k slice** (larger stamps ⇒ more bytes/pixels per galaxy; trade-off against the
-> encoder input size). It does **not** affect the asinh-`Q` choice (the median/IQR is
-> over the in-frame majority).
+> **⚠ Stamp size — decided: 256 px (the train-compute vs clip-rate balance point).**
+> Measured on a **5 000-galaxy probe sample** (`petroRad_r` percentiles, fraction whose
+> `2.5·R_petro` box is clipped):
+>
+> | percentile | `petroRad_r` | px to hold `2.5·R` | | stamp | clipped (`R` past half-box) |
+> |---|---|---|---|---|---|
+> | p50 | 6.3″ | 79 px | | **64 px** | **6.96%** |
+> | p90 | 11.3″ | 142 px | | **256 px** | **1.38%** |
+> | p95 | 14.0″ | 177 px | | 288 px | 0.96% |
+> | p99 | 22.3″ | 282 px | | 320 px | 0.64% |
+> | p99.9 | 47.0″ | 594 px | | — | — |
+> | p100 | 106.7″ | 1347 px | | — | — |
+>
+> **Why 256 — a real trade-off, not a forced move.** The `native 0.396″/px, no rebin`
+> rule forbids resizing, so the **stamp size *is* the encoder input dim** (a 64 px stamp
+> into a 256² encoder would need up-sampling — a rebin — so the prototype's 64 px was a
+> placeholder). But that constraint does *not* by itself pick 256: any multiple of 16 is
+> admissible, and bigger stamps are **not free even with SciServer cutouts** — the cost
+> simply **moves from pull-time to per-step training compute**. 256² is **256 tokens**;
+> 320² is **400 tokens** ≈ **1.5× the ViT self-attention cost on *every* step** of a
+> from-scratch pretraining run (the dominant cost for a from-scratch encoder). Weighed
+> against that: 288/320 px recovers only **0.4–0.7 pp** of galaxies (clip 1.38% → 0.96% →
+> 0.64%), and the residual clipped tail is **genuinely giant nearby galaxies** (p99.9 =
+> 47″, p100 = 107″) that *no* sane stamp holds — they take the documented fallback
+> regardless. So **256 px is the balance point** between clip rate and train-step compute;
+> that it also keeps the **D2 ViT-S/16 @ 256²** anchor is a **bonus, not the reason**. It
+> is a multiple of 16 (16×16 tokens), spans 101.4″ (half-box 50.7″), and holds the full
+> `2.5·R` box for any `R_petro ≤ 20.3″`.
+>
+> **The cost being accepted.** 256 px clips **1.38%** of galaxies (down 5× from 64 px's
+> 6.96%), but that 1.4% is **not random — it is enriched in the large, extended,
+> morphology-rich population the nameability/uncertainty probes most want**. This is a
+> **characterised systematic limitation of the Paper-1 corpus** (recorded in the
+> scratchpad's Risks), accepted deliberately, not a footnote: the paper must not claim
+> coverage of the most extended morphologies.
+>
+> **Policy for the clipped tail (~1.4%).** A galaxy with `R_petro > 20.3″` falls back to
+> the **global average-image masking box** (`data/bbox.py`, already the missing-radius
+> fallback) and is **excluded from the `T2` faint-retention metric** (already the
+> oversized-`R_petro` behaviour, `galaxy_zone_metrics`). No new mechanism.
+>
+> **Decided** (sets the D2 encoder input dim @ 256²). It does **not** affect the asinh-`Q`
+> choice (the median/IQR is over the in-frame majority).
 
 **The pull runs server-side on SciServer Compute (confirmed native-fidelity path).** A
 direct SDSS frame download is infeasible at corpus scale — a hard per-IP HTTP throttle
@@ -196,3 +228,4 @@ Driven from the repo via the SciServer Jobs API (`artifacts/sciserver_*.py`).
 | Normalisation statistic | per-channel mean/std / robust percentiles | **per-channel mean/std, fitted post-stretch** | proposed (recommendation stands) |
 | asinh parameterisation | per-channel `Q` + flux scale / single global | per-channel, tuned on pretraining corpus | open (science) — `Q` chosen via `data/q_sweep.py`; **unfrozen** pending the curve |
 | Stretch-sanity galaxy set | curated faint-arm exemplars / random faint sample | **per-galaxy annulus vs corner sky on a few-thousand random probe sample** (`galaxy_zone_metrics`) | decided |
+| Stamp size (= encoder input dim, no-rebin) | 256 / 288 / 320 px (+ clipped-tail policy) | **256 px** — balance of clip rate (1.38%) vs per-step train compute (320 px ≈ 1.5× attention cost/step for only 0.4–0.7 pp fewer clips); keeps the D2 ViT-S/16@256² anchor as a bonus. Clipped ~1.4% (giants, enriched in extended morphologies) take the global-box + `T2`-exclusion fallback — a characterised corpus limitation | **decided** (sets D2 encoder dim @ 256²) |
