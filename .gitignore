@@ -23,6 +23,7 @@ uv.lock.local
 # Anchored to the repo root so the source package src/galaxy_jepa/data/ is NOT ignored.
 /data/
 /datasets/
+/.sciserver_work/
 checkpoints/
 runs/
 wandb/

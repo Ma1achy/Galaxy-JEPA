@@ -17,6 +17,7 @@ dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2",
     "torch>=2",
+    "tqdm>=4.64",
 ]
 
 [project.optional-dependencies]
@@ -66,6 +67,7 @@ module = [
     "matplotlib.*",
     "requests.*",
     "sklearn.*",
+    "tqdm.*",
     "umap.*",
 ]
 ignore_missing_imports = true

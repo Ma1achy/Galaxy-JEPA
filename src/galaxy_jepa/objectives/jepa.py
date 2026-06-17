@@ -217,7 +217,8 @@ def train_jepa(
     halted = False
 
     data = _cycle(loader)
-    for step in range(cfg.steps):
+    bar = _progress(cfg.steps)
+    for step in bar:
         batch = _to_device(next(data), device)
         lr = cfg.lr * min(1.0, (step + 1) / max(cfg.warmup_steps, 1))
         for group in opt.param_groups:
@@ -237,16 +238,25 @@ def train_jepa(
         loss.backward()
         opt.step()
         jepa.ema_update(ema_momentum(step, cfg.steps, cfg.ema_start, cfg.ema_end))
-        losses.append(float(loss.item()))
+        loss_val = float(loss.item())
+        losses.append(loss_val)
+        _set_postfix(bar, loss=loss_val)
 
         if monitor_batch is not None and step % cfg.monitor_every == 0:
             with torch.no_grad():
                 emb = jepa.encoder.encode(_to_device(monitor_batch, device)["image"].float())
             signals = monitor.update(step, emb)
+            _set_postfix(
+                bar,
+                loss=loss_val,
+                std=signals.std,
+                erank=signals.effective_rank,
+                cos=signals.mean_cosine,
+            )
             logger.info(
                 "step %d: loss=%.4f std=%.4f erank=%.1f cos=%.3f",
                 step,
-                loss.item(),
+                loss_val,
                 signals.std,
                 signals.effective_rank,
                 signals.mean_cosine,
@@ -262,6 +272,26 @@ def train_jepa(
             jepa.encoder, checkpoint_path, extra={"steps": len(losses), "halted": halted}
         )
     return TrainResult(checkpoint, losses, monitor.trace(), halted)
+
+
+def _progress(steps: int) -> Any:
+    """A tqdm progress bar over the step range (loss + collapse metrics + ETA in the postfix).
+
+    tqdm is a core dependency, but fall back to a bare range if it is ever absent so the
+    training loop never depends on a display library being importable.
+    """
+    try:
+        from tqdm.auto import tqdm
+    except ImportError:  # pragma: no cover - tqdm is a declared core dep
+        return range(steps)
+    return tqdm(range(steps), desc="jepa", unit="step", dynamic_ncols=True)
+
+
+def _set_postfix(bar: Any, **fields: float) -> None:
+    """Update the bar's live readout, tolerant of the bare-range fallback."""
+    set_postfix = getattr(bar, "set_postfix", None)
+    if set_postfix is not None:
+        set_postfix(fields, refresh=False)
 
 
 def _cycle(loader: Any) -> Any:
