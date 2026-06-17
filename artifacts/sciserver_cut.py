@@ -34,6 +34,9 @@ from astropy.wcs import WCS
 
 BANDS = ("g", "r", "i")
 STAMP = int(os.environ.get("STAMP_PX", "256"))
+# The job's CWD is a per-job dated subfolder; targets.csv is uploaded to the results root,
+# so the driver passes its absolute path here (falls back to CWD for a manual run).
+TARGETS_CSV = os.environ.get("TARGETS_CSV", "targets.csv")
 FRAME_REL = (
     "dr17/eboss/photoObj/frames/{rerun}/{run}/{camcol}/"
     "frame-{band}-{run:06d}-{camcol}-{field:04d}.fits.bz2"
@@ -98,7 +101,7 @@ def main() -> None:
     if root is None:
         sys.exit("FAIL — no DR17 frames on any mounted volume (is SDSS SAS ticked?)")
 
-    with open("targets.csv", newline="") as fh:
+    with open(TARGETS_CSV, newline="") as fh:
         rows = list(csv.DictReader(fh))
     print(f"[cut] {len(rows)} targets", flush=True)
 
@@ -128,15 +131,18 @@ def main() -> None:
             r = by_id[oid]
             w.writerow({"object_id": oid, **{c: r.get(c, "") for c in src_cols}})
 
-    with tarfile.open("corpus.tar", "w") as tar:
+    # gzip the tar: sky-dominated float32 stamps compress ~2.4x, halving the slow (~2 MB/s)
+    # egress for free — tarfile reads .tar.gz natively, so the corpus layout is unchanged.
+    # compresslevel=1 is fast (the cut is already done; this runs single-threaded after).
+    with tarfile.open("corpus.tar.gz", "w:gz", compresslevel=1) as tar:
         tar.add("out", arcname=".")
 
     rate = len(written) / dt if dt > 0 else 0.0
     n_failed = len(rows) - len(written)
     print(
         f"CUT {len(written)}/{len(rows)} stamps in {dt:.1f}s -> {rate:.2f} gal/s "
-        f"({ncpu} cores); {n_failed} failed; corpus.tar="
-        f"{os.path.getsize('corpus.tar') / 1e6:.1f} MB",
+        f"({ncpu} cores); {n_failed} failed; corpus.tar.gz="
+        f"{os.path.getsize('corpus.tar.gz') / 1e6:.1f} MB",
         flush=True,
     )
 
