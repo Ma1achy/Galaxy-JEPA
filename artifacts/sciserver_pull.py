@@ -59,6 +59,25 @@ def _write_targets(rows: list[dict], path: Path) -> None:
         w.writerows(rows)
 
 
+def _job_output_dir(files_mod, fs, rel: str, jid) -> str:
+    """Resolve <rel>/<date>/<datetime>-<jobid>/ — SciServer runs each job in a dated subdir.
+
+    Falls back to the newest date/subfolder if no folder matches the job id exactly.
+    """
+    dates = sorted(f["name"] for f in files_mod.dirList(fs, rel)["root"].get("folders", []))
+    if not dates:
+        return rel  # nothing nested — use the root
+    for date in reversed(dates):
+        subs = files_mod.dirList(fs, f"{rel}/{date}")["root"].get("folders", [])
+        names = sorted(s["name"] for s in subs)
+        match = next((n for n in names if n.endswith(f"-{jid}")), None)
+        if match:
+            return f"{rel}/{date}/{match}"
+        if names:  # newest date, newest run
+            return f"{rel}/{date}/{names[-1]}"
+    return f"{rel}/{dates[-1]}"
+
+
 def _pick_domain(jobs_mod, prefer: str):
     domains = jobs_mod.getDockerComputeDomains()
 
@@ -131,9 +150,14 @@ def pull(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pref: 
     desc = Jobs.getJobDescription(jid)
     print(f"[pull] job {jid} status={desc.get('status')} (32=ok,64=err) in {time.time() - t0:.0f}s")
 
+    # The job runs in a per-job subfolder <results>/<date>/<datetime>-<jobid>/, NOT the
+    # results root — outputs (cut.log, corpus.tar) land there.
+    job_rel = _job_output_dir(Files, fs, rel, jid)
+    print(f"[pull] job output dir: {job_rel}")
+
     try:
         print("\n----- cut.log (tail) -----")
-        log = Files.download(fs, f"{rel}/cut.log", format="txt")
+        log = Files.download(fs, f"{job_rel}/cut.log", format="txt")
         print("\n".join(log.splitlines()[-12:]))
     except Exception as exc:  # noqa: BLE001
         print(f"[pull] could not read cut.log: {exc}")
@@ -142,7 +166,7 @@ def pull(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pref: 
     out_dir.mkdir(parents=True, exist_ok=True)
     local_tar = work / f"{corpus}_corpus.tar"
     print(f"[pull] downloading corpus.tar -> {local_tar} ...")
-    res = Files.download(fs, f"{rel}/corpus.tar", format="response")
+    res = Files.download(fs, f"{job_rel}/corpus.tar", format="response")
     n = 0
     with local_tar.open("wb") as fh:
         for chunk in res.iter_content(chunk_size=8 << 20):
