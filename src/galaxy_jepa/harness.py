@@ -233,10 +233,13 @@ SliceReport = RunReport
 def build_objective(config: JepaConfig, encoder: VisionTransformer) -> Jepa:
     """Construct the training objective for ``encoder``.
 
-    The **single switch point** for the objective. Today there is one path — the latent-MSE
-    JEPA. A future MAE / contrastive baseline adds its module class and one branch here,
-    keyed off a config field; no name-keyed registry is built until that second consumer
-    actually lands (the repo's "second consumer" rule).
+    The objective switch point. Today there is one path — the latent-MSE JEPA. This is a
+    *partial* seam, not a one-line one: a future MAE / contrastive baseline adds its module
+    class and a branch here **and** must also widen the config type (``JepaConfig`` →
+    Protocol/union), add a second training loop (``train_jepa``'s EMA / latent-MSE loop is
+    JEPA-specific), and adjust ``calibrate``'s predictor-reach — so don't under-scope a
+    baseline as trivial. No name-keyed registry is built until that second consumer actually
+    lands (the repo's "second consumer" rule).
     """
     return Jepa(encoder, config)
 
