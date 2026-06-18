@@ -302,5 +302,12 @@ def _cycle(loader: Any) -> Any:
 def _to_device(batch: dict[str, Any], device: str) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for k, v in batch.items():
-        out[k] = v.to(device) if isinstance(v, torch.Tensor) else v
+        if isinstance(v, torch.Tensor):
+            # MPS has no float64; the collated scalar fields (petro/pixel_scale) come through
+            # as float64 and would fail .to("mps"). Downcast to float32 before the move.
+            if v.dtype == torch.float64:
+                v = v.to(torch.float32)
+            out[k] = v.to(device)
+        else:
+            out[k] = v
     return out

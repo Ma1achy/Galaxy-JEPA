@@ -46,7 +46,7 @@ from galaxy_jepa.data.orchestrate import (
 from galaxy_jepa.data.sources import DirectorySource
 from galaxy_jepa.data.transforms import AsinhStretch, Pipeline
 from galaxy_jepa.models.vit import VisionTransformer, load_frozen_encoder
-from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, train_jepa
+from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, _to_device, train_jepa
 from galaxy_jepa.probing.logistic import Embeddings, extract_embeddings, probe_auc
 
 logger = logging.getLogger(__name__)
@@ -317,7 +317,7 @@ def calibrate(
         except StopIteration:
             it = iter(loader)
             batch = next(it)
-        batch = {k: (v.to(device) if isinstance(v, torch.Tensor) else v) for k, v in batch.items()}
+        batch = _to_device(batch, device)  # casts float64 scalars to float32 (MPS-safe)
         _sync(device)
         t1 = time.perf_counter()
         opt.zero_grad(set_to_none=True)
