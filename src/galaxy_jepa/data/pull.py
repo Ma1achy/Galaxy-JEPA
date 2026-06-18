@@ -68,17 +68,33 @@ def check_join(*, limit: int = 10, data_release: int = 17) -> None:
     logger.info("join check OK: %d rows agree on ra/dec within tolerance", len(rows))
 
 
+_SCISERVER_POINTER = (
+    "--source sciserver is driven from artifacts/sciserver_pull.py, not this package: the "
+    "SciServer token stays in .env/artifacts and never enters the importable package "
+    "(see docs/spec/data.md §3). Run, e.g.:\n"
+    "    python artifacts/sciserver_pull.py --corpus {corpus} --limit {limit} --out {out}\n"
+    "The package's pure pull helpers (chunking, corpus merge) live in galaxy_jepa.data.sciserver."
+)
+
+
 def pull_corpus(
     corpus: str,
     limit: int,
     out_dir: str | Path,
     *,
-    stamp_px: int = 64,
+    source: str = "http",
+    stamp_px: int = 256,
     data_release: int = 17,
     mag_min: float = 14.0,
     mag_max: float = 19.0,
     workers: int = 16,
 ) -> Path:
+    if source == "sciserver":
+        # The token-only-in-artifacts rule: the package never calls the SciServer Jobs API
+        # nor handles the token. Fail loudly with a pointer to the artifacts driver.
+        raise RuntimeError(_SCISERVER_POINTER.format(corpus=corpus, limit=limit, out=out_dir))
+    if source != "http":
+        raise ValueError(f"unknown pull source {source!r}; expected 'http' or 'sciserver'")
     from astropy.io import fits  # lazy: only the live pull needs astropy
 
     sql = (
@@ -87,7 +103,7 @@ def pull_corpus(
         else probe_sql(limit)
     )
     rows = _with_derived(run_sql(sql, data_release=data_release))
-    source = FitsFrameSource(rows, stamp_px=stamp_px, data_release=data_release)
+    frames = FitsFrameSource(rows, stamp_px=stamp_px, data_release=data_release)
 
     # The bottleneck is the remote SDSS frame download, not local CPU — measured: threads
     # plateau ~16 workers and a process pool is *slower* (overhead, no GIL gain). So this is
@@ -96,7 +112,7 @@ def pull_corpus(
     # order → deterministic corpus (ORDER BY). One bad frame is logged and skipped.
     def fetch(i: int) -> tuple[np.ndarray | None, dict[str, Any]]:
         try:
-            image, row = source[i]
+            image, row = frames[i]
             return image, row
         except Exception as exc:  # noqa: BLE001 — one bad frame must not kill the pull
             logger.warning("object %s fetch failed (%s); skipping", rows[i].get("object_id"), exc)
@@ -104,7 +120,7 @@ def pull_corpus(
 
     fetched: list[tuple[np.ndarray, dict[str, Any]]] = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for image, row in pool.map(fetch, range(len(source))):
+        for image, row in pool.map(fetch, range(len(frames))):
             if image is not None:
                 fetched.append((image, row))
 
@@ -202,7 +218,14 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--corpus", choices=["pretrain", "probe"], required=True)
     parser.add_argument("--limit", type=int, default=2000)
     parser.add_argument("--out", type=Path)
-    parser.add_argument("--stamp-px", type=int, default=64)
+    parser.add_argument(
+        "--source",
+        choices=["http", "sciserver"],
+        default="http",
+        help="http: download frames + cut locally (this package). sciserver: native cuts "
+        "server-side — driven from artifacts/sciserver_pull.py (token stays in artifacts).",
+    )
+    parser.add_argument("--stamp-px", type=int, default=256)
     parser.add_argument("--data-release", type=int, default=17)
     parser.add_argument("--check-join", action="store_true", help="run the 10-row join guard")
     parser.add_argument("--workers", type=int, default=16, help="parallel frame-fetch threads")
@@ -211,12 +234,15 @@ def main(argv: list[str] | None = None) -> None:
     if args.check_join:
         check_join(limit=args.limit if args.limit <= 50 else 10, data_release=args.data_release)
         return
+    if args.source == "sciserver":
+        parser.error(_SCISERVER_POINTER.format(corpus=args.corpus, limit=args.limit, out=args.out))
     if args.out is None:
         parser.error("--out is required for a pull")
     pull_corpus(
         args.corpus,
         args.limit,
         args.out,
+        source=args.source,
         stamp_px=args.stamp_px,
         data_release=args.data_release,
         workers=args.workers,

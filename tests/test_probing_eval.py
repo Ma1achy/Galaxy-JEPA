@@ -15,7 +15,12 @@ import pytest
 import torch
 
 from galaxy_jepa.eval.embed import plot_collapse_trace
-from galaxy_jepa.probing.logistic import Embeddings, extract_embeddings, probe_auc
+from galaxy_jepa.probing.logistic import (
+    Embeddings,
+    extract_embeddings,
+    probe_auc,
+    probe_auc_ci,
+)
 
 # Integration tier: the probe needs sklearn and the figures need matplotlib at runtime
 # (the `eval` extra), so these run in the integration job, not the dependency-light gate.
@@ -35,6 +40,20 @@ def _separable(n: int, d: int, seed: int) -> Embeddings:
 def test_probe_recovers_separable_signal():
     auc = probe_auc(_separable(80, 16, 0), _separable(80, 16, 1))
     assert auc > 0.9  # a planted-separable signal must be linearly nameable
+
+
+def test_probe_converges_without_warning(recwarn):
+    from sklearn.exceptions import ConvergenceWarning
+
+    # the standardised probe converges well inside the cap — no ConvergenceWarning
+    probe_auc(_separable(120, 24, 0), _separable(120, 24, 1))
+    assert not [w for w in recwarn.list if issubclass(w.category, ConvergenceWarning)]
+
+
+def test_probe_auc_ci_brackets_the_point_estimate():
+    auc, lo, hi = probe_auc_ci(_separable(120, 16, 0), _separable(120, 16, 1), n_boot=200)
+    assert lo <= auc <= hi
+    assert 0.0 <= lo <= hi <= 1.0
 
 
 def test_probe_rejects_single_class():

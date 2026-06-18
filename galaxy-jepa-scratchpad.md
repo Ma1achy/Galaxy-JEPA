@@ -5,6 +5,25 @@
 
 ---
 
+## Milestone — premise proven at pilot scale (the vertical slice)
+
+The thin vertical slice ran end-to-end and **proved the premise**: a from-scratch JEPA
+(ViT-S/16 @256², EMA target + predictor, latent-MSE, bbox-biased masking) trained label-free
+on this corpus learns galaxy morphology. The frozen-encoder L2-logistic probe on confident
+featured-vs-smooth extremes scores **AUC ≈ 0.91 (95% CI 0.87–0.93, n_test = 370)** — the
+converged figure (StandardScaler + raised `max_iter`; the pilot's 0.900 was an unconverged
+lbfgs, not an artefact). **Both failure modes are ruled out**: no representation collapse
+(the std / effective-rank / mean-cosine trace stayed healthy), and the signal is well above
+chance (not the inconclusive null). The full ~100k-pretrain / ~50k-step interpretable run is
+therefore justified.
+
+This greenlights the rest of the programme (the nameability ladder, controls battery,
+uncertainty geometry, SSL baselines, the embedding explorer) — the slice's spike has since
+been consolidated into a reusable, stamped harness (`galaxy_jepa.harness`) and the SciServer
+pull made first-class (chunked, with the token kept artifacts-only).
+
+---
+
 ## TL;DR
 
 Build a representation of galaxy images **unsupervised** with a JEPA, then use the Galaxy Zoo labels **only as a read-out key** — to name and test directions the representation already learned, never to train it. The labels cannot reshape the encoder's geometry; they can only *misname or blur a read-out direction*. So the experiment **moves label noise out of representation-learning and into a measurement stage where it's inspectable and controllable** — it doesn't pretend the probe is noise-free. The scientific question, per feature: is the human morphological concept a *linearly nameable direction*, an *entangled* or *nonlinear* one, or *absent* from the image information at this resolution?

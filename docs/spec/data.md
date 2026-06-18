@@ -251,6 +251,26 @@ throughput (32-core container) parallelises **17.6×** (no per-IP throttle on th
 volume) to **3.79 gal/s → ~18 h for 250k, ~73 h for 1M** (one-time, chunked across jobs).
 Driven from the repo via the SciServer Jobs API (`artifacts/sciserver_*.py`).
 
+**Artifacts-vs-package split (token-only-in-artifacts).** The SciServer pull is deliberately
+split so the **auth token never enters the importable package**:
+
+* **`artifacts/sciserver_pull.py`** — the live driver: loads the token from `.env`
+  (`_sciserver_auth.authenticate`), picks a compute domain, submits the cut jobs, polls, and
+  downloads the per-chunk `corpus.tar.gz`. *All* token handling and *all* SciServer Jobs/Files
+  API calls live here. `artifacts/` is excluded from lint/CI (it is investigation/ops code,
+  not package code).
+* **`galaxy_jepa.data.sciserver`** — the *pure*, importable, token-free helpers the driver
+  reuses: `chunk_target_ids(ids, max_per_job)` (the **chunking contract**: split the ordered
+  target list so each SciServer job stays under the Small-domain ~1 h timeout cap — ≈12k
+  galaxies at 3.79 gal/s) and `merge_corpora(chunk_dirs, out_dir)` (stitch the per-chunk
+  `DirectorySource` outputs into one corpus + a combined `manifest.json`). No network, no SDK,
+  no secret.
+* **`galaxy_jepa.data.pull --source {http,sciserver}`** — `http` is the in-package
+  frame-download-and-cut path (small slices); `--source sciserver` fails loudly with a pointer
+  to the `artifacts/` driver rather than calling the Jobs API from the package (the token rule).
+  The package default stamp size is now **256 px** (the frozen spec), matching the server-side
+  cutter.
+
 ---
 
 ## 4. Forks
