@@ -260,6 +260,7 @@ Don't reach for JWST to prove the point. SDSS + DESI Legacy are both ground-base
 - Assran et al. 2023 — I-JEPA (the base architecture we build on).
 - **Lens-JEPA** — physics-informed JEPA for **gravitational lensing** (lens detection, mass modelling, dark-matter substructure; NeurIPS ML4PS 2025); beats supervised + vanilla I-JEPA. A *different astrophysical task* (lensing, not morphology) — cited here as precedent for **physics-baked JEPA** (motivates the E(2)-equivariant ViT ablation), not as a morphology-probing competitor.
 - HEP-JEPA — collider physics (arXiv 2502.03933).
+- **J-JEPA** (ucsd-hep-ex, arXiv 2412.05333) — JEPA for self-supervised learning in **jet physics**. Another "JEPA applied to a physics domain" neighbour (alongside Lens-JEPA and HEP-JEPA); a *different domain* (jets, not galaxy morphology), so adjacent-not-colliding — logged to keep the firstness framing exactly as tight as it is, not to broaden the claim.
 
 **Cross-survey domain gap:**
 - DeepAstroUDA (Ćiprijanović et al., ML:S&T 2023) — frames cross-survey morphology as domain adaptation; warns models extract dataset-specific, non-robust features.
