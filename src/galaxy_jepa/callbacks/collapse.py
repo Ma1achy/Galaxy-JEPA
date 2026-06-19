@@ -26,7 +26,21 @@ import math
 
 import torch
 
-__all__ = ["CollapseSignals", "collapse_signals", "CollapseMonitor"]
+__all__ = ["CollapseSignals", "collapse_signals", "effective_rank", "CollapseMonitor"]
+
+
+def effective_rank(svals: torch.Tensor) -> float:
+    """``exp(entropy)`` of the normalised singular-value distribution.
+
+    The collapse-monitor effective-rank kernel, factored out so the probing eigen-analysis
+    (the concept-direction Gram spectrum, ``probing/entanglement.py``) reads the *same*
+    definition the pretraining monitor reports — the repo's second-consumer rule (the
+    second consumer has now arrived). A flat spectrum spreads variance across many
+    directions (erank ≫ 1); a collapsed one concentrates it in one (erank → 1).
+    """
+    p = svals / svals.sum().clamp_min(1e-12)
+    entropy = float(-(p * (p.clamp_min(1e-12)).log()).sum())
+    return math.exp(entropy)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,17 +68,14 @@ def collapse_signals(embeddings: torch.Tensor) -> CollapseSignals:
 
     centred = x - x.mean(dim=0, keepdim=True)
     # singular values of the centred matrix → normalised distribution → entropy → exp.
-    svals = torch.linalg.svdvals(centred)
-    p = svals / svals.sum().clamp_min(1e-12)
-    entropy = float(-(p * (p.clamp_min(1e-12)).log()).sum())
-    effective_rank = math.exp(entropy)
+    erank = effective_rank(torch.linalg.svdvals(centred))
 
     normed = torch.nn.functional.normalize(x, dim=1)
     sim = normed @ normed.t()
     off_diag = sim.sum() - torch.diagonal(sim).sum()
     mean_cosine = float(off_diag / max(n * (n - 1), 1))
 
-    return CollapseSignals(std=std, effective_rank=effective_rank, mean_cosine=mean_cosine, n=n)
+    return CollapseSignals(std=std, effective_rank=erank, mean_cosine=mean_cosine, n=n)
 
 
 class CollapseMonitor:

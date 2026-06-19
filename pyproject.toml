@@ -66,6 +66,7 @@ module = [
     "galaxy_datasets.*",
     "matplotlib.*",
     "requests.*",
+    "scipy.*",
     "sklearn.*",
     "tqdm.*",
     "umap.*",
