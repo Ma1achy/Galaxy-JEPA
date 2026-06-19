@@ -39,6 +39,7 @@ import argparse
 import base64
 import csv
 import json
+import shutil
 import sys
 import tarfile
 import time
@@ -47,6 +48,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _sciserver_auth import authenticate  # noqa: E402
 
+from galaxy_jepa.data.manifest import manifest_hash  # noqa: E402
 from galaxy_jepa.data.metadata import pretrain_sql, probe_sql, run_sql  # noqa: E402
 from galaxy_jepa.data.pull import check_join  # noqa: E402
 from galaxy_jepa.data.sciserver import chunk_target_ids, merge_corpora  # noqa: E402
@@ -54,8 +56,12 @@ from galaxy_jepa.data.sciserver import chunk_target_ids, merge_corpora  # noqa: 
 CUTTER = Path(__file__).with_name("sciserver_cut.py")
 WORK = Path(".sciserver_work")
 
-# SciServer job status codes.
-_DONE = {32, 64}  # SUCCESS, ERROR
+# SciServer job status codes. CANCELED (128) is how the Small domain reports a job that hit
+# its hard ~60-min wall-clock cap — it is a TERMINAL FAILURE, not a transient: treating it as
+# non-terminal made `fetch` poll a dead job until max_wait_min (10 h hang). It is terminal.
+_SUCCESS = 32
+_FAILED = {64, 128}  # ERROR, CANCELED/TIMEOUT
+_TERMINAL = {_SUCCESS} | _FAILED
 
 
 def safe(fn, *args, _tries: int = 6, **kwargs):
@@ -216,11 +222,21 @@ def _fetch_chunk(Jobs, Files, chunk: dict, dest: Path, *, poll_s: int, max_wait_
     status = None
     while (time.time() - t0) < max_wait_min * 60:
         status = safe(Jobs.getJobDescription, jid).get("status")
-        if status in _DONE:
+        if status in _TERMINAL:
             break
         time.sleep(poll_s)
-    if status == 64:
-        sys.exit(f"[fetch] chunk {chunk['k']} job {jid} ERRORED — check cut.log on SciServer")
+    if status in _FAILED:
+        msg = (safe(Jobs.getJobDescription, jid).get("messages") or [{}])[-1].get("content", "")
+        raise RuntimeError(
+            f"[fetch] chunk {chunk['k']} job {jid} did not succeed (status {status}: {msg!r}). "
+            "A CANCELED/TIMEOUT means the cut exceeded the domain's per-job wall-clock cap — "
+            "lower --max-per-job. Re-run --mode full to resume the unfinished chunks."
+        )
+    if status != _SUCCESS:
+        raise RuntimeError(
+            f"[fetch] chunk {chunk['k']} job {jid} still status {status} after {max_wait_min} "
+            "min — giving up. Re-run --mode full to resume."
+        )
 
     fs = Files.getFileServices(verbose=False)[0]
     job_rel = rel
@@ -318,28 +334,201 @@ def fetch(corpus: str, *, poll_s: int = 15, max_wait_min: int = 600) -> None:
     print(f"[fetch] DONE — {n_fits} stamps merged under {out_dir} (+ metadata.csv)")
 
 
+# --- throttled wave orchestration (the scalable path) ------------------------------
+
+
+def _all_targets_path(corpus: str) -> Path:
+    return WORK / f"{corpus}_all_targets.csv"
+
+
+def _save_state(corpus: str, state: dict) -> None:
+    WORK.mkdir(exist_ok=True)
+    _state_path(corpus).write_text(json.dumps(state, indent=2))
+
+
+def _read_all_targets(corpus: str) -> list[dict]:
+    with _all_targets_path(corpus).open(newline="") as fh:
+        return list(csv.DictReader(fh))
+
+
+def _plan_chunks(n_rows: int, max_per_job: int) -> list[dict]:
+    """Contiguous, order-preserving chunks recorded as (offset, n_targets) into the target list."""
+    chunks, off, k = [], 0, 0
+    while off < n_rows:
+        n = min(max_per_job, n_rows - off)
+        chunks.append(
+            {"k": k, "offset": off, "n_targets": n, "status": "pending", "jid": None, "rel": None}
+        )
+        off += n
+        k += 1
+    return chunks
+
+
+def _load_or_plan(corpus: str, limit: int, out_dir: Path, *, stamp_px: int,
+                  max_per_job: int) -> dict:
+    """Resume an in-progress run, or query + chunk a fresh one (state in WORK/<corpus>.job.json)."""
+    sp = _state_path(corpus)
+    if sp.exists():
+        st = json.loads(sp.read_text())
+        if (st.get("limit") == limit and st.get("out_dir") == str(out_dir)
+                and st.get("max_per_job") == max_per_job and "chunks" in st):
+            done = sum(c.get("status") == "done" for c in st["chunks"])
+            print(f"[full] resuming {sp}: {done}/{len(st['chunks'])} chunks already done")
+            return st
+        sys.exit(
+            f"[full] {sp} is for a different run (limit/out/max_per_job differ). Clear it or use "
+            "a fresh --out before starting a new pull."
+        )
+    WORK.mkdir(exist_ok=True)
+    print(f"[full] querying {corpus} metadata (limit={limit}) over SkyServer REST ...")
+    rows, sql = _targets(corpus, limit)
+    _write_targets(rows, _all_targets_path(corpus))
+    st = {"corpus": corpus, "out_dir": str(out_dir), "stamp_px": stamp_px, "query": sql,
+          "limit": limit, "max_per_job": max_per_job,
+          "chunks": _plan_chunks(len(rows), max_per_job)}
+    _save_state(corpus, st)
+    print(f"[full] {len(rows)} targets → {len(st['chunks'])} chunk(s) of ≤{max_per_job}")
+    return st
+
+
+def _accumulate(chunk_dir: Path, out: Path) -> int:
+    """Copy a fetched chunk's stamps into ``out`` and append its metadata rows (incremental merge).
+
+    Per-wave accumulation keeps peak disk at out_dir + one wave's staging, rather than holding
+    every chunk's staging dir until a single final merge. All probe chunks share one header (the
+    same probe_sql), so a plain append is correct; the manifest is written once at the end over
+    the full accumulated object-ID set.
+    """
+    meta = chunk_dir / "metadata.csv"
+    if not meta.exists():
+        raise FileNotFoundError(f"{chunk_dir} has no metadata.csv")
+    with meta.open(newline="") as fh:
+        reader = csv.DictReader(fh)
+        fieldnames = reader.fieldnames or []
+        rows = list(reader)
+    out_meta = out / "metadata.csv"
+    new = not out_meta.exists()
+    with out_meta.open("a", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=fieldnames)
+        if new:
+            w.writeheader()
+        for r in rows:
+            oid = r["object_id"]
+            src = chunk_dir / f"{oid}.fits"
+            if not src.exists():
+                raise FileNotFoundError(f"{chunk_dir} lists {oid} but {src} is missing")
+            shutil.copy2(src, out / f"{oid}.fits")
+            w.writerow(r)
+    return len(rows)
+
+
+def _finalize_manifest(out: Path, query: str | None) -> None:
+    """Write the data_snapshot manifest over the full accumulated corpus (same hash as merge)."""
+    with (out / "metadata.csv").open(newline="") as fh:
+        ids = [int(r["object_id"]) for r in csv.DictReader(fh)]
+    (out / "manifest.json").write_text(
+        json.dumps({"data_snapshot": manifest_hash(ids, query or ""), "n": len(ids),
+                    "query": query or ""}, indent=2) + "\n"
+    )
+
+
+def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pref: str,
+             max_per_job: int, max_concurrent: int, max_waves: int) -> None:
+    """Throttled, resumable pull: submit chunks in waves of ``max_concurrent``, fetch+merge each
+    wave before launching the next.
+
+    The Small domain has NO concurrency cap and a hard ~60-min per-job wall-clock cap; firing
+    every chunk at once oversubscribes the 32 cores so badly that even small chunks time out
+    (observed: 4×12k jobs all CANCELED at 60 min). Throttling to ``max_concurrent`` keeps each
+    job near the staging-measured ~2.63 gal/s so it lands under the cap. State is checkpointed
+    per chunk, so a crash / token expiry / ``--max-waves`` stop resumes cleanly with --mode full.
+    """
+    from SciServer import Files, Jobs
+
+    authenticate()
+    state = _load_or_plan(corpus, limit, out_dir, stamp_px=stamp_px, max_per_job=max_per_job)
+    out = Path(state["out_dir"])
+    out.mkdir(parents=True, exist_ok=True)
+    all_rows = _read_all_targets(corpus)
+
+    domain, image, sdss = _pick_domain(Jobs, domain_pref)
+    print(f"[full] domain={domain.get('name')!r} image={image.get('name')!r}")
+
+    pending = [c for c in state["chunks"] if c["status"] != "done"]
+    waves = [pending[i : i + max_concurrent] for i in range(0, len(pending), max_concurrent)]
+    print(f"[full] {len(state['chunks'])} chunks, {len(pending)} pending → {len(waves)} wave(s) "
+          f"of ≤{max_concurrent}" + (f"; running {max_waves} this invocation" if max_waves else ""))
+
+    ran = 0
+    for w, wave in enumerate(waves):
+        if max_waves and ran >= max_waves:
+            print(f"[full] stopping after {ran} wave(s) (--max-waves); re-run --mode full to resume")
+            break
+        print(f"[full] === wave {w + 1}/{len(waves)}: submit chunks {[c['k'] for c in wave]} ===")
+        for c in wave:
+            rows = all_rows[c["offset"] : c["offset"] + c["n_targets"]]
+            rec = _submit_chunk(Jobs, Files, corpus=corpus, k=c["k"], rows=rows,
+                                stamp_px=state["stamp_px"], domain=domain, image=image, sdss=sdss)
+            c.update(jid=rec["jid"], rel=rec["rel"], status="submitted")
+        _save_state(corpus, state)
+        for c in wave:
+            dest = WORK / f"{corpus}_chunk_{c['k']}"
+            _fetch_chunk(Jobs, Files, {"k": c["k"], "jid": c["jid"], "rel": c["rel"]},
+                         dest, poll_s=15, max_wait_min=90)
+            n = _accumulate(dest, out)
+            c["status"], c["n_written"] = "done", n
+            _save_state(corpus, state)
+            shutil.rmtree(dest, ignore_errors=True)
+            print(f"[full] chunk {c['k']} merged ({n} stamps) → {out}; staging freed")
+        ran += 1
+
+    remaining = [c for c in state["chunks"] if c["status"] != "done"]
+    if not remaining:
+        _finalize_manifest(out, state.get("query"))
+        n_fits = len(list(out.glob("*.fits")))
+        print(f"[full] DONE — {n_fits} stamps under {out} (+ metadata.csv + manifest.json)")
+    else:
+        print(f"[full] PARTIAL — {len(remaining)} chunk(s) remain; re-run --mode full to resume")
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="SciServer native-stamp corpus pull.")
     p.add_argument("--corpus", choices=["pretrain", "probe"], required=True)
     p.add_argument("--limit", type=int, help="required for submit/full")
     p.add_argument("--out", type=Path, help="required for submit/full")
     p.add_argument("--stamp-px", type=int, default=256)
-    # Each SciServer job should stay under the Small-domain ~1 h timeout cap; at ~3.8 gal/s
-    # that is well over 12k galaxies, so 12000 is a safe default chunk size.
-    p.add_argument("--max-per-job", type=int, default=12000, help="targets per SciServer job")
-    # Small Jobs Domain actually runs jobs promptly (32 cores, proven by native_test); the
-    # Large Jobs Domain sat PENDING for 20+ min for this account. Default to Small.
+    # Per-job size is bounded by the Small-domain ~60-min wall-clock cap at the MEASURED cut
+    # rate (~2.63 gal/s under 2-way contention, not the earlier optimistic 3.8): 5000 ≈ 32 min,
+    # wide margin for the unknown sustained rate over a full-length job. The old 12k default ran
+    # 4 jobs straight into the cap. Raise it only on a domain with a longer cap / more cores.
+    p.add_argument("--max-per-job", type=int, default=5000, help="targets per SciServer job")
+    # The Small domain runs ALL submitted jobs at once (no cap) and they contend for its 32
+    # cores; throttling to 2 concurrent keeps each near the measured rate. `full` honours this
+    # (waves); `submit` fires all chunks at once (only safe on a capped/uncontended domain).
+    p.add_argument("--max-concurrent", type=int, default=2, help="jobs per wave (full mode)")
+    p.add_argument("--max-waves", type=int, default=0, help="run at most N waves then stop (0=all)")
+    # Small Jobs Domain runs jobs promptly (32 cores); the Large Jobs Domain sat PENDING for
+    # 20+ min for this account. Default to Small.
     p.add_argument("--domain", default="Small", help="substring of the compute domain name")
     p.add_argument("--mode", choices=["full", "submit", "fetch"], default="full")
     args = p.parse_args(argv)
 
-    if args.mode in ("full", "submit"):
-        if args.limit is None or args.out is None:
-            p.error("--limit and --out are required for submit/full")
-        submit(args.corpus, args.limit, args.out, stamp_px=args.stamp_px,
-               domain_pref=args.domain, max_per_job=args.max_per_job)
-    if args.mode in ("full", "fetch"):
-        fetch(args.corpus)
+    try:
+        if args.mode == "full":
+            if args.limit is None or args.out is None:
+                p.error("--limit and --out are required for full")
+            run_full(args.corpus, args.limit, args.out, stamp_px=args.stamp_px,
+                     domain_pref=args.domain, max_per_job=args.max_per_job,
+                     max_concurrent=args.max_concurrent, max_waves=args.max_waves)
+        elif args.mode == "submit":
+            if args.limit is None or args.out is None:
+                p.error("--limit and --out are required for submit")
+            submit(args.corpus, args.limit, args.out, stamp_px=args.stamp_px,
+                   domain_pref=args.domain, max_per_job=args.max_per_job)
+        elif args.mode == "fetch":
+            fetch(args.corpus)
+    except RuntimeError as exc:
+        sys.exit(str(exc))
 
 
 if __name__ == "__main__":
