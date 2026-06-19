@@ -44,8 +44,10 @@ __all__ = [
 ]
 
 # The slice's single feature. The full dissertation-fixed GZ2 tree (design 2C) extends this
-# mapping — feature name → vote-fraction column — once those columns are in the metadata pull
-# (a surfaced build flag: data/metadata.PROBE_SQL currently pulls only the t01 columns).
+# mapping — feature name → RAW vote-fraction column — over the columns now in the metadata
+# pull (data/metadata.gz2_vote_columns: every t01–t11 answer's `_fraction`). The default now
+# points at the RAW t01 a02 fraction via FEATURED_FRACTION_COL (the debiased column is no
+# longer pulled — it injects z into the target).
 DEFAULT_FEATURE_COLS: dict[str, str] = {"featured": FEATURED_FRACTION_COL}
 
 # The five nuisances (design 3D-i), all from the existing metadata join. The column names are

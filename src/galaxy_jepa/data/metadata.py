@@ -46,22 +46,95 @@ ORDER BY p.objID"""
 #   * psfWidth_r lives in the Field table, not PhotoObjAll;
 #   * redshift is SpecObj.z joined on specObjID = zoo2MainSpecz.specobjid
 #     (zoo2MainSpecz itself has no redshift column — only GZ2 vote fractions).
-#
-# The t01 (smooth-or-features) debiased vote fractions come from zoo2MainSpecz itself.
-# They are the probe label source (docs/spec/data.md): the binary smooth-vs-featured
-# label is derived downstream as `featured = a02_debiased >= 0.5`, and the confident
-# extremes (a02 > 0.8 / < 0.2) are what the uncertainty firewall (data/splits.py) keeps
-# in the axis-fit set. a03 (star/artifact) lets a caller drop non-galaxies.
-PROBE_SQL = """\
+
+# The full GZ2 decision tree (Willett+2013), answer stems grouped by question — verbatim
+# from the zoo2MainSpecz schema. Single source of truth for the vote-fraction pull: the
+# SELECT block is generated from it (:func:`gz2_vote_columns`), so an answer stem cannot
+# silently drift from the catalogue and the raw-only guarantee is enforced in one place.
+GZ2_TREE: dict[str, tuple[str, ...]] = {
+    "t01_smooth_or_features": ("a01_smooth", "a02_features_or_disk", "a03_star_or_artifact"),
+    "t02_edgeon": ("a04_yes", "a05_no"),
+    "t03_bar": ("a06_bar", "a07_no_bar"),
+    "t04_spiral": ("a08_spiral", "a09_no_spiral"),
+    "t05_bulge_prominence": (
+        "a10_no_bulge",
+        "a11_just_noticeable",
+        "a12_obvious",
+        "a13_dominant",
+    ),
+    "t06_odd": ("a14_yes", "a15_no"),
+    "t07_rounded": ("a16_completely_round", "a17_in_between", "a18_cigar_shaped"),
+    "t08_odd_feature": (
+        "a19_ring",
+        "a20_lens_or_arc",
+        "a21_disturbed",
+        "a22_irregular",
+        "a23_other",
+        "a24_merger",
+        "a38_dust_lane",
+    ),
+    "t09_bulge_shape": ("a25_rounded", "a26_boxy", "a27_no_bulge"),
+    "t10_arms_winding": ("a28_tight", "a29_medium", "a30_loose"),
+    "t11_arms_number": (
+        "a31_1",
+        "a32_2",
+        "a33_3",
+        "a34_4",
+        "a36_more_than_4",
+        "a37_cant_tell",
+    ),
+}
+
+# RAW continuous vote variants only. `_debiased` and `_flag` are DELIBERATELY EXCLUDED and
+# the exclusion is enforced below: `_debiased` applies the Willett+2013 redshift correction,
+# which injects z into the target and would contaminate the uncertainty geometry (and fight
+# the z-nuisance control). v2 reads the raw human votes — never debiased.
+GZ2_VOTE_VARIANTS: tuple[str, ...] = ("fraction", "weighted_fraction", "count")
+
+#: Variant suffixes that must NEVER be pulled or stored (redshift-debiased fraction; the
+#: clean-sample flag). The guard in :func:`gz2_vote_columns` is the structural backstop.
+_DISQUALIFIED_VOTE_VARIANTS: tuple[str, ...] = ("debiased", "flag")
+
+
+def gz2_vote_columns() -> list[str]:
+    """Raw GZ2 vote columns: every answer × {``_fraction``, ``_weighted_fraction``, ``_count``}.
+
+    Generated from :data:`GZ2_TREE` so the list cannot drift from the schema. Raises if any
+    generated name carries a disqualified suffix (``_debiased`` / ``_flag``) — the no-debiasing
+    guarantee is structural here, not a convention, because a debiased target would silently
+    corrupt the uncertainty geometry (``docs/spec/data.md``).
+    """
+    cols = [
+        f"{question}_{answer}_{variant}"
+        for question, answers in GZ2_TREE.items()
+        for answer in answers
+        for variant in GZ2_VOTE_VARIANTS
+    ]
+    bad = [c for c in cols if any(v in c for v in _DISQUALIFIED_VOTE_VARIANTS)]
+    if bad:
+        raise ValueError(
+            f"disqualified GZ2 vote column(s) generated: {bad!r} — debiased/flag must never "
+            "be pulled or stored (redshift contamination of the vote target)"
+        )
+    return cols
+
+
+# The probe corpus query. The vote block is generated (raw fractions + weighted fractions +
+# per-answer counts for the full t01–t11 tree); table-level dr7objid/specobjid and the
+# total_classifications/total_votes denominators ride along for join provenance and
+# per-question reach. The binary smooth-vs-featured label and the confident extremes
+# (uncertainty firewall, data/splits.py) are derived downstream from the RAW a02 fraction —
+# no debiasing anywhere in what is pulled or stored. a03 (star/artifact) lets a caller drop
+# non-galaxies.
+PROBE_SQL_TEMPLATE = """\
 SELECT TOP {limit}
-    g.dr8objid AS objID, g.ra, g.dec,
+    g.dr8objid AS objID, g.dr7objid, g.specobjid, g.ra, g.dec,
     s.z AS specz,
     p.petroRad_r, p.petroRadErr_r,
     p.modelMag_r, p.modelMagErr_r,
     f.psfWidth_r,
-    g.t01_smooth_or_features_a01_smooth_debiased,
-    g.t01_smooth_or_features_a02_features_or_disk_debiased,
-    g.t01_smooth_or_features_a03_star_or_artifact_debiased,
+{votes},
+    g.total_classifications, g.total_votes,
     p.run, p.camcol, p.field, p.rerun
 FROM zoo2MainSpecz AS g
 JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
@@ -84,7 +157,8 @@ def pretrain_sql(limit: int, *, mag_min: float = 14.0, mag_max: float = 19.0) ->
 
 
 def probe_sql(limit: int) -> str:
-    return PROBE_SQL.format(limit=int(limit))
+    votes = ",\n".join(f"    g.{col}" for col in gz2_vote_columns())
+    return PROBE_SQL_TEMPLATE.format(limit=int(limit), votes=votes)
 
 
 def join_check_sql(limit: int = 10) -> str:
@@ -93,11 +167,15 @@ def join_check_sql(limit: int = 10) -> str:
 
 # --- GZ2 t01 label derivation -------------------------------------------------------
 
-#: The featured/disk debiased vote fraction — the probe's label source. v -> 1 means
-#: a confident "featured/disk", v -> 0 a confident "smooth". The smooth fraction
-#: (a01_debiased) is very nearly 1 - this for two-way responses, so a02 alone defines
-#: the binary axis without double-counting.
-FEATURED_FRACTION_COL = "t01_smooth_or_features_a02_features_or_disk_debiased"
+#: The featured/disk RAW vote fraction — the probe's label source. v -> 1 means a confident
+#: "featured/disk", v -> 0 a confident "smooth". The smooth fraction (a01_fraction) is very
+#: nearly 1 - this for two-way responses, so a02 alone defines the binary axis without
+#: double-counting.
+#: PROVENANCE: the original slice/pilot AUC (~0.905) was measured on the *debiased* a02
+#: fraction; the switch to the RAW fraction here is deliberate — debiasing applies the
+#: Willett+2013 redshift correction, which injects z into the target (disqualified for v2's
+#: uncertainty geometry and the z-nuisance control). See gz2_vote_columns / GZ2_VOTE_VARIANTS.
+FEATURED_FRACTION_COL = "t01_smooth_or_features_a02_features_or_disk_fraction"
 
 
 def featured_label(featured_fraction: float) -> int:
