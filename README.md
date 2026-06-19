@@ -2,17 +2,15 @@
   <img src="assets/banner.png" alt="Galaxy-JEPA" />
 </p>
 
+> Build a representation of galaxy images unsupervised with a JEPA, then use the Galaxy Zoo labels **only as a read-out key** &mdash; to name and test directions the representation already learned, never to train it. The labels cannot reshape the encoder's geometry; they can only *misname or blur a read-out direction*. So the experiment moves label noise out of representation-learning and into a **measurement stage** where it's inspectable and controllable &mdash; it doesn't pretend the probe is noise-free. The scientific question, per feature: is the human morphological concept a **linearly nameable direction**, an **entangled or nonlinear** one, or **absent** from the image information at this resolution?
+
 # **About**
 
 ---
 
-Learning galaxy morphology *without labels*, then using the Galaxy Zoo votes only to read off what was learned.
+This is **v2 of my undergraduate dissertation** &mdash; a direct follow-on from [Galaxy-Zoo-Classifier](https://github.com/Ma1achy/Galaxy-Zoo-Classifier), which trained supervised CNNs and transformers to reproduce human morphological classifications and found that the models inherited the *confusion* in the crowdsourced labels. v1's finding was that the bottleneck is the *labels*, not the architecture &mdash; the models were as good as the volunteers, confusion and all. Galaxy-JEPA asks what happens if you take the labels out of the learning entirely.
 
-This is **v2 of my undergraduate dissertation** &mdash; a direct follow-on from [Galaxy-Zoo-Classifier](https://github.com/Ma1achy/Galaxy-Zoo-Classifier), which trained supervised CNNs and transformers to reproduce human morphological classifications and found that the models inherited the *confusion* in the crowdsourced labels. Galaxy-JEPA asks what happens if you take the labels out of the learning entirely.
-
-A [JEPA](https://arxiv.org/abs/2301.08243) (Joint-Embedding Predictive Architecture) is trained **self-supervised** on hundreds of thousands of galaxy images: mask out patches, and have the model predict the *representation* of the hidden region from the visible context &mdash; never the pixels, and never a human label. The idea is that to predict a masked galaxy region well, the model has to build an internal representation of what galaxies actually look like &mdash; their shapes, structures and features. The encoder is then **frozen**, and the Galaxy Zoo labels are brought in only as a *read-out key*: to test which human morphological concepts correspond to directions the representation already learned on its own.
-
-> v1's finding was that the bottleneck is the labels, not the architecture &mdash; the models were as good as the volunteers, confusion and all. v2 relocates the label noise *out of representation-learning and into a measurement stage*, where it can be quantified and controlled rather than baked into the weights.
+A [JEPA](https://arxiv.org/abs/2301.08243) (Joint-Embedding Predictive Architecture) is trained **self-supervised** on hundreds of thousands of galaxy images: mask out patches, and have the model predict the *representation* of the hidden region from the visible context &mdash; never the pixels, and never a human label. To predict a masked galaxy region well, the model has to build an internal representation of what galaxies actually look like &mdash; their shapes, structures and features. The encoder is then **frozen**, and the Galaxy Zoo labels are brought in only as a *read-out key*, relocating the label noise out of representation-learning and into a measurement stage where it can be quantified and controlled rather than baked into the weights.
 
 > **Status &mdash; research in progress.** The core premise is proven at pilot scale (see [The First Result](#the-first-result)); the full-scale run and the probing harness are designed and being built. This README is a tour of the project as it stands.
 
