@@ -1,6 +1,9 @@
 # Galaxy-JEPA — Scratchpad
 
 *Working title. v2 of Galaxy-Zoo-Classifier. Status: scoping — living document.*
+
+> The consolidated design spec (`docs/galaxy-jepa-spec.pdf`) is the current design source of
+> truth; this doc predates the confound/inclination/feature-scheme work (see D13, D14).
 *Rev 4 — incorporates second external review: ladder confounds named, uncertainty-geometry circularity fixed, SSL baselines promoted to controls, nuisance-metadata dependency resolved.*
 
 ---

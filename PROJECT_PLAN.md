@@ -3,6 +3,9 @@
 *v2 of Galaxy-Zoo-Classifier. Planning artefact; the design source of truth is
 `galaxy-jepa-scratchpad.md`. British English throughout.*
 
+> The consolidated design spec (`docs/galaxy-jepa-spec.pdf`) is the current design source of
+> truth; this doc predates the confound/inclination/feature-scheme work (see D13, D14).
+
 ---
 
 ## 1. Thesis
@@ -50,20 +53,31 @@ This plan is **Paper 1**; Paper 2 items appear only as deferred markers.
 |---|---|---|---|
 | **P0** Planning & scaffolding | This round | Plan docs + masking note signed off; repo skeleton green (`uv sync`, `pytest`, `pre-commit`) | — |
 | **P1** Env & repo skeleton | Reproducible env | devcontainer builds; `import galaxy_jepa`; CI-lint clean | P0 |
-| **P2** Data layer | GZ2 probing set + **large unlabelled SDSS pretraining set** + nuisance metadata, **small sample end-to-end first** | A small labelled+metadata sample loads as tensors; CasJobs/SkyServer join verified (z, Petrosian mag/radius, SNR, PSF); reliable-label (mean+2σ) filter; **separate unlabelled SDSS pretraining pull** (≫250k) wired in, **including petroRad + arcsec/pixel for the per-galaxy masking box** (distinct from the nuisance join) (D6) | P1 |
+| **P2** Data layer | GZ2 probing set + **large unlabelled SDSS pretraining set** + nuisance metadata, **small sample end-to-end first** | A small labelled+metadata sample loads as tensors; CasJobs/SkyServer join verified (z, Petrosian mag/radius, SNR, PSF); reliable-label (mean+2σ) filter; **separate unlabelled SDSS pretraining pull** (≫250k) wired in, **including petroRad + arcsec/pixel for the per-galaxy masking box** (distinct from the nuisance join) (D6); axis-ratio (`expAB_r`/`deVAB_r`) join for inclination conditioning (D13) | P1 |
 | **P3** Masking module | Bounding-box-biased masking + bbox computation | Mean-image bbox computed; masking matches `docs/masking.md`; β=0 reproduces I-JEPA; sky-waste metric falls with β | P2 |
 | **P4** JEPA model | ViT encoder + predictor + EMA target + latent-MSE | **Overfit-one-batch passes**; **collapse monitor** live (rep variance / rank); shapes correct | P3 |
 | **P5** Pretraining loop | Config-driven pretraining, small scale first | A small pretrain run completes without collapse; EMA + masking-ratio sweep harness (lightweight) | P4 |
-| **P6** Probing harness | Logistic concept directions + ladder + **controls** + uncertainty geometry | Per-feature AUC + calibration; selectivity; negative controls; nuisance battery; non-circular uncertainty Spearman | P5 |
+| **P6** Probing harness | Logistic concept directions + ladder + **controls** + uncertainty geometry | Per-feature AUC + calibration; selectivity; negative controls; nuisance battery; non-circular uncertainty Spearman; conditional-population probing (comparison, not mask); two-scheme feature experiment (Scheme 1 full-37 / Scheme 2 reduced); inclination conditioning (D13, D14) | P5 |
 | **P7** Figures | The three headline figures | All three render from real probe outputs | P6 |
 | **Parallel** arXiv sweep | `docs/related-work.md` | First pass done (this round); follow-ups closed before write-up | — (runs from day 1) |
 | **Baselines** (control) | MAE + contrastive, **same probe ladder**, **all trained on the same SDSS pretraining corpus** | Each baseline encoder probed identically; cross-objective comparison table. MAE = Wu & Walmsley recipe reproduced on SDSS (released Euclid MAE = reference/validation only); contrastive trained on SDSS (D12) | P5 (SDSS-trained baselines) → P6 |
+
+**The confound taxonomy is an interpretive layer, not the spine.** D13's three-way split of human
+confusion (projection / resolution-or-semantic / genuine co-occurrence) is the *mechanism for
+Framing B's earned payoff*, and it is held **pending results** — the paper's spine stays Framing A
+(method + ladder + controls), which stands whatever the taxonomy shows. Inclination conditioning
+is a new axis the existing probe runs along; it does not revise the locked probing sub-systems.
+See `docs/galaxy-jepa-spec.pdf`, §Framing and §Confound.
 
 ### Sanity gates (non-negotiable, from the scratchpad)
 - **Before any real pretrain run:** overfit-one-batch **and** the collapse monitor
   must be in place (P4).
 - **Before any ladder claim:** the controls battery (P6) must be wired in — a rung
   means nothing about the images until selectivity + nuisance probes hold it down.
+- **Before any existence verdict:** the null-draw budget must clear the family-corrected bar
+  (`nulls.assert_null_resolution`). Too few draws make the smallest attainable p exceed the
+  threshold, so every feature fails and the catalogue reads as a scientific null when it is an
+  artefact of the resample count.
 
 ---
 
