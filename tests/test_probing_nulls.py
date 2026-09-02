@@ -237,7 +237,11 @@ def test_add_one_estimator_counts_ties_into_the_tail():
 
 
 def test_the_permutation_p_shares_the_convention():
-    import numpy as np
+    # The claim is the add-one convention, but computing it needs Spearman, and scipy rides in
+    # the `eval` extra — the fast gate installs `dev` only, deliberately, to stay ~2 min. The
+    # scipy-free half of the same convention is pinned above on `existence_pvalue`, so the gate
+    # still guards it when this skips.
+    pytest.importorskip("scipy.stats")  # the exact module `spearman` imports
 
     from galaxy_jepa.probing.uncertainty import permutation_p
 
