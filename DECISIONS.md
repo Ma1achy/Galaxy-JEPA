@@ -11,9 +11,9 @@ doc)**. Tick a box when you sign off.
 
 ---
 
-## D1 — Framework — *needs your call (recommend PyTorch)*
+## D1 — Framework — *decided (signed off): PyTorch*
 
-- [ ] **PyTorch** ☐  ·  Keep TF/Keras (v1) ☐
+- [x] **PyTorch** ☑  ·  Keep TF/Keras (v1) ☐
 
 **Recommendation: PyTorch.** The I-JEPA reference implementations and the SSL /
 interpretability ecosystem (linear probes, CAV/TCAV, SAEs) live in PyTorch, and a
@@ -52,9 +52,9 @@ masking cleanliness, not assumed-optimal accuracy.
 
 ---
 
-## D3 — Environment tooling — *proposed (recommend uv + devcontainer)*
+## D3 — Environment tooling — *decided (signed off): uv + devcontainer*
 
-- [ ] **uv + devcontainer + pytest + pre-commit (ruff), Python 3.11** ☐
+- [x] **uv + devcontainer + pytest + pre-commit (ruff), Python 3.11** ☑
 
 **Recommendation:** match your other repos — **uv** for env, **devcontainer** for
 reproducibility, **pytest** for tests, **pre-commit + ruff** for lint/format.
@@ -63,9 +63,9 @@ supported by PyTorch). Flag if you'd rather pin 3.10 for parity with v1.
 
 ---
 
-## D4 — From-scratch vs ImageNet warm-start — *needs your call (recommend from-scratch)*
+## D4 — From-scratch vs ImageNet warm-start — *decided (signed off): from-scratch*
 
-- [ ] **From-scratch** ☐  ·  ImageNet warm-start ☐
+- [x] **From-scratch** ☑  ·  ImageNet warm-start ☐
 
 **Recommendation: from-scratch.** The central claim is that morphological
 directions are *present before any label*; an ImageNet-initialised encoder imports
@@ -76,9 +76,9 @@ eyes open.
 
 ---
 
-## D5 — Masking strategy — *needs your call (recommend bounding-box-biased; see `docs/masking.md`)*
+## D5 — Masking strategy — *decided (signed off): bounding-box-biased; see `docs/masking.md`*
 
-- [ ] **Bounding-box-biased multi-block** (β-sweep, β=0 = I-JEPA control) ☐
+- [x] **Bounding-box-biased multi-block** (β-sweep, β=0 = I-JEPA control) ☑
 
 **Recommendation:** adopt the scheme in `docs/masking.md`. It is a **strict
 generalisation** of I-JEPA (β=0 reproduces it), adds three knobs (β, τ, φ),
@@ -88,9 +88,9 @@ code.**
 
 ---
 
-## D6 — Pretraining vs probing corpus — *needs your call (recommend decouple; both single-survey)*
+## D6 — Pretraining vs probing corpus — *decided (signed off): decouple; both single-survey*
 
-- [ ] **Decouple corpora** — pretrain on a **large unlabelled SDSS** sample
+- [x] **Decouple corpora** — pretrain on a **large unlabelled SDSS** sample
   (≫250k), probe on the **GZ2-labelled ~250k** ☐
 - [x] **Single-survey for Paper 1** — no multi-survey (that is Paper 2).
 
@@ -134,9 +134,9 @@ Multi-survey scaling + the survey-leakage merge experiment remain **Paper 2**.
 
 ---
 
-## D8 — "Reliable" label filter — *needs your call (recommend reuse v1's mean+2σ)*
+## D8 — "Reliable" label filter — *decided (signed off): reuse v1's mean+2σ method*
 
-- [ ] **Reuse v1 vote-agreement filter (mean + 2σ)** ☐
+- [x] **Reuse v1 vote-agreement filter (mean + 2σ)** ☑
 
 **Recommendation:** reuse v1's agreement filter for **general probe label
 quality**, but note it is **separate** from the uncertainty-geometry protocol —
@@ -191,16 +191,126 @@ to validate the reimplementation, *not* the controlled baseline** (it is
 Euclid-trained). Byline verified and **unchanged**: John F. Wu & Michael Walmsley,
 two co-first authors (see `docs/related-work.md`).
 
-**Contrastive: MoCo (decided), trained on the SDSS corpus.** BYOL is negative-free +
+**Contrastive: MoCo — *sub-decision resolved (signed off)*, trained on the SDSS corpus.** BYOL is negative-free +
 EMA-target — *too architecturally close to JEPA* for a clean Rung-3 contrast; MoCo's
 explicit negatives make it a genuinely different objective, and it is the established
 galaxy-SSL baseline (Hayat et al. 2021, on SDSS — see `docs/related-work.md`).
 
 ---
 
-## Summary — what needs your call
+## D13 — Confound taxonomy + inclination conditioning — *decided (signed off; Framing-B mechanism)*
 
-| # | Fork | Recommendation |
+- [x] **Human confusion has distinct *physical* causes, diagnosed with the label-free encoder.**
+- [x] **Inclination is a first-class conditioning axis; proxy = axis ratio (b/a).**
+
+The label-free encoder never sees votes, so per confused feature we can ask whether the confusion
+is in the **data** (encoder also confused → genuine information limit) or the **humans** (info in
+the pixels; encoder separates what people cannot). Grounded in v1's own correlation analysis,
+confusion splits three ways, each with a distinct fingerprint across the
+**(inclination × imaging-depth)** plane:
+
+1. **Projection** (viewing-angle information loss) — e.g. edge-on disk ↔ cigar elliptical
+   (v1: Edge-on × Cigar = +0.83). Angle-dependent, imaging-depth-**invariant**.
+2. **Resolution *or* semantic** — arm-count, winding, bulge-shape (near-zero v1 off-diagonals).
+   The imaging-depth axis distinguishes them: resolution **improves** with deeper imaging;
+   semantic does not.
+3. **Genuine co-occurrence vs artefactual correlation** *(HYPOTHESIS — unconfirmed)* — bar +
+   spiral structure (v1: Bar × 2-arms = +0.56). The method's hard case: entanglement here may be
+   **correct physics**, not a representation limit. Adjudicated by the eigen-triangulation's
+   causal cross-check (conditional-recoverability under matching).
+
+**Inclination proxy = axis ratio (b/a)** — an *independent photometric* measurement (SDSS
+pipeline, from the pixels), so conditioning on it to study *vote*-confusion is **not circular**
+(using the T01/T07 votes as the proxy *would* be). This is a **new capability on the existing
+probe** (probe within inclination bins / with b/a as covariate) — it does **not** revise the
+locked probing sub-systems.
+
+**Status of the taxonomy for the paper:** it is the *mechanism for Framing-B's earned payoff*,
+held as interpretive lens **pending results** — NOT the paper's spine (which stays Framing-A:
+method + ladder + controls). See the design spec (`docs/galaxy-jepa-spec.pdf`, §Framing,
+§Confound).
+
+**Data-layer consequence:** b/a (`expAB_r`, `deVAB_r`) is SDSS photometry, **not** a GZ2 vote
+column — a **new pull requirement** for the probe corpus, distinct from both the masking pull
+(petroRad + arcsec/pixel) and the nuisance join (z/mag/radius/SNR/PSF). Cheap: a `PhotoObj` join
+on `objID`, no image re-cut.
+
+> **Landed.** `metadata.AXIS_RATIO_SQL` / `pull.pull_axis_ratios` + `pull.merge_columns`; the two
+> columns are in `data/probe-40k/metadata.csv` (40,000/40,000 matched). Deliberately **not** in
+> `probing.extract.DEFAULT_NUISANCE_COLS` — inclination is a conditioning axis, and regressing it
+> out as a nuisance would remove the very thing the taxonomy studies (invariant-tested).
+> **Open:** which axis ratio per population (`expAB` for disks vs `deVAB` for ellipticals) — both
+> are pulled, so the choice stays downstream of the data.
+
+---
+
+## D14 — Feature-set = a two-scheme experiment, conditional-population probing — *decided (signed off)*
+
+- [x] **The feature set is an *experiment over schemes*, not a fixed choice.**
+- [x] **Each feature probed within its conditional population — as a *comparison*, not a hard mask.**
+
+**Conditional-population probing.** The GZ2 tree is conditional: a feature is only well-defined
+within the population that reaches its question (boxy-bulge is meaningless for a no-bulge galaxy —
+v1's "Q4 can't be yes and Q7 can't be no for the same galaxy"). **But do not hard-mask the
+"incoherent" galaxies away** — a no-bulge galaxy carrying boxy-bulge votes is a *measurement of
+human disagreement*, and masking it pre-imposes the tree's logic before testing whether it holds
+(circular). Instead: probe each feature across **different** population definitions (full vs
+consensus-conditional) and **compare**; study the off-population galaxies as their own object
+(concentrated = systematic confusion = finding; scattered = noise). Reuse `data/splits.py`
+firewall machinery. The consensus gate threshold is a **per-run knob**.
+
+**The two schemes (the experiment).**
+- **Scheme 1 — full tree (37 answers, per-bucket)**, each in its conditional population. Honest
+  baseline; expected weak on the v1-confused features (echoes v1 = a finding). BY family = 37.
+  **Power confound:** per-bucket deep-feature weakness is confounded between genuine-absence and
+  split-sample (~9,870 spirals ÷ 6 arm-buckets ≈ 1,600 each) — Scheme 1 alone can't distinguish;
+  do **not** read per-bucket weakness as "absent."
+- **Scheme 2 — reduced/smart**: graded questions → one graded axis each; binary well-posed → one
+  binary feature; odd-subtypes exploratory. BY family ≈ 10–13. Also a **power diagnostic**.
+- **The comparison is a result.** Same ladder both ways ⇒ reduction cosmetic; differ ⇒ reducing
+  changes what's expressible ⇒ a real taxonomy result. **Order: full first** (transparent).
+
+Implementation: **schemes are configs**, one harness (reconfigure, don't rebuild); BY family count
+is per-config. See `docs/galaxy-jepa-spec.pdf`, §Feature-scheme experiment.
+
+> **Landed.** `probing/schemes.py` (`full_tree_scheme` = 37, `reduced_scheme`), the conditional
+> chains as `metadata.GZ2_CONDITIONS`, per-feature eligibility on `LabelProvider`, and the
+> full-vs-conditional comparison in `run_probing` (`ProbingReport.population_comparison`).
+> **Open sub-question — graded-axis existence test (AUC vs correlation).** A graded axis may get a
+> *correlation* test (Spearman/permutation) rather than AUC — but that is the *same measurement*
+> as the uncertainty geometry for that feature, so they may collapse. Binary features keep AUC.
+> **Not resolved:** `FeatureSpec.require_testable()` raises `GradedExistenceTestUndecided` rather
+> than defaulting. Scheme 1 has no graded features, so it runs first and this blocks nothing.
+> **t09 bulge shape — resolved (signed off): one binary feature, boxy versus rounded**,
+> conditioned on edge-on **and** bulge-present. Scheme 2 goes to **10 primaries**, inside the
+> spec's stated band.
+>
+> *Why binary and not a fifth graded axis.* Rounded / boxy / no-bulge is not ordered. The four
+> axes already named are all genuinely ordinal (1→2→3→4→5+; tight→medium→loose;
+> none→just-noticeable→obvious→dominant; round→in-between→cigar). Bulge shape is a categorical
+> contrast with an absence bolted on, and collapsing it to an axis would impose an order that
+> does not exist — the exact failure the graded framing exists to prevent. The two-way contrast
+> also *is* D13's confound-2 deliverable: whether the encoder separates boxy from rounded where
+> humans cannot lives entirely there. The double condition exercises the conditional-population
+> machinery harder than a flat three-way split would.
+>
+> *Rejected-but-**deferred**, not discarded: three per-answer binaries at family 12.* Its one
+> real argument is that t05 and t09 are asked of **disjoint** populations (featured non-edge-on
+> versus featured edge-on), so t09's no-bulge is **not** redundant with t05's low end — it is the
+> same concept measured on the other branch, structurally v1's Q4/Q7 situation. If a cross-branch
+> consistency check is wanted later, family 12 is where it lives.
+>
+> Implementation note: the gate is expressed as the **summed** rounded+boxy share clearing the
+> consensus threshold, not as a negated no-bulge gate, so every condition in the scheme keeps
+> pointing the same way (`schemes.FeatureSpec.condition_groups`).
+
+---
+
+## Summary — decisions and their state
+
+All of D1–D14 are now resolved. The table records what was chosen.
+
+| # | Fork | Decision |
 |---|---|---|
 | D1 | Framework | **PyTorch** |
 | D2 | Backbone | **Clean ViT-S/16 default** (masking-clean); backbone sweep (ViT→CCT/CvT→E(2)) is a rung confound control; CCT fallback if corpus thin |
@@ -211,6 +321,10 @@ galaxy-SSL baseline (Hayat et al. 2021, on SDSS — see `docs/related-work.md`).
 | D8 | Reliable-label filter | **Reuse v1 mean+2σ** (separate from uncertainty protocol) |
 | D12 | Cross-objective baselines | **All trained on the same SDSS corpus** (MAE = reproduce Wu & Walmsley recipe on SDSS; Euclid MAE is reference only) |
 | D12 (sub) | Contrastive choice | **MoCo** (SDSS-trained) — explicit negatives = clean contrast vs JEPA; established galaxy baseline (Hayat) |
+| D13 | Confound taxonomy + inclination | **Axis ratio (b/a) as the non-circular inclination proxy**; taxonomy is the Framing-B interpretive layer, held pending results |
+| D14 | Feature scope | **Two schemes as configs on one harness** (full-37 first, then reduced); conditional population as a **comparison**, never a mask; BY family per-scheme |
 
-Everything else is already settled in the scratchpad and repeated above for the
-record.
+**Still open** (tracked in `docs/galaxy-jepa-spec.pdf` §Open questions register, not re-litigated
+here): the graded-axis existence test (D14); the effect-floor *value*; tie-handling in the
+existence p and the permutation test; the consensus-gate and vote-count thresholds; which axis
+ratio per population (D13).

@@ -28,6 +28,7 @@ import json
 import logging
 import statistics
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,8 @@ from galaxy_jepa.data.sources import DirectorySource
 from galaxy_jepa.data.transforms import AsinhStretch, Pipeline
 from galaxy_jepa.models.vit import VisionTransformer, load_frozen_encoder
 from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, _to_device, train_jepa
+from galaxy_jepa.probing.config import ProbingConfig
+from galaxy_jepa.probing.extract import LabelProvider
 from galaxy_jepa.probing.logistic import (
     Embeddings,
     ProbeResult,
@@ -58,6 +61,13 @@ from galaxy_jepa.probing.logistic import (
     extract_embeddings,
     probe_auc_ci,
     probe_direction,
+)
+from galaxy_jepa.probing.run import ProbingReport, run_probing
+from galaxy_jepa.probing.schemes import (
+    DEFAULT_CONSENSUS_GATE,
+    DEFAULT_VOTE_COUNT_MIN,
+    FeatureScheme,
+    get_scheme,
 )
 
 logger = logging.getLogger(__name__)
@@ -158,6 +168,21 @@ class ProbeConfig(RunConfig):
     c: float = 1.0
 
 
+class ProbingStageConfig(RunConfig):
+    """Whether the full probing battery runs at the end of a training run, and how.
+
+    Off by default, deliberately. The battery is the expensive stage (per-feature nulls, the MLP
+    capacity sweep, ≥10k-shuffle permutations) and the design's own sequencing runs it *after* a
+    **label-blind** checkpoint choice (spec 1C) — not automatically at the end of every training
+    run, where a training loop that ends badly would still burn the probe. Turning it on is a
+    deliberate act; :func:`probe_frozen_checkpoint` is the standalone entry point.
+    """
+
+    enabled: bool = False
+    scheme: str | None = None  # None ⇒ the LabelProvider default; else a probing.schemes name
+    max_galaxies: int | None = None  # truncate the corpus (plumbing smokes only)
+
+
 class HarnessConfig(RunConfig):
     """A complete, stamped run: data corpora + objective + model scale + probe + run knobs."""
 
@@ -174,6 +199,7 @@ class HarnessConfig(RunConfig):
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     model: ModelConfig = Field(default_factory=ModelConfig)
     probe: ProbeConfig = Field(default_factory=ProbeConfig)
+    probing: ProbingStageConfig = Field(default_factory=ProbingStageConfig)
 
     def autocast_dtype(self) -> torch.dtype | None:
         if self.autocast is None:
@@ -379,6 +405,17 @@ def run_harness(config: HarnessConfig) -> RunReport:
         _probe_and_persist(
             frozen, prep.cache, prep.rows, prep.probe_split, config, device, stamp, report
         )
+        # The headline read-out above is one feature; the battery below is the full ladder +
+        # controls + uncertainty geometry (design §2–§4). Both are kept: the headline feeds
+        # RunReport / the explorer blobs, the battery is the scientific deliverable.
+        if config.probing.enabled:
+            probe_frozen_checkpoint(
+                config,
+                checkpoint=result.checkpoint,
+                probing=ProbingConfig(seed=config.seed, ratios=config.ratios, device=config.device),
+                scheme=get_scheme(config.probing.scheme) if config.probing.scheme else None,
+                max_galaxies=config.probing.max_galaxies,
+            )
 
     _write_report(out, report)
     write_stamp(stamp, out, config.model_dump(mode="json"))
@@ -436,6 +473,114 @@ def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = Non
         auc_hi=report.auc_hi if report.auc_hi is not None else float("nan"),
         n_train=report.n_train,
         n_test=report.n_test,
+    )
+
+
+# --- the probing-battery load path (design §2-§4 via probing.run_probing) ------------------
+
+
+def build_label_provider(
+    rows: dict[int, dict[str, Any]],
+    *,
+    feature_cols: Mapping[str, str] | None = None,
+    nuisance_cols: Mapping[str, str] | None = None,
+    scheme: FeatureScheme | None = None,
+    vote_count_min: float = DEFAULT_VOTE_COUNT_MIN,
+    consensus_gate: float = DEFAULT_CONSENSUS_GATE,
+) -> LabelProvider:
+    """Build the probing ``LabelProvider`` over a corpus's metadata rows.
+
+    The one place the harness translates *its* data-layer view (``rows_by_id`` over a
+    ``DirectorySource``) into the probing layer's label view. Kept a named function rather than
+    inlined so the feature-scheme selection (D14) has exactly one seam to enter through.
+    """
+    return LabelProvider(
+        rows,
+        feature_cols=feature_cols,
+        nuisance_cols=nuisance_cols,
+        scheme=scheme,
+        vote_count_min=vote_count_min,
+        consensus_gate=consensus_gate,
+    )
+
+
+def probe_frozen_checkpoint(
+    config: HarnessConfig,
+    *,
+    checkpoint: str | Path | None = None,
+    probing: ProbingConfig | None = None,
+    out_dir: str | Path | None = None,
+    scheme: FeatureScheme | None = None,
+    feature_cols: Mapping[str, str] | None = None,
+    nuisance_cols: Mapping[str, str] | None = None,
+    max_galaxies: int | None = None,
+    emit_figures: bool = True,
+) -> ProbingReport:
+    """Run the **full probing battery** on a frozen checkpoint — the load-bearing joint.
+
+    ``probing.run_probing`` was built and tested against a synthetic encoder; this is the wrapper
+    that hands it a real one. It owns exactly the translation the probing layer refuses to do for
+    itself (the freeze boundary): the baked cache + the corpus metadata → a ``StampDataset`` and a
+    ``LabelProvider``. ``run_probing`` stays objective-free; this function lives in the harness
+    because the harness is the only layer allowed to see both sides.
+
+    Reuses the already-baked fp16 cache under ``config.out_dir`` — the parity lock is the
+    ``pipeline_hash`` the cache directory is keyed on, so probing cannot silently re-preprocess.
+    A ``ProbingConfig`` with ``smoke=True`` marks the artefacts (see that field); ``max_galaxies``
+    truncates the corpus for a plumbing smoke and is itself recorded, since a truncated corpus is
+    a different ``data_snapshot``.
+    """
+    cfg = probing if probing is not None else ProbingConfig(seed=config.seed, ratios=config.ratios)
+    out = (
+        Path(out_dir)
+        if out_dir is not None
+        else Path(config.out_dir) / ("probing_smoke" if cfg.smoke else "probing")
+    )
+    ckpt = Path(checkpoint) if checkpoint is not None else Path(config.out_dir) / "encoder.pt"
+
+    cache = _open_existing_cache(config.out_dir)
+    probe_src = DirectorySource(config.probe_dir)
+    rows = rows_by_id(probe_src.rows)
+
+    # Only galaxies the cache actually holds can be probed; StampDataset intersects, but doing it
+    # here too keeps the truncation deterministic (sorted) rather than dependent on corpus order.
+    probe_ids = sorted(int(r["object_id"]) for r in probe_src.rows)
+    probe_ids = cache.present(probe_ids)
+    if max_galaxies is not None:
+        probe_ids = probe_ids[:max_galaxies]
+    if not probe_ids:
+        raise ValueError(
+            f"no galaxy from {config.probe_dir} is present in the cache under {config.out_dir}: "
+            "the probe corpus was never baked into this run's cache (bake it first)"
+        )
+
+    dataset = StampDataset(cache, rows, probe_ids)
+    labels = build_label_provider(
+        rows,
+        feature_cols=feature_cols,
+        nuisance_cols=nuisance_cols,
+        scheme=scheme,
+        vote_count_min=cfg.vote_count_min,
+        consensus_gate=cfg.consensus_gate,
+    )
+    frozen = load_frozen_encoder(ckpt)
+
+    logger.info(
+        "probing battery: %d galaxies, %d feature(s), %d nuisance(s), checkpoint=%s%s",
+        len(probe_ids),
+        len(labels.features),
+        len(labels.nuisances),
+        ckpt,
+        " [SMOKE — not a result]" if cfg.smoke else "",
+    )
+    return run_probing(
+        frozen,
+        dataset,
+        labels,
+        frozen.config,
+        config=cfg,
+        out_dir=out,
+        emit_figures=emit_figures,
     )
 
 

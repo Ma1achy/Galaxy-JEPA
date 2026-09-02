@@ -144,6 +144,23 @@ corpus. Declared columns (existence checked at Tier-1 `T1.metadata-columns-real`
 | `petroRad_r` (Petrosian radius) | SDSS `PhotoObjAll` | nuisance probe **and** per-galaxy masking box |
 | **`SNR_r`** (image-domain) | **derived: `1.0857 / modelMagErr_r`** | nuisance probe |
 | PSF width (`psfWidth_r`) | SDSS **`Field`** table, joined on `fieldID` | nuisance probe |
+| **`expAB_r` / `deVAB_r`** (axis ratio b/a) | SDSS `PhotoObjAll`, joined on `objID` | **inclination conditioning (D13) — NOT a nuisance regressor** |
+
+The derived SNR column is written as **`snr_r`**, matching the band suffix every other
+photometric column carries. It has one derivation site, `data.pull.with_derived_columns`, which
+both pull paths route through (the HTTP pull inline, the SciServer driver on its target rows
+before the server-side cut) — so a corpus cannot end up without it depending on which driver
+pulled it. `pull.backfill_derived` applies the same function to a corpus already on disk.
+
+**Axis ratio is a conditioning axis, not a nuisance.** `expAB_r` / `deVAB_r` are the
+non-circular inclination proxy (an independent photometric measurement, so conditioning on it to
+study *vote* confusion is legitimate where the t01/t07 votes would be circular). They are
+deliberately **absent** from `probing.extract.DEFAULT_NUISANCE_COLS`: regressing inclination out
+as a nuisance would remove exactly the variation the confound taxonomy exists to study. An
+invariant test pins that separation. Both variants are pulled — which applies per population
+(disk vs elliptical) is an open item. Catalogue-only: `metadata.AXIS_RATIO_SQL` mirrors the probe
+query's FROM/JOIN/ORDER BY, so `TOP n` selects the same deterministic object set, and the top-up
+joins on `objID` with no image re-cut.
 | **t01 debiased vote fractions** (`..._a01_smooth`, `..._a02_features_or_disk`, `..._a03_star_or_artifact`) | `zoo2MainSpecz` | **probe label** + the uncertainty firewall |
 
 *(Schema verified live against DR17: `zoo2MainSpecz` carries ids/coords + the GZ2 vote

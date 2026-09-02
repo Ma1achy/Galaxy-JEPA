@@ -1,27 +1,51 @@
-# Pretraining config (PLACEHOLDER — no training code yet).
-# Values reflect the proposed defaults in DECISIONS.md / docs/masking.md; they are
-# documentation, not a runnable spec, until phases P4–P5 land.
+# Pretraining config — the values `HarnessConfig` / `JepaConfig` actually take.
+# The pilot ran at these settings (bar the corpus size) and cleared its gates: frozen-probe
+# AUC 0.905, no collapse. Load with `RunConfig`-style validation: extra keys are a load-time
+# error, never a silent default.
+#
+#   uv run python -c "from galaxy_jepa.harness import HarnessConfig, run_harness; ..."
 
-model:
-  backbone: vit_s_16        # DECISIONS.md D2
-  image_size: 256           # -> 16x16 = 256 tokens
-  patch_size: 16
-  from_scratch: true        # DECISIONS.md D4
+pretrain_dir: data/pretrain
+probe_dir: data/probe-40k
+out_dir: runs/full
+device: null                # null -> pick_device(): mps / cuda / cpu
+seed: 0
+q: 4.0                      # asinh stretch softening
+norm_sample: 8000           # stamps the Normalise stats are fitted on, then FROZEN
+monitor_frac: 0.02          # pretrain slice held out for the collapse monitor
+autocast: null              # null | bf16 | fp16
+ratios: [0.70, 0.15, 0.15]  # probe train / val / test
 
-masking:                    # docs/masking.md
-  scheme: bbox_biased
-  beta: 0.0                 # 0.0 == standard I-JEPA (control); sweep {0, 0.5, 1.0}
-  tau: 0.085                # mean-image brightness threshold for the bbox
-  num_targets: 4
-  target_scale: [0.15, 0.20]
-  target_aspect: [0.75, 1.50]
-  context_scale: [0.85, 1.00]
-  min_overlap_floor: 0.0    # optional hard constraint, off by default
+model:                      # clean ViT-S/16 (D2) — no conv stem, so masking semantics stay
+  patch_size: 16            # unambiguous. Stamp size comes from the baked cache, not from here.
+  embed_dim: 384
+  depth: 12
+  heads: 6
+  mlp_ratio: 4.0
 
-data:
-  survey: sdss_gz2          # single-survey (Paper 1)
-  augment: [rotate, reflect]
+objective:                  # docs/masking.md; the JEPA recipe
+  beta: 0.5                 # headline. 0.0 == standard I-JEPA (the control); sweep {0, 0.5, 1.0}
+  petro_k: 2.5              # per-galaxy box half-width = k * R_petro, clamped
+  global_box_frac: 0.4      # the fallback box when petroRad is missing/<=0
+  steps: 50000              # the interpretable full run (the pilot was 6k)
+  batch_size: 32            # measured: MPS is compute-bound here (runs/calib2.log)
+  lr: 0.001
+  weight_decay: 0.04
+  warmup_steps: 100
+  ema_start: 0.996
+  ema_end: 1.0
+  pred_dim: 192
+  pred_depth: 6
+  pred_heads: 6
+  monitor_every: 100
 
-train:
-  ema_schedule: null        # to be specified in P5
-  collapse_monitor: true    # gate before any real run (P4)
+probe:                      # the single-feature headline read-out (NOT the battery below)
+  label_col: t01_smooth_or_features_a02_features_or_disk_fraction   # RAW, never debiased
+  extreme_low: 0.2
+  extreme_high: 0.8
+  c: 1.0
+
+probing:                    # the full battery — off by default; see ProbingStageConfig
+  enabled: false            # the design runs it after a LABEL-BLIND checkpoint choice (spec 1C)
+  scheme: full_tree         # D14 order: full tree first, then `reduced`
+  max_galaxies: null

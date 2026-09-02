@@ -13,8 +13,8 @@ gradient it is later asked to reproduce. This module is the *measurement* on top
 
 * **Spearman (rank) primary** — robust to the projection's arbitrary scale, assumes no linear
   form. **Pearson secondary.**
-* **FLAGGED (4): the permutation-test mechanics** — the statistic and the shuffle loop are
-  built; :func:`permutation_p` carries the placeholder p-definition.
+* **Permutation test (decision 4, grounded)** — shuffle the *vote fractions*, recompute
+  Spearman, locate the real value in that null; ≥10,000 shuffles, two-tailed.
 """
 
 from __future__ import annotations
@@ -66,13 +66,18 @@ def permutation_p(
     method: str = "two_sided",
     seed: int = 0,
 ) -> float:
-    """Permutation-test p for the observed Spearman against a shuffled-fraction null (design 4A).
+    """Permutation p for the observed Spearman against a shuffled-fraction null — grounded.
 
-    FLAGGED: pending stats grounding — do not finalise. Shuffle the vote fractions, recompute
-    Spearman ``n_perm`` times, locate the real value in that null. Placeholder: the add-one
-    empirical p, two-sided (``|null| ≥ |observed|``) or one-sided-greater per ``method``. The
-    grounding session owns *what the resulting p means here* and the tail definition; only this
-    function changes.
+    Decision (4): shuffle **the vote fractions** (not the projections — the fractions are the
+    thing whose correspondence to the geometry is under test), recompute Spearman ``n_perm``
+    times, and locate the real value in that null. ≥10,000 shuffles, two-tailed
+    (``|null| ≥ |observed|``); the floor is enforced on ``ProbingConfig.n_perm``, and a run that
+    wants fewer must declare the ``reduced_permutations`` escape hatch so the forfeit is stamped.
+
+    The estimator is the add-one empirical p, so a finite shuffle count can never report exactly
+    zero. ``method='greater'`` is retained for a one-sided reading, not as the default.
+
+    OPEN (spec register item 9): tie-handling.
     """
     rng = np.random.default_rng(seed)
     observed = spearman(distances, fractions)
@@ -122,7 +127,9 @@ def uncertainty_geometry(
     ``assert_uncertainty_firewall`` raises if any ambiguous-middle fraction leaked into it —
     so the non-circularity is enforced structurally, not by convention.
     """
-    present = [int(o) for o in ids if int(o) in matrix.index]
+    # Same eligibility the ladder uses, so the axis is fitted on the same population its rung
+    # verdict was assigned on (a different population here would silently change the claim).
+    present = labels.eligible(feature, [int(o) for o in ids if int(o) in matrix.index])
     fractions: dict[object, float] = {
         o: float(labels.vote_fraction(feature, [o])[0]) for o in present
     }

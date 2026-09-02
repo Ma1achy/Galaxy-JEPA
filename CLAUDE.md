@@ -1,8 +1,10 @@
 # CLAUDE.md — Galaxy-JEPA working conventions
 
-Guidance for working in this repo. The design source of truth is `docs/architecture.md` +
-`docs/architecture-buildout.md` + `docs/spec/`; this file is the quick reference for the
-hard-won conventions that aren't obvious from the code.
+Guidance for working in this repo. The **science** design source of truth is
+`docs/galaxy-jepa-spec.pdf` (consolidated spec: D1–D14, the five grounded statistical
+decisions, and an open-questions register); the **engineering** contracts are
+`docs/architecture.md` + `docs/architecture-buildout.md` + `docs/spec/`. This file is the quick
+reference for the hard-won conventions that aren't obvious from the code.
 
 ## What this is
 
@@ -47,13 +49,24 @@ is only trustworthy if the experimental guardrails are structural — hence the 
 - **Provenance is structural.** A run is determined by `(config_hash, code_sha, data_snapshot,
   seed)` — `core.config.RunStamp`; every artefact is stamped via `write_stamp`. `data_snapshot`
   is the manifest hash over the object IDs + the pull query, not a hand-bumped string.
+- **A deviation is declared, not hidden.** Weakening a grounded default (e.g. running below the
+  ≥10,000-shuffle permutation floor) requires naming it in `ProbingConfig.escape_hatches`, which
+  stamps the forfeit onto the artefact. A run that only exercises plumbing sets
+  `ProbingConfig.smoke`, which both changes the config hash and stamps `smoke` — so a smoke can
+  never be read back as a result.
+- **A bar you cannot reach is an error, not a null.** The existence test's resolution is
+  `1/(n_null_draws+1)`; if that exceeds the family-corrected threshold, *every* feature fails and
+  the catalogue looks like a scientific null. `nulls.assert_null_resolution` refuses to run.
+  Scheme 1's BY family of 37 needs ≥3,109 draws per feature.
 
 ## Token-only-in-artifacts
 
 The SciServer auth token lives **only** in the gitignored `.env` and is read **only** inside
 `artifacts/` (`artifacts/_sciserver_auth.py`, `artifacts/sciserver_pull.py`). It must never
 enter the importable package (`src/galaxy_jepa/`). The package contributes only *pure*,
-token-free pull helpers (`data/sciserver.py`: `chunk_target_ids`, `merge_corpora`);
+token-free pull helpers (`data/sciserver.py`: `chunk_target_ids`, `merge_corpora`; and
+`data/pull.py`'s `with_derived_columns` / `backfill_derived` / `merge_columns`, which the
+artifacts driver imports so both pull paths share one derivation site);
 `pull.py --source sciserver` fails loudly with a pointer to the artifacts driver rather than
 calling the Jobs API. The account is federated Microsoft SSO — **no password login**; the
 token is refreshed manually and goes stale (see the user-memory note). Never print/log/commit

@@ -34,6 +34,9 @@ tests/fixtures/synthetic/
 *.ckpt
 *.pt
 
+# Design-spec delivery archives (the extracted docs/ files are what's tracked).
+galjep.zip
+
 # OS / editor
 .DS_Store
 .idea/

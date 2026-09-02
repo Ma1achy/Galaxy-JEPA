@@ -133,16 +133,25 @@ def untrained_encoder_matrix(
     *,
     device: str = "cpu",
     batch_size: int = 128,
+    seed: int = 0,
 ) -> EmbeddingMatrix:
     """Real images through a **frozen random-init ViT** → the "pretraining mattered" null (3C-4).
 
     A fresh ``VisionTransformer`` from the same constructor record, frozen without training,
     so the only difference from the real encoder is the learned weights. Imports ``models``
     (not ``objectives``) — the freeze boundary holds.
+
+    **The initialisation is seeded**, and it has to be. This control is routinely the *strongest*
+    of the five nulls, so it sets the existence bar; an unseeded random ViT makes the bar move
+    between runs, and a verdict that is not reproducible from
+    ``(config_hash, code_sha, data_snapshot, seed)`` is not stamped provenance at all. Left
+    unseeded this manifests as a feature flipping R1↔R3 on reruns of the identical config.
     """
     from galaxy_jepa.models.vit import VisionTransformer
 
-    untrained = VisionTransformer(**dict(model_config))
+    with torch.random.fork_rng(devices=[]):  # scoped: never disturbs the caller's global RNG
+        torch.manual_seed(seed)
+        untrained = VisionTransformer(**dict(model_config))
     untrained.eval()
     for p in untrained.parameters():
         p.requires_grad_(False)
@@ -252,10 +261,14 @@ def build_feature_controls(
     the resamplable nulls (shuffled, random-embedding) are drawn here, the encoder-source
     nulls (noise, untrained) are read from ``controls``.
     """
-    from galaxy_jepa.probing.extract import feature_embeddings
+    from galaxy_jepa.probing.extract import feature_embeddings, feature_ids
 
     real_train = feature_embeddings(controls.real, labels, feature, train_ids)
     real_test = feature_embeddings(controls.real, labels, feature, test_ids)
+    # Every co-indexed vector below is built over *these* ids, not the raw split: the
+    # eligibility filter shortens the feature's rows, so the raw list would misalign.
+    eligible_tr = feature_ids(controls.real, labels, feature, train_ids)
+    eligible_te = feature_ids(controls.real, labels, feature, test_ids)
 
     shuffled = shuffled_label_nulls(real_train, real_test, n_draws=n_draws, c=c, seed=seed)
     random_emb = random_embedding_nulls(real_train, real_test, n_draws=n_draws, c=c, seed=seed + 1)
@@ -268,19 +281,17 @@ def build_feature_controls(
     untrained_test = feature_embeddings(controls.untrained, labels, feature, test_ids)
     untrained_auc = _safe_auc(untrained_train, untrained_test, c=c)
 
-    sky_train = _binary_column(labels, sky_label_col, train_ids)
-    sky_test = _binary_column(labels, sky_label_col, test_ids)
+    sky_train = _binary_column(labels, sky_label_col, eligible_tr)
+    sky_test = _binary_column(labels, sky_label_col, eligible_te)
     sky_auc = sky_noise_label_auc(real_train, real_test, sky_train, sky_test, c=c)
 
-    train_present = _present(controls.real, train_ids)
-    test_present = _present(controls.real, test_ids)
     nuisance_aucs: dict[str, float] = {}
     for name in labels.nuisances:
         nz_train = Embeddings(
-            real_train.x, labels.nuisance_label(name, train_present), real_train.fraction
+            real_train.x, labels.nuisance_label(name, eligible_tr), real_train.fraction
         )
         nz_test = Embeddings(
-            real_test.x, labels.nuisance_label(name, test_present), real_test.fraction
+            real_test.x, labels.nuisance_label(name, eligible_te), real_test.fraction
         )
         nuisance_aucs[name] = _safe_auc(nz_train, nz_test, c=c)
 
@@ -295,10 +306,6 @@ def build_feature_controls(
         selectivity=selectivity(real_auc, shuffled),
         nuisance_aucs=nuisance_aucs,
     )
-
-
-def _present(matrix: EmbeddingMatrix, ids: Sequence[int]) -> list[int]:
-    return [int(o) for o in ids if int(o) in matrix.index]
 
 
 def _binary_column(labels: LabelProvider, col: str, ids: Sequence[int]) -> np.ndarray:

@@ -50,7 +50,7 @@ from _sciserver_auth import authenticate  # noqa: E402
 
 from galaxy_jepa.data.manifest import manifest_hash  # noqa: E402
 from galaxy_jepa.data.metadata import pretrain_sql, probe_sql, run_sql  # noqa: E402
-from galaxy_jepa.data.pull import check_join  # noqa: E402
+from galaxy_jepa.data.pull import check_join, with_derived_columns  # noqa: E402
 from galaxy_jepa.data.sciserver import chunk_target_ids, merge_corpora  # noqa: E402
 
 CUTTER = Path(__file__).with_name("sciserver_cut.py")
@@ -104,7 +104,10 @@ def _targets(corpus: str, limit: int) -> tuple[list[dict], str]:
     rows = _net_retry(run_sql, sql)
     if not rows:
         sys.exit(f"no rows from {corpus} SQL (limit={limit})")
-    return rows, sql
+    # The package's single derivation site (object_id + snr_r). sciserver_cut.py passes every
+    # target column straight through to metadata.csv, so deriving here is what puts the SNR
+    # nuisance in the corpus — the HTTP path in data/pull.py calls the same function.
+    return with_derived_columns(rows), sql
 
 
 def _write_targets(rows: list[dict], path: Path) -> None:

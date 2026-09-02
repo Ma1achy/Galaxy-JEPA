@@ -172,6 +172,7 @@ The stack is PyTorch for the model (with [Apple MPS](https://developer.apple.com
 | `src/galaxy_jepa/objectives/` | The JEPA objective and training loop |
 | `src/galaxy_jepa/probing/` | The frozen read-out probes |
 | `src/galaxy_jepa/harness.py` | The reusable train &rarr; freeze &rarr; probe &rarr; figures entrypoint |
+| `docs/galaxy-jepa-spec.pdf` | Consolidated design spec (science + paper skeleton) &mdash; the reconciled design source of truth |
 | `docs/spec/` | Specifications for the encoder, config, gates, data, splits and validation |
 | `artifacts/` | Networked, credential-touching pull glue (kept out of the importable package) |
 | `.devcontainer/` | Dev container (uv-based) |

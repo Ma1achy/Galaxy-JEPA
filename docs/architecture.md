@@ -2,6 +2,8 @@
 
 *Status: design proposal. The engineering counterpart to `galaxy-jepa-scratchpad.md` — the scratchpad is the **science** source of truth, this is the **codebase** source of truth. If a design choice here changes the science, it's proposed as a scratchpad edit, not made silently.*
 
+*The **science** source of truth is now `galaxy-jepa-spec.pdf` (the consolidated design spec, incl. D13/D14 and the five grounded statistical decisions); the scratchpad predates it and points there.*
+
 *Informed by the M1 (Developer SDK) design of Prism — its invariants, its normal/power/hard-invariant taxonomy, its gates, and its "the model is just an `nn.Module`" stance. It borrows those **patterns**, not Prism's platform machinery (see "What we deliberately do not build").*
 
 ---

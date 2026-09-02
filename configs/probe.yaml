@@ -1,18 +1,57 @@
-# Probing config (PLACEHOLDER — no probing code yet).
-# Documents the canonical probe + mandatory controls (PROJECT_PLAN.md P6).
+# Probing config — the fields `ProbingConfig` takes. One of these fully determines a probing
+# run and is hashed into the artefact stamp.
+#
+# The five statistical decisions below are GROUNDED (docs/galaxy-jepa-spec.pdf §Statistics),
+# not placeholders. What is still open is marked OPEN.
 
-probe:
-  canonical: l2_logistic    # DECISIONS.md D7
-  robustness: mean_diff_cav # entanglement signal via logistic-vs-CAV disagreement
-  label_scheme: reduced     # hubble | reduced | all (ported from v1 keys.py)
-  reliable_label_filter: mean_plus_2sigma  # DECISIONS.md D8
+smoke: false                # true -> stamps `smoke` into escape_hatches_used; NOT a result
+escape_hatches: []          # a declared deviation from a grounded default, e.g.
+                            #   [reduced_permutations] to run below the ≥10,000-shuffle floor
+scheme_name: full_tree      # D14: full_tree (37) first, then reduced
+seed: 0
+ratios: [0.70, 0.15, 0.15]
+extreme_low: 0.2            # the uncertainty firewall: axis fits on v<=0.2 or v>=0.8 only
+extreme_high: 0.8
+device: null
 
-controls:                   # mandatory, ship with the probe (not after)
-  selectivity: true         # Hewitt-Liang real-minus-control
-  negative_controls: [shuffled_votes, random_labels, random_embeddings, metadata_bins, sky_noise]
-  nuisance_probes: [redshift, magnitude, petrosian_radius, snr, psf]
+# --- conditional population (D14) — a COMPARISON, never a mask -------------------------
+compare_populations: true   # runs the ladder on the full AND the consensus-conditional set
+consensus_gate: 0.5         # OPEN (spec register 2): which upstream vote, which threshold
+vote_count_min: 21          # OPEN (spec register 3): v1's mean+2σ method; value to re-derive
 
-uncertainty_geometry:       # non-circular protocol
-  train_split: extremes     # v > 0.8 vs v < 0.2 (binary)
-  test_split: middle        # held-out 0.2 < v < 0.8
-  metric: spearman          # margin distance vs vote fraction
+# --- the canonical probe ---------------------------------------------------------------
+c: 1.0                      # L2 inverse-strength (D7)
+n_boot: 2000
+
+# --- existence + effect floor (decisions 1 and 2) — two gates, both must pass -----------
+alpha: 0.05
+n_null_draws: 50            # sets the test's RESOLUTION: min attainable p = 1/(n+1).
+                            # Scheme 1 (BY family 37) needs >= 3109, or nothing can pass —
+                            # `nulls.assert_null_resolution` refuses rather than returning an
+                            # empty catalogue that reads like a scientific null.
+effect_floor: 0.65          # OPEN (spec register 4): mechanism settled, VALUE is -M's call
+
+# --- multiplicity (decision 3) ---------------------------------------------------------
+multiplicity: benjamini_yekutieli   # correlated tests; FDR is the right target
+n_primary_tests: null       # null -> the active scheme's family size (per-scheme, not global)
+
+# --- selectivity / nuisance triggers (not among the five; still flagged) ----------------
+selectivity_floor: 0.10
+nuisance_competitive_margin: 0.0
+
+# --- entanglement (decision 5) ---------------------------------------------------------
+mp_method: upper_edge       # MP edge for the ACTUAL matrix shape; tracy_widom raises
+entangled_pair_quantile: 0.90
+
+# --- MLP capacity ladder (the one site still FLAGGED) ----------------------------------
+mlp_widths: [16, 32, 64, 128, 256, 512]
+mlp_depth: 1
+mlp_weight_decay: 0.0001
+mlp_epochs: 200
+mlp_lr: 0.001
+ceiling_method: null_quantile
+ceiling_null_quantile: 0.95 # FLAGGED: the selectivity-ceiling predicate is unmapped
+
+# --- uncertainty geometry (decision 4) -------------------------------------------------
+permutation_method: two_sided
+n_perm: 10000               # hard floor; lower it only with the declared escape hatch

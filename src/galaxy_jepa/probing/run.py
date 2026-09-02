@@ -43,10 +43,36 @@ class ProbingReport:
     figures: dict[str, str]
     out_dir: str
     data_snapshot: str
+    scheme: str | None = None
+    family_size: int | None = None
+    conditional: LadderResult | None = None
 
     def rung_table(self) -> dict[str, str]:
         """Feature → rung, the one-line story (Figure 1's content)."""
         return {f: v.rung for f, v in self.ladder.verdicts.items()}
+
+    def population_comparison(self) -> dict[str, dict[str, Any]]:
+        """Per-feature full-vs-conditional comparison — the D14 result, not a filtered rerun.
+
+        Empty when the conditional ladder was not run. ``rung_changed`` is the headline: a
+        feature whose verdict is the same either way says the tree's conditioning is cosmetic
+        *for that feature*; one that changes says the population definition is doing real work.
+        """
+        if self.conditional is None:
+            return {}
+        out: dict[str, dict[str, Any]] = {}
+        for feature, full in self.ladder.verdicts.items():
+            cond = self.conditional.verdicts.get(feature)
+            if cond is None:
+                continue
+            out[feature] = {
+                "rung_full": full.rung,
+                "rung_conditional": cond.rung,
+                "rung_changed": full.rung != cond.rung,
+                "auc_full": full.metrics.get("auc"),
+                "auc_conditional": cond.metrics.get("auc"),
+            }
+        return out
 
 
 def run_probing(
@@ -57,7 +83,7 @@ def run_probing(
     *,
     config: ProbingConfig,
     out_dir: str | Path,
-    sky_label_col: str = "snr",
+    sky_label_col: str = "snr_r",
     emit_figures: bool = True,
 ) -> ProbingReport:
     """Run the full probing battery on a frozen encoder and stamp the artefacts.
@@ -79,14 +105,39 @@ def run_probing(
 
     # Phase 0b: the per-encoder control sources (untrained encoder; noise through real encoder).
     device = config.device or "cpu"
-    untrained = ctl.untrained_encoder_matrix(model_config, dataset, device=device)
+    untrained = ctl.untrained_encoder_matrix(model_config, dataset, device=device, seed=config.seed)
     noise = ctl.noise_through_encoder_matrix(encoder, dataset, device=device, seed=config.seed)
     controls = ctl.ControlEmbeddings(real=real, untrained=untrained, noise=noise)
 
-    # Phases 1–5: the gated cascade.
+    # The BY family size is per-scheme, never a global constant: an explicit config value wins,
+    # else the active scheme's primary count, else the number of features actually probed.
+    scheme = getattr(labels, "scheme", None)
+    if config.n_primary_tests is not None:
+        family_size = config.n_primary_tests
+    elif scheme is not None:
+        family_size = scheme.family_size()
+    else:
+        family_size = len(labels.features)
+    config = config.model_copy(update={"n_primary_tests": family_size})
+
+    # Phases 1–5: the gated cascade, on the full population.
     ladder = run_ladder(
         controls, labels, train_ids, test_ids, config=config, sky_label_col=sky_label_col
     )
+
+    # Phase 5b: the same ladder again on the consensus-conditional population (D14). This is a
+    # *comparison*, so both ladders are kept and neither filters the other — the off-population
+    # galaxies stay in the full run, where a concentrated disagreement is itself a finding.
+    conditional: LadderResult | None = None
+    if scheme is not None and config.compare_populations and labels.population == "full":
+        conditional = run_ladder(
+            controls,
+            labels.with_population("conditional"),
+            train_ids,
+            test_ids,
+            config=config,
+            sky_label_col=sky_label_col,
+        )
 
     # Phase 6: uncertainty geometry on the R1/R2 features only (4B) — gated on recoverability.
     uncertainty: dict[str, unc.UncertaintyGeometry] = {}
@@ -109,21 +160,42 @@ def run_probing(
     figures: dict[str, str] = {}
     if emit_figures:
         figures = _emit_figures(ladder, uncertainty, out)
-    _write_summary(ladder, uncertainty, out)
-
-    data_snapshot = manifest_hash(ids, f"probe|seed={config.seed}|ratios={config.ratios}")
-    stamp = RunStamp.create(
-        config.model_dump(mode="json"), data_snapshot=data_snapshot, seed=config.seed
-    )
-    write_stamp(stamp, out, config.model_dump(mode="json"))
-
-    return ProbingReport(
+    report = ProbingReport(
         ladder=ladder,
         uncertainty=uncertainty,
         figures=figures,
         out_dir=str(out),
-        data_snapshot=data_snapshot,
+        data_snapshot=manifest_hash(ids, f"probe|seed={config.seed}|ratios={config.ratios}"),
+        scheme=scheme.name if scheme is not None else None,
+        family_size=family_size,
+        conditional=conditional,
     )
+    _write_summary(
+        ladder,
+        uncertainty,
+        out,
+        scheme=report.scheme,
+        family_size=family_size,
+        comparison=report.population_comparison(),
+    )
+
+    stamp = RunStamp.create(
+        config.model_dump(mode="json"),
+        data_snapshot=report.data_snapshot,
+        seed=config.seed,
+        # A declared deviation and a smoke marking both land in the power-path ledger, so an
+        # artefact carries what it forfeited rather than looking like a clean run.
+        escape_hatches_used=(
+            [*config.escape_hatches]
+            + (["smoke"] if config.smoke else [])
+            # An unfrozen floor is a forfeited guarantee, not a neutral default: the run's
+            # clean-vs-marginal line was set by a placeholder. Say so on the artefact.
+            + ([] if config.effect_floor_freeze is not None else ["effect_floor_open"])
+        )
+        or None,
+    )
+    write_stamp(stamp, out, config.model_dump(mode="json"))
+    return report
 
 
 def _emit_figures(
@@ -151,7 +223,13 @@ def _emit_figures(
 
 
 def _write_summary(
-    ladder: LadderResult, uncertainty: dict[str, unc.UncertaintyGeometry], out: Path
+    ladder: LadderResult,
+    uncertainty: dict[str, unc.UncertaintyGeometry],
+    out: Path,
+    *,
+    scheme: str | None = None,
+    family_size: int | None = None,
+    comparison: dict[str, dict[str, Any]] | None = None,
 ) -> Path:
     """Persist the rung table + the gate verdict trees + uncertainty stats as JSON."""
     summary = {
@@ -168,10 +246,30 @@ def _write_summary(
             f: {"real_auc": e.real_auc, "pvalue": e.pvalue, "exceeds_null": e.exceeds_null}
             for f, e in ladder.existence.items()
         },
+        # Which control set the bar. Without this the verdict is unreadable: "p = 1.0" says the
+        # feature lost, not *what to*, and the answer (an untrained encoder vs a shuffled label)
+        # is a different scientific statement each time.
+        "nulls": {
+            f: {
+                "shuffled_max": float(c.shuffled_nulls.max()) if c.shuffled_nulls.size else None,
+                "random_embedding_max": (
+                    float(c.random_embedding_nulls.max()) if c.random_embedding_nulls.size else None
+                ),
+                "noise_encoder": c.noise_encoder_auc,
+                "untrained_encoder": c.untrained_encoder_auc,
+                "sky_noise": c.sky_noise_auc,
+                "selectivity": c.selectivity,
+                "nuisance_aucs": dict(c.nuisance_aucs),
+            }
+            for f, c in ladder.feature_controls.items()
+        },
         "uncertainty": {
             f: {"spearman": u.spearman, "pvalue": u.pvalue, "n_middle": u.n_middle}
             for f, u in uncertainty.items()
         },
+        "scheme": scheme,
+        "by_family_size": family_size,
+        "population_comparison": comparison or {},
     }
     path = out / "ladder_summary.json"
     path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")

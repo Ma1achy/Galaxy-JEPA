@@ -85,6 +85,74 @@ GZ2_TREE: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# The GZ2 tree is **conditional** (Willett+2013 Fig. 1 / Table 2): most questions are only put
+# to a volunteer who gave a particular upstream answer. This maps each question to the chain of
+# upstream *answers* that reaches it — catalogue structure, not a modelling choice.
+#
+# It exists so a feature can be probed within the population that actually reached its question
+# (D14). Crucially that is run as a **comparison** against the full population, never as a hard
+# mask: a no-bulge galaxy carrying boxy-bulge votes is a measurement of human disagreement, and
+# masking it away would pre-impose the tree's logic before testing whether it holds.
+#: question -> the ``(question, answer)`` chain that must be satisfied to reach it.
+GZ2_CONDITIONS: dict[str, tuple[tuple[str, str], ...]] = {
+    "t01_smooth_or_features": (),  # asked of everything
+    "t02_edgeon": (("t01_smooth_or_features", "a02_features_or_disk"),),
+    "t03_bar": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+    ),
+    "t04_spiral": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+    ),
+    "t05_bulge_prominence": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+    ),
+    "t06_odd": (),  # asked of everything
+    "t07_rounded": (("t01_smooth_or_features", "a01_smooth"),),
+    "t08_odd_feature": (("t06_odd", "a14_yes"),),
+    "t09_bulge_shape": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a04_yes"),
+    ),
+    "t10_arms_winding": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+        ("t04_spiral", "a08_spiral"),
+    ),
+    "t11_arms_number": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+        ("t04_spiral", "a08_spiral"),
+    ),
+}
+
+#: Questions whose answers form an **ordered** scale rather than unordered alternatives. Scheme 2
+#: collapses each of these to a single graded axis (D14); the ordering is the answer order in
+#: :data:`GZ2_TREE`, which is the catalogue's own.
+GZ2_GRADED_QUESTIONS: tuple[str, ...] = (
+    "t05_bulge_prominence",
+    "t07_rounded",
+    "t10_arms_winding",
+    "t11_arms_number",
+)
+
+
+def vote_column(question: str, answer: str, variant: str = "fraction") -> str:
+    """The catalogue column for one ``(question, answer, variant)`` triple.
+
+    Single place the naming convention is spelled, so a scheme cannot drift from the pull.
+    """
+    if variant in _DISQUALIFIED_VOTE_VARIANTS:
+        raise ValueError(f"variant {variant!r} is disqualified (debiased/flag must never be read)")
+    if question not in GZ2_TREE:
+        raise KeyError(f"unknown GZ2 question {question!r}")
+    if answer not in GZ2_TREE[question]:
+        raise KeyError(f"{answer!r} is not an answer to {question!r}")
+    return f"{question}_{answer}_{variant}"
+
+
 # RAW continuous vote variants only. `_debiased` and `_flag` are DELIBERATELY EXCLUDED and
 # the exclusion is enforced below: `_debiased` applies the Willett+2013 redshift correction,
 # which injects z into the target and would contaminate the uncertainty geometry (and fight
@@ -142,6 +210,37 @@ JOIN Field AS f ON f.fieldID = p.fieldID
 JOIN SpecObj AS s ON s.specObjID = g.specobjid
 ORDER BY g.dr8objid"""
 
+# --- axis ratio (inclination proxy, D13) ---------------------------------------------
+
+# b/a from the SDSS pipeline's two-dimensional profile fits: `expAB_r` (exponential/disk) and
+# `deVAB_r` (de Vaucouleurs/elliptical). This is an *independent photometric* measurement made
+# from the pixels, which is exactly why conditioning on it to study **vote** confusion is not
+# circular — using the t01/t07 votes as the inclination proxy would be (D13).
+#
+# Deliberately a separate, catalogue-only query rather than columns bolted onto PROBE_SQL:
+#   * the 40k probe corpus is already cut, and re-running the probe pull to gain two columns
+#     would re-cut every stamp for nothing;
+#   * the FROM/JOIN/ORDER BY below mirror PROBE_SQL_TEMPLATE exactly, so `TOP {limit}` selects
+#     the *same* deterministic objID set the corpus was pulled with — the top-up joins on
+#     objID with no upload step and no manifest drift.
+# Both variants are pulled: which one applies per population (disk vs elliptical) is an open
+# item in the spec's register, so the choice stays downstream of the data.
+AXIS_RATIO_SQL = """\
+SELECT TOP {limit}
+    g.dr8objid AS objID,
+    p.expAB_r, p.deVAB_r
+FROM zoo2MainSpecz AS g
+JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
+JOIN Field AS f ON f.fieldID = p.fieldID
+JOIN SpecObj AS s ON s.specObjID = g.specobjid
+ORDER BY g.dr8objid"""
+
+#: The axis-ratio columns landed by the top-up. NOT nuisance regressors: inclination is an
+#: experimental *conditioning* axis for the confound-fingerprint work (D13), and regressing it
+#: out as a nuisance would remove the very thing the taxonomy is trying to study.
+AXIS_RATIO_COLS: tuple[str, ...] = ("expAB_r", "deVAB_r")
+
+
 # Selects BOTH sides' ra/dec so the join key can be validated before it is trusted.
 JOIN_CHECK_SQL = """\
 SELECT TOP {limit}
@@ -163,6 +262,11 @@ def probe_sql(limit: int) -> str:
 
 def join_check_sql(limit: int = 10) -> str:
     return JOIN_CHECK_SQL.format(limit=int(limit))
+
+
+def axis_ratio_sql(limit: int) -> str:
+    """The catalogue-only axis-ratio top-up query (D13) — same object set as :func:`probe_sql`."""
+    return AXIS_RATIO_SQL.format(limit=int(limit))
 
 
 # --- GZ2 t01 label derivation -------------------------------------------------------
