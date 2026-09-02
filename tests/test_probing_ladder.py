@@ -40,19 +40,29 @@ _MODEL_CONFIG = {
 
 
 class _SignalEncoder(nn.Module):
-    """A fixed random projection of the image — one recoverable direction (channel-0 brightness)
-    among 16 noise dims, like a real frozen encoder (a shuffled-label probe cannot recover it)."""
+    """Stands in for a *trained* encoder: it exposes a **nonlinear** image statistic linearly.
+
+    The planted property is channel-0 **contrast** (its standard deviation), carried on one
+    dimension among 15 random-projection noise dims. The choice matters: an earlier version
+    planted channel-0 *brightness*, which is a linear function of the pixels — so the
+    untrained-encoder control recovered it just as well, and with an honest five-null bar the
+    "clean" feature correctly failed existence. A statistic a random projection cannot read
+    linearly is what makes "the pretraining mattered" the actual thing under test.
+    """
 
     name = "signal_stub"
     embed_dim = 16
 
     def __init__(self) -> None:
         super().__init__()
-        w = np.random.default_rng(7).normal(size=(16, 3 * 16 * 16)).astype(np.float32)
+        w = np.random.default_rng(7).normal(size=(15, 3 * 16 * 16)).astype(np.float32)
         self.register_buffer("W", torch.from_numpy(w))
 
     def encode(self, images: torch.Tensor) -> torch.Tensor:
-        return images.float().reshape(images.shape[0], -1) @ self.W.t()
+        x = images.float()
+        contrast = x[:, 0].reshape(x.shape[0], -1).std(dim=1, keepdim=True)
+        noise = x.reshape(x.shape[0], -1) @ self.W.t()
+        return torch.cat([contrast * 10.0, noise], dim=1)
 
 
 class _Corpus(Dataset):
@@ -60,8 +70,8 @@ class _Corpus(Dataset):
         return _N
 
     def __getitem__(self, i: int) -> dict:
-        tex = torch.randn(3, 16, 16, generator=torch.Generator().manual_seed(100 + i)) * 0.4
-        tex[0] += float(_BRIGHT[i])  # brightness on channel 0 → the recoverable direction
+        tex = torch.randn(3, 16, 16, generator=torch.Generator().manual_seed(100 + i))
+        tex[0] *= 0.2 + float(_BRIGHT[i])  # contrast on channel 0 → the recoverable direction
         return {"image": tex, "object_id": i}
 
 
@@ -84,7 +94,19 @@ def _labels() -> LabelProvider:
 
 
 def _config() -> ProbingConfig:
-    return ProbingConfig(mlp_widths=(8, 16, 32), mlp_epochs=40, n_perm=200, seed=1)
+    return ProbingConfig(
+        mlp_widths=(8, 16, 32),
+        mlp_epochs=40,
+        n_perm=200,
+        # 50 draws (the default) cap the attainable p at 1/51 ≈ 0.0196, which cannot clear the
+        # BY rank-1 bar even for a family of 2 — the null-resolution guard rejects it. 200 draws
+        # give 0.005, so a planted signal can actually express significance.
+        n_null_draws=200,
+        # The grounded floor is ≥10,000 shuffles; a fixture that wants fewer must say so, and
+        # the declaration is stamped onto the artefact rather than silently weakening the test.
+        escape_hatches=("reduced_permutations",),
+        seed=1,
+    )
 
 
 def _run(out_dir) -> object:
@@ -103,6 +125,8 @@ def test_clean_feature_lands_r1_and_absent_feature_lands_r4(tmp_path):
     report = _run(tmp_path)
     verdicts = report.ladder.verdicts
     assert verdicts["bright"].rung == "R1"  # planted recoverable signal → clean linear
+    # and it is R1 *because* the trained stub beats the untrained-encoder null, not merely
+    # because it beats chance — that is what the five-null bar is for
     assert verdicts["noise_feat"].rung == "R4"  # planted absent → not recoverable
     # every feature carries a deterministic gate tree (the stamped audit trail) + a named rung
     for v in verdicts.values():
@@ -178,3 +202,26 @@ def test_embeddings_extracted_once_never_re_encoded_per_feature(tmp_path):
     ids = [int(o) for o in real.object_ids]
     run_ladder(controls, labels, ids[:120], ids[120:], config=cfg, sky_label_col="snr")
     assert calls["n"] == 0  # zero re-encodes across the whole cascade
+
+
+def test_two_identical_invocations_produce_identical_verdicts(tmp_path):
+    """A verdict must be determined by the run stamp and nothing else.
+
+    ``(config_hash, code_sha, data_snapshot, seed)`` fully determines the outcome. This is the
+    regression guard for the class of bug the untrained-encoder control had: an unseeded
+    component moves the existence bar between runs, so a feature near the threshold flips rung
+    on a rerun of the *same* config. The comparison is over the whole stamped summary — rungs,
+    p-values, and every null component — not just the headline.
+    """
+    first = _run(tmp_path / "a")
+    second = _run(tmp_path / "b")
+
+    summary_a = json.loads((tmp_path / "a" / "ladder_summary.json").read_text())
+    summary_b = json.loads((tmp_path / "b" / "ladder_summary.json").read_text())
+    assert summary_a == summary_b
+
+    stamp_a = json.loads((tmp_path / "a" / "stamp.json").read_text())
+    stamp_b = json.loads((tmp_path / "b" / "stamp.json").read_text())
+    assert stamp_a["config_hash"] == stamp_b["config_hash"]
+    assert stamp_a["data_snapshot"] == stamp_b["data_snapshot"]
+    assert first.rung_table() == second.rung_table()

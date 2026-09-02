@@ -33,7 +33,7 @@ from galaxy_jepa.probing import matching as match
 from galaxy_jepa.probing import mlp as mlp_mod
 from galaxy_jepa.probing import nulls as nulls_mod
 from galaxy_jepa.probing.config import ProbingConfig
-from galaxy_jepa.probing.extract import LabelProvider, feature_embeddings
+from galaxy_jepa.probing.extract import LabelProvider, feature_embeddings, feature_ids
 from galaxy_jepa.probing.gates import EXISTENCE_METRIC_FLOOR, build_gates
 from galaxy_jepa.probing.logistic import ConceptDirection, Embeddings, probe_auc, probe_direction
 
@@ -109,8 +109,9 @@ def _entangled_map(
         # match feature A's probe on feature B's vote fraction (hold the world correlation fixed)
         a_train = feature_embeddings(controls.real, labels, a, train_ids)
         a_test = feature_embeddings(controls.real, labels, a, test_ids)
-        b_train = labels.vote_fraction(b, [o for o in train_ids if o in controls.real.index])
-        b_test = labels.vote_fraction(b, [o for o in test_ids if o in controls.real.index])
+        # feature A's eligible ids — the partner's fractions must line up with A's rows
+        b_train = labels.vote_fraction(b, feature_ids(controls.real, labels, a, train_ids))
+        b_test = labels.vote_fraction(b, feature_ids(controls.real, labels, a, test_ids))
         verdict = match.matched_evaluation(
             a_train,
             a_test,
@@ -149,8 +150,8 @@ def _nuisance_clearance(
     worst = max(competitive, key=lambda n: fc.nuisance_aucs[n])
     train = feature_embeddings(controls.real, labels, feature, train_ids)
     test = feature_embeddings(controls.real, labels, feature, test_ids)
-    present_tr = [o for o in train_ids if o in controls.real.index]
-    present_te = [o for o in test_ids if o in controls.real.index]
+    present_tr = feature_ids(controls.real, labels, feature, train_ids)
+    present_te = feature_ids(controls.real, labels, feature, test_ids)
     verdict = match.matched_evaluation(
         train,
         test,
@@ -321,6 +322,7 @@ def run_ladder(
             labels=labels,
             sky_label_col=sky_label_col,
             c=config.c,
+            n_draws=config.n_null_draws,
             seed=config.seed + i,
         )
 

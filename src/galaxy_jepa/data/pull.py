@@ -22,6 +22,7 @@ import argparse
 import csv
 import json
 import logging
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -30,8 +31,10 @@ import numpy as np
 
 from galaxy_jepa.data.manifest import manifest_hash
 from galaxy_jepa.data.metadata import (
+    AXIS_RATIO_COLS,
     FEATURED_FRACTION_COL,
     assert_radec_agree,
+    axis_ratio_sql,
     join_check_sql,
     photometric_snr,
     pretrain_sql,
@@ -44,14 +47,32 @@ logger = logging.getLogger(__name__)
 
 
 def _object_id(row: dict[str, Any]) -> int:
-    raw = row.get("objID", row.get("dr7objid"))
+    """The row's SDSS objID, from whichever key carries it.
+
+    ``objID`` is what the SQL selects (the probe join aliases ``dr8objid AS objID``);
+    ``object_id`` is what a corpus already written to disk carries. **Precedence matters:** the
+    probe corpus carries a ``dr7objid`` column *as well*, and DR7 and DR8 object IDs are
+    different numbers for the same galaxy — reading ``dr7objid`` in preference to an existing
+    ``object_id`` silently rewrites the identity the FITS filenames are keyed on. So an
+    already-written ``object_id`` always wins over ``dr7objid``, which is the last resort only.
+    """
+    raw = row.get("objID", row.get("object_id", row.get("dr7objid")))
     if raw is None:
-        raise KeyError(f"row has neither objID nor dr7objid: {row!r}")
+        raise KeyError(f"row has no objID / object_id / dr7objid: {row!r}")
     return int(raw)
 
 
-def _with_derived(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Add ``object_id`` and the image-domain ``snr_r`` (a bad mag error → NaN + warn)."""
+def with_derived_columns(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Add ``object_id`` and the image-domain ``snr_r`` (a bad mag error → NaN + warn).
+
+    The **single** derivation site for the SNR nuisance column. Both pull paths route through
+    it: this module's HTTP pull calls it inline, and the SciServer driver
+    (``artifacts/sciserver_pull.py``) calls it on the target rows before they are handed to the
+    server-side cut — so a corpus cannot end up without ``snr_r`` depending on which driver
+    pulled it. :func:`backfill_derived` applies the same function to a corpus already on disk.
+
+    Pure and token-free (the artifacts rule): it touches rows, never the network.
+    """
     for row in rows:
         row["object_id"] = _object_id(row)
         try:
@@ -60,6 +81,10 @@ def _with_derived(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             logger.warning("object %s: bad modelMagErr_r; snr_r set NaN", row.get("object_id"))
             row["snr_r"] = float("nan")
     return rows
+
+
+# Back-compat alias for the private name this used to carry.
+_with_derived = with_derived_columns
 
 
 def check_join(*, limit: int = 10, data_release: int = 17) -> None:
@@ -102,7 +127,7 @@ def pull_corpus(
         if corpus == "pretrain"
         else probe_sql(limit)
     )
-    rows = _with_derived(run_sql(sql, data_release=data_release))
+    rows = with_derived_columns(run_sql(sql, data_release=data_release))
     frames = FitsFrameSource(rows, stamp_px=stamp_px, data_release=data_release)
 
     # The bottleneck is the remote SDSS frame download, not local CPU — measured: threads
@@ -212,6 +237,101 @@ def summarise_pull(rows: list[dict[str, Any]]) -> None:
     )
 
 
+# --- metadata top-ups on an already-pulled corpus (no re-pull, no image re-cut) ---------
+
+
+def read_metadata(corpus_dir: str | Path) -> list[dict[str, Any]]:
+    """Read a ``DirectorySource`` corpus's ``metadata.csv`` into row dicts (order preserved)."""
+    path = Path(corpus_dir) / "metadata.csv"
+    if not path.exists():
+        raise FileNotFoundError(f"{corpus_dir} has no metadata.csv")
+    with path.open(newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def write_metadata(corpus_dir: str | Path, rows: list[dict[str, Any]]) -> Path:
+    """Rewrite ``metadata.csv`` with ``object_id`` first and every other column sorted.
+
+    Column order matches :func:`pull_corpus`'s writer so a backfilled corpus is
+    byte-comparable with a freshly-pulled one.
+    """
+    if not rows:
+        raise ValueError("refusing to write an empty metadata.csv")
+    path = Path(corpus_dir) / "metadata.csv"
+    fieldnames = ["object_id"] + sorted({k for r in rows for k in r} - {"object_id"})
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
+def backfill_derived(corpus_dir: str | Path) -> int:
+    """Re-derive the derived columns over a corpus already on disk. Pure — no network.
+
+    The SciServer driver path historically wrote the raw SQL rows straight through, so corpora
+    pulled that way carry ``modelMagErr_r`` but no ``snr_r`` and the nuisance battery loses one
+    of its five. ``snr_r`` is a *function of a column already present*, so the fix is arithmetic
+    on disk, not a re-pull. Runs :func:`with_derived_columns` — the same derivation the pull
+    uses — so the two paths cannot diverge.
+    """
+    rows = read_metadata(corpus_dir)
+    if not any("modelMagErr_r" in r for r in rows):
+        raise ValueError(
+            f"{corpus_dir} has no modelMagErr_r column, so snr_r cannot be derived. The "
+            "unlabelled pretraining pull (metadata.PRETRAIN_SQL) omits the nuisance battery "
+            "deliberately — it is never probed — so this corpus needs no backfill."
+        )
+    with_derived_columns(rows)
+    write_metadata(corpus_dir, rows)
+    logger.info("backfilled derived columns for %d rows in %s", len(rows), corpus_dir)
+    return len(rows)
+
+
+def merge_columns(
+    corpus_dir: str | Path,
+    extra: list[dict[str, Any]],
+    columns: Sequence[str],
+    *,
+    key: str = "objID",
+) -> tuple[int, int]:
+    """Join ``columns`` from ``extra`` into a corpus's ``metadata.csv``, keyed on object ID.
+
+    Pure (the caller does the networked query), so the merge is unit-testable offline. Returns
+    ``(matched, missing)``; a row with no match gets empty strings rather than being dropped —
+    a partial catalogue top-up must never silently shrink the corpus.
+    """
+    lookup: dict[int, dict[str, Any]] = {}
+    for row in extra:
+        raw = row.get(key, row.get("object_id"))
+        if raw is None:
+            raise KeyError(f"top-up row has neither {key!r} nor 'object_id': {row!r}")
+        lookup[int(raw)] = row
+
+    rows = read_metadata(corpus_dir)
+    matched = 0
+    for row in rows:
+        source = lookup.get(int(row["object_id"]))
+        if source is None:
+            for col in columns:
+                row.setdefault(col, "")
+            continue
+        matched += 1
+        for col in columns:
+            row[col] = source.get(col, "")
+    write_metadata(corpus_dir, rows)
+    missing = len(rows) - matched
+    logger.info(
+        "merged %s into %s: %d matched, %d unmatched", list(columns), corpus_dir, matched, missing
+    )
+    return matched, missing
+
+
+def pull_axis_ratios(limit: int, *, data_release: int = 17) -> list[dict[str, Any]]:
+    """Run the catalogue-only axis-ratio query (D13). Networked; no image re-cut."""
+    return run_sql(axis_ratio_sql(limit), data_release=data_release)
+
+
 def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(description="Pull an SDSS corpus slice (FITS + metadata).")
@@ -228,11 +348,38 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--stamp-px", type=int, default=256)
     parser.add_argument("--data-release", type=int, default=17)
     parser.add_argument("--check-join", action="store_true", help="run the 10-row join guard")
+    parser.add_argument(
+        "--backfill-derived",
+        type=Path,
+        metavar="CORPUS_DIR",
+        help="re-derive snr_r in an existing corpus's metadata.csv (offline, no re-pull)",
+    )
+    parser.add_argument(
+        "--axis-ratios",
+        type=Path,
+        metavar="CORPUS_DIR",
+        help="catalogue-only expAB_r/deVAB_r top-up for an existing probe corpus (D13); "
+        "--limit must match the corpus size so the deterministic object set lines up",
+    )
     parser.add_argument("--workers", type=int, default=16, help="parallel frame-fetch threads")
     args = parser.parse_args(argv)
 
     if args.check_join:
         check_join(limit=args.limit if args.limit <= 50 else 10, data_release=args.data_release)
+        return
+    if args.backfill_derived is not None:
+        backfill_derived(args.backfill_derived)
+        return
+    if args.axis_ratios is not None:
+        n_rows = len(read_metadata(args.axis_ratios))
+        if args.limit < n_rows:
+            parser.error(
+                f"--limit {args.limit} is below the corpus size {n_rows}: the top-up query is "
+                "TOP-n over the same ORDER BY, so a short limit would leave rows unmatched"
+            )
+        extra = pull_axis_ratios(args.limit, data_release=args.data_release)
+        matched, missing = merge_columns(args.axis_ratios, extra, AXIS_RATIO_COLS)
+        logger.info("axis-ratio top-up: %d matched, %d unmatched", matched, missing)
         return
     if args.source == "sciserver":
         parser.error(_SCISERVER_POINTER.format(corpus=args.corpus, limit=args.limit, out=args.out))
