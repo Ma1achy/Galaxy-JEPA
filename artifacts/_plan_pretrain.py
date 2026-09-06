@@ -37,7 +37,9 @@ from galaxy_jepa.data.pull import with_derived_columns  # noqa: E402
 
 PETRO_MIN = 5.0
 PETRO_MAX = 25.0  # the probe corpus's own p99: above this are deblending failures
-MAX_PER_JOB = 4_000
+MAX_PER_JOB = 1_000  # the Small domain kills a job at 60 min; 4,000 targets overran it
+#                      (wave 1 was cancelled at exactly 60:00). 1,000 is what the probe
+#                      pull actually completed on: ~6.4 min fixed + ~10.4 min/1,000.
 BATCH = 20_000
 OUT = Path("data/pretrain")
 PROBE = Path("data/probe")
