@@ -53,7 +53,11 @@ from _sciserver_auth import authenticate  # noqa: E402
 from galaxy_jepa.data.manifest import manifest_hash  # noqa: E402
 from galaxy_jepa.data.metadata import pretrain_sql, probe_sql, run_sql  # noqa: E402
 from galaxy_jepa.data.pull import check_join, with_derived_columns  # noqa: E402
-from galaxy_jepa.data.sciserver import chunk_target_ids, merge_corpora  # noqa: E402
+from galaxy_jepa.data.sciserver import (  # noqa: E402
+    align_append_fieldnames,
+    chunk_target_ids,
+    merge_corpora,
+)
 
 CUTTER = Path(__file__).with_name("sciserver_cut.py")
 WORK = Path(".sciserver_work")
@@ -279,10 +283,26 @@ def _fetch_chunk(Jobs, Files, chunk: dict, dest: Path, *, poll_s: int, max_wait_
 
     dest.mkdir(parents=True, exist_ok=True)
     local_tar = WORK / f"{chunk['k']}_corpus.tar.gz"
-    res = safe(Files.download, fs, f"{job_rel}/corpus.tar.gz", format="response")
-    with local_tar.open("wb") as fh:
-        for piece in res.iter_content(chunk_size=8 << 20):
-            fh.write(piece)
+    # A multi-hundred-MB transfer at ~1-2 MB/s runs for minutes and does drop
+    # (ChunkedEncodingError: IncompleteRead). Retry the transfer itself, and check the byte
+    # count against what the file service advertised — a truncated tarball that still opens
+    # would merge a short chunk and mark it done, silently losing galaxies.
+    for attempt in range(4):
+        try:
+            res = safe(Files.download, fs, f"{job_rel}/corpus.tar.gz", format="response")
+            with local_tar.open("wb") as fh:
+                for piece in res.iter_content(chunk_size=8 << 20):
+                    fh.write(piece)
+            got = local_tar.stat().st_size
+            if got != size:
+                raise OSError(f"truncated transfer: {got} of {size} bytes")
+            break
+        except Exception as exc:  # noqa: BLE001 — transfers drop; that is what this retries
+            local_tar.unlink(missing_ok=True)
+            if attempt == 3:
+                raise
+            print(f"[fetch] chunk {chunk['k']} transfer failed ({exc}); retrying ...")
+            time.sleep(10 * (attempt + 1))
     with tarfile.open(local_tar) as tar:
         tar.extractall(dest)
     local_tar.unlink(missing_ok=True)
@@ -428,9 +448,12 @@ def _accumulate(chunk_dir: Path, out: Path) -> int:
     """Copy a fetched chunk's stamps into ``out`` and append its metadata rows (incremental merge).
 
     Per-wave accumulation keeps peak disk at out_dir + one wave's staging, rather than holding
-    every chunk's staging dir until a single final merge. All probe chunks share one header (the
-    same probe_sql), so a plain append is correct; the manifest is written once at the end over
-    the full accumulated object-ID set.
+    every chunk's staging dir until a single final merge. The manifest is written once at the
+    end over the full accumulated object-ID set.
+
+    The column order comes from :func:`align_append_fieldnames`, never from the chunk -- a
+    chunk-ordered row appended beneath the corpus's alphabetised header misaligns every column
+    silently, which is what mislabelled 190,358 galaxies here. See that function for why.
     """
     meta = chunk_dir / "metadata.csv"
     if not meta.exists():
@@ -440,10 +463,10 @@ def _accumulate(chunk_dir: Path, out: Path) -> int:
         fieldnames = reader.fieldnames or []
         rows = list(reader)
     out_meta = out / "metadata.csv"
-    new = not out_meta.exists()
+    fieldnames, write_header = align_append_fieldnames(out_meta, fieldnames)
     with out_meta.open("a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=fieldnames)
-        if new:
+        w = csv.DictWriter(fh, fieldnames=fieldnames, restval="")
+        if write_header:
             w.writeheader()
         for r in rows:
             oid = r["object_id"]
@@ -545,14 +568,17 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
                 _fetch_chunk(Jobs, Files, {"k": c["k"], "jid": c["jid"], "rel": c["rel"]},
                              dest, poll_s=15, max_wait_min=90)
                 n = _accumulate(dest, out)
-            except RuntimeError as exc:
+            except Exception as exc:  # noqa: BLE001 — nothing here may abort the whole pull
                 # A dead job must not wedge the run. Leaving the chunk `submitted` with its jid
                 # meant every later invocation re-adopted the corpse and aborted on it — one
                 # transient server-side failure (or a laptop sleeping mid-poll) blocked the whole
                 # pull permanently. Reset it to pending so a later pass resubmits it, and carry
                 # on with the rest of the wave.
-                print(f"[full] chunk {c['k']} FAILED, requeued: {exc}")
-                c.update(status="pending", jid=None, rel=None)
+                if isinstance(exc, RuntimeError):  # the *job* died — it needs cutting again
+                    print(f"[full] chunk {c['k']} job failed, requeued for a fresh cut: {exc}")
+                    c.update(status="pending", jid=None, rel=None)
+                else:  # the *transfer* died — the job's output is still there to re-download
+                    print(f"[full] chunk {c['k']} transfer failed, will retry download: {exc}")
                 _save_state(corpus, state)
                 shutil.rmtree(dest, ignore_errors=True)
                 continue

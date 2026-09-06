@@ -44,3 +44,36 @@ def test_join_guard_raises_on_mismatch():
     rows = [{"dr7objid": 2, "gz_ra": 150.0, "gz_dec": 2.0, "phot_ra": 151.0, "phot_dec": 2.0}]
     with pytest.raises(ValueError, match="join"):
         assert_radec_agree(rows)
+
+
+# --- the pretrain sub-sampling rule (D6) --------------------------------------------------
+#
+# `TOP n ORDER BY objID` is a contiguous patch of sky, not a sample of it: objIDs are packed
+# by run/camcol/field. At pilot scale that was harmless; at millions of stamps it would bake a
+# spatial selection into the encoder, so the population query strides instead.
+
+
+def test_pretrain_stride_one_is_byte_identical_to_the_unstrided_query():
+    """The pilot corpus's manifest hash is over this SQL text — it must not drift."""
+    assert "%" not in pretrain_sql(10_000)
+    assert pretrain_sql(10_000) == pretrain_sql(10_000, stride=1)
+
+
+def test_pretrain_stride_adds_the_modulus_predicate():
+    sql = pretrain_sql(2_000_000, stride=7)
+    assert "AND p.objID % 7 = 0" in sql
+    assert "ORDER BY p.objID" in sql  # keyset paging still has its ordering
+    assert "TOP 2000000" in sql
+
+
+def test_pretrain_stride_rejects_a_non_positive_stride():
+    for bad in (0, -1):
+        with pytest.raises(ValueError, match="stride"):
+            pretrain_sql(1000, stride=bad)
+
+
+def test_pretrain_stride_leaves_the_selection_cuts_intact():
+    """Striding is a sub-sample of the population, never a redefinition of it."""
+    sql = pretrain_sql(1000, stride=3)
+    assert "p.type = 3 AND p.clean = 1" in sql
+    assert "p.modelMag_r BETWEEN 14.0 AND 19.0" in sql

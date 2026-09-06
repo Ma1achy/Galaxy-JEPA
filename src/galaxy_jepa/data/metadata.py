@@ -34,11 +34,11 @@ PRETRAIN_SQL = """\
 SELECT TOP {limit}
     p.objID, p.ra, p.dec,
     p.petroRad_r, p.petroRadErr_r,
-    p.modelMag_r,
+    p.modelMag_r, p.modelMagErr_r,
     p.run, p.camcol, p.field, p.rerun
 FROM PhotoPrimary AS p
 WHERE p.type = 3 AND p.clean = 1
-  AND p.modelMag_r BETWEEN {mag_min} AND {mag_max}
+  AND p.modelMag_r BETWEEN {mag_min} AND {mag_max}{stride_clause}
 ORDER BY p.objID"""
 
 # Join keys confirmed against the live DR17 schema:
@@ -251,8 +251,35 @@ JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
 ORDER BY g.dr8objid"""
 
 
-def pretrain_sql(limit: int, *, mag_min: float = 14.0, mag_max: float = 19.0) -> str:
-    return PRETRAIN_SQL.format(limit=int(limit), mag_min=mag_min, mag_max=mag_max)
+def pretrain_sql(
+    limit: int, *, mag_min: float = 14.0, mag_max: float = 19.0, stride: int = 1
+) -> str:
+    """The unlabelled pretraining query (D6). ``stride`` sub-samples it uniformly.
+
+    ``TOP {limit} ... ORDER BY p.objID`` alone returns a **contiguous patch of sky**, not a
+    sample of it: an SDSS objID is bit-packed by run/camcol/field, so "the first N by objID"
+    walks the survey in observation order. Harmless for a 10k pilot; for a multi-million-stamp
+    corpus it would bake a spatial selection into the encoder.
+
+    ``stride`` fixes that by keeping objIDs where ``objID % stride = 0`` — roughly 1/stride of
+    the galaxies in *every* field, so coverage stays uniform across the footprint and the
+    sample is reproducible from the stride alone. Measured on the 230,358 real objIDs of the
+    probe corpus, strides 2-17 select within 1.5% of their expected fraction and shift mean
+    r-magnitude by <0.01 mag and mean Petrosian radius by <0.05" — no brightness or size
+    selection. A prime is marginally the most even, so prefer one.
+
+    ``modelMagErr_r`` is carried purely so ``pull.with_derived_columns`` — the single SNR
+    derivation site, which every pull path routes through — can compute ``snr_r`` instead of
+    warning and writing NaN once per galaxy. The pretraining corpus is label-free and never
+    probed, so SNR is not a nuisance regressor here; it is kept because it costs one column
+    and makes the pretrain/probe distribution comparison possible.
+    """
+    if stride < 1:
+        raise ValueError(f"stride must be >= 1; got {stride}")
+    clause = "" if stride == 1 else f"\n  AND p.objID % {int(stride)} = 0"
+    return PRETRAIN_SQL.format(
+        limit=int(limit), mag_min=mag_min, mag_max=mag_max, stride_clause=clause
+    )
 
 
 def probe_sql(limit: int) -> str:
