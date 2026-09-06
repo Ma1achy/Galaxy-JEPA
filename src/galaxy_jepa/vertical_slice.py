@@ -25,8 +25,10 @@ from galaxy_jepa.harness import (
     HarnessConfig,
     ModelConfig,
     ObjectiveConfig,
+    PathsConfig,
     ProbeConfig,
     RunReport,
+    RuntimeConfig,
     SliceReport,
     _prepare,
     build_objective,
@@ -68,10 +70,12 @@ def run_slice(
 ) -> RunReport:
     """Run the whole slice on two pulled corpora (kwargs adapter over :func:`run_harness`)."""
     cfg = HarnessConfig(
-        pretrain_dir=str(pretrain_dir),
-        probe_dir=str(probe_dir),
-        out_dir=str(out_dir),
-        device=device,
+        paths=PathsConfig(
+            pretrain_dir=str(pretrain_dir),
+            probe_dir=str(probe_dir),
+            out_dir=str(out_dir),
+        ),
+        runtime=RuntimeConfig(device=device),
         seed=seed,
         q=q,
         norm_sample=norm_sample,
@@ -109,21 +113,23 @@ def main(argv: list[str] | None = None) -> None:
     args = p.parse_args(argv)
 
     cfg = HarnessConfig(
-        pretrain_dir=str(args.pretrain),
-        probe_dir=str(args.probe),
-        out_dir=str(args.out),
-        device=args.device,
+        paths=PathsConfig(
+            pretrain_dir=str(args.pretrain),
+            probe_dir=str(args.probe),
+            out_dir=str(args.out),
+        ),
+        runtime=RuntimeConfig(device=args.device),
         seed=args.seed,
         autocast="bf16" if args.bf16 else None,
         objective=ObjectiveConfig(steps=args.steps, batch_size=args.batch_size, beta=args.beta),
     )
 
     if args.calibrate:
-        device = cfg.device or pick_device()
+        device = cfg.runtime.resolved_device()
         prep = _prepare(
-            cfg.pretrain_dir,
-            cfg.probe_dir,
-            cfg.out_dir,
+            cfg.paths.pretrain_dir,
+            cfg.paths.probe_dir,
+            cfg.paths.out_dir,
             config=cfg.to_jepa_config(),
             device=device,
             seed=cfg.seed,

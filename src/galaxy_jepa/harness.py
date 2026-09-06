@@ -183,13 +183,44 @@ class ProbingStageConfig(RunConfig):
     max_galaxies: int | None = None  # truncate the corpus (plumbing smokes only)
 
 
-class HarnessConfig(RunConfig):
-    """A complete, stamped run: data corpora + objective + model scale + probe + run knobs."""
+class PathsConfig(RunConfig):
+    """Where the run reads and writes.
+
+    **Not** part of the experiment's identity: named in ``RunConfig.NON_DETERMINING``, so it is
+    dropped from the stamped ``config_hash``. Moving a corpus to another disk is not a different
+    experiment — *which* galaxies a run saw is carried by ``RunStamp.data_snapshot``, which hashes
+    the object-id set rather than a location.
+    """
 
     pretrain_dir: str
     probe_dir: str
     out_dir: str
+
+
+class RuntimeConfig(RunConfig):
+    """What the run executed on.
+
+    Unlike :class:`PathsConfig` this **is** hashed. A backend is not a location: MPS, CPU and
+    CUDA differ numerically, so two runs agreeing on everything but the device are not the same
+    run and must not share a hash.
+
+    ``device=None`` means :func:`pick_device`, so the stamp must record the *resolved* value
+    (:meth:`HarnessConfig.with_resolved_device`) — hashing the literal null would hand MPS and
+    CUDA one identical hash, precisely the collision this field exists to prevent.
+    """
+
     device: str | None = None
+
+    def resolved_device(self) -> str:
+        """The concrete backend this run uses — the declared one, else :func:`pick_device`."""
+        return self.device or pick_device()
+
+
+class HarnessConfig(RunConfig):
+    """A complete, stamped run: data corpora + objective + model scale + probe + run knobs."""
+
+    paths: PathsConfig
+    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     seed: int = 0
     q: float = 4.0
     norm_sample: int = 8000
@@ -212,6 +243,14 @@ class HarnessConfig(RunConfig):
 
     def to_jepa_config(self) -> JepaConfig:
         return self.objective.to_jepa_config(seed=self.seed)
+
+    def with_resolved_device(self) -> HarnessConfig:
+        """A copy whose ``runtime.device`` is concrete, so the stamp records what actually ran."""
+        if self.runtime.device:
+            return self
+        return self.model_copy(
+            update={"runtime": RuntimeConfig(device=self.runtime.resolved_device())}
+        )
 
 
 # --- report ------------------------------------------------------------------------------
@@ -358,12 +397,15 @@ def _prepare(
 
 def run_harness(config: HarnessConfig) -> RunReport:
     """Execute a full stamped run: splits → bake → train → freeze → probe → figures/blobs."""
-    device = config.device or pick_device()
+    # Pin the backend before anything is stamped: `device: null` must not reach the hash, or
+    # MPS and CUDA would share one config_hash despite differing numerically.
+    config = config.with_resolved_device()
+    device = config.runtime.resolved_device()
     jcfg = config.to_jepa_config()
     prep = _prepare(
-        config.pretrain_dir,
-        config.probe_dir,
-        config.out_dir,
+        config.paths.pretrain_dir,
+        config.paths.probe_dir,
+        config.paths.out_dir,
         config=jcfg,
         device=device,
         seed=config.seed,
@@ -412,7 +454,9 @@ def run_harness(config: HarnessConfig) -> RunReport:
             probe_frozen_checkpoint(
                 config,
                 checkpoint=result.checkpoint,
-                probing=ProbingConfig(seed=config.seed, ratios=config.ratios, device=config.device),
+                probing=ProbingConfig(
+                    seed=config.seed, ratios=config.ratios, device=config.runtime.device
+                ),
                 scheme=get_scheme(config.probing.scheme) if config.probing.scheme else None,
                 max_galaxies=config.probing.max_galaxies,
             )
@@ -430,16 +474,17 @@ def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = Non
     encoder, and reports the converged AUC + bootstrap CI. Used to regenerate a run's
     headline figure (and refresh the explorer blobs) without spending a training run.
     """
-    out = Path(config.out_dir)
+    config = config.with_resolved_device()  # as in `run_harness`: pin before stamping
+    out = Path(config.paths.out_dir)
     ckpt = Path(checkpoint) if checkpoint is not None else out / "encoder.pt"
     cache = _open_existing_cache(out)
-    probe_src = DirectorySource(config.probe_dir)
+    probe_src = DirectorySource(config.paths.probe_dir)
     rows = rows_by_id(probe_src.rows)
     probe_ids = [int(r["object_id"]) for r in probe_src.rows]
     # The deterministic probe split — identical to the one the training run used (same seed +
     # ratios), so the headline reproduces exactly. No pretrain split is needed here.
     probe_split = assign_three_way(probe_ids, seed=config.seed, ratios=config.ratios)
-    data_snapshot = _probe_data_snapshot(config.probe_dir, probe_ids)
+    data_snapshot = _probe_data_snapshot(config.paths.probe_dir, probe_ids)
 
     frozen = load_frozen_encoder(ckpt)
     stamp = _make_stamp(config, data_snapshot)
@@ -455,7 +500,7 @@ def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = Non
         collapse_png=None,
         umap_png=None,
     )
-    device = config.device or pick_device()
+    device = config.runtime.resolved_device()
     _probe_and_persist(frozen, cache, rows, probe_split, config, device, stamp, report)
     # Probe-only re-eval doesn't see the training trace; carry the training-side fields over
     # from an existing report so regenerating the headline never discards them.
@@ -524,7 +569,7 @@ def probe_frozen_checkpoint(
     ``LabelProvider``. ``run_probing`` stays objective-free; this function lives in the harness
     because the harness is the only layer allowed to see both sides.
 
-    Reuses the already-baked fp16 cache under ``config.out_dir`` — the parity lock is the
+    Reuses the already-baked fp16 cache under ``config.paths.out_dir`` — the parity lock is the
     ``pipeline_hash`` the cache directory is keyed on, so probing cannot silently re-preprocess.
     A ``ProbingConfig`` with ``smoke=True`` marks the artefacts (see that field); ``max_galaxies``
     truncates the corpus for a plumbing smoke and is itself recorded, since a truncated corpus is
@@ -534,12 +579,12 @@ def probe_frozen_checkpoint(
     out = (
         Path(out_dir)
         if out_dir is not None
-        else Path(config.out_dir) / ("probing_smoke" if cfg.smoke else "probing")
+        else Path(config.paths.out_dir) / ("probing_smoke" if cfg.smoke else "probing")
     )
-    ckpt = Path(checkpoint) if checkpoint is not None else Path(config.out_dir) / "encoder.pt"
+    ckpt = Path(checkpoint) if checkpoint is not None else Path(config.paths.out_dir) / "encoder.pt"
 
-    cache = _open_existing_cache(config.out_dir)
-    probe_src = DirectorySource(config.probe_dir)
+    cache = _open_existing_cache(config.paths.out_dir)
+    probe_src = DirectorySource(config.paths.probe_dir)
     rows = rows_by_id(probe_src.rows)
 
     # Only galaxies the cache actually holds can be probed; StampDataset intersects, but doing it
@@ -550,7 +595,8 @@ def probe_frozen_checkpoint(
         probe_ids = probe_ids[:max_galaxies]
     if not probe_ids:
         raise ValueError(
-            f"no galaxy from {config.probe_dir} is present in the cache under {config.out_dir}: "
+            f"no galaxy from {config.paths.probe_dir} is present in the cache under "
+            f"{config.paths.out_dir}: "
             "the probe corpus was never baked into this run's cache (bake it first)"
         )
 
@@ -611,7 +657,7 @@ def _probe_and_persist(
         report.note = f"probe skipped: {exc}"
         logger.warning(report.note)
 
-    out = Path(config.out_dir)
+    out = Path(config.paths.out_dir)
     report.umap_png = _safe_umap_plot(test_emb, out / "umap.png")
     report.explorer_dir = _write_explorer_blobs(
         out, test_ds.object_ids, test_full, train_emb, pc, stamp, report
@@ -727,8 +773,14 @@ def _safe_umap_coords(x: np.ndarray) -> np.ndarray | None:
 
 
 def _make_stamp(config: HarnessConfig, data_snapshot: str) -> RunStamp:
+    """Stamp `config`. Hashes `determining_dump()` — the experiment minus where it ran — and
+    records the resolved backend as metadata alongside the hash it entered."""
+    resolved = config.with_resolved_device()
     return RunStamp.create(
-        config.model_dump(mode="json"), data_snapshot=data_snapshot, seed=config.seed
+        resolved.determining_dump(),
+        data_snapshot=data_snapshot,
+        seed=resolved.seed,
+        device=resolved.runtime.device,
     )
 
 

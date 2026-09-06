@@ -49,6 +49,12 @@ is only trustworthy if the experimental guardrails are structural — hence the 
 - **Provenance is structural.** A run is determined by `(config_hash, code_sha, data_snapshot,
   seed)` — `core.config.RunStamp`; every artefact is stamped via `write_stamp`. `data_snapshot`
   is the manifest hash over the object IDs + the pull query, not a hand-bumped string.
+  `config_hash` covers `RunConfig.determining_dump()` — the config **minus `paths`** (D15): a
+  corpus's location is not its identity, so moving it to another disk is the same experiment.
+  `runtime.device` *is* hashed (backends differ numerically) and is resolved before hashing.
+  The stamped hash carries the `v2:` scheme marker; `config_hash()` itself does **not**, because
+  `data.cache.pipeline_hash` reuses it as the fp16 cache directory name — prefixing there would
+  force a re-bake through the parity lock.
 - **A deviation is declared, not hidden.** Weakening a grounded default (e.g. running below the
   ≥10,000-shuffle permutation floor) requires naming it in `ProbingConfig.escape_hatches`, which
   stamps the forfeit onto the artefact. A run that only exercises plumbing sets

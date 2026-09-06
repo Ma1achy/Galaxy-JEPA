@@ -180,9 +180,10 @@ def run_probing(
     )
 
     stamp = RunStamp.create(
-        config.model_dump(mode="json"),
+        config.determining_dump(),
         data_snapshot=report.data_snapshot,
         seed=config.seed,
+        device=config.device,
         # A declared deviation and a smoke marking both land in the power-path ledger, so an
         # artefact carries what it forfeited rather than looking like a clean run.
         escape_hatches_used=(

@@ -59,7 +59,28 @@ loop lands.)
 ## 3. The run-stamp
 
 `RunStamp` (frozen dataclass): `config_hash`, `code_sha`, `code_dirty`, `data_snapshot`,
-`seed`, `escape_hatches_used`.
+`seed`, `escape_hatches_used`, `device`.
+
+- **`config_hash`** — `sha256` over `RunConfig.determining_dump()`, i.e. the config tree
+  **minus `RunConfig.NON_DETERMINING`** (currently `{"paths"}`), prefixed with the scheme
+  marker `STAMP_SCHEME` (`"v2:"`). A corpus's *location* is neither necessary nor sufficient
+  for its identity — the same path can hold different bytes, different paths the same
+  galaxies — so relocating a corpus onto another disk is not a different experiment. *Which*
+  galaxies a run saw is `data_snapshot`'s job. `runtime` is deliberately **not** excluded:
+  MPS, CPU and CUDA differ numerically, and `device: null` is resolved to the concrete
+  backend before hashing (`HarnessConfig.with_resolved_device`), or two backends would share
+  one hash.
+
+  It is a **deny**-list on purpose: a newly added field is hashed by default, so drift errs
+  toward a spurious "different run" — never a false "same run". Excluding a field takes the
+  deliberate act of nesting it under `paths`.
+
+  The marker is applied in `RunStamp.create`, **not** inside `config_hash`. `data.cache.
+  pipeline_hash` is `config_hash` of the fitted pipeline and *names the fp16 cache directory*;
+  prefixing there would rename the key and force a full re-bake straight through the
+  format-parity lock (`docs/spec/data.md`). A `v1:`-era hex and a `v2:` hex are not
+  comparable, and the marker is what stops one being mistaken for the other.
+- **`device`** — the resolved backend, recorded alongside the hash it entered.
 
 - **`code_sha`** — `git rev-parse HEAD` + a dirty-tree flag (`git status --porcelain`).
   Outside a git repo it records the sentinel `"nogit"` with a loud warning and

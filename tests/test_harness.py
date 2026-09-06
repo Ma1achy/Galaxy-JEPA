@@ -20,7 +20,9 @@ from galaxy_jepa.harness import (
     HarnessConfig,
     ModelConfig,
     ObjectiveConfig,
+    PathsConfig,
     ProbeConfig,
+    RuntimeConfig,
     evaluate_probe,
     run_harness,
 )
@@ -72,10 +74,8 @@ def _make_corpus(root: Path, *, n: int, base_id: int, labelled: bool, seed: int)
 
 def _cfg(pretrain: Path, probe: Path, out: Path) -> HarnessConfig:
     return HarnessConfig(
-        pretrain_dir=str(pretrain),
-        probe_dir=str(probe),
-        out_dir=str(out),
-        device="cpu",
+        paths=PathsConfig(pretrain_dir=str(pretrain), probe_dir=str(probe), out_dir=str(out)),
+        runtime=RuntimeConfig(device="cpu"),
         norm_sample=10_000,
         monitor_frac=0.25,
         objective=_OBJ,

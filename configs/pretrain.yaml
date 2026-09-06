@@ -5,10 +5,15 @@
 #
 #   uv run python -c "from galaxy_jepa.harness import HarnessConfig, run_harness; ..."
 
-pretrain_dir: data/pretrain
-probe_dir: data/probe-40k
-out_dir: runs/full
-device: null                # null -> pick_device(): mps / cuda / cpu
+paths:                        # WHERE it reads and writes. Not hashed into `config_hash`
+  pretrain_dir: data/pretrain #   (RunConfig.NON_DETERMINING), so relocating a corpus onto
+  probe_dir: data/probe           #   another disk is not a different experiment. Which galaxies
+  out_dir: runs/full          #   a run saw is RunStamp.data_snapshot's job, not a path's.
+
+runtime:                      # WHAT it ran on. This one IS hashed — MPS / CPU / CUDA differ
+  device: null                #   numerically. null -> pick_device(); the RESOLVED value is
+                              #   what enters the hash, or two backends would share one.
+
 seed: 0
 q: 4.0                      # asinh stretch softening
 norm_sample: 8000           # stamps the Normalise stats are fitted on, then FROZEN

@@ -306,9 +306,40 @@ is per-config. See `docs/galaxy-jepa-spec.pdf`, §Feature-scheme experiment.
 
 ---
 
+## D15 — What a run's identity covers — *decided (signed off)*
+
+**Fork.** `config_hash` hashed the whole `HarnessConfig`, `pretrain_dir` / `probe_dir` /
+`out_dir` included. Moving the probe corpus onto the external SSD would therefore have
+restamped every run — a different hash for identical science.
+
+**Decision.** Split the config into *where* it ran and *what it was*, and hash only the
+latter.
+
+- `PathsConfig` (`paths:`) holds the three directories and is named in
+  `RunConfig.NON_DETERMINING`, so `determining_dump()` drops it before hashing. A location is
+  neither necessary nor sufficient for data identity; `RunStamp.data_snapshot` already hashes
+  the object-id set, which is.
+- `RuntimeConfig` (`runtime:`) holds `device` and **is** hashed. A backend is not a location:
+  MPS, CPU and CUDA differ numerically, so they must hash apart. `device: null` resolves to
+  the concrete backend *before* hashing, or two backends would collide on one hash.
+- A **deny**-list, not an allow-list: a new field is hashed by default, so the failure mode is
+  a spurious "different run", never a false "same run".
+- The stamped hash carries a scheme marker (`STAMP_SCHEME = "v2:"`) so a v1 hex can never be
+  quietly compared against a v2 one. It is applied in `RunStamp.create` and **not** inside
+  `config_hash`, because `data.cache.pipeline_hash` reuses `config_hash` as the fp16 cache
+  *directory name* — prefixing there would force a full re-bake through the parity lock.
+
+**Landed.** `core/config.py` (`NON_DETERMINING`, `determining_dump`, `STAMP_SCHEME`,
+`RunStamp.device`), `harness.py` (`PathsConfig`, `RuntimeConfig`, `with_resolved_device`),
+`configs/pretrain.yaml` renested — `extra='forbid'` makes an un-renested config a loud
+load-time error, which is the intended crossing of the hash-scheme boundary. Pinned by
+`tests/test_provenance_identity.py`, including the re-bake guard on `pipeline_hash`.
+
+---
+
 ## Summary — decisions and their state
 
-All of D1–D14 are now resolved. The table records what was chosen.
+All of D1–D15 are now resolved. The table records what was chosen.
 
 | # | Fork | Decision |
 |---|---|---|
@@ -323,6 +354,7 @@ All of D1–D14 are now resolved. The table records what was chosen.
 | D12 (sub) | Contrastive choice | **MoCo** (SDSS-trained) — explicit negatives = clean contrast vs JEPA; established galaxy baseline (Hayat) |
 | D13 | Confound taxonomy + inclination | **Axis ratio (b/a) as the non-circular inclination proxy**; taxonomy is the Framing-B interpretive layer, held pending results |
 | D14 | Feature scope | **Two schemes as configs on one harness** (full-37 first, then reduced); conditional population as a **comparison**, never a mask; BY family per-scheme |
+| D15 | Run identity | **`paths` excluded from `config_hash`, `runtime` kept in**; deny-list; stamped hash carries a `v2:` scheme marker (never the cache key) |
 
 **Still open** (tracked in `docs/galaxy-jepa-spec.pdf` §Open questions register, not re-litigated
 here): the graded-axis existence test (D14); the effect-floor *value*; tie-handling in the
