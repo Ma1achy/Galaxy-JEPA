@@ -26,6 +26,12 @@ uv.lock.local
 /.sciserver_work/
 checkpoints/
 runs/
+# ...and the same three as *symlinks*: the corpora, runs and pull staging live on an external
+# SSD (the internal disk is 460 GB), and a trailing-slash pattern matches a directory only, so
+# without these the links themselves would be committed.
+/data
+/runs
+/.sciserver_work
 wandb/
 
 # Generated test fixtures (the seeded generator is committed, its output is not).
