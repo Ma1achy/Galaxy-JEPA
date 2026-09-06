@@ -38,7 +38,8 @@ SELECT TOP {limit}
     p.run, p.camcol, p.field, p.rerun
 FROM PhotoPrimary AS p
 WHERE p.type = 3 AND p.clean = 1
-  AND p.modelMag_r BETWEEN {mag_min} AND {mag_max}{stride_clause}
+  AND p.modelMag_r BETWEEN {mag_min} AND {mag_max}
+  AND p.petroRad_r > {petro_min} AND p.petroRad_r <= {petro_max}{stride_clause}
 ORDER BY p.objID"""
 
 # Join keys confirmed against the live DR17 schema:
@@ -252,7 +253,13 @@ ORDER BY g.dr8objid"""
 
 
 def pretrain_sql(
-    limit: int, *, mag_min: float = 14.0, mag_max: float = 19.0, stride: int = 1
+    limit: int,
+    *,
+    mag_min: float = 14.0,
+    mag_max: float = 19.0,
+    petro_min: float = 5.0,
+    petro_max: float = 25.0,
+    stride: int = 1,
 ) -> str:
     """The unlabelled pretraining query (D6). ``stride`` sub-samples it uniformly.
 
@@ -273,12 +280,39 @@ def pretrain_sql(
     warning and writing NaN once per galaxy. The pretraining corpus is label-free and never
     probed, so SNR is not a nuisance regressor here; it is kept because it costs one column
     and makes the pretrain/probe distribution comparison possible.
+
+    ``petro_min`` is the **resolution floor**, and it is load-bearing rather than cosmetic.
+    GZ2's own selection (bright, r < ~17.77, with a size cut) means excluding Galaxy Zoo
+    strips the bright end and leaves a pool whose median galaxy spans ~18 px at 0.396"/px —
+    about *one* 16x16 ViT patch, against ~33 px (two patches) for the probe corpus. Masking
+    one-token galaxies would spend I-JEPA's prediction budget on sky, and a weak probe would
+    then measure the tokeniser rather than the science (the spec's own resolution-floor
+    concern). ``> 5"`` restores parity: median 34 px, matching the probe's 33 px.
+
+    ``petro_max`` cuts the other tail, and it is a data-quality cut rather than a selection
+    one. The raw pool runs to ``petroRad_r`` of 258" — 651 px, larger than the whole 256 px
+    stamp — which are deblending failures, not galaxies; GZ2's own quality cuts shielded the
+    probe corpus from them, so nothing downstream expects to see one. ``<= 25"`` is the probe
+    corpus's own 99th percentile.
+
+    What these cuts cannot fix is the **magnitude** shift, and that is structural rather than
+    an oversight: GZ2 labelled essentially every bright well-resolved SDSS galaxy, so
+    "unlabelled" almost *means* "fainter". Matching the probe's magnitude distribution caps a
+    pretraining corpus at ~150k — smaller than the probe corpus itself. The residual shift
+    (KS ~0.78 in r-magnitude) is therefore accepted, documented, and left to the probe-time
+    brightness/SNR controls; it also runs in the favourable direction, training on the noisy
+    faint end and probing on the clean bright one.
     """
     if stride < 1:
         raise ValueError(f"stride must be >= 1; got {stride}")
     clause = "" if stride == 1 else f"\n  AND p.objID % {int(stride)} = 0"
     return PRETRAIN_SQL.format(
-        limit=int(limit), mag_min=mag_min, mag_max=mag_max, stride_clause=clause
+        limit=int(limit),
+        mag_min=mag_min,
+        mag_max=mag_max,
+        petro_min=petro_min,
+        petro_max=petro_max,
+        stride_clause=clause,
     )
 
 
