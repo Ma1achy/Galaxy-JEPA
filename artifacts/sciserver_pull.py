@@ -62,6 +62,38 @@ from galaxy_jepa.data.sciserver import (  # noqa: E402
 CUTTER = Path(__file__).with_name("sciserver_cut.py")
 WORK = Path(".sciserver_work")
 
+# A *stalled* transfer is the failure mode the retry loop in `_fetch_one` cannot see. It
+# handles a connection that drops loudly (ChunkedEncodingError), but when the file service
+# stops sending without closing, `iter_content` blocks in a socket read forever and no
+# exception ever reaches the `except` — the pull simply stops, alive and at 0% CPU.
+# (Observed twice, ~3 h lost: socket ESTABLISHED, zero bytes for 45 min.) A stall always
+# lands on a multiple of the 8 MiB read size, so a repeated byte count means nothing — it
+# is not a server-side cap to route around.
+#
+# `socket.setdefaulttimeout` does NOT fix this: `SciServer.Files.download` calls
+# `requests.get(..., stream=True)` with no timeout, and requests then explicitly applies
+# `settimeout(None)` to the connection, overriding the process default. The timeout has to
+# be injected where requests actually reads it — the transport adapter, which is the one
+# seam every verb and Session funnels through.
+_CONNECT_TIMEOUT, _READ_TIMEOUT = 30, 180  # 8 MiB lands in ~6-8 s at 1.0-1.4 MiB/s
+
+
+def _install_default_timeouts() -> None:
+    """Give every SciServer HTTP read a deadline, so a half-open socket raises instead of hanging."""
+    import requests.adapters
+
+    original = requests.adapters.HTTPAdapter.send
+
+    def send(self, request, **kwargs):  # type: ignore[no-untyped-def]
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = (_CONNECT_TIMEOUT, _READ_TIMEOUT)
+        return original(self, request, **kwargs)
+
+    requests.adapters.HTTPAdapter.send = send  # type: ignore[method-assign]
+
+
+_install_default_timeouts()
+
 # SciServer job status codes. CANCELED (128) is how the Small domain reports a job that hit
 # its hard ~60-min wall-clock cap — it is a TERMINAL FAILURE, not a transient: treating it as
 # non-terminal made `fetch` poll a dead job until max_wait_min (10 h hang). It is terminal.
