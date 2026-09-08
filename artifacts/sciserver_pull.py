@@ -101,6 +101,60 @@ _SUCCESS = 32
 _FAILED = {64, 128}  # ERROR, CANCELED/TIMEOUT
 _TERMINAL = {_SUCCESS} | _FAILED
 
+#: A graceful stop, for rotating the token without interrupting a wave. Touch
+#: ``.sciserver_work/<corpus>.stop`` and the driver finishes the wave already in flight —
+#: downloading and merging it — then exits without submitting more. Killing the process
+#: instead would abandon a part-downloaded chunk and, worse, leave new jobs cut against a
+#: token that dies before they can be fetched. Resume with the same --mode full.
+def stop_path(corpus: str) -> Path:
+    return WORK / f"{corpus}.stop"
+
+
+def _stop_requested(corpus: str) -> bool:
+    """True once, consuming the sentinel so a stale file cannot stop the next run."""
+    f = stop_path(corpus)
+    if f.exists():
+        f.unlink(missing_ok=True)
+        return True
+    return False
+
+
+#: The fail-safe behind the planned rotation. If a token dies mid-run anyway, an expired
+#: token is neither a dead job nor a dead transfer: requeueing on it burns a bounded retry
+#: pass, and across a whole wave that can end a run while every job is still alive
+#: server-side. Hold position and re-read .env instead -- drop a fresh token in and the pull
+#: carries on with nothing lost. Bounded, so it can never hang silently forever.
+_AUTH_RETRIES = 1
+_TOKEN_WAIT_H = 12.0
+
+
+def _is_auth_error(exc: BaseException) -> bool:
+    t = str(exc).lower()
+    return "not authenticated" in t or "x-auth-token" in t or "401" in t
+
+
+def _wait_for_token(corpus: str, *, budget_h: float = _TOKEN_WAIT_H) -> None:
+    """Block until .env holds a valid token again, logging so a wait never looks like a stall."""
+    deadline = time.time() + budget_h * 3600
+    tick = 0
+    while time.time() < deadline:
+        try:
+            authenticate(verbose=False)
+            print("[full] token restored — resuming")
+            return
+        except SystemExit:
+            pass
+        if tick % 5 == 0:  # ~every 5 min: visible progress, and the log-silence watchdog stays quiet
+            left = int((deadline - time.time()) / 60)
+            print(f"[full] WAITING for a fresh SCISERVER_TOKEN in .env — {left} min of budget left")
+        tick += 1
+        time.sleep(60)
+    raise SystemExit(
+        f"[full] no valid token within {budget_h:g} h. Refresh SCISERVER_TOKEN in .env and "
+        f"re-run --mode full; {corpus} state is checkpointed, nothing is lost."
+    )
+
+
 #: Retry passes over chunks a pass requeued (a dead job, a connection dropped by the
 #: laptop sleeping). Bounded, and a pass that heals nothing ends the loop, so a
 #: permanently-broken chunk can never spin the run forever.
@@ -573,9 +627,22 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
                 print(f"[full] chunk {c['k']}: adopting live job {c['jid']} (already submitted)")
                 continue
             rows = _read_target_slice(corpus, c["offset"], c["n_targets"])
-            rec = _submit_chunk(Jobs, Files, corpus=corpus, k=c["k"], rows=rows,
-                                stamp_px=state["stamp_px"], domain=domain, image=image, sdss=sdss)
-            c.update(jid=rec["jid"], rel=rec["rel"], status="submitted")
+            # Submitting is the third place a 401 lands, and the one that actually killed a
+            # run: `_submit_chunk` asks for the file-service list before cutting, and an
+            # expired token there raised straight through the wave loop and out of main().
+            # Hold for a fresh token here too — the alternative is dying with 600 chunks left.
+            for attempt in range(_AUTH_RETRIES + 1):
+                try:
+                    rec = _submit_chunk(Jobs, Files, corpus=corpus, k=c["k"], rows=rows,
+                                        stamp_px=state["stamp_px"], domain=domain, image=image,
+                                        sdss=sdss)
+                except Exception as exc:  # noqa: BLE001
+                    if _is_auth_error(exc) and attempt < _AUTH_RETRIES:
+                        _wait_for_token(corpus)
+                        continue
+                    raise
+                c.update(jid=rec["jid"], rel=rec["rel"], status="submitted")
+                break
         _save_state(corpus, state)
 
     def _await_wave(wave: list[dict]) -> None:
@@ -589,35 +656,51 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
         for c in wave:
             t0 = time.time()
             while (time.time() - t0) < 90 * 60:
-                if safe(Jobs.getJobDescription, c["jid"]).get("status") in _TERMINAL:
+                try:
+                    status = safe(Jobs.getJobDescription, c["jid"]).get("status")
+                except Exception as exc:  # noqa: BLE001
+                    if not _is_auth_error(exc):
+                        raise
+                    _wait_for_token(corpus)
+                    continue
+                if status in _TERMINAL:
                     break
                 time.sleep(15)
 
     def _drain_wave(wave: list[dict]) -> None:
         for c in wave:
             dest = WORK / f"{corpus}_chunk_{c['k']}"
-            try:
-                _fetch_chunk(Jobs, Files, {"k": c["k"], "jid": c["jid"], "rel": c["rel"]},
-                             dest, poll_s=15, max_wait_min=90)
-                n = _accumulate(dest, out)
-            except Exception as exc:  # noqa: BLE001 — nothing here may abort the whole pull
-                # A dead job must not wedge the run. Leaving the chunk `submitted` with its jid
-                # meant every later invocation re-adopted the corpse and aborted on it — one
-                # transient server-side failure (or a laptop sleeping mid-poll) blocked the whole
-                # pull permanently. Reset it to pending so a later pass resubmits it, and carry
-                # on with the rest of the wave.
-                if isinstance(exc, RuntimeError):  # the *job* died — it needs cutting again
-                    print(f"[full] chunk {c['k']} job failed, requeued for a fresh cut: {exc}")
-                    c.update(status="pending", jid=None, rel=None)
-                else:  # the *transfer* died — the job's output is still there to re-download
-                    print(f"[full] chunk {c['k']} transfer failed, will retry download: {exc}")
+            for attempt in range(_AUTH_RETRIES + 1):
+                try:
+                    _fetch_chunk(Jobs, Files, {"k": c["k"], "jid": c["jid"], "rel": c["rel"]},
+                                 dest, poll_s=15, max_wait_min=90)
+                    n = _accumulate(dest, out)
+                except Exception as exc:  # noqa: BLE001 — nothing here may abort the whole pull
+                    # An expired token is neither of the two failures below: the job is alive
+                    # and its output is intact, only this process cannot ask for it. Hold for a
+                    # fresh one rather than requeueing, which would spend a bounded retry pass.
+                    if _is_auth_error(exc) and attempt < _AUTH_RETRIES:
+                        shutil.rmtree(dest, ignore_errors=True)
+                        _wait_for_token(corpus)
+                        continue
+                    # A dead job must not wedge the run. Leaving the chunk `submitted` with its
+                    # jid meant every later invocation re-adopted the corpse and aborted on it —
+                    # one transient server-side failure (or a laptop sleeping mid-poll) blocked
+                    # the whole pull permanently. Reset it to pending so a later pass resubmits
+                    # it, and carry on with the rest of the wave.
+                    if isinstance(exc, RuntimeError):  # the *job* died — it needs cutting again
+                        print(f"[full] chunk {c['k']} job failed, requeued for a fresh cut: {exc}")
+                        c.update(status="pending", jid=None, rel=None)
+                    else:  # the *transfer* died — the job's output is still there to re-download
+                        print(f"[full] chunk {c['k']} transfer failed, will retry download: {exc}")
+                    _save_state(corpus, state)
+                    shutil.rmtree(dest, ignore_errors=True)
+                    break
+                c["status"], c["n_written"] = "done", n
                 _save_state(corpus, state)
                 shutil.rmtree(dest, ignore_errors=True)
-                continue
-            c["status"], c["n_written"] = "done", n
-            _save_state(corpus, state)
-            shutil.rmtree(dest, ignore_errors=True)
-            print(f"[full] chunk {c['k']} merged ({n} stamps) → {out}; staging freed")
+                print(f"[full] chunk {c['k']} merged ({n} stamps) → {out}; staging freed")
+                break
 
     # Submit the NEXT wave before draining the current one, so the cluster is cutting while we
     # download. The two phases are independent — jobs run server-side, detached from this
@@ -635,10 +718,14 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
               f"wave(s) of ≤{max_concurrent}"
               + (f"; running {max_waves} this invocation" if max_waves else ""))
 
-        ran, in_flight = 0, None
+        ran, in_flight, stopping = 0, None, False
         for w, wave in enumerate(waves):
             if max_waves and ran >= max_waves:
                 print(f"[full] stopping after {ran} wave(s) (--max-waves); re-run --mode full to resume")
+                break
+            if _stop_requested(corpus):
+                stopping = True
+                print("[full] stop requested — draining the wave in flight, submitting no more")
                 break
             if in_flight is not None:
                 _await_wave(in_flight)  # cluster free again — never more than max_concurrent cutting
@@ -653,6 +740,9 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
 
         if max_waves:
             break  # a bounded invocation runs its waves once and reports
+        if stopping:
+            print("[full] STOPPED at a wave boundary; re-run --mode full to resume")
+            break
 
         still = [c for c in state["chunks"] if c["status"] != "done"]
         if not still or len(still) >= before:
