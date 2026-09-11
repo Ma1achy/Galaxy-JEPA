@@ -124,7 +124,11 @@ def _stop_requested(corpus: str) -> bool:
 #: pass, and across a whole wave that can end a run while every job is still alive
 #: server-side. Hold position and re-read .env instead -- drop a fresh token in and the pull
 #: carries on with nothing lost. Bounded, so it can never hang silently forever.
-_AUTH_RETRIES = 1
+# Retries per call site, not per run: `_wait_for_token` is itself bounded, so the only way
+# these are all spent is a token that validates and is then refused, repeatedly. One retry
+# was too few -- a token in its dying minutes passed validation, 401'd on the very next call,
+# and killed a run with 350 chunks left.
+_AUTH_RETRIES = 5
 _TOKEN_WAIT_H = 12.0
 
 
@@ -133,17 +137,31 @@ def _is_auth_error(exc: BaseException) -> bool:
     return "not authenticated" in t or "x-auth-token" in t or "401" in t
 
 
+def _token_works() -> bool:
+    """Does the token actually serve the APIs the pull uses?
+
+    Keystone validation is not a sufficient proxy: a token minutes from expiry passed
+    `getKeystoneUserWithToken` and was then refused by the file service on the very next
+    call. Probe what the caller is about to use, so "restored" means restored.
+    """
+    from SciServer import Files
+
+    try:
+        authenticate(verbose=False)
+        Files.getFileServices(verbose=False)
+    except (SystemExit, Exception):  # noqa: BLE001 — any failure means not usable yet
+        return False
+    return True
+
+
 def _wait_for_token(corpus: str, *, budget_h: float = _TOKEN_WAIT_H) -> None:
-    """Block until .env holds a valid token again, logging so a wait never looks like a stall."""
+    """Block until .env holds a working token again, logging so a wait never looks like a stall."""
     deadline = time.time() + budget_h * 3600
     tick = 0
     while time.time() < deadline:
-        try:
-            authenticate(verbose=False)
+        if _token_works():
             print("[full] token restored — resuming")
             return
-        except SystemExit:
-            pass
         if tick % 5 == 0:  # ~every 5 min: visible progress, and the log-silence watchdog stays quiet
             left = int((deadline - time.time()) / 60)
             print(f"[full] WAITING for a fresh SCISERVER_TOKEN in .env — {left} min of budget left")
@@ -301,7 +319,10 @@ def _submit_chunk(Jobs, Files, *, corpus: str, k: int, rows: list[dict], stamp_p
     rel = f"{tmp['rootVolumeName']}/{tmp['owner']}/{tmp['name']}/galaxy_pull_{corpus}_{k}"
     results = f"/home/idies/workspace/{rel}"
 
-    fs = Files.getFileServices(verbose=False)[0]
+    # Through `safe`: this is a plain lookup, but it is the first call of both submit and
+    # fetch, so every transient the service throws lands here first. A bare call made a
+    # single 500 from /racm/storem/fileservices fatal to a 15-hour run.
+    fs = safe(Files.getFileServices, verbose=False)[0]
     safe(Files.createDir, fs, rel, quiet=True)
     safe(Files.upload, fs, f"{rel}/targets.csv", localFilePath=str(targets_local), quiet=True)
 
@@ -350,7 +371,10 @@ def _fetch_chunk(Jobs, Files, chunk: dict, dest: Path, *, poll_s: int, max_wait_
             "min — giving up. Re-run --mode full to resume."
         )
 
-    fs = Files.getFileServices(verbose=False)[0]
+    # Through `safe`: this is a plain lookup, but it is the first call of both submit and
+    # fetch, so every transient the service throws lands here first. A bare call made a
+    # single 500 from /racm/storem/fileservices fatal to a 15-hour run.
+    fs = safe(Files.getFileServices, verbose=False)[0]
     job_rel = rel
     for _ in range(90):  # results subfolder + corpus.tar.gz can lag the status flip by minutes
         job_rel = _job_output_dir(Files, fs, rel, jid)
