@@ -35,7 +35,6 @@ from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
 from galaxy_jepa.probing.logistic import Embeddings
 from galaxy_jepa.probing.schemes import (
     DEFAULT_CONSENSUS_GATE,
-    DEFAULT_VOTE_COUNT_MIN,
     FeatureScheme,
     eligible_ids,
 )
@@ -48,6 +47,7 @@ __all__ = [
     "feature_ids",
     "DEFAULT_FEATURE_COLS",
     "DEFAULT_NUISANCE_COLS",
+    "NUISANCE_FLAG_COLS",
 ]
 
 # The slice's single feature. The full dissertation-fixed GZ2 tree (design 2C) extends this
@@ -69,6 +69,16 @@ DEFAULT_NUISANCE_COLS: dict[str, str] = {
     "snr": "snr_r",
     "psf": "psfWidth_r",
 }
+
+# Logical nuisance name → the corpus column that *invalidates* its measurement. A nuisance is only
+# a fair control where the quantity describes the image the encoder actually saw: the probe corpus
+# holds 2,143 galaxies whose `petroRad_r` is larger than the 256 px stamp (`size`), so for those
+# rows the column describes a galaxy the encoder only ever saw a fragment of. Worse for the
+# control, they are systematically bright, nearby and featured (mean featured fraction 0.66 against
+# 0.32) — leaving them in loads the top half of the median split with disc galaxies and makes
+# "size" read as morphology, firing a false nuisance-competitive trigger. The rows stay in the
+# corpus and in every other probe — flagged, never dropped (`docs/spec/data.md`).
+NUISANCE_FLAG_COLS: dict[str, str] = {"size": "petrorad_suspect"}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -144,10 +154,11 @@ class LabelProvider:
         *,
         feature_cols: Mapping[str, str] | None = None,
         nuisance_cols: Mapping[str, str] | None = None,
+        nuisance_flag_cols: Mapping[str, str] | None = None,
         threshold: float = 0.5,
         scheme: FeatureScheme | None = None,
         population: str = "full",
-        vote_count_min: float = DEFAULT_VOTE_COUNT_MIN,
+        vote_count_min: float,
         consensus_gate: float = DEFAULT_CONSENSUS_GATE,
     ):
         if scheme is not None and feature_cols is None:
@@ -157,6 +168,12 @@ class LabelProvider:
         self.rows = {int(k): dict(v) for k, v in rows.items()}
         self.feature_cols = dict(feature_cols or DEFAULT_FEATURE_COLS)
         self.nuisance_cols = dict(nuisance_cols or DEFAULT_NUISANCE_COLS)
+        # Part of the schema, so it travels with `nuisance_cols`: a caller mapping the nuisances
+        # onto its own columns is also the one who knows which of them can fail to be measured.
+        # `None` takes the corpus default; `{}` is an explicit statement that none can.
+        self.nuisance_flag_cols = dict(
+            NUISANCE_FLAG_COLS if nuisance_flag_cols is None else nuisance_flag_cols
+        )
         self.threshold = float(threshold)
         self.scheme = scheme
         self.population = population
@@ -205,6 +222,7 @@ class LabelProvider:
             self.rows,
             feature_cols=self.feature_cols,
             nuisance_cols=self.nuisance_cols,
+            nuisance_flag_cols=self.nuisance_flag_cols,
             threshold=self.threshold,
             scheme=self.scheme,
             population=population,
@@ -228,6 +246,34 @@ class LabelProvider:
     def nuisance_value(self, name: str, ids: Sequence[int]) -> np.ndarray:
         """The raw continuous nuisance value for ``name`` over ``ids``."""
         return self._column(ids, self.nuisance_cols[name])
+
+    def nuisance_valid(self, name: str, ids: Sequence[int]) -> np.ndarray:
+        """Boolean mask over ``ids``: rows whose ``name`` measurement is usable.
+
+        All-true for a nuisance with no flag column in :data:`NUISANCE_FLAG_COLS`. Where there
+        is one, a missing column **raises** rather than waving the rows through: silently
+        running an uncorrected radius probe is precisely the skipped control the invariants
+        forbid. ``data.pull.backfill_derived`` re-derives the flag on a corpus already pulled.
+        """
+        col = self.nuisance_flag_cols.get(name)
+        if col is None:
+            return np.ones(len(ids), dtype=bool)
+        if not any(col in row for row in self.rows.values()):
+            raise KeyError(
+                f"nuisance {name!r} needs the {col!r} flag column and the corpus has none, so "
+                f"its control cannot exclude unusable rows. Re-derive it with "
+                f"galaxy_jepa.data.pull.backfill_derived(corpus_dir)."
+            )
+        return np.asarray([not self._flagged(o, col) for o in ids], dtype=bool)
+
+    def _flagged(self, oid: int, col: str) -> bool:
+        """Unusable unless the row says plainly that it is not — an absent row, an empty cell
+        or an unreadable value all count as flagged, which is the conservative direction."""
+        raw = self.rows.get(int(oid), {}).get(col, 1)
+        try:
+            return bool(int(float(raw)))
+        except (TypeError, ValueError):
+            return True
 
     def nuisance_label(self, name: str, ids: Sequence[int]) -> np.ndarray:
         """Binarised nuisance for the parallel-probe AUC — **median split** (placeholder).

@@ -26,27 +26,15 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 
 ## Epic B — Data layer `[P2]`
 - [x] (P0) Small GZ2 sample pull; images + vote-fraction catalogue (`data/pull.py`, `data/sources.py`).
-- [ ] (P0) **Large unlabelled SDSS pretraining pull** — **10k of the target ~100k pulled.**
-  The throttled SciServer driver is ready (`artifacts/sciserver_pull.py`, chunked waves);
-  what remains is the spend + the disk for it. **The critical-path blocker.** *(D6)*
-  - **Blocked now:** the SciServer token in `.env` is expired (SSO, refreshed by hand).
-  - **Disk, measured:** FITS 0.792 GB/1k, fp16 cache 0.393 GB/1k. After reclaiming the duplicate
-    corpora there is **51 GB free**. For the medium run, *new* cost = `0.792·(N−10) + 0.393·N`
-    for an N-thousand pretrain corpus, plus `0.393·P` for a P-thousand probe cache (3k baked):
-
-    | pretrain N | probe cache P | new bytes | left | fits (5 GB headroom) |
-    |---|---|---|---|---|
-    | 30k | 20k | 34.3 GB | 16.7 GB | **yes** |
-    | 30k | 40k | 42.2 GB |  8.8 GB | **yes** |
-    | 35k | 20k | 40.2 GB | 10.8 GB | **yes** |
-    | 35k | 40k | 48.1 GB |  2.9 GB | no |
-    | 40k | 20k | 46.2 GB |  4.8 GB | **no** |
-    | 40k | 40k | 54.0 GB | −3.0 GB | **no** |
-
-    **40k does not fit in any configuration** — the top of the design's 30–40k medium band is out
-    of reach locally. **35k + a 20k probe cache** is the largest that fits with real headroom;
-    **30k + the full 40k probe cache** is the alternative if the wider probe set matters more
-    than the extra 5k of pretraining.
+- [x] (P0) **Large unlabelled SDSS pretraining pull** — **826,968 stamps, 612 GB, landed.**
+  Selection is a resolution window, not a magnitude prefix: `type=3`, `clean=1`,
+  `modelMag_r` 14–19, `petroRad_r` ∈ (5″, 25″], uniform modulus stride, never in any of the five
+  GZ2 tables. Pulled in 827 chunked waves by `artifacts/sciserver_pull.py` over ~6 days; audited
+  clean on every check (12 columns, zero duplicate objIDs across nine restarts, one distinct stamp
+  size, exact objID↔FITS set equality, zero probe overlap, `resolve_corpora()` PASS). *(D6)*
+  - `data_snapshot` = `manifest:cb69cea28f3ba37856ee011ca6bf15bab1990dd5f7c32deca08cf53a2680de61`.
+  - Corpora live on the external SSD (`data/{probe,pretrain}` are symlinks): 808 GB of 3.6 TiB
+    used, **2.8 TiB free** — the internal-disk arithmetic that used to sit here is obsolete.
 - [x] (P0) Centre-crop to 256² native (no rebin — `artifacts/fidelity_test.py` proved resampling
   attenuates high-frequency power to ~0.11 of native).
 - [x] (P0) Label schemes as config — superseded by the **two-scheme experiment**
@@ -61,9 +49,36 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 - [x] (P1) **Axis-ratio pull for inclination conditioning** — `expAB_r` + `deVAB_r` from SDSS
   `PhotoObj`, joined on `objID` for the GZ2 **probe** corpus. Independent photometric
   inclination proxy (non-circular). Distinct from both the masking pull (petroRad + arcsec/pixel)
-  and the nuisance join. Catalogue-only, no image re-cut. **Landed: 40,000/40,000 matched.** *(D13)*
+  and the nuisance join. Catalogue-only, no image re-cut. **Landed: 230,358/230,358 matched, zero
+  null.** *(D13)*
+- [x] (P1) **Deblending / over-stamp flag** — `petrorad_suspect` (`petroRad_r` > 25″) derived at
+  the single site (`data.pull.with_derived_columns`); **2,143 of 230,358 flagged (0.93%),
+  none dropped**. Excluded from the Petrosian-radius nuisance control only
+  (`probing.extract.NUISANCE_FLAG_COLS`); a corpus missing the column refuses that control rather
+  than running it uncorrected. Most flagged objects are real large nearby disks, not failures —
+  see D6.
+- [x] (P0) **Pixel-validity detector** (`data/validity.py`) — bit-identity to a 4-neighbour in
+  every channel, components below 256 px dropped (the floor is measured: 14,486 regions over 800
+  stamps are *disjoint* in size, nothing between 33 and 255 px). 13.8% of pretrain stamps carry
+  cutout padding; every qualifying region in both corpora is edge padding, interior count zero.
+  *(Brief E1)*
+- [x] (P0) **Mask/padding exposure, measured with the real sampler** — 0.22% of target blocks are
+  ≥50% invalid in the worst case (β=0, the pure-I-JEPA control). Inside the pre-registered
+  "< 1% ⇒ negligible" branch, so **the sampler is unchanged** and β=0 keeps its meaning as the
+  published control. *(Brief E2/E3)*
+- [x] (P0) **Normalisation fitted once and frozen** — valid pixels only, whole pretraining corpus
+  less a 0.1% heaviest-stamp trim (fit only; 827 stamps, sha-pinned). Closes the per-run refit
+  whose seeded subsample moved when the corpus grew 10k → 827k. Refitting refused, no escape
+  hatch. Stability: 0.0% of 200 disjoint halves breach the 1% tolerance. *(D16)*
 - [ ] (P1) Rotation/reflection augmentation pipeline (symmetry, augmentation-first). *(D10)*
-- [ ] (P1) Scale the data layer to the full corpora once the pretraining pull lands.
+- [~] (P1) **Scale the data layer to the full corpora** — the fp16 parity cache baked over both
+  corpora under the frozen pipeline (`pipeline_hash 9f88ddefe946`): 1,057,326 stamps, ~416 GB on
+  the external SSD. Measured at 85 stamps/s serial; drive-bound, not compute-bound. *(Brief E6)*
+- [ ] (P2) **Flagged, not acted on: SDSS run 1000 and friends.** The 827 stamps the normalisation
+  fit trims are low-SNR, not bright — 67.4% from run 1000, trimmed at 111× the corpus rate, with
+  4× the corpus rate of failed Petrosian fits. An imaging-quality problem, not astrophysics. No
+  GZ2 probe galaxy comes from those runs, so the probing corpus is untouched; decide separately
+  whether the *pretraining* corpus should drop them. *(docs/spec/data.md §1.3)*
 
 ## Epic C — Masking & bounding box `[P3]` — per `docs/masking.md`
 - [x] (P0) **Average-image bbox** (mean cutout, threshold τ, centred → fractional → `G×G` mask).

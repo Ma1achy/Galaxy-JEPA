@@ -54,14 +54,150 @@ Two contract points make it correct across the staged pilot → full run:
 - **Hash-keyed, auto-invalidating.** The cache lives under `<base>/<pipeline_hash>/`, where
   `pipeline_hash = config_hash(pipeline)`. A different `Q` / flux-scale / normalisation
   statistic ⇒ a different directory ⇒ stale stats can never silently mix with fresh ones.
-- **Normalisation fitted once, before the pilot; incremental top-up.** The per-channel
-  mean/std are fitted on a **seeded ~5–10k subsample** drawn to represent the *final*
-  corpus (streaming, low-memory — fitting on the full ≫100k×256² set will not fit in RAM)
-  and **frozen before the pilot**. Because the pilot and the full run then share one frozen
-  pipeline, they share the `pipeline_hash`, so topping the pilot's corpus up to the full
-  size **appends** new stamps and **reuses every pilot stamp** — never a re-bake. (Re-fitting
-  the stats on the top-up would move the hash, invalidate the cache, and — worse — train the
-  pilot encoder under different preprocessing than the full run.)
+- **Normalisation fitted once and frozen to disk; incremental top-up.** The per-channel mean/std
+  are fitted **once**, by `artifacts/e5_fit_normalisation.py`, and pinned into the config as a
+  `NormalisationFreeze`; a run **loads** them and has no fitting path at all (§1.3, D16). Because
+  every run shares that one frozen pipeline they share the `pipeline_hash`, so topping a corpus up
+  **appends** new stamps and **reuses** every existing one — never a re-bake.
+
+  > The earlier version of this paragraph said the statistic was fitted on "a seeded ~5–10k
+  > subsample" because "fitting on the full ≫100k×256² set will not fit in RAM". The second half is
+  > true and the first does not follow: the fit streams per-channel sums, so nothing is ever
+  > stacked and the whole corpus costs one pass. That conflation is what produced the defect §1.3
+  > describes — and the claim about never re-baking was itself false in practice, because a refit
+  > moved the statistic, which moved the hash.
+
+### 1.2 Valid pixels — the constant-region detector
+
+A cutout that runs off an SDSS frame boundary is padded with a constant, and the pad value is
+**exactly 0.0** while the sky sits at median 0.0013 with σ = 0.114 (measured over 250 pretrain
+stamps). The pad is therefore **0.0σ from sky**: no value threshold can separate them, and any
+that appeared to work would be cutting sky. What *does* separate them is exact constancy — the padding is bit-identical over a region,
+and sky is not.
+
+> **The rule** (`data/validity.py`, one site, consumed by normalisation, the exposure survey and
+> — if it is ever needed — the sampler): a pixel is a constant-region candidate iff it is
+> **bit-identical to at least one 4-neighbour in every channel**. Candidates are grouped into
+> connected components by row-run labelling + union-find (**no scipy** — it is an optional
+> dependency here), and components smaller than **`MIN_REGION_PX` = 256** are dropped.
+
+Two details are load-bearing and were each arrived at by correcting a wrong first attempt:
+
+- **"At least one neighbour", not "all four."** An erode-style "equals all four neighbours" rule
+  has no interior at all on a 2-px-wide dead column, and loses every rectangle corner. It silently
+  under-detects exactly the shapes the detector exists for.
+- **The 256-px floor is measured, not chosen.** SDSS stamps are heavily quantised (~569 distinct
+  values per 65,536 px, uniform step 2⁻¹⁹), so bit-identical neighbours arise **by chance** about
+  17 times a stamp. Over 800 stamps the detector found 14,486 regions: 89% are exactly 2 px, the
+  chance tail ends at 27 px, **nothing at all falls between 33 and 255 px**, and real regions
+  resume at 256. Any floor in [33, 256] gives the same answer; 256 is chosen because it is one
+  16×16 ViT token. (A synthetic pure-noise null cannot catch this — generating the null yourself
+  reproduces your own assumption about the pixel distribution rather than the corpus's.)
+
+Edge-touching and interior components are carried as **two separate bitplanes**
+(`invalid_planes`), because they would not be equally safe to avoid when masking: padding is
+off-galaxy by construction, while a saturated core sits at the centre where bulge structure
+lives. **On these corpora the distinction is moot** — surveyed over 3,000 stamps, every
+qualifying region in both the probe and the pretraining corpus is edge padding, and the interior
+count is **exactly zero**. The earlier "7.2% interior" reading was quantisation noise under the
+bare bit-identity rule, not dead pixels; the size floor removed it. The classification is kept as
+the guard that says so, not because this data needs it.
+
+**Exposure, measured against the real sampler.** `MultiBlockMasker.sample` and `Jepa.weight_maps`
+were run unmodified over pretrain stamps at β ∈ {0, 0.5, 1.0}, projecting the pixel validity mask
+onto the 16×16 token grid. The pre-registered threshold quantity — **% of target blocks ≥50%
+invalid** — came out at **0.22% in the worst case (β = 0**, the pure-I-JEPA control, which has no
+bbox bias pulling masks onto the galaxy and so is the most exposed). That is inside the
+pre-registered "< 1% ⇒ negligible" branch, so **the sampler is unchanged**: `MaskConfig` gains no
+avoidance flag, no validity sidecar is baked, and **β = 0 keeps its meaning as the published
+control**. The padding matters for the *statistic*, not for the masking.
+
+### 1.3 The normalisation statistic — fitted once, over valid pixels, frozen
+
+**The defect this closes.** `harness._build_pipeline` used to call `fit_normalise` on every run
+and persist nothing. It was seeded, so it looked reproducible — but the subsample is
+`rng.choice(len(source), n_sample)`, and `len(source)` went from 10,000 to 826,968. The same seed
+then draws an entirely different sample. Nothing on disk recorded the constants: the stamped
+`config.json` carried `norm_sample: 8000` — the *instruction to fit* — not the numbers fitting
+produced. Two runs could differ in their input transform with identical `config_hash`es and no
+way to tell afterwards. The statistic is the parity lock; a parity lock that re-derives itself per
+run is not one.
+
+So the statistic is now an **artefact**. `NormalisationFreeze` is a `FrozenChoice`: per-channel
+mean/std, the corpus and sample it came from, the stretch `Q` it sits downstream of, the
+valid-pixel flag, the detector rule, a content hash over all of those, plus `frozen_at` /
+`frozen_by` / `rationale`. Being a `RunConfig` it is hashed into `config_hash` and written to
+every artefact's `config.json`, so a result carries where its normalisation came from.
+
+Three refusals make it hold rather than merely document:
+
+- **A missing record stops the run.** `_build_pipeline` takes the freeze and has no fitting path
+  at all; `harness.py` no longer imports `fit_normalise`. There is no escape hatch here, unlike
+  `effect_floor`: a run that fitted its own statistic and stamped the forfeit would still have
+  broken parity with every other run, so the forfeit would be unpayable.
+- **A `Q` mismatch stops the run.** These are *post-stretch* statistics; under another `Q` they
+  are not stale, they are meaningless.
+- **A hand-edited record stops the run.** `assert_intact()` recomputes the content hash over the
+  determining fields, so editing a mean without re-fitting makes the provenance a lie and the lie
+  is caught at load. Provenance prose (`rationale`, `frozen_by`, …) is deliberately outside the
+  hash: it explains the number, it does not determine it.
+
+**Fitted on pretrain, applied to both corpora.** A separate probe fit would absorb the D6
+magnitude/SNR shift uncontrolled *and* hand the frozen encoder a different input transform at
+probe time than it saw in training — the exact failure the parity rule exists to prevent.
+
+**Valid pixels only, and what that bought.** Over the whole pretraining corpus **98.317% of
+pixels count as valid**, and **114,370 stamps (13.8%) carry padding** — among those, a median
+11.8% of the frame, p90 21.9%, max 79.8%. Because the pad sits at exactly 0 it drags every mean
+down and deflates every σ, uniformly across channels:
+
+| ch | naive mean | valid mean | Δ | naive std | valid std | Δ |
+|---|---|---|---|---|---|---|
+| 0 | 0.009296 | 0.009455 | **+1.71%** | 0.078388 | 0.079046 | **+0.84%** |
+| 1 | 0.016034 | 0.016308 | **+1.71%** | 0.107311 | 0.108204 | **+0.83%** |
+| 2 | 0.022794 | 0.023184 | **+1.71%** | 0.139794 | 0.140953 | **+0.83%** |
+
+**The whole corpus, not a subsample — and why the subsample had to go.** The shipped default was
+`n_sample=8000`. Two disjoint halves of it disagreed by **4.54%**, and the measured curve is a
+clean 1/√n that nothing reachable clears:
+
+| n_sample | 2,000 | 8,000 | 32,000 | 100,000 | 400,000 | all |
+|---|---|---|---|---|---|---|
+| median half-split Δ | 6.09% | 3.37% | 1.48% | 0.96% | 0.43% | **0.32%** |
+
+So every stamp is counted, and `n_sample` is **removed from the config** — no run can ask for a
+draw at all. `seed` survives in the record only to state that it was inert: no draw was made.
+
+**The trim — a degree of freedom, pinned like one.** The census statistic still failed the
+stability gate: **11.0% of 200 disjoint halves** disagreed past the 1% tolerance, because the
+variance is carried by a minority of stamps. The heaviest single stamp holds **0.090% of the whole
+corpus's ch0 sum-of-squares** — 745× its uniform share — and the top 1% hold 13.4 / 17.9 / 10.5%
+by channel.
+
+> **The rule.** Rank every stamp by **one** scalar — total valid-pixel sum-of-squares across all
+> three channels, post-asinh — and exclude from the **fit** any stamp above the 99.9th percentile
+> (threshold **36779.561450**). That is **827 stamps, 0.100%**; the excluded set is pinned by
+> `sha256 = bf2a8d0b…` over the sorted object IDs.
+
+One scalar, not a per-channel cut: ranking each channel independently would exclude different
+stamps from different channel statistics and the channels would stop being comparable. **The trim
+applies to the fit only** — every stamp stays in the corpus, in the cache and in training.
+
+It is not gate-passing. A σ inflated by a handful of outliers compresses the typical galaxy's
+post-normalisation range; the trimmed σ reflects the typical stamp and bright stamps correctly
+extend past ±1. Normalisation constants are a preprocessing transform, not a population parameter
+needing an unbiased estimate. With the trim, the gate passes cleanly: over 200 disjoint halves of
+413,070, **median 0.314%, p95 0.616%, worst 0.861%, 0.0% breaching 1%**.
+
+**What the trimmed stamps turned out to be — a data-quality finding, reported not acted on.** Not
+bright galaxies and not saturated stars: they are **low-SNR stamps concentrated in a few bad
+imaging runs**. Median `snr_r` 50.4 against the corpus's 93.9, with `modelMagErr_r` nearly double
+— and that column is SDSS's own photometric error, so it corroborates independently of our pixels.
+**67.4% of the 827 come from a single SDSS run, run 1000**, which is trimmed at 11.07% against the
+corpus-wide 0.100% — a **111× enrichment**; runs 2194 (79×) and 5181 (70×) follow, and the three
+together account for 86.7%. 28.3% carry `petroRadErr_r = −1000`, a failed radius fit, against
+6.80% corpus-wide. **No GZ2 probe galaxy comes from any of those runs**, so the probing corpus is
+untouched — GZ2's own selection had already excluded them.
 
 ---
 
@@ -145,6 +281,24 @@ corpus. Declared columns (existence checked at Tier-1 `T1.metadata-columns-real`
 | **`SNR_r`** (image-domain) | **derived: `1.0857 / modelMagErr_r`** | nuisance probe |
 | PSF width (`psfWidth_r`) | SDSS **`Field`** table, joined on `fieldID` | nuisance probe |
 | **`expAB_r` / `deVAB_r`** (axis ratio b/a) | SDSS `PhotoObjAll`, joined on `objID` | **inclination conditioning (D13) — NOT a nuisance regressor** |
+| **`petrorad_suspect`** | **derived: `petroRad_r` > `PETRORAD_SUSPECT_ARCSEC` (25″)** | **excludes a row from the radius nuisance probe only** |
+
+**The over-stamp flag — flag, never drop.** 2,143 of the 230,358 probe galaxies (0.93%) have a
+`petroRad_r` wider than the 256 px (101″) stamp can hold, running to 258″ = 651 px. For those
+rows the column describes a galaxy the encoder only ever saw a fragment of, so it cannot serve as
+an honest size nuisance — but the *galaxy* is fine, and most of these are not failures at all:
+25–100″ is 98.7% of the flagged set and behaves exactly like real large nearby disks (redshift
+falling monotonically with radius, r ≈ 13.5–14.5, featured fraction ~0.66); only past 100″ (27
+objects) does the deblending signature appear. They also skew hard to featured (0.66 against
+0.32), so leaving them in would load the top half of the size median-split with disc galaxies and
+make "size" read as morphology — a false nuisance-competitive trigger.
+
+So they stay in the corpus, in the feature probes and in every *other* nuisance; the exclusion
+applies to the Petrosian-radius control alone (`probing.extract.NUISANCE_FLAG_COLS`, part of the
+nuisance schema so a caller with its own columns declares its own failures). A corpus without the
+flag column **refuses** that control rather than running it uncorrected — a skipped control is an
+error, not a default. The flag is derived at the same single site as `snr_r`, and an unreadable
+`petroRad_r` flags `True`: unmeasurable is no more usable than absurd.
 
 The derived SNR column is written as **`snr_r`**, matching the band suffix every other
 photometric column carries. It has one derivation site, `data.pull.with_derived_columns`, which

@@ -33,6 +33,7 @@ from galaxy_jepa.data.manifest import manifest_hash
 from galaxy_jepa.data.metadata import (
     AXIS_RATIO_COLS,
     FEATURED_FRACTION_COL,
+    PETRORAD_SUSPECT_ARCSEC,
     assert_radec_agree,
     axis_ratio_sql,
     join_check_sql,
@@ -63,13 +64,25 @@ def _object_id(row: dict[str, Any]) -> int:
 
 
 def with_derived_columns(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Add ``object_id`` and the image-domain ``snr_r`` (a bad mag error → NaN + warn).
+    """Add ``object_id``, the image-domain ``snr_r`` (bad mag error → NaN + warn), and
+    ``petrorad_suspect``.
 
-    The **single** derivation site for the SNR nuisance column. Both pull paths route through
-    it: this module's HTTP pull calls it inline, and the SciServer driver
+    The **single** derivation site for the derived nuisance columns. Both pull paths route
+    through it: this module's HTTP pull calls it inline, and the SciServer driver
     (``artifacts/sciserver_pull.py``) calls it on the target rows before they are handed to the
-    server-side cut — so a corpus cannot end up without ``snr_r`` depending on which driver
-    pulled it. :func:`backfill_derived` applies the same function to a corpus already on disk.
+    server-side cut — so a corpus cannot end up without them depending on which driver pulled
+    it. :func:`backfill_derived` applies the same function to a corpus already on disk.
+
+    ``petrorad_suspect`` marks galaxies whose ``petroRad_r`` exceeds
+    ``PETRORAD_SUSPECT_ARCSEC`` — wider than the stamp holds. Those rows are **flagged, never
+    dropped**: most of them are real large nearby disks, not measurement failures (the constant
+    carries the breakdown), and even the broken ones are only broken in *that column*. The one
+    place the number corrupts a result is the Petrosian-radius nuisance control, which excludes
+    flagged rows itself (``probing.extract.NUISANCE_FLAG_COLS``); every other probe keeps them.
+
+    An absent or unparseable ``petroRad_r`` flags **True**: a radius that cannot be read is no
+    more usable for the radius probe than one that is absurd, and the conservative direction is
+    to exclude it rather than let a NaN reach the median split.
 
     Pure and token-free (the artifacts rule): it touches rows, never the network.
     """
@@ -80,6 +93,11 @@ def with_derived_columns(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         except (ValueError, KeyError, TypeError):
             logger.warning("object %s: bad modelMagErr_r; snr_r set NaN", row.get("object_id"))
             row["snr_r"] = float("nan")
+        try:
+            suspect = not float(row["petroRad_r"]) <= PETRORAD_SUSPECT_ARCSEC
+        except (ValueError, KeyError, TypeError):
+            suspect = True
+        row["petrorad_suspect"] = int(suspect)
     return rows
 
 

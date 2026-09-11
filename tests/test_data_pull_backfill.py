@@ -13,7 +13,7 @@ import csv
 
 import pytest
 
-from galaxy_jepa.data.metadata import AXIS_RATIO_COLS
+from galaxy_jepa.data.metadata import AXIS_RATIO_COLS, PETRORAD_SUSPECT_ARCSEC
 from galaxy_jepa.data.pull import (
     _object_id,
     backfill_derived,
@@ -118,3 +118,39 @@ def test_snr_nuisance_column_matches_what_the_pull_writes():
 
     (row,) = with_derived_columns([{"object_id": DR8, "modelMagErr_r": "0.10"}])
     assert DEFAULT_NUISANCE_COLS["snr"] in row
+
+
+# --- the deblending / over-stamp flag (A3) -----------------------------------------------
+
+
+def test_petrorad_suspect_flags_the_over_stamp_tail_and_keeps_the_rows():
+    """Past the threshold is flagged; nothing is dropped, and an unreadable radius flags too.
+
+    The conservative direction matters: a radius that cannot be read is no more usable for the
+    radius nuisance probe than one that is absurd, so it must not slip through as usable.
+    """
+    rows = with_derived_columns(
+        [
+            {"object_id": 1, "petroRad_r": 6.4, "modelMagErr_r": 0.01},
+            {"object_id": 2, "petroRad_r": PETRORAD_SUSPECT_ARCSEC, "modelMagErr_r": 0.01},
+            {"object_id": 3, "petroRad_r": 258.4, "modelMagErr_r": 0.01},
+            {"object_id": 4, "petroRad_r": "", "modelMagErr_r": 0.01},
+            {"object_id": 5, "modelMagErr_r": 0.01},
+        ]
+    )
+    assert [r["petrorad_suspect"] for r in rows] == [0, 0, 1, 1, 1]
+    assert len(rows) == 5, "flag, never drop"
+
+
+def test_backfill_adds_the_flag_without_touching_any_other_column(tmp_path):
+    before = [
+        {"object_id": 10, "petroRad_r": "6.4", "modelMagErr_r": "0.01", "specz": "0.07"},
+        {"object_id": 11, "petroRad_r": "99.0", "modelMagErr_r": "0.01", "specz": "0.01"},
+    ]
+    corpus = _corpus(tmp_path, before)
+    assert backfill_derived(corpus) == 2
+    after = {int(r["object_id"]): r for r in read_metadata(corpus)}
+    assert [after[10]["petrorad_suspect"], after[11]["petrorad_suspect"]] == ["0", "1"]
+    for row in before:
+        oid = int(row["object_id"])
+        assert all(after[oid][k] == v for k, v in row.items() if k != "object_id")

@@ -75,7 +75,7 @@ def _metrics(**over):
 
 
 def test_rung_gate_is_deterministic():
-    gates = build_gates(ProbingConfig())
+    gates = build_gates(ProbingConfig(vote_count_min=21))
     from galaxy_jepa.core.gates import all as gate_all
 
     tree = gate_all(*gates.rung_inputs())
@@ -86,7 +86,7 @@ def test_rung_gate_is_deterministic():
 
 def test_control_cries_wolf_blocks_existence():
     # a probe can predict anything: high AUC must NOT pass existence if it didn't beat the null
-    gates = build_gates(ProbingConfig())
+    gates = build_gates(ProbingConfig(vote_count_min=21))
     passed_real = gates.existence.evaluate(_metrics(exceeds_null=1.0)).passed
     passed_null = gates.existence.evaluate(_metrics(exceeds_null=0.0)).passed
     assert passed_real is True and passed_null is False

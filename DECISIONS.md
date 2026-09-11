@@ -125,6 +125,52 @@ pretraining-vs-probing distribution shift (fainter, smaller apparent size).
 
 Multi-survey scaling + the survey-leakage merge experiment remain **Paper 2**.
 
+### D6 final — what was actually built
+
+Both corpora are pulled and verified; these are measured, not planned, numbers.
+
+| | probe | pretrain |
+|---|---|---|
+| galaxies | **230,358** | **826,968** |
+| source | full `zoo2MainSpecz` | SDSS `PhotoPrimary`, never in any GZ2 table |
+| selection | GZ2's own | `type=3`, `clean=1`, `modelMag_r` 14–19, **`petroRad_r` ∈ (5″, 25″]** |
+| labels | raw vote fractions, t01–t11 (no debiased column) | none |
+| footprint | 171 GB | 612 GB |
+| median angular size | 2.05 ViT patches | 1.94 ViT patches |
+
+The pretrain pull targeted 826,984 and landed **826,968** — sixteen galaxies lost to chunks that
+died at the SciServer end and whose retries also failed. Recorded rather than papered over; at
+this scale it changes nothing, and `data_snapshot` hashes what exists, not what was intended.
+
+**The reasoning, recorded so it is never relitigated:**
+
+- **The 5″ floor is a *resolution* requirement, not distribution matching.** Below it the median
+  galaxy spans about one 16×16 patch — one token, no resolved morphology to learn, and nothing
+  for the bbox-biased masking (D5) to bias toward. After the cut the pretrain median is **1.94
+  patches against the probe's 2.05**: parity, and it is the floor that buys it.
+- **The 25″ ceiling is "wider than the stamp", and it is *not* purely a quality cut.** Measured on
+  the 2,143 probe galaxies above it: 25–100″ is 98.7% of them and they are **real** — redshift
+  falling monotonically with radius (0.023 → 0.007) at r ≈ 13.5–14.5, featured fraction steady at
+  ~0.66 — big nearby disks, correctly measured, simply too large for a 256 px (101″) cutout. Only
+  past 100″ (27 objects, to 258″ = 651 px) does the signature invert into deblending failure:
+  fainter, more distant, featured collapsing to 0.41, star-or-artifact vote quadrupling to 0.20.
+  So the ceiling **also declines a genuine population** — bright nearby spirals the encoder will
+  not see in pretraining. Accepted, because an uncontained galaxy teaches a truncated shape, but
+  it is a selection consequence, not a free win. The probe corpus keeps them, flagged
+  (`petrorad_suspect`), and only the Petrosian-radius nuisance control excludes them.
+- **The magnitude/SNR shift is structural and accepted** (KS ≈ 0.78 / 0.76). GZ2 labelled
+  essentially every bright, well-resolved SDSS galaxy, so *unlabelled* nearly means *fainter*.
+  Verified: even discarding the rarest 5% of the probe distribution, a strictly matched corpus
+  caps at **146,552** — smaller than the probe corpus itself. It is *impossible*, not merely
+  inconvenient.
+- **Why that is acceptable:** the shift runs in the **favourable transfer direction** (train
+  faint/noisy → probe bright/clean); normalisation absorbs much of it (relative structure
+  survives, absolute flux does not); the pilot cleared AUC 0.905 under a *worse* mismatch (no size
+  floor at all); and the brightness/SNR **nuisance probes exist precisely to test** whether the
+  representation encodes these rather than morphology.
+- **Write-up stance:** a **known limitation leaning on the existing controls** — *not* a matched
+  design. Do not overclaim parity.
+
 ---
 
 ## D7 — Canonical probe — *decided (scratchpad): L2 logistic*
@@ -142,8 +188,54 @@ Multi-survey scaling + the survey-leakage merge experiment remain **Paper 2**.
 quality**, but note it is **separate** from the uncertainty-geometry protocol —
 which deliberately uses the **consensus-extremes** split (train on v>0.8 vs v<0.2,
 test on the held-out 0.2–0.8 middle) and must *not* be pre-filtered in a way that
-removes the ambiguous middle it needs to test on. *(v1 only applied a 0.5
-threshold; the mean+2σ filter is net-new and must be implemented.)*
+removes the ambiguous middle it needs to test on.
+
+That separation survives scrutiny, and it is worth saying why: this filter removes poorly
+**sampled** galaxies, not ambiguous ones. A 50/50 split on 60 votes is thoroughly ambiguous but
+well measured, so it passes the filter and remains available to the uncertainty test — which is
+exactly the galaxy that test exists to use.
+
+### D8 correction — the method transfers, the value does not
+
+An earlier version of this record said *"v1 only applied a 0.5 threshold; the mean+2σ filter is
+net-new"*. **That was wrong**, and it is corrected here rather than quietly edited: v1's
+dissertation §5.2.1 specifies mean+2σ ≈ 21 votes, and the 0.5 was its *binarisation* threshold
+in `__to_binary` — a separate mechanism. v1 used both, and `schemes.derive_vote_count_min`'s
+citation was right all along.
+
+**But the number does not carry over.** v1 computed 21 on the PyPI `galaxy-datasets` release;
+this corpus is a direct SciServer pull with different vote counts. Re-deriving the same method
+here gives **≈36.6 per question**, or ≈300 taken over `total_votes` — an order of magnitude
+apart depending on which distribution it is applied to, which is itself a sign the heuristic is
+doing less work than it appears to.
+
+So `DEFAULT_VOTE_COUNT_MIN` is **removed**. `vote_count_min` is now a **required** field with no
+default anywhere in the code, and `headline=True` is refused until a `VoteCountFreeze` pins it —
+the same posture as the effect floor, because it is the same kind of call. A known-wrong default
+sitting in the path of every result is worse than no default.
+
+**The value itself is still open**, and two things should shape it:
+
+- A **standard-error framing** is more defensible than either heuristic. The filter exists
+  because a vote fraction from few votes is a noisy estimate, and `SE ≈ √(p(1−p)/n)` makes that
+  explicit: ±0.11 at n=21, ±0.08 at n=37. "Include galaxies whose vote fraction is known to ±X"
+  justifies itself on its own terms and converts cleanly to a count, with no appeal to v1.
+- **Per-question beats one global number.** The tree funnels — t11 is reached only by spirals —
+  so a single floor either over-filters the deep questions or under-filters the shallow ones.
+
+Measured reach on the 230,358-galaxy corpus, for the questions this decides
+(`artifacts/` recount, vote-count floor → galaxies reaching the question):
+
+| question | ≥5 | ≥21 | ≥37 |
+|---|---|---|---|
+| t09 bulge shape | 33,956 | 7,108 | **829** |
+| t10 arms winding | 66,999 | 29,738 | 8,844 |
+| t11 arms number | 66,998 | 29,721 | 8,834 |
+
+At ≥21 the per-**bucket** positives are what bite: t09 boxy 100, t11 4-arms 229, t11 >4-arms
+271. Scheme 1's deep per-bucket tests are underpowered at any threshold in this range, and
+raising the floor to 36.6 makes that strictly worse — which is the trade the choice has to
+weigh, not a reason to keep 21.
 
 ---
 
@@ -337,6 +429,67 @@ load-time error, which is the intended crossing of the hash-scheme boundary. Pin
 
 ---
 
+## D16 — The normalisation statistic is an artefact, not a per-run computation — *decided (signed off)*
+
+**Fork.** `harness._build_pipeline` fitted the statistic on every run and persisted nothing. It
+was seeded, so it read as reproducible — but the subsample is `rng.choice(len(source), n_sample)`
+and `len(source)` went from 10,000 to 826,968, so the same seed began drawing an entirely
+different sample. The stamped `config.json` recorded `norm_sample: 8000` — the *instruction* to
+fit — not the constants fitting produced. `runs/slice/config.json` still does: replayed today it
+fits different numbers, lands in a different `pipeline_hash`, silently re-bakes, and stamps the
+same `config_hash`. The statistic is the parity lock across the pretraining corpus, the probing
+corpus and every baseline; a lock that re-derives itself per run is not one.
+
+**Decision.** Fit it **once**, on **valid pixels only**, over the **whole pretraining corpus less
+a 0.1% heaviest-stamp trim**, and pin it as a `FrozenChoice`.
+
+- **`NormalisationFreeze`** carries mean/std, corpus, `n_sample`, `stretch_q`,
+  `valid_pixels_only`, the detector rule, the full trim rule, a content hash over exactly those,
+  and the usual `frozen_at` / `frozen_by` / `rationale`. Being a `RunConfig` it is hashed into
+  `config_hash` and written to every artefact, so a result now says where its normalisation came
+  from.
+- **The harness cannot fit.** `_build_pipeline` takes the record and has no fitting path;
+  `harness.py` no longer imports `fit_normalise`. **No escape hatch**, unlike `effect_floor`: a
+  run that fitted its own statistic and stamped the forfeit would still have broken parity with
+  every other run, so the forfeit would be unpayable. A missing record, a `Q` mismatch, or a
+  hand-edited value each raise at load — including a value merely *rounded*, which is how the
+  guard first proved itself.
+- **Valid pixels only.** Cutout padding is exactly-constant and sits at 0, dragging every mean
+  down 1.71% and deflating every σ by 0.83–0.84% (`docs/spec/data.md` §1.2–1.3).
+- **The whole corpus, not a subsample.** `n_sample=8000` could not pin the number — two disjoint
+  halves disagreed by 4.54%, and the curve is a clean 1/√n that nothing reachable clears. Every
+  stamp is counted, `n_sample` is removed from the config, and no run can ask for a draw at all.
+- **The trim is a degree of freedom, so it is pinned like one.** The census statistic still failed
+  the gate: 11.0% of 200 disjoint halves disagreed past 1%, because the variance is carried by a
+  minority (the heaviest stamp alone holds 0.090% of the corpus's ch0 sum-of-squares, 745× its
+  uniform share). Stamps are ranked by **one** scalar — total valid-pixel sum-of-squares across
+  all channels — and those above the 99.9th percentile are dropped **from the fit only**: 827
+  stamps, 0.100%, pinned by a sha256 over the excluded IDs. One scalar and not a per-channel cut,
+  or different stamps would leave different channel statistics and the channels would stop being
+  comparable. Every stamp stays in the corpus, the cache and training. With the trim the gate
+  passes cleanly: median 0.314%, worst 0.861%, **0.0% breaching**.
+  It is **not** gate-passing: constants are a preprocessing transform, not a population parameter
+  needing an unbiased estimate, and a σ inflated by outliers compresses the typical galaxy's
+  post-normalisation range. Bright stamps should extend past ±1; that is what ±1 is for.
+- **The gate had to be fixed before it could be trusted.** The first version took the worst of 20
+  half-splits — a noisy estimator of a tail, which read 0.95% on one run and 1.70% on the next and
+  so decided by luck. Same 1% tolerance, stable estimator: 200 splits, gated on the *fraction*
+  that breach (≤5%).
+
+**Landed.** `data/validity.py` (new), `data/cache.py` (`fit_normalise` over valid pixels,
+`NormaliseFit` carrying the naive statistic alongside as the evidence), `data/transforms.py`
+(`NormalisationFreeze`), `core/config.py` (`FrozenChoice` lifted here), `harness.py`
+(`normalisation:` replaces `norm_sample:`), `configs/pretrain.yaml`. The fit has one honest
+window, `artifacts/e5_fit_normalisation.py`, which refuses to emit a record unless the corpus
+halves agree. Pinned by `tests/test_normalisation_freeze.py` and by a shipped-config check in
+`tests/test_configs_load.py`.
+
+**Flagged, not acted on.** The 827 trimmed stamps are not bright galaxies or saturated stars but
+**low-SNR stamps concentrated in a few bad SDSS imaging runs** — 67.4% from run 1000 alone, which
+is trimmed at 111× the corpus rate. No GZ2 probe galaxy comes from those runs, so the probing
+corpus is untouched. Recorded in `docs/spec/data.md` §1.3 as a data-quality finding.
+---
+
 ## Summary — decisions and their state
 
 All of D1–D15 are now resolved. The table records what was chosen.
@@ -355,6 +508,7 @@ All of D1–D15 are now resolved. The table records what was chosen.
 | D13 | Confound taxonomy + inclination | **Axis ratio (b/a) as the non-circular inclination proxy**; taxonomy is the Framing-B interpretive layer, held pending results |
 | D14 | Feature scope | **Two schemes as configs on one harness** (full-37 first, then reduced); conditional population as a **comparison**, never a mask; BY family per-scheme |
 | D15 | Run identity | **`paths` excluded from `config_hash`, `runtime` kept in**; deny-list; stamped hash carries a `v2:` scheme marker (never the cache key) |
+| D16 | Normalisation statistic | **Fitted once as an artefact, never per run** — valid pixels only, whole pretraining corpus less a 0.1% heaviest-stamp trim (fit only); `NormalisationFreeze` hashed into `config_hash`; refitting refused, no escape hatch |
 
 **Still open** (tracked in `docs/galaxy-jepa-spec.pdf` §Open questions register, not re-litigated
 here): the graded-axis existence test (D14); the effect-floor *value*; tie-handling in the

@@ -56,16 +56,10 @@ __all__ = [
     "full_tree_scheme",
     "reduced_scheme",
     "derive_vote_count_min",
-    "DEFAULT_VOTE_COUNT_MIN",
     "DEFAULT_CONSENSUS_GATE",
 ]
 
 FeatureKind = Literal["binary", "graded", "exploratory"]
-
-#: Per-feature vote-count floor. **OPEN** (spec open register, item 3): v1's mean+2σ reading lands
-#: near 21, but the usable deep-feature N at that threshold has not been re-counted. Carried as a
-#: knob with this default, not as a settled number — see :func:`derive_vote_count_min`.
-DEFAULT_VOTE_COUNT_MIN: int = 21
 
 #: Vote-fraction floor for "this galaxy consensus-reached the upstream answer". **OPEN** (spec open
 #: register, item 2): which upstream vote, which threshold, consensus vs weighted. A per-run knob.
@@ -325,9 +319,12 @@ def derive_vote_count_min(
 ) -> float:
     """Derive the reliability threshold from the corpus's own vote-count distribution.
 
-    Carries v1's *method* (mean + 2σ) rather than a hard-coded number, per D8 — the value it
-    lands on for this corpus is an open item (spec open register, item 3: re-count the usable
-    deep-feature N at the threshold), so this is the tool for that re-derivation, not a decision.
+    Carries v1's *method* (mean + 2σ) rather than its number, per D8. The distinction is the
+    whole point: v1 read 21 off the PyPI ``galaxy-datasets`` release, and this corpus is a
+    direct SciServer pull with different vote counts — the same method re-derived here lands at
+    ~36.6 per question, and ~300 if taken over ``total_votes``. So this is the tool for the
+    re-derivation, not a decision, and there is deliberately no default anywhere for it to
+    quietly supply. See ``probing.config.VoteCountFreeze``.
     """
     values = np.asarray(counts, dtype=np.float64)
     values = values[np.isfinite(values)]
@@ -343,7 +340,7 @@ def eligible_ids(
     spec: FeatureSpec,
     ids: Sequence[int],
     *,
-    vote_count_min: float = DEFAULT_VOTE_COUNT_MIN,
+    vote_count_min: float,
     conditional: bool = False,
     consensus_gate: float = DEFAULT_CONSENSUS_GATE,
 ) -> list[int]:

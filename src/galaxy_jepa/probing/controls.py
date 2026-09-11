@@ -287,11 +287,19 @@ def build_feature_controls(
 
     nuisance_aucs: dict[str, float] = {}
     for name in labels.nuisances:
+        # A nuisance whose own measurement can fail drops the failures from *its* probe only
+        # (the size nuisance and the deblending tail — `extract.NUISANCE_FLAG_COLS`). The rows
+        # stay in the feature probe and in every other nuisance; the median split is then drawn
+        # over usable radii rather than over 651-px "galaxies".
+        keep_tr = labels.nuisance_valid(name, eligible_tr)
+        keep_te = labels.nuisance_valid(name, eligible_te)
+        ids_tr = [o for o, k in zip(eligible_tr, keep_tr, strict=True) if k]
+        ids_te = [o for o, k in zip(eligible_te, keep_te, strict=True) if k]
         nz_train = Embeddings(
-            real_train.x, labels.nuisance_label(name, eligible_tr), real_train.fraction
+            real_train.x[keep_tr], labels.nuisance_label(name, ids_tr), real_train.fraction[keep_tr]
         )
         nz_test = Embeddings(
-            real_test.x, labels.nuisance_label(name, eligible_te), real_test.fraction
+            real_test.x[keep_te], labels.nuisance_label(name, ids_te), real_test.fraction[keep_te]
         )
         nuisance_aucs[name] = _safe_auc(nz_train, nz_test, c=c)
 

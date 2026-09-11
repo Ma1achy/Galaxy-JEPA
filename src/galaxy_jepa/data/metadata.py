@@ -252,13 +252,33 @@ JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
 ORDER BY g.dr8objid"""
 
 
+# The over-stamp threshold, in arcsec, and the *one* place the number lives — the probe corpus's
+# own 99th percentile (24.3"). Past it the galaxy is wider than the 256 px (101") stamp can hold,
+# so the measured radius stops describing the image the encoder sees, whether or not the
+# measurement is sound.
+#
+# Two populations sit above it, and they are **not** the same thing (measured on the 2,143
+# flagged probe galaxies). 25-100" is 98.7% of them and they are *real*: redshift falls
+# monotonically with radius (0.023 -> 0.007) at r ~ 13.5-14.5, featured fraction steady at ~0.66
+# — big nearby disks, correctly measured, simply too large for the cutout. Past 100" (27 objects)
+# the pattern inverts — redshift back up to 0.051, fainter, featured collapsing to 0.41 and the
+# star-or-artifact vote quadrupling to 0.20 — which is the deblending-failure signature, running
+# to 258" = 651 px. So the cut is "larger than the stamp", not "broken", and only its far tail is
+# the pathology.
+#
+# The pretraining pull cuts the whole tail away structurally (`pretrain_sql`); the probe corpus
+# keeps those galaxies and flags them instead (`pull.with_derived_columns`) — see D6 and
+# `docs/spec/data.md`.
+PETRORAD_SUSPECT_ARCSEC = 25.0
+
+
 def pretrain_sql(
     limit: int,
     *,
     mag_min: float = 14.0,
     mag_max: float = 19.0,
     petro_min: float = 5.0,
-    petro_max: float = 25.0,
+    petro_max: float = PETRORAD_SUSPECT_ARCSEC,
     stride: int = 1,
 ) -> str:
     """The unlabelled pretraining query (D6). ``stride`` sub-samples it uniformly.
@@ -289,11 +309,15 @@ def pretrain_sql(
     then measure the tokeniser rather than the science (the spec's own resolution-floor
     concern). ``> 5"`` restores parity: median 34 px, matching the probe's 33 px.
 
-    ``petro_max`` cuts the other tail, and it is a data-quality cut rather than a selection
-    one. The raw pool runs to ``petroRad_r`` of 258" — 651 px, larger than the whole 256 px
-    stamp — which are deblending failures, not galaxies; GZ2's own quality cuts shielded the
-    probe corpus from them, so nothing downstream expects to see one. ``<= 25"`` is the probe
-    corpus's own 99th percentile.
+    ``petro_max`` cuts the other tail: ``<= 25"`` is the probe corpus's own 99th percentile, and
+    past it a galaxy no longer fits the 256 px (101") stamp. It is **not** purely a data-quality
+    cut, and the earlier claim that GZ2's own cuts shielded the probe corpus from the tail was
+    simply wrong — the probe corpus carries 2,143 such galaxies (`PETRORAD_SUSPECT_ARCSEC`
+    records what they are). Only the far tail, past 100" and running to 258" = 651 px, is
+    deblending failure; the bulk are real nearby disks that the cutout cannot contain. So this
+    cut also declines a genuine population, which is a selection consequence to record (D6)
+    rather than a free win — accepted because an uncontained galaxy teaches the encoder a
+    truncated shape.
 
     What these cuts cannot fix is the **magnitude** shift, and that is structural rather than
     an oversight: GZ2 labelled essentially every bright well-resolved SDSS galaxy, so

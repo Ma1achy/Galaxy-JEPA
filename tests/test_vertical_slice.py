@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from conftest import fit_freeze
 from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
 from galaxy_jepa.masking.blocks import MaskConfig
 from galaxy_jepa.objectives.jepa import Jepa, JepaConfig
@@ -75,7 +76,7 @@ def test_run_slice_end_to_end(tmp_path):
         tmp_path / "out",
         config=_CFG,
         device="cpu",
-        norm_sample=10_000,
+        normalisation=fit_freeze(pretrain),
         monitor_frac=0.25,
         model_kwargs=_MODEL,
     )
@@ -101,7 +102,7 @@ def test_calibrate_reports_a_bound(tmp_path):
         device="cpu",
         seed=0,
         q=4.0,
-        norm_sample=10_000,
+        normalisation=fit_freeze(pretrain),
         monitor_frac=0.25,
         model_kwargs=_MODEL,
     )

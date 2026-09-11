@@ -145,12 +145,12 @@ def test_label_provider_populations_share_everything_but_the_definition():
 
 def test_label_provider_rejects_an_unknown_population():
     with pytest.raises(ValueError, match="population must be"):
-        LabelProvider(_rows(), population="conditional-ish")
+        LabelProvider(_rows(), vote_count_min=21, population="conditional-ish")
 
 
 def test_without_a_scheme_eligibility_is_the_identity():
     """The plumbing path must be unchanged by the scheme machinery existing."""
-    labels = LabelProvider(_rows(), feature_cols={"bar": _BAR})
+    labels = LabelProvider(_rows(), vote_count_min=21, feature_cols={"bar": _BAR})
     assert labels.eligible("bar", [1, 2, 3]) == [1, 2, 3]
 
 
@@ -243,3 +243,34 @@ def test_tree_conditions_still_gate_singly():
     spec = full_tree_scheme().by_name[_BAR]
     assert spec.extra_conditions == ()
     assert spec.condition_groups() == ((_FEATURED,), (_NOT_EDGEON,))
+
+
+# --- the nuisance validity mask (A3): a flagged radius must not reach its own control --------
+
+
+def _radius_rows() -> dict[int, dict[str, object]]:
+    """Four galaxies, one of them wider than the stamp."""
+    return {
+        1: {"petroRad_r": 6.4, "petrorad_suspect": 0},
+        2: {"petroRad_r": 8.1, "petrorad_suspect": 0},
+        3: {"petroRad_r": 12.0, "petrorad_suspect": 0},
+        4: {"petroRad_r": 258.4, "petrorad_suspect": 1},
+    }
+
+
+def test_flagged_rows_are_dropped_from_their_own_nuisance_only():
+    labels = LabelProvider(_radius_rows(), vote_count_min=21)
+    ids = [1, 2, 3, 4]
+    assert labels.nuisance_valid("size", ids).tolist() == [True, True, True, False]
+    # every other nuisance keeps the galaxy — the flag invalidates one column, not the object
+    for other in ("redshift", "magnitude", "snr", "psf"):
+        assert labels.nuisance_valid(other, ids).all()
+
+
+def test_a_corpus_without_the_flag_column_refuses_the_radius_control():
+    """A skipped control must raise, not shrug (CLAUDE.md: fail loudly, never silently default)."""
+    rows = {k: {"petroRad_r": v["petroRad_r"]} for k, v in _radius_rows().items()}
+    labels = LabelProvider(rows, vote_count_min=21)
+    with pytest.raises(KeyError, match="backfill_derived"):
+        labels.nuisance_valid("size", [1, 2, 3, 4])
+    assert labels.nuisance_valid("redshift", [1, 2, 3, 4]).all()

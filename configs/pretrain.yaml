@@ -16,10 +16,34 @@ runtime:                      # WHAT it ran on. This one IS hashed — MPS / CPU
 
 seed: 0
 q: 4.0                      # asinh stretch softening
-norm_sample: 8000           # stamps the Normalise stats are fitted on, then FROZEN
 monitor_frac: 0.02          # pretrain slice held out for the collapse monitor
 autocast: null              # null | bf16 | fp16
 ratios: [0.70, 0.15, 0.15]  # probe train / val / test
+
+# The frozen normalisation statistic (D16). NOT fitted at run time — `_build_pipeline` loads
+# this record and has no fitting path at all; a missing, `Q`-mismatched or hand-edited record
+# is a loud failure. Re-derive only with `artifacts/e5_fit_normalisation.py`, deliberately.
+# `content_hash` covers every field above it that determines the numbers, so an edit here
+# without a re-fit is refused at load rather than believed — including a tidier rounding.
+normalisation:
+  derived_from: 'data/pretrain (826968 stamps; 827 excluded from the fit only, fitted on 826141). Stability over 200 disjoint halves: median 0.314%, worst 0.861%, 0.0% breaching the 1% tolerance'
+  frozen_at: '2026-09-11'
+  frozen_by: 'malachy'
+  rationale: "fit once over valid pixels only, on the whole pretraining corpus less a 0.1% heaviest-stamp trim, and pinned — closing the per-run refit whose seeded subsample moved when the corpus grew 10k -> 827k. No draw was made, so seed is inert. The trim is not gate-passing: the census sigma is inflated by a small minority (top 1% of stamps carry 13.4/17.9/10.5% of sum-of-squares by channel), and normalising by an outlier-inflated sigma compresses the typical galaxy's post-normalisation range. The trimmed sigma reflects the typical stamp; bright stamps correctly extend beyond +-1. Constants are a preprocessing transform, not a population parameter needing an unbiased estimate. Trim applies to the FIT ONLY — every stamp stays in the corpus and in training"
+  mean: [0.009454908658610726, 0.01630844769710272, 0.02318442785313156]
+  std: [0.07904613852166308, 0.10820447247619723, 0.14095327215176595]
+  corpus: 'pretrain'
+  n_sample: 826141
+  seed: 0
+  stretch_q: 4.0
+  valid_pixels_only: true
+  detector: 'like-4-neighbour bit-identity, all channels, region >= 256px'
+  trim_rank: 'total valid-pixel sum-of-squares across all channels, post-asinh'
+  trim_threshold: 36779.561450152854
+  trim_excluded: 827
+  trim_ids_sha256: 'bf2a8d0bf1338304b08318e256f8bccae0efd11495ae90bbc4829bfec14127c1'
+  content_hash: '75100066b3e059b0a996af12d93d34870080f950da37c579599f3be73771bcf0'
+  code_sha: 'f9d668fc3863a14abc6fc80c6577f74a8d0776a5-dirty'
 
 model:                      # clean ViT-S/16 (D2) — no conv stem, so masking semantics stay
   patch_size: 16            # unambiguous. Stamp size comes from the baked cache, not from here.

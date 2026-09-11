@@ -38,7 +38,7 @@ from pydantic import Field
 from torch.utils.data import DataLoader
 
 from galaxy_jepa.core.config import RunConfig, RunStamp, write_stamp
-from galaxy_jepa.data.cache import TensorCache, bake_cache, fit_normalise
+from galaxy_jepa.data.cache import TensorCache, bake_cache
 from galaxy_jepa.data.dataset import StampDataset, rows_by_id
 from galaxy_jepa.data.manifest import manifest_hash
 from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
@@ -49,7 +49,7 @@ from galaxy_jepa.data.orchestrate import (
     write_split_plan,
 )
 from galaxy_jepa.data.sources import DirectorySource
-from galaxy_jepa.data.transforms import AsinhStretch, Pipeline
+from galaxy_jepa.data.transforms import AsinhStretch, NormalisationFreeze, Pipeline
 from galaxy_jepa.models.vit import VisionTransformer, load_frozen_encoder
 from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, _to_device, train_jepa
 from galaxy_jepa.probing.config import ProbingConfig
@@ -65,7 +65,6 @@ from galaxy_jepa.probing.logistic import (
 from galaxy_jepa.probing.run import ProbingReport, run_probing
 from galaxy_jepa.probing.schemes import (
     DEFAULT_CONSENSUS_GATE,
-    DEFAULT_VOTE_COUNT_MIN,
     FeatureScheme,
     get_scheme,
 )
@@ -181,6 +180,10 @@ class ProbingStageConfig(RunConfig):
     enabled: bool = False
     scheme: str | None = None  # None ⇒ the LabelProvider default; else a probing.schemes name
     max_galaxies: int | None = None  # truncate the corpus (plumbing smokes only)
+    # REQUIRED whenever the battery runs (D8). There is no default anywhere for this: v1's
+    # mean+2σ *method* carries, its value 21 does not — that was read off a different data
+    # release. Turning probing on means stating the floor. See `probing.config.VoteCountFreeze`.
+    vote_count_min: float | None = None
 
 
 class PathsConfig(RunConfig):
@@ -223,7 +226,11 @@ class HarnessConfig(RunConfig):
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     seed: int = 0
     q: float = 4.0
-    norm_sample: int = 8000
+    #: The frozen normalisation statistic (E5). REQUIRED before any run that bakes a cache —
+    #: `_build_pipeline` loads it and refuses to fit. There is deliberately no `norm_sample`
+    #: knob any more: the sample size that produced these numbers is *in* the record, and a
+    #: live knob would imply a run could change it, which is exactly the drift being closed.
+    normalisation: NormalisationFreeze | None = None
     monitor_frac: float = 0.02
     autocast: str | None = None  # None | "bf16" | "fp16"
     ratios: tuple[float, float, float] = (0.70, 0.15, 0.15)
@@ -312,14 +319,34 @@ def build_objective(config: JepaConfig, encoder: VisionTransformer) -> Jepa:
 # --- shared setup ------------------------------------------------------------------------
 
 
-def _build_pipeline(
-    pretrain_source: DirectorySource, *, q: float, n_sample: int, seed: int
-) -> Pipeline:
-    # fit normalisation ONCE on a pretrain subsample and freeze BEFORE any training, so the
-    # pilot and the full run share one pipeline_hash and the cache tops up incrementally.
-    stretch = AsinhStretch(q=q)
-    norm = fit_normalise(pretrain_source, stretch, n_sample=n_sample, seed=seed)
-    return Pipeline((stretch, norm))
+def _build_pipeline(*, q: float, freeze: NormalisationFreeze | None) -> Pipeline:
+    """The parity-locked pipeline, **loaded** from the frozen record — never re-fitted.
+
+    This used to call ``fit_normalise`` on every run, and that was a defect rather than a
+    shortcut: the subsample is drawn as ``rng.choice(len(source), ...)``, so it moved when the
+    pretraining corpus grew from 10,000 to 826,968 stamps, and nothing on disk recorded that
+    the constants had changed. Two runs could differ in their input transform with identical
+    configs and no way to tell afterwards.
+
+    So the statistic is now an artefact (``NormalisationFreeze``) that this function reads. A
+    missing record is a loud failure; re-fitting is not something a training run is allowed to
+    do by accident.
+    """
+    if freeze is None:
+        raise ValueError(
+            "no frozen normalisation: `normalisation` is unset in the run config, and a run "
+            "may not fit one for itself. The statistic is the parity lock across the "
+            "pretraining corpus, the probing corpus and every baseline, and re-fitting it "
+            "per run is how it drifted silently before. Fit it once with "
+            "`artifacts/e5_fit_normalisation.py` and paste the block into the config."
+        )
+    if freeze.stretch_q != q:
+        raise ValueError(
+            f"the frozen normalisation was fitted after AsinhStretch(q={freeze.stretch_q}) but "
+            f"this run stretches at q={q}. These are post-stretch statistics, so they do "
+            "not transfer — re-fit under the new Q, deliberately, or put Q back."
+        )
+    return Pipeline((AsinhStretch(q=q), freeze.to_normalise()))
 
 
 @dataclasses.dataclass
@@ -346,7 +373,7 @@ def _prepare(
     device: str,
     seed: int,
     q: float,
-    norm_sample: int,
+    normalisation: NormalisationFreeze | None,
     monitor_frac: float,
     model_kwargs: dict[str, Any] | None,
     ratios: tuple[float, float, float] = (0.70, 0.15, 0.15),
@@ -373,9 +400,14 @@ def _prepare(
     )
 
     # 2. one frozen pipeline, baked into a shared hash-keyed cache (incremental top-up)
-    pipeline = _build_pipeline(pre_src, q=q, n_sample=norm_sample, seed=seed)
-    bake_cache(pre_src, pipeline, out / "cache")
-    cache = bake_cache(probe_src, pipeline, out / "cache")  # same hash dir → appends probe
+    pipeline = _build_pipeline(q=q, freeze=normalisation)
+    # The cache holds NORMALISED stamps, so it records which freeze made them. `_build_pipeline`
+    # has already refused a missing record, hence the assert rather than a branch.
+    assert normalisation is not None
+    norm_hash = normalisation.content_hash
+    bake_cache(pre_src, pipeline, out / "cache", normalisation_hash=norm_hash)
+    # same hash dir → appends probe under the one statistic; that sharing IS the parity rule
+    cache = bake_cache(probe_src, pipeline, out / "cache", normalisation_hash=norm_hash)
     rows = rows_by_id([*pre_src.rows, *probe_src.rows])
 
     # 3. encoder + objective + loaders sized to the baked stamp
@@ -410,7 +442,7 @@ def run_harness(config: HarnessConfig) -> RunReport:
         device=device,
         seed=config.seed,
         q=config.q,
-        norm_sample=config.norm_sample,
+        normalisation=config.normalisation,
         monitor_frac=config.monitor_frac,
         model_kwargs=config.model.model_kwargs(),
         ratios=config.ratios,
@@ -455,7 +487,10 @@ def run_harness(config: HarnessConfig) -> RunReport:
                 config,
                 checkpoint=result.checkpoint,
                 probing=ProbingConfig(
-                    seed=config.seed, ratios=config.ratios, device=config.runtime.device
+                    seed=config.seed,
+                    ratios=config.ratios,
+                    device=config.runtime.device,
+                    vote_count_min=_required_vote_floor(config),
                 ),
                 scheme=get_scheme(config.probing.scheme) if config.probing.scheme else None,
                 max_galaxies=config.probing.max_galaxies,
@@ -465,6 +500,20 @@ def run_harness(config: HarnessConfig) -> RunReport:
     write_stamp(stamp, out, config.model_dump(mode="json"))
     logger.info("harness report: %s", report.go_no_go())
     return report
+
+
+def _required_vote_floor(config: HarnessConfig) -> float:
+    """The D8 reliable-label floor, or a loud refusal — never a quiet 21."""
+    floor = config.probing.vote_count_min
+    if floor is None:
+        raise ValueError(
+            "probing needs `probing.vote_count_min` and this config leaves it unset. The floor "
+            "decides which galaxies count as measured at all, and D8 leaves the *value* open: "
+            "v1's mean+2σ method carries but its 21 was read off the galaxy-datasets release, "
+            "not this pull (re-derived here it is ~36.6 per question). Set it deliberately — "
+            "`galaxy_jepa.probing.schemes.derive_vote_count_min` re-derives it on this corpus."
+        )
+    return float(floor)
 
 
 def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = None) -> ProbeResult:
@@ -530,7 +579,7 @@ def build_label_provider(
     feature_cols: Mapping[str, str] | None = None,
     nuisance_cols: Mapping[str, str] | None = None,
     scheme: FeatureScheme | None = None,
-    vote_count_min: float = DEFAULT_VOTE_COUNT_MIN,
+    vote_count_min: float,
     consensus_gate: float = DEFAULT_CONSENSUS_GATE,
 ) -> LabelProvider:
     """Build the probing ``LabelProvider`` over a corpus's metadata rows.
@@ -575,7 +624,15 @@ def probe_frozen_checkpoint(
     truncates the corpus for a plumbing smoke and is itself recorded, since a truncated corpus is
     a different ``data_snapshot``.
     """
-    cfg = probing if probing is not None else ProbingConfig(seed=config.seed, ratios=config.ratios)
+    cfg = (
+        probing
+        if probing is not None
+        else ProbingConfig(
+            seed=config.seed,
+            ratios=config.ratios,
+            vote_count_min=_required_vote_floor(config),
+        )
+    )
     out = (
         Path(out_dir)
         if out_dir is not None

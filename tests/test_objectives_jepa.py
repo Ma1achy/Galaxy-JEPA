@@ -27,8 +27,10 @@ from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, ema_momentum, train_je
 def _loader(corpus, tmp_path, batch_size=4):
     source = DirectorySource(corpus)
     stretch = AsinhStretch(q=4.0)
-    norm = fit_normalise(source, stretch, n_sample=10_000, seed=0)
-    cache = bake_cache(source, Pipeline((stretch, norm)), tmp_path / "cache")
+    norm = fit_normalise(source, stretch, n_sample=10_000, seed=0).valid
+    cache = bake_cache(
+        source, Pipeline((stretch, norm)), tmp_path / "cache", normalisation_hash="test-norm"
+    )
     rows = rows_by_id([r for _, r in source])
     ds = StampDataset(cache, rows, [int(r["object_id"]) for r in rows.values()])
     return DataLoader(ds, batch_size=batch_size, shuffle=True)

@@ -38,6 +38,7 @@ import numpy as np
 
 from galaxy_jepa.core.config import config_hash
 from galaxy_jepa.data.transforms import AsinhStretch, Normalise, Pipeline
+from galaxy_jepa.data.validity import validity_mask
 
 logger = logging.getLogger(__name__)
 
@@ -57,21 +58,52 @@ def pipeline_hash(pipeline: Pipeline) -> str:
     return config_hash(pipeline.to_config())
 
 
+@dataclasses.dataclass(frozen=True)
+class NormaliseFit:
+    """The fitted statistic, and the one it would have been without the validity mask.
+
+    Both come out of the same streaming pass — the naive figures cost nothing extra and are
+    the evidence that excluding padding was worth doing, so they are returned rather than
+    recomputed later by a script that might drift from this one.
+    """
+
+    valid: Normalise
+    naive: Normalise
+    n_stamps: int
+    valid_pixel_fraction: float
+
+    def contamination(self) -> list[tuple[float, float, float, float]]:
+        """Per channel: ``(naive mean, valid mean, naive std, valid std)``."""
+        assert self.valid.mean is not None and self.valid.std is not None
+        assert self.naive.mean is not None and self.naive.std is not None
+        return list(
+            zip(self.naive.mean, self.valid.mean, self.naive.std, self.valid.std, strict=True)
+        )
+
+
 def fit_normalise(
     source: _Source,
     stretch: AsinhStretch,
     *,
     n_sample: int = 8000,
     seed: int = 0,
-) -> Normalise:
+    valid_only: bool = True,
+) -> NormaliseFit:
     """Fit per-channel mean/std on a seeded post-stretch subsample, streaming (low memory).
 
-    Computes the statistic from running per-channel sums rather than stacking the sample,
-    so fitting on ~5–10k 256² stamps does not blow past RAM. The subsample is a seeded
-    random draw of the pulled corpus; because the pull selection is identical for the pilot
-    and the full corpus, a subsample of the pilot is representative of the final 100k — and
-    the *correctness* guarantee (no re-fit on top-up, stable hash, incremental bake) comes
-    from freezing this result before the pilot, not from where the sample is drawn.
+    Computes the statistic from running per-channel sums rather than stacking the sample, so
+    fitting on ~5–10k 256² stamps does not blow past RAM.
+
+    ``valid_only`` excludes the constant regions :mod:`galaxy_jepa.data.validity` detects —
+    about one stamp in seven carries cutout padding, which is a constant dragging the mean
+    toward the pad value and deflating the variance. The divisor becomes **per channel**,
+    since a channel no longer contributes a fixed pixel count.
+
+    **This function no longer decides anything.** Its result is pinned into a
+    ``NormalisationFreeze`` and loaded from there by every run; calling it again is fitting, not
+    loading, and the harness refuses to do that. Note the reason: the subsample is
+    ``rng.choice(len(source), ...)``, so it moves when the corpus grows — which is precisely how
+    the statistic drifted silently between the 10k pilot and the 827k corpus.
     """
     n = len(source)
     if n == 0:
@@ -80,24 +112,49 @@ def fit_normalise(
     k = min(n_sample, n)
     idx = rng.choice(n, size=k, replace=False)
 
-    csum: np.ndarray | None = None
-    csumsq: np.ndarray | None = None
-    pixels = 0
+    vsum = vsumsq = nsum = nsumsq = None
+    vpixels: np.ndarray | None = None
+    npixels = 0
     for i in idx:
-        stretched = np.asarray(stretch(source[int(i)][0]), dtype=np.float64)
+        raw = source[int(i)][0]
+        stretched = np.asarray(stretch(raw), dtype=np.float64)
         c = stretched.shape[0]
-        if csum is None:
-            csum = np.zeros(c)
-            csumsq = np.zeros(c)
-        csum += stretched.sum(axis=(1, 2))
-        assert csumsq is not None
-        csumsq += (stretched**2).sum(axis=(1, 2))
-        pixels += stretched.shape[1] * stretched.shape[2]
-    assert csum is not None and csumsq is not None
+        if vsum is None:
+            vsum, vsumsq = np.zeros(c), np.zeros(c)
+            nsum, nsumsq = np.zeros(c), np.zeros(c)
+            vpixels = np.zeros(c)
+        assert vsumsq is not None and nsum is not None and nsumsq is not None
+        assert vpixels is not None
+        nsum += stretched.sum(axis=(1, 2))
+        nsumsq += (stretched**2).sum(axis=(1, 2))
+        npixels += stretched.shape[1] * stretched.shape[2]
+
+        keep = validity_mask(raw) if valid_only else np.ones(stretched.shape[1:], dtype=bool)
+        masked = stretched * keep
+        vsum += masked.sum(axis=(1, 2))
+        vsumsq += (masked**2).sum(axis=(1, 2))
+        vpixels += float(keep.sum())
+
+    assert vsum is not None and vsumsq is not None and nsum is not None and nsumsq is not None
+    assert vpixels is not None
+    valid = _moments(vsum, vsumsq, vpixels)
+    naive = _moments(nsum, nsumsq, np.full_like(nsum, float(npixels)))
+    frac = float(vpixels.sum() / max(npixels * len(vsum), 1))
+    logger.info(
+        "fit Normalise on %d/%d stamps (valid_only=%s, %.4f%% of pixels kept): mean=%s std=%s",
+        k,
+        n,
+        valid_only,
+        100 * frac,
+        valid.mean,
+        valid.std,
+    )
+    return NormaliseFit(valid=valid, naive=naive, n_stamps=k, valid_pixel_fraction=frac)
+
+
+def _moments(csum: np.ndarray, csumsq: np.ndarray, pixels: np.ndarray) -> Normalise:
     mean = csum / pixels
-    var = csumsq / pixels - mean**2
-    std = np.sqrt(np.clip(var, 1e-12, None))
-    logger.info("fit Normalise on %d/%d stamps: mean=%s std=%s", k, n, mean.tolist(), std.tolist())
+    std = np.sqrt(np.clip(csumsq / pixels - mean**2, 1e-12, None))
     return Normalise(mean=tuple(mean.tolist()), std=tuple(std.tolist()))
 
 
@@ -111,6 +168,11 @@ class CacheIndex:
     width: int
     dtype: str
     object_ids: list[int]
+    #: ``NormalisationFreeze.content_hash`` of the statistic these stamps were baked under.
+    #: ``pipeline_hash`` already covers the *values*; this names the **artefact** they came
+    #: from, so a baked stamp can be traced to a provenance record and not merely to a number.
+    #: Empty means the cache predates the freeze (D16) and its statistic is unrecorded.
+    normalisation_hash: str = ""
 
     @property
     def n(self) -> int:
@@ -133,6 +195,8 @@ def _read_index(cache_dir: Path) -> CacheIndex | None:
         width=raw["width"],
         dtype=raw["dtype"],
         object_ids=[int(o) for o in raw["object_ids"]],
+        # tolerant: a cache baked before D16 has no such field, and says so by being empty
+        normalisation_hash=str(raw.get("normalisation_hash", "")),
     )
 
 
@@ -140,11 +204,46 @@ def _write_index(cache_dir: Path, index: CacheIndex) -> None:
     (cache_dir / _INDEX_FILE).write_text(json.dumps(dataclasses.asdict(index), indent=2) + "\n")
 
 
+def _assert_untorn(data_path: Path, index: CacheIndex | None, dtype: np.dtype[Any]) -> None:
+    """Refuse to append to a cache whose data file and index disagree about its length.
+
+    An interrupted bake is ordinary — a four-hour job gets Ctrl-C'd — and it leaves
+    ``stamps.f16`` longer than the index, because the index is only written at the end. Appending
+    to that is not merely wasteful: the next bake writes past the orphaned tail while the index
+    numbers those rows as the stamps it just baked, so every row after the interruption point
+    reads one galaxy's pixels under another galaxy's object ID. Silent, and fatal to everything
+    downstream. The index is the commit point, so recovery is to discard the uncommitted tail —
+    but that is the operator's call to make, not a default.
+    """
+    if not data_path.exists():
+        return
+    row = int(dtype.itemsize)
+    if index is not None:
+        row *= index.channels * index.height * index.width
+        expected = index.n * row
+    else:
+        expected = 0
+    actual = data_path.stat().st_size
+    if actual == expected:
+        return
+    orphaned = actual - expected
+    raise RuntimeError(
+        f"torn cache at {data_path.parent}: the data file holds {actual} bytes but the index "
+        f"accounts for {expected} ({orphaned:+d}, "
+        f"{abs(orphaned) / max(row, 1):.0f} rows). An interrupted bake leaves exactly this, and "
+        "appending would number the orphaned rows as newly baked stamps — every one of them "
+        "mislabelled. Nothing committed lives past the index, so recovery is to truncate to it:\n"
+        f"    python -c \"open({str(data_path)!r},'r+b').truncate({expected})\"\n"
+        "or delete the directory and bake again."
+    )
+
+
 def bake_cache(
     source: _Source,
     pipeline: Pipeline,
     base_dir: str | Path,
     *,
+    normalisation_hash: str,
     dtype: type = np.float16,
     log_every: int = 2000,
 ) -> TensorCache:
@@ -153,6 +252,11 @@ def bake_cache(
     Object IDs already present in the cache are **skipped** (their FITS is never even read),
     so a 30k→100k top-up appends only the new ~70k under the same frozen stats. Returns a
     :class:`TensorCache` reader over the resulting cache.
+
+    ``normalisation_hash`` is the ``NormalisationFreeze.content_hash`` the stamps are baked
+    under. It is **required** because the cache stores *normalised* stamps: a cache that could
+    not name its statistic's provenance record would be a parity lock with no key. It is recorded
+    in the index and checked on every top-up.
     """
     key = pipeline_hash(pipeline)
     cache_dir = Path(base_dir) / key
@@ -164,10 +268,18 @@ def bake_cache(
         raise RuntimeError(
             f"cache at {cache_dir} has pipeline_hash {index.pipeline_hash} != {key}; won't mix"
         )
+    if index is not None and index.normalisation_hash != normalisation_hash:
+        raise RuntimeError(
+            f"cache at {cache_dir} was baked under normalisation "
+            f"{index.normalisation_hash[:12] or '(unrecorded, pre-D16)'} but this run carries "
+            f"{normalisation_hash[:12]}. The values may hash alike and the provenance still "
+            "differ — re-bake into a fresh directory rather than mixing two records."
+        )
     existing = set(index.object_ids) if index is not None else set()
     object_ids = list(index.object_ids) if index is not None else []
     shape = index.shape if index is not None else None
     np_dtype: np.dtype[Any] = np.dtype(dtype)
+    _assert_untorn(data_path, index, np_dtype)
 
     n_new = 0
     with data_path.open("ab") as fh:
@@ -192,6 +304,7 @@ def bake_cache(
         raise ValueError("nothing to bake: source is empty and cache did not exist")
     new_index = CacheIndex(
         pipeline_hash=key,
+        normalisation_hash=normalisation_hash,
         channels=shape[0],
         height=shape[1],
         width=shape[2],

@@ -87,17 +87,22 @@ class TestGroundedStatistics:
     def test_multiplicity_defaults_to_benjamini_yekutieli(self):
         from galaxy_jepa.probing.config import ProbingConfig
 
-        assert ProbingConfig().multiplicity == "benjamini_yekutieli"
+        assert ProbingConfig(vote_count_min=21).multiplicity == "benjamini_yekutieli"
 
     def test_permutation_floor_is_enforced_not_documented(self):
         from galaxy_jepa.probing.config import ProbingConfig
 
-        assert ProbingConfig().n_perm >= 10_000
-        assert ProbingConfig().permutation_method == "two_sided"
+        assert ProbingConfig(vote_count_min=21).n_perm >= 10_000
+        assert ProbingConfig(vote_count_min=21).permutation_method == "two_sided"
         with pytest.raises(ValueError, match="10,000"):
-            ProbingConfig(n_perm=999)
+            ProbingConfig(n_perm=999, vote_count_min=21)
         # a declared deviation is allowed, and is stamped
-        assert ProbingConfig(n_perm=999, escape_hatches=("reduced_permutations",)).n_perm == 999
+        assert (
+            ProbingConfig(
+                n_perm=999, vote_count_min=21, escape_hatches=("reduced_permutations",)
+            ).n_perm
+            == 999
+        )
 
     def test_mp_edge_must_use_the_actual_matrix_shape(self):
         """Decision (5): a nominal k moves the edge and silently changes the verdict."""
@@ -287,6 +292,6 @@ class TestNullBudget:
         """Nothing may compute n_null_draws from the active scheme's family size."""
         from galaxy_jepa.probing.config import ProbingConfig
 
-        one = ProbingConfig(scheme_name="full_tree", n_null_draws=4000)
-        two = ProbingConfig(scheme_name="reduced", n_null_draws=4000)
+        one = ProbingConfig(scheme_name="full_tree", n_null_draws=4000, vote_count_min=21)
+        two = ProbingConfig(scheme_name="reduced", n_null_draws=4000, vote_count_min=21)
         assert one.n_null_draws == two.n_null_draws == 4000

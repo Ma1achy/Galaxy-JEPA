@@ -17,7 +17,12 @@ device: null
 # --- conditional population (D14) — a COMPARISON, never a mask -------------------------
 compare_populations: true   # runs the ladder on the full AND the consensus-conditional set
 consensus_gate: 0.5         # OPEN (spec register 2): which upstream vote, which threshold
-vote_count_min: 21          # OPEN (spec register 3): v1's mean+2σ method; value to re-derive
+# OPEN (spec register 3, D8). REQUIRED — the code carries no default, so this line is the only
+# place the floor comes from. v1's mean+2σ *method* transfers; its value does NOT — 21 was read
+# off the PyPI galaxy-datasets release, and this corpus is a direct SciServer pull (re-derived
+# by the same method here: ~36.6 per question, ~300 over total_votes). Stated provisionally so
+# the template loads; `headline=True` is refused until vote_count_freeze pins it deliberately.
+vote_count_min: 21
 
 # --- the canonical probe ---------------------------------------------------------------
 c: 1.0                      # L2 inverse-strength (D7)

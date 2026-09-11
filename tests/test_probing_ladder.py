@@ -88,13 +88,18 @@ def _labels() -> LabelProvider:
     }
     return LabelProvider(
         rows,
+        vote_count_min=21,
         feature_cols={"bright": "bright_frac", "noise_feat": "noise_frac"},
         nuisance_cols={"size": "size", "snr": "snr"},
+        # Synthetic sizes, no deblending tail — say so rather than let the default look for a
+        # `petrorad_suspect` column this schema was never going to have.
+        nuisance_flag_cols={},
     )
 
 
 def _config() -> ProbingConfig:
     return ProbingConfig(
+        vote_count_min=21,
         mlp_widths=(8, 16, 32),
         mlp_epochs=40,
         n_perm=200,

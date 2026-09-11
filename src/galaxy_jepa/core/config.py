@@ -221,6 +221,25 @@ class RunConfig(BaseModel):
         }
 
 
+class FrozenChoice(RunConfig):
+    """A pre-registered choice, pinned together with the story of where it came from.
+
+    Some numbers in this project are not derivations — they are calls, and a call made after
+    seeing the result it affects is not a call at all. Making the freeze an *object* rather
+    than a note means the provenance rides inside the config, so it is hashed into
+    ``config_hash`` and written into every artefact's ``config.json``: a result carries where
+    its numbers came from, or it does not get to be a headline.
+
+    Subclasses add whatever the pinned value actually is — a float for a threshold, per-channel
+    tuples for a normalisation statistic.
+    """
+
+    derived_from: str  # what the value was read off (a run's out_dir, a corpus, a stamp hash)
+    frozen_at: str  # ISO-8601 date the call was made
+    frozen_by: str  # who made it — a judgement has an author
+    rationale: str
+
+
 # --- provenance --------------------------------------------------------------------
 
 _NO_GIT = "nogit"

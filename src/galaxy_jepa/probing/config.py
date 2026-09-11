@@ -27,31 +27,48 @@ from typing import Literal
 
 from pydantic import model_validator
 
-from galaxy_jepa.core.config import RunConfig
-from galaxy_jepa.probing.schemes import DEFAULT_CONSENSUS_GATE, DEFAULT_VOTE_COUNT_MIN
+from galaxy_jepa.core.config import FrozenChoice, RunConfig
+from galaxy_jepa.probing.schemes import DEFAULT_CONSENSUS_GATE
 
 __all__ = ["EffectFloorFreeze", "ProbingConfig"]
 
 
-class EffectFloorFreeze(RunConfig):
-    """The record of the effect floor being pinned: what set it, when, and on whose call.
+class EffectFloorFreeze(FrozenChoice):
+    """The record of the effect floor being pinned.
 
     The floor is the one number in the battery that is a *scientific judgement* rather than a
     derivation, and it has exactly one honest window. Choosing it before there is an AUC
     distribution to look at is choosing blind; choosing it after the headline run is p-hacking.
     The medium local run is that window — a real spread of per-feature AUCs, on an encoder whose
     verdicts nobody is going to publish.
-
-    Making the freeze an object rather than a note means the provenance rides in the config,
-    so it is hashed into ``config_hash`` and written into every artefact's ``config.json``: a
-    result carries the story of where its floor came from, or it is not a headline run.
     """
 
     value: float
-    derived_from: str  # the run the AUC distribution came from (out_dir, or its stamp hash)
-    frozen_at: str  # ISO-8601 date the call was made
-    frozen_by: str  # who made it — this is a judgement, so it has an author
-    rationale: str
+
+
+class VoteCountFreeze(FrozenChoice):
+    """The record of the reliable-label vote-count floor being pinned (D8).
+
+    v1's *method* (mean + 2σ) transfers; its *value* does not. v1 read 21 off the PyPI
+    ``galaxy-datasets`` release, and this corpus is a direct SciServer pull with different vote
+    counts — re-derived here the same method lands at ~36.6 per question. So there is no
+    defensible default, and carrying 21 "because v1" would be a known-wrong number sitting in
+    the path of every result. There is none: the value is required, and a headline run must
+    pin it here.
+
+    Two things worth weighing when the number is chosen. A **standard-error framing** is more
+    defensible than either heuristic — ``SE ≈ sqrt(p(1-p)/n)`` is ±0.11 at n=21 and ±0.08 at
+    n=37, so "include galaxies whose vote fraction is known to ±X" justifies itself and
+    converts cleanly to a count. And **per-question beats global**, because the tree funnels:
+    t11 is reached only by spirals, so one global number either over-filters the deep questions
+    or under-filters the shallow ones.
+
+    Orthogonal to the uncertainty geometry, and D8's separation requirement survives: this
+    removes poorly *sampled* galaxies, not ambiguous ones. A 50/50 split on 60 votes is
+    ambiguous but well measured, and it stays.
+    """
+
+    value: float
 
 
 class ProbingConfig(RunConfig):
@@ -93,9 +110,12 @@ class ProbingConfig(RunConfig):
     compare_populations: bool = True
     # OPEN (spec register item 2): which upstream vote, which threshold, consensus vs weighted.
     consensus_gate: float = DEFAULT_CONSENSUS_GATE
-    # OPEN (spec register item 3): v1's mean+2σ method lands near 21; the usable deep-feature N
-    # at that threshold has not been re-counted, so this is a knob, not a settled number.
-    vote_count_min: float = DEFAULT_VOTE_COUNT_MIN
+    # REQUIRED, deliberately undefaulted (D8): v1's mean+2σ *method* transfers but its value
+    # does not — 21 was read off a different data release, and re-derivation on this corpus
+    # gives ~36.6. A known-wrong default is worse than none, so every run states the floor and
+    # `headline=True` is refused until `vote_count_freeze` pins it. See `VoteCountFreeze`.
+    vote_count_min: float
+    vote_count_freeze: VoteCountFreeze | None = None
 
     # --- the canonical linear probe -----------------------------------------------------
     c: float = 1.0  # L2 inverse-strength for the logistic probe
@@ -166,14 +186,28 @@ class ProbingConfig(RunConfig):
     n_perm: int = 10_000
 
     @model_validator(mode="after")
-    def _effect_floor_freeze_agrees(self) -> ProbingConfig:
-        """A freeze record that disagrees with the live floor would make the provenance a lie."""
-        freeze = self.effect_floor_freeze
-        if freeze is not None and freeze.value != self.effect_floor:
+    def _freezes_agree_with_the_live_values(self) -> ProbingConfig:
+        """A freeze record that disagrees with the live value would make the provenance a lie."""
+        for name, live, freeze in (
+            ("effect_floor", self.effect_floor, self.effect_floor_freeze),
+            ("vote_count_min", self.vote_count_min, self.vote_count_freeze),
+        ):
+            if freeze is not None and freeze.value != live:
+                raise ValueError(
+                    f"{name}={live} contradicts its freeze record ({freeze.value}, frozen "
+                    f"{freeze.frozen_at} by {freeze.frozen_by}). Change one or the other "
+                    "deliberately; a stamped value must be the value that ran."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _headline_requires_a_frozen_vote_floor(self) -> ProbingConfig:
+        if self.headline and self.vote_count_freeze is None:
             raise ValueError(
-                f"effect_floor={self.effect_floor} contradicts its freeze record "
-                f"({freeze.value}, frozen {freeze.frozen_at} by {freeze.frozen_by}). Change one "
-                "or the other deliberately; a stamped floor must be the floor that ran."
+                "headline=True but the reliable-label vote floor is still OPEN. It decides "
+                "which galaxies are counted as measured at all, so picking it after seeing "
+                "headline verdicts sets which features exist. Pin it with a VoteCountFreeze "
+                "(value, derived_from, frozen_at, frozen_by, rationale) first."
             )
         return self
 

@@ -104,7 +104,10 @@ I-JEPA (Assran et al. 2023): context-encoder ViT, EMA target encoder (anti-colla
 > dedup guard + seed-reproducible assignment exercised, `data/orchestrate.py`), an **fp16
 > pre-bake cache** (parity-locked pipeline run once to a memmap; hash-keyed, incremental
 > top-up, normalisation fitted once on a subsample and frozen *before* the pilot —
-> `data/cache.py`), the from-scratch **ViT-S/16 @256²** (`models/vit.py`), the bbox-biased
+> `data/cache.py`) **[correction, later: the freeze was never real. `_build_pipeline` re-fitted
+> on every run and persisted nothing, and the subsample is drawn as `rng.choice(len(source), n)`
+> — so it moved when the corpus grew 10k → 827k. Closed by D16: the statistic is now an artefact
+> the harness loads and cannot refit.]**, the from-scratch **ViT-S/16 @256²** (`models/vit.py`), the bbox-biased
 > masking (β default 0.5; β=0 ≡ I-JEPA, `masking/blocks.py`), the JEPA objective +
 > **collapse monitor** (std / effective-rank / mean-cosine; `objectives/jepa.py`,
 > `callbacks/collapse.py`), the frozen **L2-logistic probe** + UMAP (`probing/`, `eval/`),

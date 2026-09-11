@@ -187,7 +187,25 @@ Full detail in the scratchpad; the live ones for Paper 1:
 
 ## 8. Status
 
-- **P0** in progress: planning docs + `docs/masking.md` + `docs/related-work.md`
-  delivered for review; repo skeleton to be scaffolded on sign-off (no model /
-  training code). See `DECISIONS.md` for the forks awaiting your call — model code
-  starts only after the plan **and** the masking approach are signed off.
+- **P1 done.** Repo, toolchain and CI stand; `import galaxy_jepa` is clean.
+- **P2 data layer — both corpora pulled and verified.** Probe **230,358** GZ2-labelled
+  (raw vote fractions, axis ratios joined 230,358/230,358, `petrorad_suspect` derived);
+  pretrain **826,968** unlabelled SDSS on a resolution window. 783 GB on the external SSD.
+  Final numbers and their reasoning are recorded under **D6**. The **normalisation is now
+  frozen** (D16): fitted once over valid pixels on the whole pretraining corpus less a 0.1%
+  heaviest-stamp trim, pinned as an artefact, refitting refused. The fp16 parity cache is baked
+  over **both** corpora — 1,057,326 stamps, ~416 GB — not 230k, because the pretraining corpus
+  and the probing corpus must share one hash-keyed directory or the parity rule is not enforced.
+  What remains in P2 is the rotation/reflection augmentation.
+- **P3–P6 built, not yet run at scale.** Masking, the JEPA model, the pretraining loop and the
+  probing harness are all in place and green under test; the probing load path is smoked against
+  the pilot encoder. The five statistical decisions are **grounded and wired** — `effect_floor`
+  is deliberately **required-but-unset**, and `headline=True` is refused until it is frozen.
+- **The standing gate before training:** the normalisation freeze and the parity bake are **done**
+  (D16, Brief E). What remains of the gate is the D8 reliable-label threshold — `vote_count_min`
+  is now **required-but-unset**, so a headline run is refused until a value is frozen, and the
+  deep-question reach has to be recounted at whatever value that is. That count is what decides
+  whether Scheme 1's per-bucket tests are adequately powered.
+- `DECISIONS.md` carries no fork still awaiting a call; what is open (the effect-floor *value*,
+  the graded-axis existence test, tie-handling in the entanglement cross-check) is tracked in the
+  spec's open-questions register, not here.

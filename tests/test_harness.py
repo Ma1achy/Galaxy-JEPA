@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from conftest import fit_freeze, make_freeze
 from galaxy_jepa.core.config import RunStamp
 from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
 from galaxy_jepa.harness import (
@@ -72,11 +73,13 @@ def _make_corpus(root: Path, *, n: int, base_id: int, labelled: bool, seed: int)
     return root
 
 
-def _cfg(pretrain: Path, probe: Path, out: Path) -> HarnessConfig:
+def _cfg(pretrain: Path, probe: Path, out: Path, *, fit: bool = True) -> HarnessConfig:
     return HarnessConfig(
         paths=PathsConfig(pretrain_dir=str(pretrain), probe_dir=str(probe), out_dir=str(out)),
         runtime=RuntimeConfig(device="cpu"),
-        norm_sample=10_000,
+        normalisation=fit_freeze(pretrain)
+        if fit
+        else make_freeze((0.1, 0.2, 0.3), (1.1, 1.2, 1.3)),
         monitor_frac=0.25,
         objective=_OBJ,
         model=_MODEL,
@@ -85,7 +88,7 @@ def _cfg(pretrain: Path, probe: Path, out: Path) -> HarnessConfig:
 
 
 def test_harness_config_roundtrips_and_stamps(tmp_path):
-    cfg = _cfg(tmp_path / "pre", tmp_path / "probe", tmp_path / "out")
+    cfg = _cfg(tmp_path / "pre", tmp_path / "probe", tmp_path / "out", fit=False)
     dumped = cfg.model_dump(mode="json")
     assert HarnessConfig.model_validate(dumped) == cfg  # serialise → load round-trips
     # the objective config builds a JepaConfig carrying the headline β knob

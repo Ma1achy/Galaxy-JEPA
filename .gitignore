@@ -48,3 +48,6 @@ galjep.zip
 .idea/
 .vscode/
 .env
+
+# Generated investigation output (contact sheets, survey dumps) — regenerable, often large
+artifacts/out/

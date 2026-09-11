@@ -20,6 +20,7 @@ from typing import Any
 
 import torch
 
+from galaxy_jepa.data.transforms import NormalisationFreeze
 from galaxy_jepa.harness import (
     CalibrationResult,
     HarnessConfig,
@@ -63,7 +64,7 @@ def run_slice(
     device: str | None = None,
     seed: int = 0,
     q: float = 4.0,
-    norm_sample: int = 8000,
+    normalisation: NormalisationFreeze | None = None,
     monitor_frac: float = 0.02,
     model_kwargs: dict[str, Any] | None = None,
     autocast_dtype: torch.dtype | None = None,
@@ -78,7 +79,7 @@ def run_slice(
         runtime=RuntimeConfig(device=device),
         seed=seed,
         q=q,
-        norm_sample=norm_sample,
+        normalisation=normalisation,
         monitor_frac=monitor_frac,
         autocast=_DTYPE_NAME.get(autocast_dtype) if autocast_dtype is not None else None,
         objective=ObjectiveConfig.from_jepa_config(config or JepaConfig()),
@@ -134,7 +135,7 @@ def main(argv: list[str] | None = None) -> None:
             device=device,
             seed=cfg.seed,
             q=cfg.q,
-            norm_sample=cfg.norm_sample,
+            normalisation=cfg.normalisation,
             monitor_frac=cfg.monitor_frac,
             model_kwargs=cfg.model.model_kwargs(),
             ratios=cfg.ratios,
