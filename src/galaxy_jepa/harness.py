@@ -503,15 +503,18 @@ def run_harness(config: HarnessConfig) -> RunReport:
 
 
 def _required_vote_floor(config: HarnessConfig) -> float:
-    """The D8 reliable-label floor, or a loud refusal — never a quiet 21."""
+    """The reliable-label floor, or a loud refusal — never a quiet 21."""
     floor = config.probing.vote_count_min
     if floor is None:
         raise ValueError(
             "probing needs `probing.vote_count_min` and this config leaves it unset. The floor "
-            "decides which galaxies count as measured at all, and D8 leaves the *value* open: "
-            "v1's mean+2σ method carries but its 21 was read off the galaxy-datasets release, "
-            "not this pull (re-derived here it is ~36.6 per question). Set it deliberately — "
-            "`galaxy_jepa.probing.schemes.derive_vote_count_min` re-derives it on this corpus."
+            "decides which galaxies count as measured at all, so it is stated, never inferred. "
+            "D8 is SUPERSEDED, not open: the mean+2σ filter existed because v1 trained on the "
+            "labels, and v2's encoder never sees one, so `configs/probe.yaml` freezes the floor "
+            "at 1 — the minimum where a vote fraction is defined, since a question nobody "
+            "answered is a 0/0 that GZ2 stores as a literal 0.0. Copy that block, including its "
+            "`vote_count_freeze`; `derive_vote_count_min` remains only to re-derive the "
+            "withdrawn heuristic for the registered sweep."
         )
     return float(floor)
 

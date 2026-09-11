@@ -201,11 +201,13 @@ Full detail in the scratchpad; the live ones for Paper 1:
   probing harness are all in place and green under test; the probing load path is smoked against
   the pilot encoder. The five statistical decisions are **grounded and wired** — `effect_floor`
   is deliberately **required-but-unset**, and `headline=True` is refused until it is frozen.
-- **The standing gate before training:** the normalisation freeze and the parity bake are **done**
-  (D16, Brief E). What remains of the gate is the D8 reliable-label threshold — `vote_count_min`
-  is now **required-but-unset**, so a headline run is refused until a value is frozen, and the
-  deep-question reach has to be recounted at whatever value that is. That count is what decides
-  whether Scheme 1's per-bucket tests are adequately powered.
+- **The standing gate before training is down to one item.** The normalisation freeze and the
+  parity bake are **done** (D16, Brief E), and the reliable-label floor is **frozen** — D8 is
+  superseded rather than satisfied, running unfiltered at the defined minimum of 1, with the
+  reach recounted there (t09 boxy 7,894 positives against 302 at ≥5 and 33 at ≥37) and a
+  {1, 5, 11, 21, 37} sweep pre-registered as robustness. The **effect floor is the only one of
+  the five still open**: `headline=True` stays refused until the medium local run gives an AUC
+  distribution to set it from.
 - `DECISIONS.md` carries no fork still awaiting a call; what is open (the effect-floor *value*,
   the graded-axis existence test, tie-handling in the entanglement cross-check) is tracked in the
   spec's open-questions register, not here.

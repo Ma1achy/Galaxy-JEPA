@@ -30,7 +30,7 @@ from pydantic import model_validator
 from galaxy_jepa.core.config import FrozenChoice, RunConfig
 from galaxy_jepa.probing.schemes import DEFAULT_CONSENSUS_GATE
 
-__all__ = ["EffectFloorFreeze", "ProbingConfig"]
+__all__ = ["EffectFloorFreeze", "ProbingConfig", "VoteCountFreeze"]
 
 
 class EffectFloorFreeze(FrozenChoice):
@@ -47,28 +47,48 @@ class EffectFloorFreeze(FrozenChoice):
 
 
 class VoteCountFreeze(FrozenChoice):
-    """The record of the reliable-label vote-count floor being pinned (D8).
+    """The record of the reliable-label vote-count floor being pinned (D8 — **superseded**).
 
-    v1's *method* (mean + 2σ) transfers; its *value* does not. v1 read 21 off the PyPI
-    ``galaxy-datasets`` release, and this corpus is a direct SciServer pull with different vote
-    counts — re-derived here the same method lands at ~36.6 per question. So there is no
-    defensible default, and carrying 21 "because v1" would be a known-wrong number sitting in
-    the path of every result. There is none: the value is required, and a headline run must
-    pin it here.
+    **This is a reversal, not a value being filled in.** D8 said to reuse v1's mean+2σ
+    agreement filter. That decision is withdrawn on its own terms, and the record has to show
+    it was chosen rather than left blank:
 
-    Two things worth weighing when the number is chosen. A **standard-error framing** is more
-    defensible than either heuristic — ``SE ≈ sqrt(p(1-p)/n)`` is ±0.11 at n=21 and ±0.08 at
-    n=37, so "include galaxies whose vote fraction is known to ±X" justifies itself and
-    converts cleanly to a count. And **per-question beats global**, because the tree funnels:
-    t11 is reached only by spirals, so one global number either over-filters the deep questions
-    or under-filters the shallow ones.
+      v1 needed the mean+2σ filter because v1 **trained on the labels** — vote noise flowed
+      through the loss and bent the encoder weights, so noisy galaxies had to be excluded up
+      front. v2 breaks that coupling: the encoder never sees a label. The filter's original
+      purpose does not transfer.
+
+      Label noise in a **probe target** is conservative: it attenuates measured association
+      toward chance and cannot manufacture a direction. A feature clearing the gate despite
+      unfiltered labels is therefore a **stronger** result, not a weaker one. The existence null
+      is computed on the same labels, so the comparison stays like-for-like.
+
+      Filtering costs power precisely on the features the paper is about (t09 boxy: 302 at ≥5,
+      100 at ≥21, 829 at ≥37).
+
+    So the floor runs **unfiltered**, at the minimum where the vote fraction is *defined* rather
+    than at zero: a question nobody answered has a 0/0 fraction and no measurement to probe. On
+    this corpus that distinction is load-bearing, because GZ2 encodes an unreached question's
+    fraction as a literal ``0.0`` rather than a blank — 51.6% of the probe corpus carries
+    ``t09_bulge_shape_a26_boxy_fraction = 0.0`` meaning "never asked", byte-identical to "asked,
+    nobody said boxy". Admitting those would not be an unfiltered run; it would be 118,962
+    fabricated negatives.
+
+    :attr:`sweep` pre-registers the robustness check **before any results exist**: the ladder is
+    re-run at each threshold and the agreement reported as a stability claim. It is a robustness
+    check, not a selection step — the headline threshold is fixed in advance by :attr:`value` and
+    **must not be revised on the basis of which threshold produces better results**, the same
+    discipline the pre-registered hard gate carries.
 
     Orthogonal to the uncertainty geometry, and D8's separation requirement survives: this
-    removes poorly *sampled* galaxies, not ambiguous ones. A 50/50 split on 60 votes is
+    removes galaxies with *no measurement*, not ambiguous ones. A 50/50 split on 60 votes is
     ambiguous but well measured, and it stays.
     """
 
     value: float
+    #: Thresholds the ladder is re-run at, as a pre-registered stability claim. Hashed and
+    #: stamped like everything else here, so the registration travels with the result.
+    sweep: tuple[float, ...] = ()
 
 
 class ProbingConfig(RunConfig):
@@ -198,6 +218,22 @@ class ProbingConfig(RunConfig):
                     f"{freeze.frozen_at} by {freeze.frozen_by}). Change one or the other "
                     "deliberately; a stamped value must be the value that ran."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def _the_headline_threshold_is_one_of_the_registered_sweep_points(self) -> ProbingConfig:
+        """Pre-registration made checkable: the headline must be a point the sweep declared.
+
+        The sweep is a robustness check, not a menu. If the headline value could sit outside the
+        registered set, "fixed in advance" would rest on nobody looking — so it cannot.
+        """
+        freeze = self.vote_count_freeze
+        if freeze is not None and freeze.sweep and freeze.value not in freeze.sweep:
+            raise ValueError(
+                f"the frozen vote floor {freeze.value} is not among its own registered sweep "
+                f"{list(freeze.sweep)}. The sweep is a stability claim about a threshold chosen "
+                "in advance; a headline sitting outside it would be a threshold chosen after."
+            )
         return self
 
     @model_validator(mode="after")

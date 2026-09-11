@@ -40,9 +40,22 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 - [x] (P0) Label schemes as config — superseded by the **two-scheme experiment**
   (`probing/schemes.py`), which is the D14 form of this task.
 - [ ] (P1) Q10 "bulge present" construction. Port v1 `image_preprocessing/cleandataset.py:94`.
-- [~] (P1) **Reliable-label filter (mean + 2σ)** — v1's *method* is carried
-  (`schemes.derive_vote_count_min`) and wired as a per-feature vote-count floor; the
-  **threshold value is open** (re-count usable deep-feature N at it). *(D8)*
+- [x] (P0) **Reliable-label filter — SUPERSEDED, and frozen as such.** The mean+2σ filter is
+  withdrawn: v1 needed it because v1 trained on the labels, and v2's encoder never sees one.
+  Probe-target noise is conservative — it attenuates toward chance and cannot manufacture a
+  direction — so a feature clearing the gate unfiltered is a *stronger* result. Frozen at **1**,
+  the minimum where a vote fraction is defined, via `VoteCountFreeze` (hashed, stamped, refit
+  refused). Sweep **{1, 5, 11, 21, 37}** pre-registered as a robustness claim, not a selection
+  step. *(D8 superseded)*
+- [ ] (P1) **Vote count is not merely noise for the uncertainty geometry — decide a LOCAL floor.**
+  Separate sub-system, deliberately untouched by the corpus-wide decision above. A galaxy at
+  50/50 on 60 votes is *genuinely ambiguous* — people looked and disagreed — while 2/2 on 4 votes
+  may be obvious and merely undersampled; likewise `v = 1.0` on 3 votes is a weak
+  consensus-extreme, not a strong one. The uncertainty-geometry test and the consensus-extreme
+  split (`extreme_low`/`extreme_high`) both read the fraction as if it carried the same meaning
+  at every depth, and it does not. Decide a vote-count floor **or** a weighting **local to those
+  two**; do **not** impose it corpus-wide, which would delete the ambiguous middle that test
+  exists to use. Bites hard at the frozen floor: 89.8% of t09 boxy's positives rest on ≤2 votes.
 - [x] (P0) **CasJobs / SkyServer metadata join** — z, Petrosian mag/radius, SNR, PSF, verified by
   a 10-row ra/dec guard + at-scale range summary. SNR is derived image-domain (`snr_r`) at the
   single derivation site and backfilled across the pulled corpora.

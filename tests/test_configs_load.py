@@ -59,6 +59,38 @@ def test_probe_config_loads_and_carries_the_grounded_decisions():
     assert config.smoke is False  # a shipped config must never default to a smoke
 
 
+def test_the_shipped_vote_floor_is_frozen_at_the_defined_minimum():
+    """D8 is superseded, and the record has to show that it was chosen rather than left blank."""
+    with open("configs/probe.yaml") as fh:
+        config = ProbingConfig(**yaml.safe_load(fh))
+    freeze = config.vote_count_freeze
+    assert freeze is not None, "a bare vote_count_min would read as an oversight, not a decision"
+    assert freeze.value == config.vote_count_min == 1  # defined minimum: 0/0 is not a measurement
+    assert freeze.sweep == (1, 5, 11, 21, 37)  # pre-registered before any results exist
+    assert freeze.value in freeze.sweep
+    assert "SUPERSEDED" in freeze.rationale and "TRAINED ON THE LABELS" in freeze.rationale
+
+
+def test_the_headline_gate_now_turns_only_on_the_effect_floor():
+    """The vote-floor gate is closed; the effect floor is the one still open."""
+    with open("configs/probe.yaml") as fh:
+        raw = yaml.safe_load(fh)
+    with pytest.raises(ValueError, match="effect floor is still OPEN"):
+        ProbingConfig(**{**raw, "headline": True})
+    with pytest.raises(ValueError, match="vote floor is still OPEN"):
+        ProbingConfig(**{**raw, "headline": True, "vote_count_freeze": None})
+
+
+def test_a_headline_threshold_outside_its_own_sweep_is_refused():
+    """The sweep is a robustness check, not a menu to pick the best point from afterwards."""
+    with open("configs/probe.yaml") as fh:
+        raw = yaml.safe_load(fh)
+    raw["vote_count_min"] = 3
+    raw["vote_count_freeze"] = {**raw["vote_count_freeze"], "value": 3}
+    with pytest.raises(ValueError, match="not among its own registered sweep"):
+        ProbingConfig(**raw)
+
+
 def test_an_unknown_key_is_a_load_time_error():
     with pytest.raises(ValueError):
         ProbingConfig(seed=0, vote_count_min=21, multiplicty="benjamini_yekutieli")  # typo'd key

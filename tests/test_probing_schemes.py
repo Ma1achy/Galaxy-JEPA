@@ -274,3 +274,61 @@ def test_a_corpus_without_the_flag_column_refuses_the_radius_control():
     with pytest.raises(KeyError, match="backfill_derived"):
         labels.nuisance_valid("size", [1, 2, 3, 4])
     assert labels.nuisance_valid("redshift", [1, 2, 3, 4]).all()
+
+
+class TestTheReachDenominatorIsTheQuestionTotal:
+    """The floor asks "did enough people answer this question", not "did enough pick this answer".
+
+    This pins a defect that shipped. ``eligible_ids`` summed ``spec.count_col`` — the single
+    answer's own count — for binary specs, while graded specs already summed every answer. A
+    fraction is ``count_answer / total_question``, so the per-answer version filtered on the
+    numerator and threw away the **well-defined zeros**: galaxies where the question was answered
+    and nobody chose this answer, which is most of the negatives. On the real corpus at a floor of
+    1 that discarded 72.6% of t09 boxy's eligible galaxies and 87.2% of t11 >4-arms, leaving probe
+    sets of almost nothing but positives. It also disagreed with D8's own published reach table,
+    which the fixed version reproduces exactly.
+    """
+
+    def test_a_well_defined_zero_survives_the_floor(self):
+        """Nobody said "bar", but thirty people were asked — the fraction is 0.0 and it is real."""
+        spec = full_tree_scheme().by_name[_BAR]
+        rows = {
+            1: {
+                _FEATURED: 0.9,
+                _NOT_EDGEON: 0.9,
+                "t03_bar_a06_bar_count": 0,  # the numerator
+                "t03_bar_a07_no_bar_count": 30,  # the rest of the denominator
+            }
+        }
+        assert eligible_ids(rows, spec, [1], vote_count_min=1) == [1]
+
+    def test_a_question_nobody_answered_is_excluded_at_the_defined_minimum(self):
+        """0/0 is undefined, and GZ2 stores it as a literal 0.0 — the floor is what catches it."""
+        spec = full_tree_scheme().by_name[_BAR]
+        rows = {
+            1: {
+                _FEATURED: 0.9,
+                _NOT_EDGEON: 0.9,
+                "t03_bar_a06_bar_count": 0,
+                "t03_bar_a07_no_bar_count": 0,
+            }
+        }
+        assert eligible_ids(rows, spec, [1], vote_count_min=1) == []
+        # ...and a floor of 0 would let it straight through, which is why the value is 1
+        assert eligible_ids(rows, spec, [1], vote_count_min=0) == [1]
+
+    def test_every_spec_on_a_question_shares_one_denominator(self):
+        """Binary and graded specs must agree, or a question's reach depends on which answer."""
+        scheme = full_tree_scheme()
+        for question, answers in GZ2_TREE.items():
+            expected = {vote_column(question, a, "count") for a in answers}
+            for spec in scheme.specs:
+                if spec.question == question:
+                    assert set(spec.reach_count_cols()) == expected, spec.name
+
+    def test_the_numerator_column_is_not_the_reach_filter(self):
+        """`count_col` still names this answer's own count; it just is not what the floor reads."""
+        spec = full_tree_scheme().by_name[_BAR]
+        assert spec.count_col == "t03_bar_a06_bar_count"
+        assert spec.count_col in spec.reach_count_cols()
+        assert len(spec.reach_count_cols()) == len(GZ2_TREE["t03_bar"])

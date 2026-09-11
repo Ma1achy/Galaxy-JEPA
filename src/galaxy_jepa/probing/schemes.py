@@ -83,7 +83,9 @@ class FeatureSpec:
     question: str
     kind: FeatureKind
     fraction_col: str | None = None  # binary / exploratory: the single answer fraction
-    count_col: str | None = None  # the per-answer vote count (the reach filter)
+    #: This answer's own vote count. **Not** the reach filter — see :meth:`reach_count_cols`,
+    #: which sums every answer to the question, because a fraction's denominator is the total.
+    count_col: str | None = None
     graded_cols: tuple[str, ...] = ()  # graded: the ordered answer fractions, low → high
     graded_count_cols: tuple[str, ...] = ()
     #: Conditions beyond the GZ2 tree's own reachability chain. Each entry is a group of
@@ -125,6 +127,23 @@ class FeatureSpec:
         """
         tree = tuple((vote_column(q, a),) for q, a in self.conditions)
         return tree + self.extra_conditions
+
+    def reach_count_cols(self) -> tuple[str, ...]:
+        """Every answer's vote-count column for this feature's **question** — the reach denominator.
+
+        The floor asks "did enough people answer this question", so the denominator is the
+        question total, not one answer's share of it. That distinction is not cosmetic. A GZ2
+        vote fraction is ``count_answer / total_question``, so its precision depends on the
+        total; and filtering on ``count_col`` instead drops the **well-defined zeros** — the
+        galaxies where the question *was* answered and nobody chose this answer, which is most
+        of the negatives. Measured on the 230,358-galaxy probe corpus at a floor of 1, that
+        would have discarded 72.6% of t09 boxy's eligible galaxies, 85.6% of t11 4-arms and
+        87.2% of t11 >4-arms, leaving probe sets of almost nothing but positives.
+
+        This also puts binary specs back in step with graded ones, which already summed every
+        answer, and with :func:`eligible_ids`' own contract ("no votes on this question").
+        """
+        return tuple(vote_column(self.question, a, "count") for a in GZ2_TREE[self.question])
 
     def condition_columns(self) -> tuple[str, ...]:
         """Flat view of :meth:`condition_groups` — every column any gate reads."""
@@ -349,7 +368,11 @@ def eligible_ids(
     Two filters, deliberately separable:
 
     * the **vote-count floor** always applies — a galaxy with no votes on this question carries
-      no measurement to probe;
+      no measurement to probe. Note what that is load-bearing *for* on this corpus: GZ2 stores an
+      unreached question's fraction as a literal ``0.0``, not as a blank, so 51.6% of the probe
+      corpus carries ``t09_..._fraction = 0.0`` meaning "never asked" — indistinguishable by
+      value from "asked, nobody said boxy". This floor is the only thing between that and the
+      probe, where it would land as 118,962 fabricated negatives;
     * the **conditional population** applies only when ``conditional`` is set. Running with it
       both off and on is the D14 comparison; running with it permanently on would be the hard
       mask the design forbids.
@@ -362,7 +385,7 @@ def eligible_ids(
         except (TypeError, ValueError):
             return float("nan")
 
-    count_cols = (spec.count_col,) if spec.count_col else spec.graded_count_cols
+    count_cols = spec.reach_count_cols()
     groups = spec.condition_groups() if conditional else ()
 
     def _group_share(oid: int, group: tuple[str, ...]) -> float:

@@ -180,7 +180,11 @@ this scale it changes nothing, and `data_snapshot` hashes what exists, not what 
 
 ---
 
-## D8 — "Reliable" label filter — *decided (signed off): reuse v1's mean+2σ method*
+## D8 — "Reliable" label filter — *SUPERSEDED: run unfiltered, frozen at the defined minimum*
+
+> The original decision and its correction are kept below **as the record of what was
+> reversed**, not as current guidance. The live decision is "D8 superseded" at the end of
+> this section.
 
 - [x] **Reuse v1 vote-agreement filter (mean + 2σ)** ☑
 
@@ -237,6 +241,84 @@ At ≥21 the per-**bucket** positives are what bite: t09 boxy 100, t11 4-arms 22
 raising the floor to 36.6 makes that strictly worse — which is the trade the choice has to
 weigh, not a reason to keep 21.
 
+### D8 superseded — the filter is withdrawn, and that is the decision
+
+**This is a reversal with a reason, not a value being filled in.** D8 above said to reuse v1's
+mean+2σ agreement filter and left only the *number* open. The filter itself is now withdrawn, and
+the floor runs **unfiltered**. A bare `vote_count_min = 1` would read as an oversight, so the
+reasoning is recorded here and, verbatim, in the freeze artefact that stamps every result.
+
+> v1 needed the mean+2σ filter because v1 **trained on the labels** — vote noise flowed through
+> the loss and bent the encoder weights, so noisy galaxies had to be excluded up front. v2 breaks
+> that coupling: the encoder never sees a label. The filter's original purpose does not transfer.
+>
+> Label noise in a **probe target** is conservative: it attenuates measured association toward
+> chance and cannot manufacture a direction. A feature clearing the gate despite unfiltered
+> labels is therefore a **stronger** result, not a weaker one. The existence null is computed on
+> the same labels, so the comparison stays like-for-like.
+>
+> Filtering costs power precisely on the features the paper is about.
+
+**The value is 1, not 0 — the minimum at which the fraction is *defined*.** A question nobody
+answered has a 0/0 fraction and no measurement to probe. On this corpus that is load-bearing
+rather than pedantic: **GZ2 stores an unreached question's fraction as a literal `0.0`, not as a
+blank.** 118,962 of the 230,358 probe galaxies (51.6%) carry
+`t09_bulge_shape_a26_boxy_fraction = 0.0` meaning *never asked*, byte-identical by value to
+*asked, nobody said boxy*. Nothing downstream can tell them apart: `binary_label` computes
+`fraction >= 0.5`, so they would enter as negatives silently — not as NaN, which at least would
+be visible. The vote floor is the **only** thing standing between that and the probe, which is
+why "unfiltered" means 1 and not 0.
+
+**A defect found while closing this, and fixed.** `eligible_ids` summed `spec.count_col` — the
+*single answer's own* count — for binary specs, while graded specs already summed every answer. A
+fraction's denominator is the question total, so the per-answer version filtered on the numerator
+and discarded the **well-defined zeros**: at a floor of 1 it would have dropped 72.6% of t09
+boxy's eligible galaxies, 85.6% of t11 4-arms and 87.2% of t11 >4-arms — almost all the
+negatives, leaving probe sets of nearly nothing but positives. It also disagreed with D8's own
+published reach table above, which the fixed version now reproduces exactly at ≥5 / ≥21 / ≥37.
+`FeatureSpec.reach_count_cols()` is the one denominator, for every kind.
+
+**Reach and per-bucket positives at the frozen floor** (full population, binarised at 0.5):
+
+| bucket | ≥1 (frozen) | ≥5 | ≥11 | ≥21 | ≥37 |
+|---|---|---|---|---|---|
+| *reach* — t09 bulge shape | **111,396** | 33,956 | 17,837 | 7,108 | 829 |
+| *reach* — t10 arms winding | **134,688** | 66,999 | 46,565 | 29,738 | 8,844 |
+| *reach* — t11 arms number | **134,684** | 66,998 | 46,574 | 29,721 | 8,834 |
+| t09 boxy | **7,894** | 302 | 125 | 100 | 33 |
+| t10 tight | **60,809** | 24,436 | 15,239 | 9,136 | 2,649 |
+| t10 medium | **49,519** | 23,210 | 16,808 | 11,533 | 3,727 |
+| t10 loose | **22,541** | 8,534 | 5,874 | 3,902 | 1,162 |
+| t11 1-arm | **8,265** | 2,233 | 1,264 | 572 | 91 |
+| t11 4-arms | **1,075** | 258 | 246 | 229 | 113 |
+| t11 >4-arms | **2,801** | 286 | 274 | 271 | 163 |
+
+The brief's "t09 boxy: 302 at ≥5, 100 at ≥21, 829 at ≥37" mixed one reach figure into a positives
+series; **33** is the positives count at ≥37, and the corrected series runs the same way and
+further — 302 → 100 → 33 against 7,894 unfiltered.
+
+**Stated honestly: most of the extra reach is shallow.** 89.8% of t09 boxy's positives at this
+floor rest on ≤2 votes, median question total 1; t11 >4-arms is 88.5%, t11 4-arms 73.9%. Those
+are *unreplicated human judgements*, not fabrications — a fraction of 1/1 is one person's real
+answer with n=1 — so they attenuate toward chance rather than inventing a direction, exactly as
+the reasoning above requires. What turns that from an assertion into a measurement is the sweep.
+
+**The sensitivity sweep is pre-registered, and it is a robustness check, not a selection step.**
+Recorded here and in `VoteCountFreeze.sweep` **before any results exist**: the ladder is re-run at
+**{1, 5, 11, 21, 37}** and the agreement across them reported as a stability claim. The headline
+threshold is **fixed in advance at 1** and **must not be revised on the basis of which threshold
+produces better results** — the same discipline the pre-registered hard gate carries.
+`ProbingConfig` refuses a headline value that is not one of its own registered sweep points, so
+"chosen in advance" is checkable rather than asserted.
+
+**Frozen like the others.** `VoteCountFreeze` carries value, sweep, `derived_from`, `frozen_at`,
+`frozen_by` and the rationale; it is a `RunConfig`, so it is hashed into `config_hash` and
+stamped on every artefact, and a record disagreeing with the live value is refused at load.
+`headline=True` was already gated on it. With this frozen, the **effect floor is the only one of
+the five still open**.
+
+**Still separate, and deliberately not acted on here.** Vote count is *not* merely noise for the
+uncertainty geometry — see the open item in `TODO.md`.
 ---
 
 ## D9 — Confidence usage — *decided (scratchpad): both, kept separate*
@@ -502,7 +584,7 @@ All of D1–D15 are now resolved. The table records what was chosen.
 | D4 | From-scratch vs warm-start | **From-scratch** |
 | D5 | Masking | **Bounding-box-biased** (`docs/masking.md`) |
 | D6 | Pretraining vs probing corpus | **Decouple** — pretrain on large unlabelled SDSS, probe on GZ2 ~250k (both single-survey) |
-| D8 | Reliable-label filter | **Reuse v1 mean+2σ** (separate from uncertainty protocol) |
+| D8 | Reliable-label filter | **SUPERSEDED — run unfiltered.** v1 needed it because v1 trained on the labels; v2's encoder never sees one, and probe-target noise is conservative. Frozen at **1**, the minimum where a fraction is defined (GZ2 stores an unreached question as a literal 0.0). Sweep {1,5,11,21,37} pre-registered as robustness, not selection |
 | D12 | Cross-objective baselines | **All trained on the same SDSS corpus** (MAE = reproduce Wu & Walmsley recipe on SDSS; Euclid MAE is reference only) |
 | D12 (sub) | Contrastive choice | **MoCo** (SDSS-trained) — explicit negatives = clean contrast vs JEPA; established galaxy baseline (Hayat) |
 | D13 | Confound taxonomy + inclination | **Axis ratio (b/a) as the non-circular inclination proxy**; taxonomy is the Framing-B interpretive layer, held pending results |
