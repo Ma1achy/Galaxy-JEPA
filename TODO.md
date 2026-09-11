@@ -71,9 +71,13 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   whose seeded subsample moved when the corpus grew 10k → 827k. Refitting refused, no escape
   hatch. Stability: 0.0% of 200 disjoint halves breach the 1% tolerance. *(D16)*
 - [ ] (P1) Rotation/reflection augmentation pipeline (symmetry, augmentation-first). *(D10)*
-- [~] (P1) **Scale the data layer to the full corpora** — the fp16 parity cache baked over both
-  corpora under the frozen pipeline (`pipeline_hash 9f88ddefe946`): 1,057,326 stamps, ~416 GB on
-  the external SSD. Measured at 85 stamps/s serial; drive-bound, not compute-bound. *(Brief E6)*
+- [x] (P0) **Scale the data layer to the full corpora** — the fp16 parity cache is baked over
+  **both** corpora under the one frozen pipeline (`pipeline_hash 9f88ddefe946`, index recording
+  `normalisation_hash 75100066b3e0`): **1,057,326 stamps, 415.8 GB, 3.88 h at 76 stamps/s**,
+  drive-bound not compute-bound. Full coverage (826,968 + 230,358, no duplicates, corpora
+  disjoint), index and data file agree exactly, and raw→pipeline reproduces the cache
+  **bit-identically on 5,000 sampled stamps, 2,500 per corpus**. Sharing one hash-keyed directory
+  across both corpora *is* the parity rule made physical. *(Brief E6)*
 - [ ] (P2) **Flagged, not acted on: SDSS run 1000 and friends.** The 827 stamps the normalisation
   fit trims are low-SNR, not bright — 67.4% from run 1000, trimmed at 111× the corpus rate, with
   4× the corpus rate of failed Petrosian fits. An imaging-quality problem, not astrophysics. No
