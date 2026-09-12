@@ -99,6 +99,20 @@ def main() -> None:
             step, erank = m
             print(f"  {name:<11} reached at step {step:>4}, erank there {erank:6.2f}")
 
+    print("\nThe inverse view — how far each arm got BEFORE losing rank. The step and loss at which"
+          f"\nerank first fell below the frozen G5 floor of 5.0:")
+    for name in ("baseline", "linear", "sqrt", "cosine", "warmup1250", "wd_ramp"):
+        r = by.get(name)
+        if r is None:
+            continue
+        crossed = next((x for x in r["trace"] if x["effective_rank"] < 5.0), None)
+        if crossed is None:
+            print(f"  {name:<11} never fell below 5.0 in {r['steps_run']} steps "
+                  f"(min {r['erank_min']:.2f}); loss reached {r['loss_last50_mean']:.4f}")
+        else:
+            print(f"  {name:<11} crossed at step {crossed['step']:>4}, loss there "
+                  f"{crossed['loss']:.4f}, erank {crossed['effective_rank']:.2f}")
+
     print("\nWhere the LR actually was, per arm, at the readings that matter:")
     for name in ("baseline", "cosine", "warmup1250"):
         r = by.get(name)
