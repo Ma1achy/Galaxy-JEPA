@@ -121,6 +121,23 @@ def main() -> None:
             print(f"  {name:<11} reached at step {step:>4}, erank there {erank:6.2f}   "
                   f"(own deepest {own:.4f})")
 
+    print("\nLoss SHAPE — the discriminator that fits inside 500 steps. Matching on the baseline's"
+          "\ndeepest loss compares against a point it immediately left; this asks whether an arm is"
+          "\nstill converging or has turned over:")
+    print(f"  {'arm':<11} {'deepest':>8} {'at step':>8} {'@step500':>9} {'final 100':>10}  verdict")
+    for name in ("baseline", "linear", "sqrt", "cosine", "warmup1250", "wd_ramp"):
+        r = by.get(name)
+        if r is None:
+            continue
+        v = smooth(r["losses"])
+        deepest, at = float(v.min()), int(np.argmin(v)) + WINDOW - 1
+        tail = float(v[-50:].mean())
+        dv = float(v[-1] - v[-100]) if len(v) > 100 else float("nan")
+        verdict = "RISING" if dv > 0.002 else ("descending" if dv < -0.002 else "flat")
+        print(f"  {name:<11} {deepest:>8.4f} {at:>8} {tail:>9.4f} {dv:>+10.4f}  {verdict}")
+    print("  A loss that dives then climbs while the rank falls monotonically is not an arm that"
+          "\n  'got further' — at equal step it is behind one whose loss is still falling.")
+
     print("\nThe inverse view — how far each arm got BEFORE losing rank. The step and loss at which"
           f"\nerank first fell below the frozen G5 floor of 5.0:")
     for name in ("baseline", "linear", "sqrt", "cosine", "warmup1250", "wd_ramp"):
