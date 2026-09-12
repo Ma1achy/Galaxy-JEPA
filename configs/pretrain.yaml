@@ -67,6 +67,39 @@ objective:                  # docs/masking.md; the JEPA recipe
   pred_depth: 6
   pred_heads: 6
   monitor_every: 100
+  checkpoint_every: 1500    # steps. At the measured 1.297 steps/s that is ~19 min of work at
+                            #   risk; 0 would gamble the whole job and is stamped as a forfeit.
+
+# The pre-registered collapse kill criterion (G5). Recorded BEFORE the run, because a criterion
+# chosen after seeing the curve is not a criterion. Hashed into `config_hash` and enforced by
+# `CollapseMonitor`; leaving it unset stamps `collapse_floor_open`.
+collapse_floor:
+  min_effective_rank: 5.0   # half the pilot's ~10.3, the only erank in this project tied to a
+                            #   working probe (AUC 0.905). Deliberately NOT the smoke's 4.1.
+  grace_fraction: 0.10      # of `steps`, from the EMA ramp's own timescale — not from a curve
+  hard_floor: 2.0           # essentially one direction; unambiguous
+  hard_floor_after_step: 100 # the LR warmup
+  consecutive_readings: 3   # one noisy monitor batch must not end a ten-hour job
+  derived_from: >-
+    Pilot run (runs/pilot.log, 6,000 steps on a 10,000-stamp pretrain split): effective rank
+    22.6 -> 10.2 by step 100 and held 10.2-10.6 to the end; frozen-probe AUC 0.900-0.905. Brief F
+    smoke (300 steps, 827k corpus): 22.6 -> 4.1 by step 175, then flat, std rising 0.28 -> 5.17.
+  frozen_at: '2026-09-12'
+  frozen_by: malachy
+  rationale: >-
+    The threshold is anchored on the one place a collapse signal is tied to a SCIENTIFIC OUTCOME:
+    the pilot held erank around 10.3 and its frozen probe reached AUC 0.905. Half that is the
+    floor, so a run in the pilot's regime is never killed. It is deliberately not set near the
+    4.1 the Brief F smoke plateaued at, because reading the threshold off the curve it is meant to
+    judge would make it no criterion at all. The grace period comes from the schedule's own shape
+    rather than any observed trace: the EMA momentum ramps from ema_start to ema_end across the
+    whole run, so early steps have a fast-moving target and an unsettled representation is
+    expected. The hard floor is the unambiguous case. WHAT IS NOT KNOWN: the pilot is one trace,
+    on 10,000 stamps of a different corpus, with a smaller batch of monitor galaxies; the smoke
+    ran 300 steps. Neither says what 827k should look like. This floor is therefore conservative
+    about declaring failure and explicitly PROVISIONAL — a tripwire against burning days on a
+    dead run, not a claim about where healthy training sits. Re-derive it from the first real
+    trace, deliberately, and record that as a new freeze.
 
 probe:                      # the single-feature headline read-out (NOT the battery below)
   label_col: t01_smooth_or_features_a02_features_or_disk_fraction   # RAW, never debiased

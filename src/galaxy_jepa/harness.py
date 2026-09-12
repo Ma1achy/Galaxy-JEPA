@@ -37,9 +37,11 @@ import torch
 from pydantic import Field
 from torch.utils.data import DataLoader
 
+from galaxy_jepa.callbacks.checkpoint import TrainCheckpointer
+from galaxy_jepa.callbacks.collapse import CollapseFloorFreeze
 from galaxy_jepa.core.config import RunConfig, RunStamp, write_stamp
-from galaxy_jepa.data.cache import TensorCache, bake_cache
-from galaxy_jepa.data.dataset import StampDataset, rows_by_id
+from galaxy_jepa.data.cache import TensorCache, bake_cache, write_scalars
+from galaxy_jepa.data.dataset import ResumableShuffle, StampDataset, rows_by_id
 from galaxy_jepa.data.manifest import manifest_hash
 from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
 from galaxy_jepa.data.orchestrate import (
@@ -116,6 +118,7 @@ class ObjectiveConfig(RunConfig):
     petro_k: float = 2.5
     global_box_frac: float = 0.40
     monitor_every: int = 100
+    checkpoint_every: int = 1500  # steps; ~19 min of work at the measured 1.297 steps/s
 
     def to_jepa_config(self, *, seed: int) -> JepaConfig:
         from galaxy_jepa.masking.blocks import MaskConfig
@@ -135,6 +138,7 @@ class ObjectiveConfig(RunConfig):
             petro_k=self.petro_k,
             global_box_frac=self.global_box_frac,
             monitor_every=self.monitor_every,
+            checkpoint_every=self.checkpoint_every,
             seed=seed,
         )
 
@@ -231,6 +235,10 @@ class HarnessConfig(RunConfig):
     #: knob any more: the sample size that produced these numbers is *in* the record, and a
     #: live knob would imply a run could change it, which is exactly the drift being closed.
     normalisation: NormalisationFreeze | None = None
+    #: The pre-registered collapse kill criterion (G5). Unset forfeits the tripwire — a run can
+    #: then only halt on a non-finite embedding or a std at zero, and would burn days on a dead
+    #: representation — so the stamp records ``collapse_floor_open`` rather than implying a choice.
+    collapse_floor: CollapseFloorFreeze | None = None
     #: A run that only exercises plumbing or measures throughput — NOT a result. Mirrors
     #: ``ProbingConfig.smoke``: being a determining field it changes ``config_hash``, so a
     #: smoke's artefacts can never collide with a real run's, and it is additionally written
@@ -321,6 +329,26 @@ def build_objective(config: JepaConfig, encoder: VisionTransformer) -> Jepa:
     return Jepa(encoder, config)
 
 
+def seed_init(seed: int, stamp_px: int, model_kwargs: dict[str, Any] | None) -> VisionTransformer:
+    """Build the encoder with the run's seed actually applied to the weight init.
+
+    **This closes a provenance hole, not a convenience.** ``RunStamp`` asserts that a run is
+    determined by ``(config_hash, code_sha, data_snapshot, seed)``, and ``seed`` reached the masker
+    (``loss_step(seed=cfg.seed + step)``) and, since Brief G1, the data order
+    (:class:`~galaxy_jepa.data.dataset.ResumableShuffle`) — but **nothing in the package ever
+    called** ``torch.manual_seed``. So the ViT's parameters came from whatever ambient RNG state the
+    process happened to hold, and two runs with byte-identical stamps produced different encoders.
+    Found while comparing two Brief G3 throughput runs whose collapse traces diverged at the same
+    seed; the resume-identity proof was unaffected because a restore overwrites the init entirely.
+
+    Seeding here rather than inside ``Jepa.__init__`` keeps it one site and covers the whole
+    construction sequence: the encoder, its deepcopy into the EMA target, and the predictor all draw
+    from the one seeded stream.
+    """
+    torch.manual_seed(int(seed))
+    return VisionTransformer(img_size=stamp_px, **(model_kwargs or {}))
+
+
 # --- shared setup ------------------------------------------------------------------------
 
 
@@ -364,9 +392,14 @@ class _Prepared:
     loader: DataLoader
     monitor_batch: dict[str, Any]
     cache: Any
-    rows: dict[int, dict[str, Any]]
+    #: The probe corpus's *location*, not its metadata. Building `rows_by_id` over both corpora
+    #: up front cost 4.07 GB resident for the whole training phase, to serve one float per item
+    #: that now comes from the cache's scalar sidecar. Probing rebuilds what it needs when it
+    #: starts, which on a multi-hour run is a ten-second read at the far end (Brief G2).
+    probe_dir: Path
     probe_split: Any
     data_snapshot: str
+    sampler: ResumableShuffle
 
 
 def _prepare(
@@ -413,19 +446,45 @@ def _prepare(
     bake_cache(pre_src, pipeline, out / "cache", normalisation_hash=norm_hash)
     # same hash dir → appends probe under the one statistic; that sharing IS the parity rule
     cache = bake_cache(probe_src, pipeline, out / "cache", normalisation_hash=norm_hash)
-    rows = rows_by_id([*pre_src.rows, *probe_src.rows])
+    # 2b. the one per-item scalar the masking path needs, as a 4.2 MB array aligned with the
+    # index. Written here because this is the only place that holds both corpora's metadata, and
+    # written *from* it so the values are identical to what the row-dict path served (Brief G2).
+    write_scalars(
+        cache.cache_dir,
+        {
+            int(r["object_id"]): float(r.get("petroRad_r", float("nan")))
+            for r in [*pre_src.rows, *probe_src.rows]
+        },
+    )
+    del pre_src, probe_src  # 4.07 GB of metadata has done its job; the run does not need it
+    # re-open: `write_scalars` rewrote the index to vouch for the sidecar, and the reader must
+    # hold the index that carries the digest, not the one from before it existed
+    cache = TensorCache(cache.cache_dir)
 
     # 3. encoder + objective + loaders sized to the baked stamp
     stamp_px = cache.index.height
-    encoder = VisionTransformer(img_size=stamp_px, **(model_kwargs or {}))
-    jepa = build_objective(config, encoder)
-    train_ds = StampDataset(cache, rows, sorted(pre_split.train))
-    loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, drop_last=False)
+    jepa = build_objective(config, seed_init(config.seed, stamp_px, model_kwargs))
+    scalars = cache.scalars
+    train_ds = StampDataset(cache, {}, sorted(pre_split.train), scalars=scalars)
+    # A deterministic, resumable index stream rather than `shuffle=True`: the trajectory is a
+    # function of (seed, step) only if the data order is, which is what makes a mid-run resume
+    # provably identical rather than merely functional (Brief G1).
+    sampler = ResumableShuffle(len(train_ds), seed=config.seed)
+    loader = DataLoader(train_ds, batch_size=config.batch_size, sampler=sampler, drop_last=True)
     monitor_ids = sorted(pre_split.monitor) or sorted(pre_split.train)
-    monitor_ds = StampDataset(cache, rows, monitor_ids)
+    monitor_ds = StampDataset(cache, {}, monitor_ids, scalars=scalars)
     monitor_batch = next(iter(DataLoader(monitor_ds, batch_size=min(64, len(monitor_ds) or 1))))
     return _Prepared(
-        out, device, jepa, loader, monitor_batch, cache, rows, probe_split, data_snapshot
+        out,
+        device,
+        jepa,
+        loader,
+        monitor_batch,
+        cache,
+        Path(probe_dir),
+        probe_split,
+        data_snapshot,
+        sampler,
     )
 
 
@@ -454,7 +513,30 @@ def run_harness(config: HarnessConfig) -> RunReport:
     )
     out = prep.out
 
-    # pretrain with the collapse monitor live
+    # The stamp is made *before* training, not after: the checkpointer records `config_hash` in
+    # every payload so a resume cannot silently continue a different experiment (Brief G1).
+    stamp = _make_stamp(config, prep.data_snapshot)
+    assert config.normalisation is not None  # `_build_pipeline` has already refused otherwise
+    checkpointer = (
+        TrainCheckpointer(
+            out / "checkpoints",
+            every=jcfg.checkpoint_every,
+            config_hash=stamp.config_hash,
+            normalisation_hash=config.normalisation.content_hash,
+            schedule={
+                "steps": jcfg.steps,
+                "lr": jcfg.lr,
+                "warmup_steps": jcfg.warmup_steps,
+                "ema_start": jcfg.ema_start,
+                "ema_end": jcfg.ema_end,
+                "batch_size": jcfg.batch_size,
+            },
+        )
+        if jcfg.checkpoint_every
+        else None
+    )
+
+    # pretrain with the collapse monitor live, resuming if a committed checkpoint is present
     result = train_jepa(
         prep.jepa,
         prep.loader,
@@ -462,9 +544,10 @@ def run_harness(config: HarnessConfig) -> RunReport:
         monitor_batch=prep.monitor_batch,
         checkpoint_path=out / "encoder.pt",
         autocast_dtype=config.autocast_dtype(),
+        checkpointer=checkpointer,
+        sampler=prep.sampler,
+        collapse_floor=config.collapse_floor,
     )
-
-    stamp = _make_stamp(config, prep.data_snapshot)
     report = RunReport(
         auc=None,
         auc_lo=None,
@@ -482,7 +565,16 @@ def run_harness(config: HarnessConfig) -> RunReport:
     if not result.halted and result.checkpoint is not None:
         frozen = load_frozen_encoder(result.checkpoint)
         _probe_and_persist(
-            frozen, prep.cache, prep.rows, prep.probe_split, config, device, stamp, report
+            # rebuilt here, not carried through training: probing needs the vote columns, the
+            # pretrain loop needs one float, and only the loop runs for hours (Brief G2)
+            frozen,
+            prep.cache,
+            rows_by_id(DirectorySource(prep.probe_dir).rows),
+            prep.probe_split,
+            config,
+            device,
+            stamp,
+            report,
         )
         # The headline read-out above is one feature; the battery below is the full ladder +
         # controls + uncertainty geometry (design §2–§4). Both are kept: the headline feeds
@@ -841,12 +933,20 @@ def _make_stamp(config: HarnessConfig, data_snapshot: str) -> RunStamp:
     """Stamp `config`. Hashes `determining_dump()` — the experiment minus where it ran — and
     records the resolved backend as metadata alongside the hash it entered."""
     resolved = config.with_resolved_device()
+    forfeits = (
+        (["smoke"] if resolved.smoke else [])
+        # An unset floor is a forfeited guarantee, not a neutral default: the run can then only
+        # halt on a non-finite embedding, so a dead representation costs days before anyone looks.
+        + ([] if resolved.collapse_floor is not None else ["collapse_floor_open"])
+        # No mid-run checkpoint on a multi-hour job is a bet, and the artefact should say so.
+        + ([] if resolved.objective.checkpoint_every else ["no_mid_run_checkpoint"])
+    )
     return RunStamp.create(
         resolved.determining_dump(),
         data_snapshot=data_snapshot,
         seed=resolved.seed,
         device=resolved.runtime.device,
-        escape_hatches_used=["smoke"] if resolved.smoke else None,
+        escape_hatches_used=forfeits or None,
     )
 
 

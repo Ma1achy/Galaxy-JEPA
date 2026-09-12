@@ -12,6 +12,7 @@ the fitted pipeline and *names the fp16 cache directory*, so the marker must nev
 
 import pytest
 
+from galaxy_jepa.callbacks.collapse import CollapseFloorFreeze
 from galaxy_jepa.core.config import STAMP_SCHEME, config_hash
 from galaxy_jepa.data.cache import pipeline_hash
 from galaxy_jepa.data.transforms import AsinhStretch, Normalise, Pipeline
@@ -115,8 +116,45 @@ class TestASmokeCanNeverBeReadAsAResult:
         assert _hash(_cfg(smoke=True)) != _hash(_cfg())
 
     def test_the_marking_is_stamped_as_a_forfeit_not_only_hashed(self):
-        assert _make_stamp(_cfg(smoke=True), "manifest:fixed").escape_hatches_used == ["smoke"]
-        assert _make_stamp(_cfg(), "manifest:fixed").escape_hatches_used == []
+        hatches = _make_stamp(_cfg(smoke=True), "manifest:fixed").escape_hatches_used
+        assert "smoke" in hatches
+        assert "smoke" not in _make_stamp(_cfg(), "manifest:fixed").escape_hatches_used
+
+
+class TestTheStampNamesWhatARunForfeited:
+    """A guardrail left off is a choice, and the artefact has to carry it in words.
+
+    `config_hash` already moves — an unset freeze is a different config — but a hash says only
+    *that* something differs, never *what was given up*. These are the two forfeits Brief G added:
+    a run with no pre-registered collapse floor can only halt on a non-finite embedding, so a dead
+    representation costs days before anyone looks; a run with no mid-run checkpoint is betting the
+    whole job on not crashing.
+    """
+
+    def test_an_unset_collapse_floor_is_recorded_as_forfeited(self):
+        assert "collapse_floor_open" in _make_stamp(_cfg(), "m").escape_hatches_used
+        floor = CollapseFloorFreeze(
+            derived_from="pilot: erank 10.2-10.6 at 6k steps -> AUC 0.905",
+            frozen_at="2026-09-12",
+            frozen_by="tests",
+            rationale="half the one trace tied to a working probe",
+        )
+        assert (
+            "collapse_floor_open"
+            not in _make_stamp(_cfg(collapse_floor=floor), "m").escape_hatches_used
+        )
+
+    def test_disabling_the_mid_run_checkpoint_is_recorded_as_forfeited(self):
+        on = _cfg(objective=ObjectiveConfig(checkpoint_every=1500))
+        off = _cfg(objective=ObjectiveConfig(checkpoint_every=0))
+        assert "no_mid_run_checkpoint" not in _make_stamp(on, "m").escape_hatches_used
+        assert "no_mid_run_checkpoint" in _make_stamp(off, "m").escape_hatches_used
+
+    def test_a_clean_run_forfeits_nothing(self):
+        floor = CollapseFloorFreeze(
+            derived_from="pilot", frozen_at="2026-09-12", frozen_by="tests", rationale="r"
+        )
+        assert _make_stamp(_cfg(collapse_floor=floor), "m").escape_hatches_used == []
 
     def test_a_real_run_is_the_default(self):
         assert _cfg().smoke is False

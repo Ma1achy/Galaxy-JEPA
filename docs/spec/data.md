@@ -67,6 +67,42 @@ Two contract points make it correct across the staged pilot → full run:
   > describes — and the claim about never re-baking was itself false in practice, because a refit
   > moved the statistic, which moved the hash.
 
+- **One scalar sidecar, aligned with the index — or refused.** `__getitem__` needs exactly one
+  per-galaxy number beyond the stamp: `petroRad_r`, for the masking box. It used to get it by
+  looking up a row in the full metadata table for *both* corpora, which is **4.07 GB resident for
+  the whole run** and, under macOS `spawn`, 4.07 GB **per dataloader worker**. That number now
+  lives beside the cache as
+  `petro_rad_arcsec.f64`: one float64 per stamp **in the index's own row order**, 8.46 MB for
+  1,057,326 galaxies, written by `data.cache.write_scalars` and read by `load_scalars`.
+
+  > **Alignment is the whole risk, so it is structural.** A sidecar one row out of step would hand
+  > every later galaxy another galaxy's radius — a wrong box, a wrong mask bias, and nothing
+  > visibly broken. So: `write_scalars` **refuses** if any indexed object is absent from the map (a
+  > missing galaxy is a misalignment, not a missing value — NaN is a value and is written as one);
+  > the file's sha256 is recorded in `index.json`, which is the cache's commit point, and written
+  > **last**; and `load_scalars` refuses an unvouched sidecar, a missing file, a length mismatch and
+  > a digest mismatch alike. It is **not** hashed into `pipeline_hash` — the sidecar does not change
+  > what a baked stamp *is*, and folding it in would force a re-bake through the parity lock.
+  >
+  > Parity was verified on the real 415.8 GB cache: over 20,000 galaxies drawn in scrambled order,
+  > **0 value disagreements under exact float comparison** and 0 ordering disagreements against the
+  > row-dict path, and **0 of 2,000 `box_to_token_mask` outputs differ** — which is what the masker
+  > actually consumes. float64 rather than float32 is deliberate: at float32 19,996 of 20,000 values
+  > differed in the last bits, storage rounding rather than misalignment, and a parity claim that
+  > needs a tolerance is not a parity claim.
+
+  > **What it bought, measured afterwards rather than assumed.** Memory: the whole dataset process
+  > is **0.43 GB** including torch, against 4.07 GB of table. **Not** throughput — 489.6 stamps/s
+  > shuffled against 479.2 before, i.e. unchanged; the constraint is the Python per-item path, at
+  > **35%** of the drive's measured 1,383 stamps/s. And **not** `num_workers`, which was the
+  > stated hope: 2, 4 and 8 workers all still drive an 18 GB machine into swap, while the worker
+  > processes hold **0.01 GB each** and the tree's total RSS stays flat near 1.5 GB. Two
+  > *independent* single-process readers of the same cache cost nothing in swap and aggregate to
+  > **1.39×**, so the refusal belongs to DataLoader worker IPC rather than to the dataset — and
+  > `file_system` is the only sharing strategy macOS offers, so the usual `file_descriptor`
+  > remedy does not exist here. None of this matters for the local run: the model consumes 41.5
+  > of the 489.6 stamps/s available. (Brief G2/G3.)
+
 ### 1.2 Valid pixels — the constant-region detector
 
 A cutout that runs off an SDSS frame boundary is padded with a constant, and the pad value is

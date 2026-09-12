@@ -137,3 +137,52 @@ def test_evaluate_probe_reproduces_headline(tmp_path):
     again = evaluate_probe(cfg)
     assert again.auc == pytest.approx(report.auc)
     assert again.n_test == report.n_test
+
+
+class TestTheSeedActuallyDeterminesTheEncoder:
+    """``RunStamp`` claims a run is determined by ``(config_hash, code_sha, data_snapshot, seed)``.
+
+    It was not. ``seed`` reached the masker (``loss_step(seed=cfg.seed + step)``) and, since Brief
+    G1, the data order (``ResumableShuffle``) — but **nothing in the package ever called**
+    ``torch.manual_seed``, so the ViT's parameters came from whatever ambient RNG state the process
+    held. Two runs with byte-identical stamps produced different encoders. Found while comparing two
+    Brief G3 throughput runs whose collapse traces diverged under the same seed.
+    """
+
+    def _encoder(self, seed: int):
+        import torch
+
+        from galaxy_jepa.harness import seed_init
+
+        torch.manual_seed(999)  # ambient state the fix must override, not inherit
+        return seed_init(seed, 64, {"patch_size": 16, "embed_dim": 32, "depth": 2, "heads": 2})
+
+    def test_the_same_seed_gives_byte_identical_weights(self):
+        import torch
+
+        a, b = self._encoder(0), self._encoder(0)
+        for pa, pb in zip(a.parameters(), b.parameters(), strict=True):
+            assert torch.equal(pa, pb)
+
+    def test_a_different_seed_gives_different_weights(self):
+        import torch
+
+        a, b = self._encoder(0), self._encoder(1)
+        assert any(
+            not torch.equal(pa, pb) for pa, pb in zip(a.parameters(), b.parameters(), strict=True)
+        )
+
+    def test_the_ambient_rng_state_cannot_leak_in(self):
+        """Without the seeding, drawing first from the same generator changed the init."""
+        import torch
+
+        from galaxy_jepa.harness import seed_init
+
+        kwargs = {"patch_size": 16, "embed_dim": 32, "depth": 2, "heads": 2}
+        torch.manual_seed(7)
+        first = seed_init(3, 64, kwargs)
+        torch.manual_seed(7)
+        _ = torch.randn(1000)  # advance the ambient stream
+        second = seed_init(3, 64, kwargs)
+        for pa, pb in zip(first.parameters(), second.parameters(), strict=True):
+            assert torch.equal(pa, pb)

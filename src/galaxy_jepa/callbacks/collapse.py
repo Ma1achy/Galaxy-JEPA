@@ -22,11 +22,63 @@ pilot is read, not aborted.
 from __future__ import annotations
 
 import dataclasses
+import logging
 import math
 
 import torch
 
-__all__ = ["CollapseSignals", "collapse_signals", "effective_rank", "CollapseMonitor"]
+from galaxy_jepa.core.config import FrozenChoice
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "CollapseFloorFreeze",
+    "CollapseMonitor",
+    "CollapseSignals",
+    "collapse_signals",
+    "effective_rank",
+]
+
+
+class CollapseFloorFreeze(FrozenChoice):
+    """The pre-registered kill criterion: what counts as collapse, decided *before* the run.
+
+    A criterion chosen after seeing the curve is not a criterion. So this is a ``FrozenChoice``
+    like the effect floor and the normalisation statistic — hashed into ``config_hash``, stamped
+    onto every artefact, enforced by :class:`CollapseMonitor` rather than by judgement at hour 30.
+
+    **What the thresholds are anchored on, and what they are not.** The one place in this project
+    where a collapse signal is tied to a *scientific outcome* is the pilot: effective rank held
+    ≈ 10.2–10.6 out to 6,000 steps and the frozen probe reached AUC 0.905.
+    :attr:`min_effective_rank` is half that — comfortably below a configuration known to work, so
+    a run in the pilot's regime is never killed. It is deliberately **not** set near the 4.1 the
+    Brief F smoke plateaued at,
+    because that would be reading the threshold off the curve it is meant to judge.
+
+    :attr:`grace_fraction` comes from the schedule's own shape, not from any observed trace: the
+    EMA momentum ramps from ``ema_start`` to ``ema_end`` across the *whole* run, so early steps
+    have a fast-moving target and an unsettled representation is expected rather than alarming.
+    A tenth of the schedule is the grace. :attr:`hard_floor` is the unambiguous case — an
+    effective rank below 2 is essentially a single direction — and applies as soon as the LR
+    warmup is over. :attr:`consecutive_readings` is there so one noisy monitor batch cannot end a
+    ten-hour job.
+
+    **What is not known.** The pilot is *one* trace, on 10,000 stamps of a different corpus, and
+    the Brief F smoke ran 300 steps. Neither says what 827k stamps should look like. So this floor
+    is conservative about declaring failure and explicitly **provisional**: it is a tripwire
+    against wasting days on a dead run, not a claim about where healthy training sits. Re-derive
+    it from the first real trace, deliberately, and record that as a new freeze.
+    """
+
+    #: Sustained effective rank below this, after the grace period, means stop and retune.
+    min_effective_rank: float = 5.0
+    #: Grace period as a fraction of ``steps`` — the EMA ramp's own timescale.
+    grace_fraction: float = 0.10
+    #: Unambiguous collapse: essentially one direction. Applies from ``hard_floor_after_step``.
+    hard_floor: float = 2.0
+    hard_floor_after_step: int = 100
+    #: Consecutive monitor readings required before either floor fires.
+    consecutive_readings: int = 3
 
 
 def effective_rank(svals: torch.Tensor) -> float:
@@ -87,9 +139,23 @@ def collapse_signals(embeddings: torch.Tensor) -> CollapseSignals:
 class CollapseMonitor:
     """Tracks the collapse signals across pretraining and decides the hard-halt condition."""
 
-    def __init__(self, *, std_floor: float = 1e-4):
+    def __init__(
+        self,
+        *,
+        std_floor: float = 1e-4,
+        floor: CollapseFloorFreeze | None = None,
+        total_steps: int | None = None,
+        history: list[dict[str, float]] | None = None,
+    ):
         self.std_floor = std_floor
-        self.history: list[dict[str, float]] = []
+        #: The pre-registered rank criterion. ``None`` keeps the historical behaviour — halt only
+        #: on the unambiguous failures — and a run without it forfeits the tripwire, which
+        #: ``harness`` records in ``escape_hatches_used`` rather than leaving implied.
+        self.floor = floor
+        self.total_steps = total_steps
+        #: Seeded on resume, so the consecutive-readings rule is not reset by a restart.
+        self.history: list[dict[str, float]] = [dict(r) for r in (history or [])]
+        self.halt_reason: str | None = None
 
     def update(self, step: int, embeddings: torch.Tensor) -> CollapseSignals:
         signals = collapse_signals(embeddings)
@@ -104,8 +170,42 @@ class CollapseMonitor:
         return signals
 
     def should_halt(self, signals: CollapseSignals) -> bool:
-        """Halt only on the unambiguous failures: non-finite, or std collapsed to ~0."""
-        return (not signals.is_finite) or signals.std < self.std_floor
+        """Halt on a non-finite embedding, a std collapsed to ~0, or the pre-registered floor."""
+        if not signals.is_finite:
+            self.halt_reason = "non-finite embedding"
+            return True
+        if signals.std < self.std_floor:
+            self.halt_reason = f"std {signals.std:.2e} below the {self.std_floor:.0e} floor"
+            return True
+        return self._rank_floor_breached()
+
+    def _rank_floor_breached(self) -> bool:
+        """The G5 criterion, applied to the *history* so a single noisy batch cannot fire it."""
+        floor = self.floor
+        if floor is None or not self.history:
+            return False
+        step = int(self.history[-1]["step"])
+        window = self.history[-floor.consecutive_readings :]
+        if len(window) < floor.consecutive_readings:
+            return False
+        ranks = [r["effective_rank"] for r in window]
+        if step >= floor.hard_floor_after_step and all(r < floor.hard_floor for r in ranks):
+            self.halt_reason = (
+                f"effective rank {ranks[-1]:.2f} below the hard floor {floor.hard_floor} for "
+                f"{len(ranks)} consecutive readings at step {step} — a single direction, not "
+                "slow training"
+            )
+            return True
+        grace = int(floor.grace_fraction * (self.total_steps or 0))
+        if step >= grace and all(r < floor.min_effective_rank for r in ranks):
+            self.halt_reason = (
+                f"effective rank {ranks[-1]:.2f} below the pre-registered floor "
+                f"{floor.min_effective_rank} for {len(ranks)} consecutive readings at step "
+                f"{step} (grace was {grace} steps). Stop and retune EMA / masking ratio rather "
+                "than spend more hours; the floor is half the pilot's ~10.3, which worked"
+            )
+            return True
+        return False
 
     def trace(self) -> dict[str, list[float]]:
         """The recorded trace as column lists — for plotting / the pilot read-out."""

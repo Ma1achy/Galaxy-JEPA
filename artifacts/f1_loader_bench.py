@@ -234,7 +234,9 @@ def build_lean_dataset(cfg, cache):
 
     ``harness._prepare`` hands ``StampDataset`` both metadata tables in full — 4.07 GB resident
     on this corpus — and ``__getitem__`` reads one key out of them. Under ``spawn`` that table is
-    copied into every worker, which is what makes ``num_workers`` unaffordable. Measured as a
+    copied into every worker, which was believed to be what makes ``num_workers`` unaffordable.
+    **It is not** — Brief G3 re-ran this sweep against the 8.46 MB scalar sidecar and 2/4/8 workers
+    still drive the machine into swap, with each worker holding 0.01 GB. Measured as a
     separate variant, not fixed here: it says what the drive would give if the dataset were
     worker-shaped, which is the number the run plan needs.
     """

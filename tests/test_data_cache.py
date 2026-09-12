@@ -18,11 +18,13 @@ import numpy as np
 import pytest
 
 from galaxy_jepa.data.cache import (
+    TensorCache,
     _assert_untorn,
     _read_index,
     bake_cache,
     fit_normalise,
     pipeline_hash,
+    write_scalars,
 )
 from galaxy_jepa.data.dataset import StampDataset, rows_by_id
 from galaxy_jepa.data.sources import DirectorySource
@@ -209,3 +211,78 @@ class TestATornCacheIsNeverAppendedTo:
         (d / "stamps.f16").write_bytes(b"\x00" * 4096)
         with pytest.raises(RuntimeError, match="torn cache"):
             _assert_untorn(d / "stamps.f16", None, np.dtype(np.float16))
+
+
+class TestTheScalarSidecarIsAlignedOrRefused:
+    """The 8.46 MB array that replaced a 4.07 GB metadata table (Brief G2).
+
+    ``StampDataset`` needs exactly one number per stamp beyond the pixels — ``petroRad_r``, for
+    the bbox-biased masking. It used to read it out of ``rows_by_id`` over *both* corpora,
+    1,057,326 rows, measured at 4.07 GB resident. Alignment with the index's row order is the
+    entire contract, and a silent misalignment would hand every later galaxy another galaxy's
+    Petrosian radius — so these pin that it is checked rather than trusted.
+    """
+
+    def _cache(self, corpus, tmp_path):
+        source = DirectorySource(corpus)
+        pipeline = _fitted_pipeline(source)
+        cache = bake_cache(source, pipeline, tmp_path / "cache", normalisation_hash=NORM_HASH)
+        return source, cache
+
+    def test_the_values_are_identical_to_what_the_row_dict_path_served(
+        self, pretraining_corpus, tmp_path
+    ):
+        """Parity, as with the cache itself: the cheap path must not be a different path."""
+        source, cache = self._cache(pretraining_corpus, tmp_path)
+        rows = rows_by_id(source.rows)
+        write_scalars(cache.cache_dir, {o: float(r["petroRad_r"]) for o, r in rows.items()})
+        fresh = TensorCache(cache.cache_dir)
+        # reversed, so a sidecar read positionally rather than by object ID would disagree
+        ids = sorted(rows, reverse=True)
+        from_rows = StampDataset(fresh, rows, ids)
+        from_array = StampDataset(fresh, {}, ids, scalars=fresh.scalars)
+        assert len({r["petroRad_r"] for r in source.rows}) > 1, "a constant would prove nothing"
+        for i in range(len(ids)):
+            assert from_array[i]["object_id"] == from_rows[i]["object_id"]
+            # exact, not approximate: the array path must serve the same float, not a near one
+            assert from_array[i]["petro_rad_arcsec"] == from_rows[i]["petro_rad_arcsec"]
+
+    def test_a_missing_galaxy_is_a_misalignment_and_is_refused(self, pretraining_corpus, tmp_path):
+        source, cache = self._cache(pretraining_corpus, tmp_path)
+        petro = {int(r["object_id"]): float(r["petroRad_r"]) for r in source.rows}
+        petro.pop(next(iter(petro)))
+        with pytest.raises(ValueError, match="misalignment, not"):
+            write_scalars(cache.cache_dir, petro)
+
+    def test_a_missing_radius_is_a_value_not_a_misalignment(self, pretraining_corpus, tmp_path):
+        """``petrosian_box`` already falls back to the global box for a NaN, so NaN must pass."""
+        source, cache = self._cache(pretraining_corpus, tmp_path)
+        write_scalars(cache.cache_dir, {int(r["object_id"]): float("nan") for r in source.rows})
+        assert np.isnan(TensorCache(cache.cache_dir).scalars).all()
+
+    def test_a_sidecar_the_index_does_not_vouch_for_is_not_read(self, pretraining_corpus, tmp_path):
+        _source, cache = self._cache(pretraining_corpus, tmp_path)
+        with pytest.raises(FileNotFoundError, match="no scalar sidecar recorded"):
+            _ = TensorCache(cache.cache_dir).scalars
+
+    def test_a_tampered_sidecar_is_refused(self, pretraining_corpus, tmp_path):
+        source, cache = self._cache(pretraining_corpus, tmp_path)
+        write_scalars(
+            cache.cache_dir, {int(r["object_id"]): float(r["petroRad_r"]) for r in source.rows}
+        )
+        path = cache.cache_dir / "petro_rad_arcsec.f64"
+        values = np.fromfile(path, dtype=np.float64)
+        values[0] += 1.0
+        path.write_bytes(values.tobytes())
+        with pytest.raises(RuntimeError, match="digest"):
+            _ = TensorCache(cache.cache_dir).scalars
+
+    def test_a_truncated_sidecar_is_refused_before_the_digest(self, pretraining_corpus, tmp_path):
+        source, cache = self._cache(pretraining_corpus, tmp_path)
+        write_scalars(
+            cache.cache_dir, {int(r["object_id"]): float(r["petroRad_r"]) for r in source.rows}
+        )
+        path = cache.cache_dir / "petro_rad_arcsec.f64"
+        path.write_bytes(path.read_bytes()[:-8])
+        with pytest.raises(RuntimeError, match="Misaligned by construction"):
+            _ = TensorCache(cache.cache_dir).scalars

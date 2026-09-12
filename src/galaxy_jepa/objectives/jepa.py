@@ -29,7 +29,8 @@ import numpy as np
 import torch
 from torch import nn
 
-from galaxy_jepa.callbacks.collapse import CollapseMonitor
+from galaxy_jepa.callbacks.checkpoint import TrainCheckpointer
+from galaxy_jepa.callbacks.collapse import CollapseFloorFreeze, CollapseMonitor
 from galaxy_jepa.data.bbox import petrosian_box
 from galaxy_jepa.masking.blocks import (
     MaskConfig,
@@ -105,6 +106,10 @@ class JepaConfig:
     petro_k: float = 2.5
     global_box_frac: float = 0.40  # global-fallback box half-width as a fraction of stamp_px
     monitor_every: int = 100
+    #: Mid-run checkpoint interval in steps. At the measured 1.297 steps/s (Brief F) 1,500 steps
+    #: bounds a crash's cost to ~19 min. 0 disables it — which for a multi-hour run is a choice
+    #: to gamble the whole job, so the harness records it rather than letting it pass.
+    checkpoint_every: int = 1500
     seed: int = 0
 
 
@@ -188,6 +193,9 @@ class TrainResult:
     losses: list[float]
     collapse_trace: dict[str, list[float]]
     halted: bool
+    #: Steps completed in total, restored ones included — not the same as ``len(losses)`` once a
+    #: run has halted, and the thing a resume needs to know it landed where it meant to.
+    steps_completed: int = 0
 
 
 def train_jepa(
@@ -198,12 +206,29 @@ def train_jepa(
     monitor_batch: dict[str, Any] | None = None,
     checkpoint_path: str | Path | None = None,
     autocast_dtype: torch.dtype | None = None,
+    checkpointer: TrainCheckpointer | None = None,
+    sampler: Any | None = None,
+    collapse_floor: CollapseFloorFreeze | None = None,
+    resume: bool = True,
+    stop_after: int | None = None,
 ) -> TrainResult:
     """Run the JEPA pretrain loop with the collapse monitor live; export a frozen checkpoint.
 
     ``loader`` yields batch dicts (from ``StampDataset``); it is cycled until ``config.steps``.
     ``monitor_batch`` is a fixed held-out batch (the ``pretrain-monitor`` slice) the collapse
-    monitor reads. Halts on NaN/Inf loss or representation collapse, recording why.
+    monitor reads. Halts on NaN/Inf loss, representation collapse, or the pre-registered
+    ``collapse_floor``, recording why.
+
+    ``checkpointer`` writes a resumable mid-run checkpoint every ``checkpointer.every`` steps and,
+    with ``resume=True``, continues from the newest committed one. Resuming requires ``sampler``
+    to be a :class:`~galaxy_jepa.data.dataset.ResumableShuffle`: the trajectory is a function of
+    ``(seed, step)`` only because the data order is, and with a plain shuffling loader a resumed
+    run trains on a different sequence from the same step and diverges silently.
+
+    ``stop_after`` ends *this invocation* after that many steps, leaving ``config.steps`` — and so
+    the LR and EMA schedules — untouched. It is a deliberate interruption: what a crash looks like
+    from the checkpoint's side, and how you stop a multi-day job to free the machine. The resume
+    identity proof uses it rather than reimplementing this loop, which would test the wrong thing.
     """
     cfg = jepa.config
     jepa.to(device)
@@ -212,12 +237,33 @@ def train_jepa(
         lr=cfg.lr,
         weight_decay=cfg.weight_decay,
     )
-    monitor = CollapseMonitor()
     losses: list[float] = []
     halted = False
+    start_step = 0
+    restored: list[dict[str, float]] = []
 
+    if checkpointer is not None and resume:
+        from galaxy_jepa.data.dataset import ResumableShuffle
+
+        if checkpointer.latest() is not None and not isinstance(sampler, ResumableShuffle):
+            raise ValueError(
+                "refusing to resume without a ResumableShuffle sampler. The checkpoint restores "
+                "the weights, the optimiser and the RNG, but with a plain shuffling loader the "
+                "data order is not recoverable, so the resumed run would train on a different "
+                "sequence from the same step. A resume that runs but diverges is worse than none."
+            )
+        state = checkpointer.restore(jepa=jepa, optimiser=opt, map_location=device)
+        if state is not None:
+            assert isinstance(sampler, ResumableShuffle)  # guaranteed by the refusal above
+            start_step, losses, restored = state.step, list(state.losses), state.collapse_history
+            sampler.start = start_step * cfg.batch_size
+            logger.info("resuming at step %d of %d", start_step, cfg.steps)
+
+    monitor = CollapseMonitor(floor=collapse_floor, total_steps=cfg.steps, history=restored)
+    stopped_early = False
+    done = start_step
     data = _cycle(loader)
-    bar = _progress(cfg.steps)
+    bar = _progress(cfg.steps, start=start_step)
     for step in bar:
         batch = _to_device(next(data), device)
         lr = cfg.lr * min(1.0, (step + 1) / max(cfg.warmup_steps, 1))
@@ -262,29 +308,66 @@ def train_jepa(
                 signals.mean_cosine,
             )
             if monitor.should_halt(signals):  # T3.collapse-monitor
-                logger.error("step %d: representation collapse detected — halting", step)
+                logger.error("step %d: halting — %s", step, monitor.halt_reason)
                 halted = True
                 break
 
+        if checkpointer is not None and (step + 1) % checkpointer.every == 0:
+            checkpointer.save(
+                step=step + 1,
+                jepa=jepa,
+                optimiser=opt,
+                losses=losses,
+                collapse_history=monitor.history,
+            )
+        done = step + 1
+        if stop_after is not None and done - start_step >= stop_after:
+            logger.info("stopping after %d steps this invocation (at step %d)", stop_after, done)
+            stopped_early = True
+            break
+
+    if checkpointer is not None and stopped_early:
+        # land the checkpoint exactly where the loop stopped, or the resume would repeat work
+        checkpointer.save(
+            step=done,
+            jepa=jepa,
+            optimiser=opt,
+            losses=losses,
+            collapse_history=monitor.history,
+        )
+    if checkpointer is not None and not halted and not stopped_early:
+        # the last partial interval is worth keeping too; a completed run's final state is the
+        # thing a probe re-run would want and re-deriving it costs the whole job
+        checkpointer.save(
+            step=cfg.steps,
+            jepa=jepa,
+            optimiser=opt,
+            losses=losses,
+            collapse_history=monitor.history,
+        )
     checkpoint = None
     if checkpoint_path is not None:
         checkpoint = save_encoder(
-            jepa.encoder, checkpoint_path, extra={"steps": len(losses), "halted": halted}
+            jepa.encoder,
+            checkpoint_path,
+            extra={"steps": len(losses), "halted": halted, "halt_reason": monitor.halt_reason},
         )
-    return TrainResult(checkpoint, losses, monitor.trace(), halted)
+    return TrainResult(checkpoint, losses, monitor.trace(), halted, steps_completed=done)
 
 
-def _progress(steps: int) -> Any:
+def _progress(steps: int, *, start: int = 0) -> Any:
     """A tqdm progress bar over the step range (loss + collapse metrics + ETA in the postfix).
 
     tqdm is a core dependency, but fall back to a bare range if it is ever absent so the
     training loop never depends on a display library being importable.
     """
+    todo = range(start, steps)
     try:
         from tqdm.auto import tqdm
     except ImportError:  # pragma: no cover - tqdm is a declared core dep
-        return range(steps)
-    return tqdm(range(steps), desc="jepa", unit="step", dynamic_ncols=True)
+        return todo
+    # `initial`/`total` so a resumed run's bar and ETA describe the whole job, not the remainder
+    return tqdm(todo, desc="jepa", unit="step", dynamic_ncols=True, initial=start, total=steps)
 
 
 def _set_postfix(bar: Any, **fields: float) -> None:

@@ -100,23 +100,32 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   `num_workers=0` (what `_prepare` builds): **479 stamps/s shuffled, 551 sequential** — 35% of
   what the drive can deliver, so the Python per-item path, not the USB link, is the data-side
   constraint. No warm-cache spike; twelve 10-second windows flat at 458–503. *(Brief F1)*
-- [ ] (P1) **Flagged, not acted on: the dataset carries 4.07 GB of metadata to read one float.**
-  `harness._prepare` hands `StampDataset` both corpora's full tables
-  (`rows_by_id([*pre.rows, *probe.rows])`, 1,057,326 rows) and `__getitem__` reads one key from
-  them, `petroRad_r`. Measured: 0.94 GB for pretrain, +1.85 GB for probe (the full GZ2 vote tree),
-  4.07 GB peak through `rows_by_id`; 2.7–3.3 GB retained. It costs **nothing in throughput** —
-  a lean view carrying only `petroRad_r` measured 491 vs 479 stamps/s, inside the noise — but it
-  is 21% of an 18 GB machine standing idle, and under `spawn` it is copied into every worker.
-- [ ] (P1) **Flagged, not acted on: `num_workers > 0` is not viable here, and buys nothing.**
-  Two independent reasons. (a) Under `spawn` — the macOS default — each worker gets its own
-  dataset: 2 workers projects to 8.3 GB retained against a 7.7 GB safety ceiling, 8 workers to
-  22.9 GB. (b) Even a 0.99 GB lean dataset was **SIGKILLed** with 2 workers after clearing that
-  guard; what grew was the page-cache footprint of three processes concurrently touching a
-  415.8 GB memmap on an external volume, and the swap file went 13.3 → 38.9 GB before the kill.
-  Observed, not proven, and not re-attempted — because at 41.5 stamps/s the model consumes 8.7%
-  of the 479 stamps/s the single-process loader already delivers. Workers matter only if the
-  compute side gets ~10× faster, i.e. only on rented hardware, where the cache would have to
-  move off USB anyway.
+- [x] (P1) **The 4.07 GB metadata table is gone — one aligned float64 array instead.** Was:
+  `harness._prepare` handed `StampDataset` both corpora's full tables (1,057,326 rows, 4.07 GB
+  peak) so `__getitem__` could read one key, `petroRad_r`. Now `petro_rad_arcsec.f64` sits beside
+  the cache — one float64 per stamp **in the index's own row order**, **8.46 MB**, sha vouched for
+  by `index.json` (the cache's commit point) and written last. Misalignment is refused, not
+  tolerated: `write_scalars` rejects any indexed object absent from the map ("a missing galaxy is a
+  misalignment, not a missing value"), `load_scalars` rejects an unvouched sidecar, a missing file,
+  a length mismatch or a digest mismatch. Deliberately **not** in `pipeline_hash`, so the cache key
+  is unchanged and nothing re-baked. Parity on the real 415.8 GB cache: **0/20,000 value
+  disagreements under exact float comparison** (scrambled order) and **0/2,000 `box_to_token_mask`
+  outputs differ** — float64 because at float32, 19,996/20,000 differed in the last bits and a
+  parity claim needing a tolerance is not one. Whole dataset process now **0.43 GB** incl. torch.
+  *(Brief G2)*
+- [ ] (P1) **`num_workers > 0` still refuses, and the reason is not the dataset.** Re-measured
+  after G2 with an 8.46 MB dataset: `num_workers` 2 (twice), 4 and 8 all drive the machine into
+  swap and are killed, while **each worker process holds 0.01 GB** and the tree's total RSS stays
+  flat near 1.5 GB — so the memory leaves the machine outside anybody's RSS, with anonymous pages
+  system-wide falling 7.7 → 3.9 GB as the kernel evicts other processes. The control that pins it:
+  **two *independent* single-process readers** of the same 415.8 GB cache, concurrently, cost
+  **−0.23 GB of swap** and aggregate to **681.8 stamps/s (1.39×)**. So the refusal belongs to
+  DataLoader worker IPC, not to the dataset and not to multiple mappers — and
+  `torch.multiprocessing.get_all_sharing_strategies()` is `{'file_system'}` on macOS, so the usual
+  `file_descriptor` remedy **does not exist here**. It buys nothing locally either: the model
+  consumes 34–41 of the 489.6 stamps/s the single-process loader delivers. If a faster machine ever
+  needs it, the shape that measurably works is *independent sharded reader processes*, not workers.
+  *(Brief G3)*
 - [ ] (P2) **Flagged, not acted on: SDSS run 1000 and friends.** The 827 stamps the normalisation
   fit trims are low-SNR, not bright — 67.4% from run 1000, trimmed at 111× the corpus rate, with
   4× the corpus rate of failed Petrosian fits. An imaging-quality problem, not astrophysics. No
@@ -144,6 +153,38 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 - [~] (P1) Sweep harness — `harness.calibrate` measures compute- vs data-bound and batch scaling;
   no EMA/masking-ratio grid yet.
 - [x] (P1) Checkpointing + frozen-encoder export (`load_frozen_encoder`, freeze boundary on disk).
+- [x] (P0) **Mid-run checkpointing, with the resume proven identical.** `callbacks/checkpoint.py`:
+  online encoder + **EMA target encoder as separate state** (re-deriving it from the online encoder
+  would restart the EMA and look like a clean resume) + predictor + AdamW moments + `step` (which
+  *is* the position in both the LR warmup and the EMA cosine ramp — neither is a stateful scheduler)
+  + the schedule + RNG states (torch/MPS/numpy/python) + `config_hash` **and**
+  `normalisation_hash`. Written `.tmp` → fsync → `os.replace` → **fsync the directory** → sha256 →
+  read back via `mmap` → **then** the manifest, which is the commit point exactly as `index.json` is
+  for the cache; `keep=3`. Eight refusals tested, including a resume that would cross a freeze or a
+  changed schedule, plus a **refusal to resume without a `ResumableShuffle` sampler** — the weights
+  would restore and the data order would not. **Resume identity is an equality, not a tolerance**:
+  20 steps straight vs 10-stop-resume-10 from a *different weight init*, `second.losses ==
+  whole.losses` on all 20, because the trajectory is a function of `(seed, step)` alone (per-step
+  mask seeding, no dropout, seed-pure data order). Measured cost: **380.6 MB, 2.34 s/write**, so at
+  `checkpoint_every: 1500` → **0.167% of wall-clock, 23.4 min at risk**. `0` is stamped as the
+  `no_mid_run_checkpoint` forfeit. *(Brief G1)*
+- [x] (P0) **`RunStamp.seed` now actually determines the encoder.** Found off the brief, while two
+  G3 throughput runs at the same seed produced different collapse traces: **nothing in the package
+  ever called `torch.manual_seed`**. `seed` reached the masker (`loss_step(seed=cfg.seed + step)`)
+  and, since G1, the data order (`ResumableShuffle`) — but the ViT's parameters came from whatever
+  ambient RNG state the process held, so two runs with byte-identical stamps produced different
+  encoders. `harness.seed_init` is now the one construction site and seeds before the encoder, which
+  covers its deepcopy into the EMA target and the predictor too. The resume-identity proof was never
+  affected: a restore overwrites the init entirely. Three tests. *(found during Brief G3)*
+- [x] (P0) **The collapse kill criterion is pre-registered, not judged at hour thirty.**
+  `CollapseFloorFreeze` is a `FrozenChoice`: erank < **5.0** for **3 consecutive** readings after a
+  grace of **10% of `steps`**, plus a **hard floor of 2.0** from step 100. 5.0 is half the pilot's
+  ~10.3 — the only erank in this project tied to a working probe (AUC 0.905) — and deliberately
+  **not** the smoke's 4.1, which would be reading the threshold off the curve it judges. Hashed into
+  `config_hash` (`157903bd5180788b…`), enforced in `CollapseMonitor`, stamps `collapse_floor_open`
+  when unset. Confirmed on the real trace: erank 22.14 → 3.23 over 300 steps with `would_halt=False`
+  throughout, because 300 ≪ the 5,000-step grace. Explicitly **provisional** — the pilot is one
+  trace on a different corpus; re-derive from the first real run as a new freeze. *(Brief G5)*
 - [x] (P0) **Training smoke on the M3 Pro, measured not estimated** — the real path end to end
   (bbox-biased `MultiBlockMasker` → ViT context + EMA target → predictor → latent MSE → EMA
   update → collapse monitor) over the real 415.8 GB cache; 300 steps after a 20-step warmup;
@@ -166,11 +207,19 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   unimplemented op would quietly move to the CPU instead of raising, which is precisely how a
   silent fallback hides. `probing/entanglement.py`'s two `svdvals` calls force float64 and were
   therefore always on the CPU. *(Brief F2.3)*
-- [ ] (P1) **The step budget is not decided, and `steps: 50000` is 1.93 epochs.** At batch 32 one
-  epoch over 826,968 stamps is 25,843 steps; the configured 50,000 is 1.6M samples, 8.3× the
-  pilot's 192,000 but ~1/300 of I-JEPA's published ImageNet epoch schedules. On the M3 that is
-  **10.7 h**; 10 epochs is 2.3 days, 50 epochs 11.5 days, 100 epochs 23 days. The budget, not the
-  hardware, is what decides whether to rent — state it before committing compute. *(Brief F4)*
+- [ ] (P1) **The step budget is not decided, and `steps: 50000` is 1.97 epochs.** At batch 32 one
+  epoch over the **810,491** training stamps is 25,328 steps; the configured 50,000 is 1.6M samples,
+  8.3× the pilot's 192,000. Re-measured at **1.067–1.165 steps/s** (G3; F2's 1.297 was on a cold
+  machine and the 10% gap is compute-side but unisolated — thermal state or variance), so 50,000
+  steps is **11.9–13.0 h**, 10 epochs 2.5–2.7 d, pilot-epoch parity (19.2) 4.8–5.3 d, 50 epochs
+  12.6–13.7 d. **I-JEPA's schedule cannot anchor this** — checked against the paper (G4,
+  `artifacts/g4_ijepa_schedule.md`): 600 epochs for ViT-B/L and 300 for ViT-H/14 at batch 2048, and
+  the paper **never pretrains a ViT-S with I-JEPA at all**. Matching its 769M samples would be 24.0M
+  steps = 214 days. Our batch is 64× smaller at the same 1e-3 peak LR, and `train_jepa` applies
+  warmup only — no cosine decay to 1e-6, no 0.04 → 0.4 WD ramp — so borrowing the epoch count
+  borrows the cost without the mechanism. The masking geometry *is* identical to the paper's, which
+  is what the β = 0 control's integrity rests on. Argue the budget on samples-seen and the collapse
+  trace. *(Brief F4/G4)*
 - [ ] (P1) **Collapse trace at 300 steps: effective rank falls to ~4 and flattens.** 22.6 → 10.5
   → 4.8 → 4.1 by step 175, with std rising 0.28 → 5.17 and mean cosine falling +0.948 → +0.697.
   It does *not* flatline immediately and the loss stays finite, so nothing is degenerate at this
