@@ -213,8 +213,11 @@ def probe_arm(name: str) -> dict:
     # `evaluate_probe` opens the baked cache under its out_dir; point a symlink at the real one
     # rather than copying 415.8 GB, and give each arm its own out_dir so the reports never collide.
     link = out / "cache"
-    if not link.exists():
-        link.symlink_to(Path(cfg.paths.out_dir).resolve() / "cache")
+    target = Path(cfg.paths.out_dir).resolve() / "cache"
+    if link.is_symlink() and link.resolve() != target:
+        link.unlink()  # a stale or broken link; `exists()` alone returns False for a broken one
+    if not link.is_symlink():
+        link.symlink_to(target)
     probe_cfg = cfg.model_copy(update={"smoke": True}).model_copy(
         update={"paths": cfg.paths.model_copy(update={"out_dir": str(out)})}
     )
