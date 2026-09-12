@@ -33,3 +33,23 @@ def test_effective_rank_of_flat_spectrum_is_dimension():
     # a flat spectrum spreads variance across all directions → effective rank = the dimension
     svals = torch.ones(8)
     assert effective_rank(svals) == pytest.approx(8.0)
+
+
+def test_the_svd_runs_on_the_cpu_so_no_blanket_mps_fallback_is_needed(monkeypatch):
+    """``aten::_linalg_svd.U`` has no MPS kernel — the one op in the training path that doesn't.
+
+    Pinned because the alternative is ``PYTORCH_ENABLE_MPS_FALLBACK=1``, and a blanket fallback
+    would quietly relocate *any* future unimplemented op to the CPU instead of raising. Keeping
+    this one relocation explicit is what makes "nothing falls back silently" checkable. The
+    matrix is at most (batch, embed_dim), so the move costs nothing. Brief F2.3.
+    """
+    seen: list[str] = []
+    real = torch.linalg.svdvals
+
+    def spy(t, *a, **k):
+        seen.append(t.device.type)
+        return real(t, *a, **k)
+
+    monkeypatch.setattr(torch.linalg, "svdvals", spy)
+    collapse_signals(torch.randn(16, 8, generator=torch.Generator().manual_seed(1)))
+    assert seen == ["cpu"], f"the collapse SVD must be handed a CPU tensor, got {seen}"

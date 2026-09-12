@@ -91,6 +91,32 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   disjoint), index and data file agree exactly, and raw→pipeline reproduces the cache
   **bit-identically on 5,000 sampled stamps, 2,500 per corpus**. Sharing one hash-keyed directory
   across both corpora *is* the parity rule made physical. *(Brief E6)*
+- [x] (P0) **Loader ceiling measured, drive and pipeline separately** — the number the model can
+  never exceed. *Device layer*, `F_NOCACHE` set so the page cache is bypassed and the figure is
+  the drive's rather than RAM's: external USB SSD **1,383 stamps/s shuffled (544 MB/s)** vs 1,440
+  sequential — **shuffled access costs nothing on this SSD**, so the training access pattern does
+  not collapse; internal SSD 3,837 shuffled (1,509 MB/s) as the ceiling reference, 2.8× the
+  external. *Pipeline layer*, the real `TensorCache`→`StampDataset`→`DataLoader` at batch 32,
+  `num_workers=0` (what `_prepare` builds): **479 stamps/s shuffled, 551 sequential** — 35% of
+  what the drive can deliver, so the Python per-item path, not the USB link, is the data-side
+  constraint. No warm-cache spike; twelve 10-second windows flat at 458–503. *(Brief F1)*
+- [ ] (P1) **Flagged, not acted on: the dataset carries 4.07 GB of metadata to read one float.**
+  `harness._prepare` hands `StampDataset` both corpora's full tables
+  (`rows_by_id([*pre.rows, *probe.rows])`, 1,057,326 rows) and `__getitem__` reads one key from
+  them, `petroRad_r`. Measured: 0.94 GB for pretrain, +1.85 GB for probe (the full GZ2 vote tree),
+  4.07 GB peak through `rows_by_id`; 2.7–3.3 GB retained. It costs **nothing in throughput** —
+  a lean view carrying only `petroRad_r` measured 491 vs 479 stamps/s, inside the noise — but it
+  is 21% of an 18 GB machine standing idle, and under `spawn` it is copied into every worker.
+- [ ] (P1) **Flagged, not acted on: `num_workers > 0` is not viable here, and buys nothing.**
+  Two independent reasons. (a) Under `spawn` — the macOS default — each worker gets its own
+  dataset: 2 workers projects to 8.3 GB retained against a 7.7 GB safety ceiling, 8 workers to
+  22.9 GB. (b) Even a 0.99 GB lean dataset was **SIGKILLed** with 2 workers after clearing that
+  guard; what grew was the page-cache footprint of three processes concurrently touching a
+  415.8 GB memmap on an external volume, and the swap file went 13.3 → 38.9 GB before the kill.
+  Observed, not proven, and not re-attempted — because at 41.5 stamps/s the model consumes 8.7%
+  of the 479 stamps/s the single-process loader already delivers. Workers matter only if the
+  compute side gets ~10× faster, i.e. only on rented hardware, where the cache would have to
+  move off USB anyway.
 - [ ] (P2) **Flagged, not acted on: SDSS run 1000 and friends.** The 827 stamps the normalisation
   fit trims are low-SNR, not bright — 67.4% from run 1000, trimmed at 111× the corpus rate, with
   4× the corpus rate of failed Petrosian fits. An imaging-quality problem, not astrophysics. No
@@ -118,6 +144,38 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 - [~] (P1) Sweep harness — `harness.calibrate` measures compute- vs data-bound and batch scaling;
   no EMA/masking-ratio grid yet.
 - [x] (P1) Checkpointing + frozen-encoder export (`load_frozen_encoder`, freeze boundary on disk).
+- [x] (P0) **Training smoke on the M3 Pro, measured not estimated** — the real path end to end
+  (bbox-biased `MultiBlockMasker` → ViT context + EMA target → predictor → latent MSE → EMA
+  update → collapse monitor) over the real 415.8 GB cache; 300 steps after a 20-step warmup;
+  `smoke=True` so the artefact can never be read as a result. **1.297 steps/s = 41.5 stamps/s at
+  batch 32**, **compute-bound: 83.8% compute / 16.2% data-wait**, cross-checking against F1's
+  479 stamps/s loader ceiling (the model draws 8.7% of it). MPS driver peak **8.07 GB**, host RSS
+  4.38 GB. Largest batch that **fits 128** (OOM at 192 against the 14.3 GB recommended cap);
+  **fastest is 64 at 52.8 stamps/s**, and 128 is slower than 64 — so batch 64, not the configured
+  32, with accumulation if a larger effective batch is wanted. Host-side mask work is 5.8% of
+  compute, effectively all of it `MultiBlockMasker.sample`. Loss finite throughout. *(Brief F2)*
+- [x] (P0) **A training run is now markable as a smoke** — `HarnessConfig.smoke`, mirroring
+  `ProbingConfig.smoke`: a determining field, so it moves `config_hash` and a smoke's artefacts
+  cannot collide with a run's, *and* written into `escape_hatches_used` so the stamp says so in
+  words. The probing path has carried this since the D-series; the training path had nothing.
+- [x] (P0) **Exactly one op in the whole training path has no MPS kernel** — `aten::_linalg_svd.U`,
+  i.e. `torch.linalg.svdvals` in the collapse monitor, the one thing the pilot is said to read.
+  Now relocated to the CPU **explicitly** (`callbacks/collapse.py`), on a matrix at most
+  (batch, embed_dim), so a 300-step run completes with `PYTORCH_ENABLE_MPS_FALLBACK` **unset**.
+  That is the point: with the blanket variable set — as the pilot must have had it — any future
+  unimplemented op would quietly move to the CPU instead of raising, which is precisely how a
+  silent fallback hides. `probing/entanglement.py`'s two `svdvals` calls force float64 and were
+  therefore always on the CPU. *(Brief F2.3)*
+- [ ] (P1) **The step budget is not decided, and `steps: 50000` is 1.93 epochs.** At batch 32 one
+  epoch over 826,968 stamps is 25,843 steps; the configured 50,000 is 1.6M samples, 8.3× the
+  pilot's 192,000 but ~1/300 of I-JEPA's published ImageNet epoch schedules. On the M3 that is
+  **10.7 h**; 10 epochs is 2.3 days, 50 epochs 11.5 days, 100 epochs 23 days. The budget, not the
+  hardware, is what decides whether to rent — state it before committing compute. *(Brief F4)*
+- [ ] (P1) **Collapse trace at 300 steps: effective rank falls to ~4 and flattens.** 22.6 → 10.5
+  → 4.8 → 4.1 by step 175, with std rising 0.28 → 5.17 and mean cosine falling +0.948 → +0.697.
+  It does *not* flatline immediately and the loss stays finite, so nothing is degenerate at this
+  length — but the pilot held erank ≈ 10.2–10.6 out to 6,000 steps, so ~4 is lower than the one
+  reference trace that ended in AUC 0.905. Watch it at the start of the real run, not here.
 
 ## Epic F — Probing harness `[P6]` (frozen encoder) — controls interleaved
 - [x] (P0) **L2 logistic concept-direction probe** → held-out AUC + bootstrap CI; unit-normalised

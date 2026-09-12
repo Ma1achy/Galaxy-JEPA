@@ -231,6 +231,11 @@ class HarnessConfig(RunConfig):
     #: knob any more: the sample size that produced these numbers is *in* the record, and a
     #: live knob would imply a run could change it, which is exactly the drift being closed.
     normalisation: NormalisationFreeze | None = None
+    #: A run that only exercises plumbing or measures throughput — NOT a result. Mirrors
+    #: ``ProbingConfig.smoke``: being a determining field it changes ``config_hash``, so a
+    #: smoke's artefacts can never collide with a real run's, and it is additionally written
+    #: into ``escape_hatches_used`` so the stamp says so in words as well as in the hash.
+    smoke: bool = False
     monitor_frac: float = 0.02
     autocast: str | None = None  # None | "bf16" | "fp16"
     ratios: tuple[float, float, float] = (0.70, 0.15, 0.15)
@@ -841,6 +846,7 @@ def _make_stamp(config: HarnessConfig, data_snapshot: str) -> RunStamp:
         data_snapshot=data_snapshot,
         seed=resolved.seed,
         device=resolved.runtime.device,
+        escape_hatches_used=["smoke"] if resolved.smoke else None,
     )
 
 

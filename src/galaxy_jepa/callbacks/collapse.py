@@ -68,7 +68,13 @@ def collapse_signals(embeddings: torch.Tensor) -> CollapseSignals:
 
     centred = x - x.mean(dim=0, keepdim=True)
     # singular values of the centred matrix → normalised distribution → entropy → exp.
-    erank = effective_rank(torch.linalg.svdvals(centred))
+    # The SVD runs on the CPU **deliberately**: `aten::_linalg_svd.U` has no MPS kernel, so on the
+    # project's own device this line is the one op in the whole training path that cannot execute
+    # there. Relocating it here — explicitly, for a matrix that is at most (batch, embed_dim) —
+    # keeps `PYTORCH_ENABLE_MPS_FALLBACK` **unset**, which is what makes "nothing falls back
+    # silently" a fact rather than a hope: with the blanket variable set, any future unimplemented
+    # op would quietly move to the CPU instead of raising. Brief F2.3.
+    erank = effective_rank(torch.linalg.svdvals(centred.cpu()))
 
     normed = torch.nn.functional.normalize(x, dim=1)
     sim = normed @ normed.t()

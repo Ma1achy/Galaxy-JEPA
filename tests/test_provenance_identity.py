@@ -100,3 +100,23 @@ def test_the_cache_key_carries_no_scheme_marker():
     assert ":" not in key
     assert len(key) == 64 and all(c in "0123456789abcdef" for c in key)
     assert not config_hash(pipeline.to_config()).startswith(STAMP_SCHEME)
+
+
+class TestASmokeCanNeverBeReadAsAResult:
+    """The probing path has carried this marking since D-series; the training path had none.
+
+    A throughput measurement runs the real objective on the real corpus and writes real-looking
+    artefacts. Without a marker it is distinguishable from a run only by remembering which is
+    which — so the marker is a determining field (it moves the hash, so a smoke's artefacts
+    cannot collide with a run's) *and* an escape hatch (so the stamp says so in words).
+    """
+
+    def test_the_marking_moves_the_run_hash(self):
+        assert _hash(_cfg(smoke=True)) != _hash(_cfg())
+
+    def test_the_marking_is_stamped_as_a_forfeit_not_only_hashed(self):
+        assert _make_stamp(_cfg(smoke=True), "manifest:fixed").escape_hatches_used == ["smoke"]
+        assert _make_stamp(_cfg(), "manifest:fixed").escape_hatches_used == []
+
+    def test_a_real_run_is_the_default(self):
+        assert _cfg().smoke is False
