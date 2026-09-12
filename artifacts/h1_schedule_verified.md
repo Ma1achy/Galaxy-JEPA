@@ -81,3 +81,31 @@ momentum moves from 0.99600000 to 0.99600099 — four parts in ten million. Prov
 `steps=50000` (H2 does), the EMA schedule is effectively identical across arms. This is also G1's
 point from the other side: changing `steps` would move every later momentum, so `steps` is exactly
 the wrong thing to vary in a schedule experiment.
+
+## H4 precondition, checked ahead of the result
+
+The brief asks to confirm that a recipe change is handled by the provenance machinery. Measured:
+
+| edit | `config_hash` | moved? |
+|---|---|---|
+| *(baseline)* | `157903bd5180788b…` | — |
+| `objective.lr` → 1.25e-4 | `01c507d02f611990…` | yes |
+| `objective.warmup_steps` → 1250 | `1ad25377c18ceea7…` | yes |
+| `objective.weight_decay` → 0.4 | `9e040b48d6098448…` | yes |
+| `collapse_floor.min_effective_rank` → 3.0 | `ce8656b572be229f…` | yes |
+
+So the mechanics hold: any schedule edit restamps the run, the G5 floor is hashed alongside it, and
+editing the floor itself restamps too. `CollapseFloorFreeze` carries no `content_hash` and correctly
+does not need one — unlike `NormalisationFreeze`, whose constants must match a separate on-disk fit,
+the floor's values *are* the artefact and are hashed directly.
+
+**The real exposure is not the hash.** `CollapseFloorFreeze.derived_from` reads:
+
+> Pilot run … effective rank 22.6 → 10.2 by step 100 and held 10.2–10.6 to the end; frozen-probe
+> AUC 0.900–0.905. Brief F smoke (300 steps, 827k corpus): 22.6 → 4.1 by step 175, then flat …
+
+Both of those traces were taken **at lr = 1e-3 with no decay**. A recipe change therefore leaves the
+floor mechanically consistent and **empirically ungrounded**: the 5.0 threshold would no longer be
+"half an erank observed under this recipe". Any H4 proposal has to say what happens to the floor —
+re-derive it under the new recipe as a fresh freeze, or state explicitly that the old grounding is
+being carried across and why. That is a stronger requirement than moving a hash.
