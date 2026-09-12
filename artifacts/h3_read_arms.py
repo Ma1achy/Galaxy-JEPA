@@ -98,21 +98,25 @@ def main() -> None:
 
     if base is None:
         return
-    target = base["loss_last50_mean"]
-    print(f"\nMatched-loss comparison — erank at the first step reaching the baseline's final "
-          f"loss ({target:.4f}), smoothed over {WINDOW} steps:")
+    # The baseline's DEEPEST smoothed loss, not its final one. The loss here is non-monotonic —
+    # it bottoms out around step 100 and then rises as the EMA target moves — so "first step
+    # reaching the final loss" is hit on the way down and matches nothing meaningful.
+    target = float(smooth(base["losses"]).min())
+    print(f"\nMatched-loss comparison — erank at the first step reaching the baseline's DEEPEST "
+          f"smoothed loss ({target:.4f}, window {WINDOW}):")
     for name in ("baseline", "linear", "sqrt", "cosine", "warmup1250", "wd_ramp"):
         r = by.get(name)
         if r is None:
             continue
         m = matched(r, target)
+        own = float(smooth(r["losses"]).min())
         if m is None:
-            sm = smooth(r["losses"])
-            print(f"  {name:<11} never reached it — best smoothed loss {sm.min():.4f}. "
-                  f"Its erank is NOT comparable: less has happened.")
+            print(f"  {name:<11} never reached it — its own deepest smoothed loss is {own:.4f}, "
+                  f"{own/target:.1f}x the baseline's. Its erank is NOT comparable: less happened.")
         else:
             step, erank = m
-            print(f"  {name:<11} reached at step {step:>4}, erank there {erank:6.2f}")
+            print(f"  {name:<11} reached at step {step:>4}, erank there {erank:6.2f}   "
+                  f"(own deepest {own:.4f})")
 
     print("\nThe inverse view — how far each arm got BEFORE losing rank. The step and loss at which"
           f"\nerank first fell below the frozen G5 floor of 5.0:")
