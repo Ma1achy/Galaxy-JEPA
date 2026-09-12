@@ -220,11 +220,60 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   borrows the cost without the mechanism. The masking geometry *is* identical to the paper's, which
   is what the β = 0 control's integrity rests on. Argue the budget on samples-seen and the collapse
   trace. *(Brief F4/G4)*
-- [ ] (P1) **Collapse trace at 300 steps: effective rank falls to ~4 and flattens.** 22.6 → 10.5
+- [x] (P1) **Collapse trace at 300 steps: effective rank falls to ~4 and flattens.** 22.6 → 10.5
   → 4.8 → 4.1 by step 175, with std rising 0.28 → 5.17 and mean cosine falling +0.948 → +0.697.
   It does *not* flatline immediately and the loss stays finite, so nothing is degenerate at this
   length — but the pilot held erank ≈ 10.2–10.6 out to 6,000 steps, so ~4 is lower than the one
-  reference trace that ended in AUC 0.905. Watch it at the start of the real run, not here.
+  reference trace that ended in AUC 0.905. **Cause now identified — see the schedule item below.**
+- [ ] (P0) **The LR schedule is a measured cause of the rank fall; the recipe is not yet changed.**
+  Six 500-step arms, one seed, identical data order / masks / EMA / `steps`, varying only
+  `(lr, wd)` per step (`artifacts/h2_schedule_arms.py`, read by `h3_read_arms.py`; findings in
+  `artifacts/h3_schedule_verdict.md`). The causal question is settled four ways: erank@175 is
+  **monotone in mean early LR across a 64× range** (1.08e-5 → 17.14, 7.08e-5 → 10.00, 8.66e-5 →
+  9.46, 6.76e-4 → 4.96, 6.93e-4 → 4.84); **replicated by two different mechanisms** at matched early
+  LR (`sqrt` lowers the peak, `warmup1250` only reaches it slowly — 9.46 vs 10.00); the comparison is
+  **controlled to bit-identity** (`baseline` and `cosine` share a schedule through step 100 and their
+  eranks agree to four decimals there, diverging only from step 125); and **monitor-batch std inverts
+  the erank ordering exactly** across all six arms (baseline inflates **20.4×**, 0.304 → 6.201, at
+  erank 3.75; `linear` only 2.0× at 12.50). So the failure mode is *not* embeddings shrinking to a
+  point — they **grow in magnitude while concentrating into fewer directions**. **Three-quarters of
+  the fall is inside the 100-step warmup**, while the LR is still ramping, not from sitting at the
+  peak. Decay **mitigates rather than prevents**: `cosine` tracks baseline through the fall then
+  recovers 4.26 → 5.87 as its LR anneals, so rank is LR-responsive in both directions. The **WD ramp
+  is not the lever** (4.10 vs 3.75; floor crossed at the identical step 125). **Mean-cosine does not
+  discriminate at all** — baseline's +0.715 sits between `wd_ramp`'s +0.661 and `cosine`'s +0.757 —
+  so std, not mean-cosine, is the number to watch, and is a candidate addition to the G5 floor.
+  `would_halt` was `False` everywhere, which is **structural, not a pass**: the soft floor's grace is
+  5,000 steps, so inside 500 only the hard floor of 2.0 could fire.
+  **Not resolved at 500 steps:** *which* schedule is best. On deepest loss ever the baseline wins
+  (0.0476 vs `sqrt`'s 0.0713); at equal step 500 `sqrt` wins on both axes (loss 0.0757 vs 0.1878,
+  erank 7.19 vs 3.75) because the baseline turned over at step 178 and is **rising** +0.063 over the
+  final 100. And the pilot held erank 10.2–10.6 at the **same** 1e-3 on a 10k corpus, so the absolute
+  level is not set by LR alone. `linear` has the best rank (12.50) and the worst loss (0.1945, 4.1×
+  baseline, still descending) — it is the arm **rejected**, which is the trap this experiment was
+  built to avoid.
+  **Next:** the resolving run — `baseline` vs the H4 proposal, **3,000 steps, ~1.6 h for the pair** —
+  then probe both frozen checkpoints, because the objective is AUC and 500 steps of erank cannot
+  stand in for it. *(Brief H1–H3)*
+- [ ] (P0) **Proposed schedule, awaiting the resolving run — `artifacts/h4_schedule_proposal.md`.
+  Nothing merged into `configs/pretrain.yaml`.** The **reference recipe adapted**, each number by a
+  stated rule and **none read off an H2 trace**: peak **1.25e-4** (√-scaling of I-JEPA's batch-2048
+  1e-3 — √ not linear because AdamW normalises by the gradient's second moment, so linear scaling's
+  SGD derivation does not apply); warmup **1,250 steps** (the reference's *relative* 2.50%, 15 of 600
+  epochs, against our 0.20%); **cosine decay with both endpoints scaled** (peak → peak/1000, keeping
+  the reference's 1000× range rather than compressing it to 125×). The **WD ramp is declined**: 500
+  steps cannot speak to a regularisation schedule, and bundling an unmeasured change with two measured
+  ones would make the result unattributable. Code cost is **small** — two `JepaConfig` fields and ~8
+  lines replacing `jepa.py:269-271`, one site; `lr_final = 0.0` lands it inert so existing hashes
+  don't move, and resume is unaffected because the schedule stays a pure function of
+  `(step, cfg.steps)`. **The real cost is the G5 floor:** `CollapseFloorFreeze.derived_from` cites the
+  pilot and the F smoke, **both taken at lr = 1e-3 with no decay**, so a recipe change leaves the
+  floor mechanically consistent (H1 measured that every schedule edit moves `config_hash`) and
+  **empirically ungrounded** — re-derive it from the resolving run as a fresh freeze. The **β sweep
+  gets stronger** (β = 0 would then differ from published I-JEPA in β and the WD ramp alone, not in β
+  plus three schedule respects); the **pilot comparison degrades** and should be recorded as an
+  existence proof, not a like-for-like baseline. Needs a **D-series entry** with the scaling argument
+  written out — drafted on 3,000-step evidence, not on 500. *(Brief H4)*
 
 ## Epic F — Probing harness `[P6]` (frozen encoder) — controls interleaved
 - [x] (P0) **L2 logistic concept-direction probe** → held-out AUC + bootstrap CI; unit-normalised
