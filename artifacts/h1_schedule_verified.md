@@ -109,3 +109,23 @@ floor mechanically consistent and **empirically ungrounded**: the 5.0 threshold 
 "half an erank observed under this recipe". Any H4 proposal has to say what happens to the floor —
 re-derive it under the new recipe as a fresh freeze, or state explicitly that the old grounding is
 being carried across and why. That is a stronger requirement than moving a hash.
+
+## What `would_halt` can and cannot say at 500 steps
+
+H2 asks for `would_halt` under the frozen G5 criterion per arm. Bounded first, because the answer is
+structural rather than empirical:
+
+| scenario | fires inside 500 steps? |
+|---|---|
+| total collapse, erank 1.5 | yes, at step 100 |
+| the smoke's plateau, erank 4.1 | **never** |
+| erank 2.5 | **never** |
+
+The soft floor of 5.0 applies only from step **5,000** (10% of 50,000). So inside a 500-step window
+only the **hard floor** — erank < 2.0 for three consecutive readings after step 100 — can fire.
+Anything in the 2.0–5.0 band, the smoke's own regime included, reports `False`.
+
+**So `would_halt = False` across every arm is expected and carries almost no information at this run
+length.** It is reported because the brief asks for it, and it confirms no arm collapsed to a single
+direction — but it must not be read as "every arm passed the criterion". The criterion has not been
+given the chance to speak.
