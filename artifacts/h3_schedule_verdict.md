@@ -116,6 +116,16 @@ read as *not settled*, not as a win — see the limits.
   each, against 827k seen once. So **the absolute rank level is not set by the LR alone.** Within
   this experiment the corpus is held constant across arms, so the LR effect is clean; the pilot
   comparison says the schedule is *a* cause, not necessarily the whole one.
+- **The pilot's own trace falls and then recovers — and no arm here ran long enough to see that.**
+  Found while rebuilding the README figures from `runs/pilot.log`: the pilot does not hold ≈10.3
+  throughout. It starts at 36.0, **falls to 6.50 by step 900**, and only then climbs back, reaching
+  9.3–10.6 from step 3,000 and 9.6–10.6 from step 4,000. The freeze's "10.2–10.6" is the last
+  thousand steps, not the whole run. So the one trace in this project tied to a working probe
+  (AUC 0.905) *also* fell hard early. A 500-step window would have caught the pilot mid-fall and
+  called it collapsing. This does not touch H3's causal finding — that rests on between-arm
+  differences at matched step on a bit-identical control, not on absolute level — but it sharpens
+  the caution about reading any arm's 500-step endpoint as its destiny, and it is another reason the
+  resolving run must be long enough to see a turn.
 - **Effective rank is a diagnostic, not the objective.** No arm was probed. The thing that matters
   is frozen-probe AUC, and this experiment does not measure it.
 

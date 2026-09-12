@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Galaxy-JEPA" />
+  <img src="assets/banner.svg" alt="Galaxy-JEPA" width="100%" />
 </p>
 
 > Build a representation of galaxy images unsupervised with a JEPA, then use the Galaxy Zoo labels **only as a read-out key** &mdash; to name and test directions the representation already learned, never to train it. The labels cannot reshape the encoder's geometry; they can only *misname or blur a read-out direction*. So the experiment moves label noise out of representation-learning and into a **measurement stage** where it's inspectable and controllable &mdash; it doesn't pretend the probe is noise-free. The scientific question, per feature: is the human morphological concept a **linearly nameable direction**, an **entangled or nonlinear** one, or **absent** from the image information at this resolution?
@@ -12,7 +12,7 @@ This is **v2 of my undergraduate dissertation** &mdash; a direct follow-on from 
 
 A [JEPA](https://arxiv.org/abs/2301.08243) (Joint-Embedding Predictive Architecture) is trained **self-supervised** on hundreds of thousands of galaxy images: mask out patches, and have the model predict the *representation* of the hidden region from the visible context &mdash; never the pixels, and never a human label. To predict a masked galaxy region well, the model has to build an internal representation of what galaxies actually look like &mdash; their shapes, structures and features. The encoder is then **frozen**, and the Galaxy Zoo labels are brought in only as a *read-out key*, relocating the label noise out of representation-learning and into a measurement stage where it can be quantified and controlled rather than baked into the weights.
 
-> **Status &mdash; research in progress.** The core premise is proven at pilot scale (see [The First Result](#the-first-result)); the full-scale run and the probing harness are designed and being built. This README is a tour of the project as it stands.
+> **Status &mdash; research in progress.** The premise is proven at pilot scale (see [The First Result](#the-first-result)). Since then the data layer has been built out to the full corpus &mdash; **826,968 galaxies pulled at native fidelity and pre-baked** &mdash; and the training loop, the frozen-probing harness and the controls battery are all standing. The full-scale run is deliberately **not launched yet**: a controlled experiment found that the configured learning-rate schedule is itself driving the representation's effective rank down, and that is being resolved before 12 hours of compute are spent on it (see [Before the Full Run](#before-the-full-run)). This README is a tour of the project as it stands.
 
 # **The Problem**
 
@@ -31,11 +31,11 @@ The deeper motivation is v1's central finding. Supervised training couples two t
 v1 analysed the correlation structure of the votes before training, and found that the questions volunteers *disagreed* on were precisely the ones the models failed on.
 
 <p align="center">
-  <img src="assets/v1_correlation_matrices.png" width="900" alt="Per-question vote correlation matrices from v1" />
+  <img src="assets/vote_decisiveness.png" width="900" alt="How decisively volunteers answered each Galaxy Zoo question" />
 </p>
 
 <p align="center">
-  <em>From v1: per-question vote correlations. "Edge on Disk?", "Bar?" and "Has Spiral Arms?" show clean structure &mdash; volunteers agreed. But "Bulge Shape?", "Spiral Winding?" and "Spiral Arm Count?" show almost none: the votes themselves don't separate these features. A supervised model trained on these labels can only ever reproduce the ambiguity.</em>
+  <em>The same catch, re-measured on v2's own 230k-galaxy pull rather than quoted from v1. For every galaxy that reached a question, the leading answer's share of the vote. <strong>Edge-on disk, bar and spiral arms</strong> pile up hard against 1.0 &mdash; volunteers agreed, median lead 0.97, 0.88, 0.83. <strong>Bulge shape, arm winding and arm count</strong> spread across the middle &mdash; median lead 0.73, 0.59, 0.64, with arm winding sitting closer to a coin toss than to consensus. And the tree funnels: the confused questions are also asked of a third as many galaxies. A supervised model trained on these labels can only reproduce the ambiguity.</em>
 </p>
 
 This is the problem v2 is built around. If the ambiguity lives in the *labels*, a label-free encoder shouldn't inherit it. So the question becomes: for each morphological feature, **is the human concept actually present in the image information &mdash; recoverable as a direction in a representation learned without labels &mdash; or not?**
@@ -51,11 +51,11 @@ The method has two stages, and the separation between them is the whole point.
 **Stage 2 &mdash; measurement.** The encoder is **frozen**. The labels are consulted only now, to ask: *which of these pre-existing directions line up with what humans called a bar, a bulge, an edge-on disk?* A mislabelled galaxy can blur a read-out direction (a local, inspectable measurement error) &mdash; it **cannot** reshape the encoder's geometry the way it deformed v1's weights (a global, baked-in representation error). The noise isn't eliminated; it's *relocated* to where it can be measured and bounded.
 
 <p align="center">
-  <img src="assets/method_diagram.png" width="760" alt="Two-stage method: label-free JEPA pretraining, then frozen probing" />
+  <img src="assets/method_diagram.svg" width="980" alt="Two-stage method: label-free JEPA pretraining, then frozen probing" />
 </p>
 
 <p align="center">
-  <em>The two stages. Left: masked-region embedding prediction builds the representation, labels nowhere in sight. Right: the frozen encoder is probed with Galaxy Zoo labels used only as a read-out key.</em>
+  <em>The two stages, and the boundary between them. Left: masked-region embedding prediction builds the representation &mdash; labels nowhere in sight. Right: the frozen encoder is probed, with Galaxy Zoo votes used only as a read-out key. The freeze is not a flag that could be forgotten: it runs <em>through disk</em>. Pretraining writes a checkpoint, probing reads it back through <code>load_frozen_encoder</code>, and the probing package never imports the objectives package at all.</em>
 </p>
 
 # **The Nameability Ladder**
@@ -82,26 +82,59 @@ The headline result chases something stronger than classification: **uncertainty
 A from-scratch JEPA was trained at **pilot scale** (10k galaxies, 6k steps, on a laptop) to answer one question before committing to anything larger: *does a label-free encoder learn useful galaxy structure at all, without collapsing?*
 
 <p align="center">
-  <img src="assets/pilot_collapse_trace.png" width="760" alt="Collapse-monitor trace over pilot training" />
+  <img src="assets/pilot_collapse_trace.png" width="980" alt="Collapse-monitor trace over pilot training" />
 </p>
 
 <p align="center">
-  <em>The collapse monitor over 6k steps. Representation collapse (the standard JEPA failure) would drive embedding standard deviation to zero and mean cosine to one; instead the representation spreads out, effective rank stabilises, and the early norm transient self-arrests as the EMA target freezes. The encoder learned &mdash; it did not collapse.</em>
+  <em>The collapse monitor over 6,000 steps. Representation collapse &mdash; the standard JEPA failure &mdash; would drive embedding standard deviation to zero and mean cosine to one. Instead the representation spreads out and the early transient self-arrests. Worth reading the middle panel carefully rather than just its endpoint: effective rank <strong>falls hard to 6.5 by step 900, then recovers</strong> and holds 9.6&ndash;10.6 for the rest of the run. A shorter run that stopped at the trough would have read as collapse. The encoder learned &mdash; it did not collapse.</em>
 </p>
 
 A linear probe on the **frozen** embeddings, trained only as a read-out key, separated smooth from featured galaxies at:
 
 > **AUC = 0.905** (95% CI 0.873&ndash;0.933) &mdash; on a label the encoder never saw during pretraining.
 
+That headline is measured on the **high-consensus** half of the held-out set (`is_confident_extreme`: vote fraction &le; 0.2 or &ge; 0.8, 370 of 738 galaxies), so the number isn't drowned by the genuinely ambiguous middle. Stating it without that qualifier would be overclaiming, so here is the whole picture: across *all* 738 held-out galaxies the same direction scores **0.816**, and on the ambiguous middle alone &mdash; galaxies the volunteers themselves could not agree on &mdash; **0.716**.
+
 <p align="center">
-  <img src="assets/pilot_umap.png" width="620" alt="UMAP of frozen pilot embeddings coloured by morphology" />
+  <img src="assets/pilot_concept_axis.png" width="980" alt="Projection onto the frozen concept direction, consensus and ambiguous galaxies" />
 </p>
 
 <p align="center">
-  <em>A UMAP of the frozen pilot embeddings, coloured by morphology. The structure is visible even at this tiny scale &mdash; a 2D shadow of a separation that lives, more cleanly, in the full representation.</em>
+  <em>The result itself rather than a 2D shadow of it. AUC is exactly the probability that a random featured galaxy sits further along the direction than a random smooth one, so the two projected distributions are the measurement. <strong>Left:</strong> the high-consensus galaxies, the headline. <strong>Right:</strong> the ambiguous middle &mdash; and the axis still ranks them at 0.716, well clear of chance, on galaxies the volunteers split on. That is the first hint of the uncertainty geometry the project is actually chasing, and it is why the ambiguous half is shown rather than dropped.</em>
 </p>
 
-This is a *signs-of-life* result, not the final science &mdash; the pilot is deliberately undertrained. But it clears the gate the whole project was staked on: the premise works. The full-scale run and the probing harness follow.
+This is a *signs-of-life* result, not the final science &mdash; the pilot is deliberately undertrained, on a hundredth of the corpus. But it clears the gate the whole project was staked on: a representation built without labels has a direction that human morphology can be read off. What follows is the work of earning that result at full scale.
+
+# **Before the Full Run**
+
+---
+
+The pilot cleared the gate, so the next step is the full-scale run &mdash; 826,968 galaxies, 50,000 steps, roughly **12 hours** on the same laptop. Before spending that, one thing needed explaining. A smoke run on the full corpus showed effective rank falling from 22.6 to 4.1 within 175 steps and staying there, where the pilot had held around 10.3. Low rank is the collapse diagnostic, so this was worth understanding *before* the run, not after it.
+
+The suspect was the schedule. The reference recipe ([I-JEPA](https://arxiv.org/abs/2301.08243)) peaks at a learning rate of 1e-3 **at batch 2048**; this project runs 1e-3 at **batch 32**. Square-root scaling &mdash; the conventional rule for Adam-family optimisers &mdash; puts the equivalent near 1.25e-4, so the configured rate sits about **8&times; above** it, and with warmup-only and no decay it stays there for the whole run.
+
+So: six short runs, identical seed, identical data order, identical masks, identical EMA. Only the learning-rate schedule differs.
+
+<p align="center">
+  <img src="assets/schedule_dose_response.png" width="980" alt="Effective rank across six learning-rate schedule arms" />
+</p>
+
+<p align="center">
+  <em>Left: all six arms from one seed. Right: mean learning rate over the window where the fall happens, against the rank at its end.</em>
+</p>
+
+The answer was yes, on four independent grounds:
+
+- **Monotone dose&ndash;response across a 64&times; range** of early learning rate.
+- **Replicated by two different mechanisms.** One arm lowers the peak; another keeps the same 1e-3 peak and merely takes 1,250 steps to reach it. Matched early learning rate, matched rank &mdash; so it is the *magnitude early*, not how it was produced.
+- **The comparison is controlled to bit-identity.** Two arms share a schedule for their first 100 steps and their effective ranks agree to four decimal places there, diverging only once the schedules do.
+- **Embedding scale inverts the rank ordering exactly**, across all six arms. Which also says the failure mode is not the textbook one: the embeddings are not shrinking towards a point, they are *growing* in magnitude while concentrating into fewer directions.
+
+The trap here is obvious and worth naming: the arm with the **highest** effective rank has by far the **worst** loss &mdash; it holds rank by barely having started. It is the arm being rejected. Effective rank is a collapse diagnostic, not the objective, and an arm that holds rank while learning nothing is worse than the baseline.
+
+What is *not* settled at 500 steps is which schedule is best, and the pilot is the reason for caution: it ran the **same** 1e-3 and still held rank around 10.3 &mdash; on a 10k corpus each galaxy saw about nineteen times, against 827k seen once. So the schedule is a demonstrated cause, not demonstrably the whole one. A [proposed recipe](artifacts/h4_schedule_proposal.md) is written up &mdash; the reference recipe adapted by stated rules rather than picked off the best-looking trace &mdash; and gated behind a longer two-arm run that ends by probing both frozen checkpoints, because the objective is AUC and 500 steps of effective rank cannot stand in for it.
+
+This is what most of the engineering in this repository is for: making that kind of question cheap to ask and hard to fudge.
 
 # **The Data Layer**
 
@@ -132,7 +165,9 @@ The codebase is built around a few structural commitments, several inherited as 
 
 ---
 
-The full experimental design of the probing stage is architected: the nameability ladder, a controls battery that gates every rung verdict (selectivity, negative controls, a nuisance battery), the uncertainty-geometry measurement, and MAE / contrastive baselines run through the same ladder to separate *intrinsic to the images* from *artefact of the objective*. The immediate path is: full-scale pretraining run &rarr; the frozen probing harness &rarr; the per-feature ladder, the uncertainty geometry, and the comparison back to v1.
+The full experimental design of the probing stage is architected and largely built: the nameability ladder, a controls battery that gates every rung verdict (selectivity, negative controls, a nuisance battery), the uncertainty-geometry measurement, and MAE / contrastive baselines run through the same ladder to separate *intrinsic to the images* from *artefact of the objective*.
+
+The immediate path is: **settle the schedule** (a two-arm run that ends by probing both frozen checkpoints, not by comparing effective ranks) &rarr; the full-scale pretraining run &rarr; the per-feature ladder, the uncertainty geometry, and the comparison back to v1.
 
 # **Dependencies**
 
@@ -174,7 +209,8 @@ The stack is PyTorch for the model (with [Apple MPS](https://developer.apple.com
 | `src/galaxy_jepa/harness.py` | The reusable train &rarr; freeze &rarr; probe &rarr; figures entrypoint |
 | `docs/galaxy-jepa-spec.pdf` | Consolidated design spec (science + paper skeleton) &mdash; the reconciled design source of truth |
 | `docs/spec/` | Specifications for the encoder, config, gates, data, splits and validation |
-| `artifacts/` | Networked, credential-touching pull glue (kept out of the importable package) |
+| `artifacts/` | Networked, credential-touching pull glue and measurement scripts (kept out of the importable package) |
+| `assets/` | README figures, regenerated from real run artefacts by `artifacts/readme_figures.py` |
 | `.devcontainer/` | Dev container (uv-based) |
 
 # **Help**
