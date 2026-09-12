@@ -56,6 +56,19 @@ def matched(arm: dict, target: float) -> tuple[int, float] | None:
     return step, nearest["effective_rank"]
 
 
+def traces(rows: list[dict]) -> None:
+    """The full per-arm trace at the smoke's own 25-step cadence — what H2 asks to be reported."""
+    for r in rows:
+        print(f"\n{r['arm']}  (peak {r['peak_lr']:.4g}, warmup {r['warmup']}, decay {r['decay']}, "
+              f"wd->{r['wd_ramp_to']})  —  {r['why']}")
+        print(f"  {'step':>5} {'lr':>10} {'wd':>6} {'loss':>8} {'std':>8} {'erank':>7} "
+              f"{'cos':>7} {'halt':>5}")
+        for x in r["trace"]:
+            print(f"  {x['step']:>5} {x['lr']:>10.3e} {x['weight_decay']:>6.3f} {x['loss']:>8.4f} "
+                  f"{x['std']:>8.4f} {x['effective_rank']:>7.2f} {x['mean_cosine']:>+7.3f} "
+                  f"{str(x['would_halt']):>5}")
+
+
 def main() -> None:
     rows = load()
     if not rows:
@@ -63,6 +76,8 @@ def main() -> None:
         return
     by = {r["arm"]: r for r in rows}
     base = by.get("baseline")
+    if "--traces" in sys.argv:
+        traces(rows)
 
     print(f"\n{'arm':<11} {'peak lr':>10} {'warmup':>7} {'erank@0':>8} {'@100':>7} {'@175':>7} "
           f"{'@300':>7} {'@end':>7} {'min':>6} {'loss@end':>9} {'halt':>6}")
