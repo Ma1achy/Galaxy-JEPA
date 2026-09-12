@@ -156,6 +156,14 @@ def run_arm(name: str) -> dict:
     mon_ds = StampDataset(cache, {}, monitor_ids[:MONITOR_BATCH], scalars=scalars)
     mon_batch = _to_device(next(iter(DataLoader(mon_ds, batch_size=MONITOR_BATCH))), device)
     gc.collect()
+    # F2 measured an 8.03 GB MPS driver peak at batch 32, which is far more than this model's live
+    # tensors need — most of it is the allocator's retained pool. On an 18 GB machine already
+    # carrying ~5 GB of other load that was enough to get four of these arms killed for low memory.
+    # Releasing the pool at each monitor point changes nothing about the arithmetic, only how much
+    # the allocator holds between steps; the cost is a little throughput, which this experiment is
+    # not measuring.
+    if device.startswith("mps"):
+        torch.mps.empty_cache()
 
     losses: list[float] = []
     trace: list[dict] = []
@@ -176,17 +184,20 @@ def run_arm(name: str) -> dict:
             with torch.no_grad():
                 sig = monitor.update(step, jepa.encoder.encode(mon_batch["image"].float()))
             halt = monitor.should_halt(sig)
+            if device.startswith("mps"):
+                torch.mps.empty_cache()
+            driver = int(torch.mps.driver_allocated_memory()) if device.startswith("mps") else 0
             trace.append(
                 {
                     "step": step, "loss": losses[-1], "lr": lr, "weight_decay": wd,
                     "std": sig.std, "effective_rank": sig.effective_rank,
-                    "mean_cosine": sig.mean_cosine, "would_halt": halt,
+                    "mean_cosine": sig.mean_cosine, "would_halt": halt, "driver_bytes": driver,
                     "ema_momentum": ema_momentum(step, jcfg.steps, jcfg.ema_start, jcfg.ema_end),
                 }
             )
             print(f"    {name:<11} step {step:>4}  lr {lr:.3e}  loss {losses[-1]:.4f}  "
-                  f"erank {sig.effective_rank:6.2f}  cos {sig.mean_cosine:+.3f}  halt={halt}",
-                  file=sys.stderr)
+                  f"erank {sig.effective_rank:6.2f}  cos {sig.mean_cosine:+.3f}  halt={halt}  "
+                  f"driver {driver/1e9:.2f} GB", file=sys.stderr)
     return {
         "arm": name, "why": arm.why, "peak_lr": arm.peak_lr, "warmup": arm.warmup,
         "decay": arm.decay, "wd_ramp_to": arm.wd_ramp_to, "batch_size": jcfg.batch_size,
