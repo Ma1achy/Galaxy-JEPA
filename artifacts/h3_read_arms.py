@@ -25,8 +25,11 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from f1_loader_bench import OUT  # noqa: E402
+# Deliberately NOT `from f1_loader_bench import OUT`: that module imports torch at module scope, so
+# reading the results loaded a second torch (~0.2 GB, plus MPS init) alongside a training arm already
+# holding 8 GB of MPS driver memory on an 18 GB machine. That is what pushed the first attempt at
+# this sweep into a low-memory kill. The read-out needs json and numpy and nothing else.
+OUT = Path(__file__).resolve().parent / "out"
 
 WINDOW = 25  # smooth the loss over this many steps before matching — it is noisy per-step
 
