@@ -10,6 +10,7 @@ import json
 import pytest
 
 from galaxy_jepa.core.config import (
+    STAMP_SCHEME,
     Configurable,
     RunStamp,
     class_ref,
@@ -93,12 +94,15 @@ def test_code_sha_returns_sha_and_dirty_flag():
 def test_run_stamp_and_writer(tmp_path):
     config = Outer(Inner(width=8), label="z").to_config()
     stamp = RunStamp.create(config, data_snapshot="manifest:abc123", seed=7)
-    assert stamp.config_hash == config_hash(config)
+    # The stamped hash carries its scheme marker; the bare `config_hash` does not, because
+    # `data.cache.pipeline_hash` reuses it as the fp16 cache directory name.
+    assert stamp.config_hash == STAMP_SCHEME + config_hash(config)
+    assert not config_hash(config).startswith(STAMP_SCHEME)
     assert stamp.seed == 7
     assert stamp.data_snapshot == "manifest:abc123"
 
     stamp_path = write_stamp(stamp, tmp_path / "run", config)
     assert stamp_path.exists()
     written = json.loads(stamp_path.read_text())
-    assert written["config_hash"] == config_hash(config)
+    assert written["config_hash"] == STAMP_SCHEME + config_hash(config)
     assert (tmp_path / "run" / "config.json").exists()

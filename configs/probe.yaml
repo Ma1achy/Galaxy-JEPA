@@ -1,18 +1,97 @@
-# Probing config (PLACEHOLDER — no probing code yet).
-# Documents the canonical probe + mandatory controls (PROJECT_PLAN.md P6).
+# Probing config — the fields `ProbingConfig` takes. One of these fully determines a probing
+# run and is hashed into the artefact stamp.
+#
+# The five statistical decisions below are GROUNDED (docs/galaxy-jepa-spec.pdf §Statistics),
+# not placeholders. What is still open is marked OPEN.
 
-probe:
-  canonical: l2_logistic    # DECISIONS.md D7
-  robustness: mean_diff_cav # entanglement signal via logistic-vs-CAV disagreement
-  label_scheme: reduced     # hubble | reduced | all (ported from v1 keys.py)
-  reliable_label_filter: mean_plus_2sigma  # DECISIONS.md D8
+smoke: false                # true -> stamps `smoke` into escape_hatches_used; NOT a result
+escape_hatches: []          # a declared deviation from a grounded default, e.g.
+                            #   [reduced_permutations] to run below the ≥10,000-shuffle floor
+scheme_name: full_tree      # D14: full_tree (37) first, then reduced
+seed: 0
+ratios: [0.70, 0.15, 0.15]
+extreme_low: 0.2            # the uncertainty firewall: axis fits on v<=0.2 or v>=0.8 only
+extreme_high: 0.8
+device: null
 
-controls:                   # mandatory, ship with the probe (not after)
-  selectivity: true         # Hewitt-Liang real-minus-control
-  negative_controls: [shuffled_votes, random_labels, random_embeddings, metadata_bins, sky_noise]
-  nuisance_probes: [redshift, magnitude, petrosian_radius, snr, psf]
+# --- conditional population (D14) — a COMPARISON, never a mask -------------------------
+compare_populations: true   # runs the ladder on the full AND the consensus-conditional set
+consensus_gate: 0.5         # OPEN (spec register 2): which upstream vote, which threshold
+# --- the reliable-label floor (D8 — SUPERSEDED, and FROZEN at unfiltered) ---------------
+# D8 said reuse v1's mean+2σ agreement filter. Withdrawn, deliberately, not left unset: v1
+# needed it because v1 TRAINED ON THE LABELS, and v2's encoder never sees one. The floor now
+# sits at the minimum where a vote fraction is DEFINED — 1, not 0, because GZ2 stores an
+# unreached question's fraction as a literal 0.0 and admitting those would be 118,962
+# fabricated negatives on t09 alone. Full reasoning rides in the freeze record below and in
+# DECISIONS.md "D8 superseded".
+vote_count_min: 1
+vote_count_freeze:
+  value: 1
+  # Pre-registered robustness check, recorded BEFORE any results exist. The ladder is re-run at
+  # each point and the agreement reported as a stability claim. NOT a selection step: the
+  # headline is `value` above, fixed in advance, and must not be revised on the basis of which
+  # threshold produces better results. `ProbingConfig` refuses a headline outside this set.
+  sweep: [1, 5, 11, 21, 37]
+  derived_from: >-
+    GZ2 probe corpus, 230,358 galaxies. Reach at the frozen floor (question total, all answers
+    summed): t09 bulge shape 111,396 | t10 arms winding 134,688 | t11 arms number 134,684.
+    Per-bucket positives at threshold 0.5 — t09 boxy 7,894 | t10 tight 60,809 / medium 49,519 /
+    loose 22,541 | t11 1-arm 8,265 / 4-arms 1,075 / >4-arms 2,801.
+  frozen_at: '2026-09-12'
+  frozen_by: malachy
+  rationale: >-
+    D8 IS SUPERSEDED, NOT SATISFIED. This is a reversal with a reason, not a value being filled
+    in. v1 needed the mean+2σ filter because v1 TRAINED ON THE LABELS — vote noise flowed
+    through the loss and bent the encoder weights, so noisy galaxies had to be excluded up
+    front. v2 breaks that coupling: the encoder never sees a label. The filter's original
+    purpose does not transfer. Label noise in a PROBE TARGET is conservative: it attenuates
+    measured association toward chance and cannot manufacture a direction. A feature clearing
+    the gate despite unfiltered labels is therefore a STRONGER result, not a weaker one. The
+    existence null is computed on the same labels, so the comparison stays like-for-like.
+    Filtering costs power precisely on the features the paper is about (t09 boxy positives:
+    7,894 unfiltered, 302 at >=5, 100 at >=21, 33 at >=37 — the "829 at >=37" figure in the
+    brief was that question's REACH at >=37, not its positives; the corrected series runs the
+    same way and further). VALUE is 1, not 0: a question nobody answered has an undefined 0/0
+    fraction, and GZ2 encodes it as a literal 0.0 rather than a blank, so 51.6% of the corpus
+    carries t09 boxy = 0.0 meaning "never asked". Admitting those would not be an unfiltered
+    run, it would be 118,962 fabricated negatives. STATED HONESTLY: most of the extra reach is
+    shallow — 89.8% of t09 boxy's positives at this floor rest on <=2 votes, median question
+    total 1. Those are unreplicated human judgements, not fabrications, so they attenuate rather
+    than invent; the registered sweep is what turns that from an assertion into a measurement.
 
-uncertainty_geometry:       # non-circular protocol
-  train_split: extremes     # v > 0.8 vs v < 0.2 (binary)
-  test_split: middle        # held-out 0.2 < v < 0.8
-  metric: spearman          # margin distance vs vote fraction
+# --- the canonical probe ---------------------------------------------------------------
+c: 1.0                      # L2 inverse-strength (D7)
+n_boot: 2000
+
+# --- existence + effect floor (decisions 1 and 2) — two gates, both must pass -----------
+alpha: 0.05
+n_null_draws: 50            # sets the test's RESOLUTION: min attainable p = 1/(n+1).
+                            # Scheme 1 (BY family 37) needs >= 3109, or nothing can pass —
+                            # `nulls.assert_null_resolution` refuses rather than returning an
+                            # empty catalogue that reads like a scientific null.
+effect_floor: 0.65          # OPEN (spec register 4): mechanism settled, VALUE is -M's call
+
+# --- multiplicity (decision 3) ---------------------------------------------------------
+multiplicity: benjamini_yekutieli   # correlated tests; FDR is the right target
+n_primary_tests: null       # null -> the active scheme's family size (per-scheme, not global)
+
+# --- selectivity / nuisance triggers (not among the five; still flagged) ----------------
+selectivity_floor: 0.10
+nuisance_competitive_margin: 0.0
+
+# --- entanglement (decision 5) ---------------------------------------------------------
+mp_method: upper_edge       # MP edge for the ACTUAL matrix shape; tracy_widom raises
+entangled_pair_quantile: 0.90
+
+# --- MLP capacity ladder (the one site still FLAGGED) ----------------------------------
+mlp_widths: [16, 32, 64, 128, 256, 512]
+mlp_depth: 1
+mlp_weight_decay: 0.0001
+mlp_epochs: 200
+mlp_lr: 0.001
+ceiling_method: null_quantile
+ceiling_null_quantile: 0.95 # FLAGGED: the selectivity-ceiling predicate is unmapped
+
+# --- uncertainty geometry (decision 4) -------------------------------------------------
+permutation_method: two_sided
+n_perm: 10000               # hard floor; lower it only with the declared escape hatch

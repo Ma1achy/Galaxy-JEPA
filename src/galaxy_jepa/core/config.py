@@ -32,7 +32,7 @@ import json
 import subprocess
 import warnings
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict
 
@@ -167,6 +167,16 @@ class Configurable:
         return target(**kwargs)
 
 
+#: Prefix on the *stamped* ``config_hash``, marking which convention produced it. v2 drops
+#: ``paths`` from the hashed tree (see :attr:`RunConfig.NON_DETERMINING`), so a v1 hex and a
+#: v2 hex are not comparable and must never be mistaken for one another. It is applied in
+#: :meth:`RunStamp.create` and **not** inside :func:`config_hash`, deliberately:
+#: ``data.cache.pipeline_hash`` is ``config_hash`` of the fitted pipeline and *names the fp16
+#: cache directory*, so prefixing there would rename the key and force a full re-bake straight
+#: through the format-parity lock (``docs/spec/data.md``).
+STAMP_SCHEME = "v2:"
+
+
 def config_hash(config: dict[str, Any]) -> str:
     """Stable sha256 over the canonical JSON of a (recursively-serialised) config tree."""
     canonical = json.dumps(config, sort_keys=True, separators=(",", ":"))
@@ -184,6 +194,50 @@ class RunConfig(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+
+    #: Top-level sub-models that say *where* a run read and wrote, never *what it was*.
+    #: Excluded from the stamped ``config_hash`` by :meth:`determining_dump`, because a
+    #: corpus's location is neither necessary nor sufficient for its identity — the same
+    #: path can hold different bytes, and different paths the same galaxies. Which
+    #: galaxies a run actually saw is carried, far better, by ``RunStamp.data_snapshot``.
+    #:
+    #: This is a *deny*-list on purpose: a newly added field is hashed by default, so the
+    #: failure mode is a spurious "different run", never a false "same run". Excluding a
+    #: field takes the deliberate act of nesting it here.
+    #:
+    #: ``runtime`` is deliberately **not** in this set. A backend is not a location: MPS,
+    #: CPU and CUDA differ numerically, so they must hash apart.
+    NON_DETERMINING: ClassVar[frozenset[str]] = frozenset({"paths"})
+
+    def determining_dump(self) -> dict[str, Any]:
+        """The experiment's identity: the serialised config minus where it ran.
+
+        This, not ``model_dump()``, is what feeds :attr:`RunStamp.config_hash`.
+        """
+        return {
+            key: value
+            for key, value in self.model_dump(mode="json").items()
+            if key not in self.NON_DETERMINING
+        }
+
+
+class FrozenChoice(RunConfig):
+    """A pre-registered choice, pinned together with the story of where it came from.
+
+    Some numbers in this project are not derivations — they are calls, and a call made after
+    seeing the result it affects is not a call at all. Making the freeze an *object* rather
+    than a note means the provenance rides inside the config, so it is hashed into
+    ``config_hash`` and written into every artefact's ``config.json``: a result carries where
+    its numbers came from, or it does not get to be a headline.
+
+    Subclasses add whatever the pinned value actually is — a float for a threshold, per-channel
+    tuples for a normalisation statistic.
+    """
+
+    derived_from: str  # what the value was read off (a run's out_dir, a corpus, a stamp hash)
+    frozen_at: str  # ISO-8601 date the call was made
+    frozen_by: str  # who made it — a judgement has an author
+    rationale: str
 
 
 # --- provenance --------------------------------------------------------------------
@@ -238,6 +292,7 @@ class RunStamp:
     data_snapshot: str
     seed: int
     escape_hatches_used: list[str] = dataclasses.field(default_factory=list)
+    device: str | None = None
 
     @classmethod
     def create(
@@ -247,16 +302,20 @@ class RunStamp:
         data_snapshot: str,
         seed: int,
         escape_hatches_used: list[str] | None = None,
+        device: str | None = None,
         repo: Path | None = None,
     ) -> RunStamp:
+        """Stamp a run. ``config`` must be a :meth:`RunConfig.determining_dump`, not a raw
+        ``model_dump`` — paths are not part of an experiment's identity."""
         sha, dirty = code_sha(repo)
         return cls(
-            config_hash=config_hash(config),
+            config_hash=STAMP_SCHEME + config_hash(config),
             code_sha=sha,
             code_dirty=dirty,
             data_snapshot=data_snapshot,
             seed=seed,
             escape_hatches_used=list(escape_hatches_used or []),
+            device=device,
         )
 
     def to_dict(self) -> dict[str, Any]:

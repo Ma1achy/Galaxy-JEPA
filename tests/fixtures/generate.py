@@ -94,7 +94,10 @@ def generate_fixture_corpus(
                 "dec": round(float(2.0 + i * 0.01), 6),
                 "z": round(float(rng.uniform(0.02, 0.15)), 4),
                 "mag_r": round(float(rng.uniform(15.0, 17.7)), 3),
-                "petroRad": round(float(rng.uniform(3.0, 12.0)), 3),
+                # `petroRad_r`, the name the real SDSS pull writes — the fixture said `petroRad`,
+                # so `StampDataset` never found it and every fixture galaxy silently took
+                # `bbox.petrosian_box`'s global-box fallback. The per-galaxy box was untested.
+                "petroRad_r": round(float(rng.uniform(3.0, 12.0)), 3),
                 "snr": round(float(rng.uniform(10.0, 40.0)), 2),
                 "psf": round(float(rng.uniform(1.0, 1.8)), 3),
                 "pixel_scale": PIXEL_SCALE,

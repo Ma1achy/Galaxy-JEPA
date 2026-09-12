@@ -10,7 +10,8 @@ The eigen spine:
   global "k named concepts span k_eff effective dimensions". *Reuses the collapse-monitor
   ``effective_rank`` kernel* (now a shared helper).
 * **Marchenko–Pastur null** on that spectrum — "significantly more entangled than random
-  directions, by random-matrix theory". **FLAGGED (3)**: the MP application is the placeholder.
+  directions, by random-matrix theory". Grounded (decision 5): past the MP edge computed for
+  the **actual** matrix shape.
 * **Eigenvectors of ``WWᵀ``** — *which* features collapse onto shared axes (localises it).
 * **Embedding-covariance spectrum** — the encoder's intrinsic effective dimensionality, as
   context (the "k concepts occupy 7 of ~40 dims" ratio).
@@ -119,24 +120,40 @@ class MPVerdict:
 def mp_significant(
     eigenvalues: np.ndarray, *, n_directions: int, n_dims: int, method: str = "upper_edge"
 ) -> MPVerdict:
-    """Marchenko–Pastur significance test on the Gram eigenspectrum (design 2A).
+    """Marchenko–Pastur significance on the Gram eigenspectrum — decision (5), grounded.
 
-    FLAGGED: pending stats grounding — do not finalise. Placeholder (``upper_edge``): for
-    random unit directions in ``D`` dims the Gram spectrum follows MP with aspect ratio
-    ``γ = k/D``; the bulk upper edge is ``λ₊ = (1 + √γ)²`` (unit-variance normalisation). A top
-    eigenvalue above ``λ₊`` signals entanglement beyond chance. The eigenvalues are scaled to
-    unit mean before the comparison. The grounding session owns the exact normalisation / the
-    Tracy–Widom finite-size correction (``method='tracy_widom'``, not yet implemented); only
-    this function changes.
+    An eigenvalue counts as signal if it sits **past the MP edge computed for the actual matrix
+    shape**. For ``k`` random unit directions in ``D`` dims the Gram spectrum follows MP with
+    aspect ratio ``γ = k/D``, whose bulk upper edge is ``λ₊ = (1 + √γ)²`` after unit-mean
+    normalisation; a top eigenvalue above it is concentration beyond chance.
+
+    "Actual, not nominal" is the operative part and is enforced below: ``n_directions`` must
+    equal the number of eigenvalues supplied. Passing a nominal k (the scheme's feature count,
+    say, rather than the count that actually survived to the Gram) would move the edge and
+    silently change the verdict, which is precisely the failure the decision names.
+
+    ``tracy_widom`` stays unimplemented on purpose: it is the "if a reviewer wants a hard
+    significance value" upgrade, not the grounded decision, and raises rather than defaulting.
     """
     if method != "upper_edge":
-        raise NotImplementedError(f"MP method {method!r} deferred to stats grounding")
+        raise NotImplementedError(
+            f"MP method {method!r} is not implemented. 'upper_edge' is the grounded decision "
+            "(spec §Statistics (5)); Tracy–Widom is a documented later upgrade."
+        )
     ev = np.asarray(eigenvalues, dtype=np.float64)
+    if n_directions != ev.size:
+        raise ValueError(
+            f"MP edge must be computed for the actual matrix shape: got {ev.size} eigenvalues "
+            f"but n_directions={n_directions}. Pass the shape of the Gram actually formed."
+        )
+    if n_dims <= 0:
+        raise ValueError(f"n_dims must be positive, got {n_dims}")
     ev = ev / max(float(ev.mean()), 1e-12)  # unit-mean normalisation
-    gamma = n_directions / max(n_dims, 1)
+    gamma = n_directions / n_dims
     edge = (1.0 + np.sqrt(gamma)) ** 2
     top = float(ev.max())
-    return MPVerdict(top_eigenvalue=top, mp_edge=float(edge), significant=top > edge)
+    # cast: a numpy bool leaks into the stamped JSON summary and compares oddly downstream
+    return MPVerdict(top_eigenvalue=top, mp_edge=float(edge), significant=bool(top > edge))
 
 
 def most_entangled_pairs(

@@ -1,0 +1,1130 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---- packages ----
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+\usepackage{parskip}
+\tcbuselibrary{skins,breakable}
+
+% ---- colours ----
+\definecolor{decided}{HTML}{0F6E56}
+\definecolor{deferred}{HTML}{854F0B}
+\definecolor{openq}{HTML}{8A3D8A}
+\definecolor{linknavy}{HTML}{1D3B6B}
+\definecolor{rulegrey}{HTML}{888780}
+
+\hypersetup{colorlinks=true,linkcolor=linknavy,urlcolor=linknavy,citecolor=linknavy}
+
+% ---- status callout boxes ----
+\newtcolorbox{decidedbox}{breakable,colback=decided!6,colframe=decided,boxrule=0.8pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries\sffamily\small,title={DECIDED}}
+\newtcolorbox{deferredbox}{breakable,colback=deferred!7,colframe=deferred,boxrule=0.8pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries\sffamily\small,title={DEFERRED — to results}}
+\newtcolorbox{openbox}{breakable,colback=openq!6,colframe=openq,boxrule=0.8pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries\sffamily\small,title={OPEN — experimental question}}
+\newtcolorbox{fillbox}{breakable,colback=rulegrey!10,colframe=rulegrey,boxrule=0.6pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,sharp corners,fonttitle=\bfseries\sffamily\footnotesize,
+  title={STUB — consolidate in a later pass}}
+
+% inline status tags
+\newcommand{\dec}{\textcolor{decided}{\sffamily\bfseries[DECIDED]}}
+\newcommand{\dfr}{\textcolor{deferred}{\sffamily\bfseries[DEFERRED]}}
+\newcommand{\opn}{\textcolor{openq}{\sffamily\bfseries[OPEN]}}
+
+% ---- headers ----
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\sffamily Galaxy-JEPA — Design Spec}
+\fancyhead[R]{\small\sffamily Rev 1 (skeleton)}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\titleformat{\section}{\Large\bfseries\sffamily\color{linknavy}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\sffamily}{\thesubsubsection}{0.6em}{}
+
+\newcommand{\fillfrom}[1]{\begin{fillbox}\textit{Consolidate from:} #1\end{fillbox}}
+
+\begin{document}
+
+% ===================== TITLE =====================
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Huge\bfseries\sffamily Galaxy-JEPA\par}
+\vspace{0.6cm}
+{\Large Auditing Galaxy Morphology Concepts in a Label-Free Representation\par}
+\vspace{0.4cm}
+{\large\itshape Internal design specification --- and paper skeleton\par}
+\vspace{2cm}
+{\large -M (Malachy Doherty)\par}
+\vspace{0.3cm}
+{v2 of Galaxy-Zoo-Classifier (PHYS3004, Nottingham, 2024)\par}
+\vspace{2cm}
+
+\begin{tcolorbox}[width=0.85\textwidth,colback=rulegrey!8,colframe=rulegrey,boxrule=0.6pt]
+\small
+\textbf{\sffamily Status — read first.} This is a \emph{living internal design document}
+(Rev~1, skeleton pass). It is organised \emph{as the eventual paper} so it doubles as the
+publication skeleton, but its present job is to be the single authoritative source of truth
+the build (and Claude Code) works from --- consolidating $\sim$8 scattered scratchpads into
+one reconciled narrative.
+
+\smallskip
+Every non-trivial design point carries a status marker: \dec{} (locked),
+\dfr{} (held until results exist --- writing it as prose must not bake in the commitment),
+or \opn{} (an experimental question to settle before the relevant wiring). Results and
+Discussion are deliberately \emph{empty scaffolds} --- there are no results yet; the point of
+this pass is to fix the \emph{design} before building. Sections marked \textsf{STUB} are
+structurally placed but their bulk prose is to be consolidated in a later pass.
+\end{tcolorbox}
+
+\vfill
+{\small British English throughout. Decisions made adversarially --- weighted toward what
+survives a hostile reviewer.\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ===================== 0. HOW TO READ =====================
+\section{How to read this document}
+
+
+This document consolidates the design of Galaxy-JEPA, the second iteration of the
+undergraduate Galaxy-Zoo-Classifier project. It is both the internal specification the build
+works from and the skeleton the paper will grow into. The two roles are compatible because the
+results-independent content of the paper --- motivation, method, experimental design, controls,
+statistics --- is exactly the content the build needs settled \emph{now}, while the
+results-dependent content (which features land where, which framing the data earns) is
+deliberately deferred.
+
+\subsection{The status convention}
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \dec{} --- \textbf{Decided.} A locked choice. Changing it is a deliberate revision, not a
+drift. Recorded with its rationale so the reasoning survives.
+\item \dfr{} --- \textbf{Deferred to results.} A choice that \emph{cannot} be made before the
+data exists (most importantly the paper's spine: method-forward vs taxonomy-audit). Writing
+these into flowing prose must \emph{not} quietly commit them --- the prose states the options
+and the decision rule, never the outcome.
+\item \opn{} --- \textbf{Open experimental question.} A design point that must be settled
+before the relevant code is wired, but is genuinely undecided now.
+\end{itemize}
+
+\subsection{Source documents consolidated here}
+
+
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+\item \texttt{galaxy-jepa-scratchpad.md} (Rev 4) --- the \emph{science} source of truth: core
+idea, nameability ladder, method, uncertainty geometry, controls, multi-survey, paper shape.
+\item \texttt{probing-harness-design.md} --- the locked 5-sub-system experimental design of the
+probing stage.
+\item \texttt{thesis-framing-decision.md} --- the A-spine / B-payoff architectural decision.
+\item \texttt{feature-scheme-experiment-design.md} --- the feature-scheme experiment and the
+three-confound interpretive lens (Framing B's mechanism).
+\item \texttt{architecture.md} / \texttt{architecture-buildout.md} --- the codebase architecture
+(engineering counterpart).
+\item the \emph{statistics grounding} (this-session) --- the five flagged statistical decisions,
+now owned.
+\item \texttt{scratchpad-title-and-thesis-note.md} --- parked title + thesis-reframe note.
+\end{itemize}
+
+% ===================== 1. ABSTRACT / MOTIVATION =====================
+\section{Motivation and thesis}
+
+\subsection{The one-paragraph version}
+
+Build a representation of galaxy images \textbf{unsupervised} with a JEPA, then use the Galaxy
+Zoo labels \textbf{only as a read-out key} --- to name and test directions the representation
+already learned, never to train it. The labels cannot reshape the encoder's geometry; they can
+only \emph{misname or blur a read-out direction}. The experiment thus \textbf{moves label noise
+out of representation-learning and into a measurement stage} where it is inspectable and
+controllable. The scientific question, per feature: is the human morphological concept a
+\emph{linearly nameable direction}, an \emph{entangled} or \emph{nonlinear} one, or
+\emph{absent} from the image information at this resolution?
+
+\subsection{Why this, why now --- the v1\,$\rightarrow$\,v2 arc}
+
+\textbf{v1's finding, restated.} Galaxy-Zoo-Classifier (the undergraduate dissertation) trained
+deep CNNs and Vision Transformers on Galaxy Zoo 2 crowdsourced labels, treating the volunteer
+votes as ground truth. Its central, slightly uncomfortable result: the models performed
+\emph{to the same ability as the volunteers}, and --- crucially --- \emph{replicated the
+volunteers' confusion}. On the hard questions (bulge shape, winding, arm count) the model
+confusion matrices mirrored the human ones. The diagnosis: the \textbf{labels} are the
+bottleneck. A supervised model trained to reproduce noisy votes can do no better than the votes
+themselves; it inherits not just the signal but the noise, including the systematic confusions.
+Two ViT failure modes made this stark (diss $\S$8): on the confused questions the ViT learned
+to \emph{always predict zero} (underfitting --- it could not extract a feature from the noisy
+labels), while ResNet50 learned to predict the \emph{average optimal answer} (hedging against
+confusion). Both are symptoms of the same disease: the labels did not contain clean enough
+signal to learn from.
+
+\textbf{The structural problem v2 fixes.} Supervised training couples two things that ought to
+be separate: \emph{learning what a galaxy looks like} and \emph{fitting the (noisy) votes}.
+Because the loss is computed against the votes, vote-noise flows back through the gradients and
+\emph{bends the encoder's weights} --- the confusion is baked into the representation. JEPA
+breaks the coupling: the encoder is trained only on images (predicting masked-region embeddings
+from context) and never sees a label. Labels enter only afterwards, through a probe that cannot
+touch the frozen encoder. The noise is thus \emph{relocated} (\S\ref{sec:method}), not removed.
+
+\textbf{v1's own reconnaissance feeds v2.} The dissertation did not merely note the confusion
+--- it \emph{characterised} it. The $\S$5.2.1 correlation analysis (Figs 18--19) documented,
+per question, which distinctions volunteers agreed on (edge-on, bar, spiral, odd --- strong
+negative correlations between mutually-exclusive answers) and which they did not (bulge shape,
+winding, arm count --- near-zero off-diagonal structure, i.e.\ ``great confusion''). It even
+flagged specific cross-feature confusions with physical character: ``Disk Edge On'' correlating
+with ``Cigar'' (Fig 17b), suggesting volunteers could not tell an edge-on disk from a
+cigar-shaped elliptical. That observation is the seed of this design's confound taxonomy
+(\S\ref{sec:confound}). v1 saw \emph{that} the features were confused and began to see
+\emph{why}; v2 has the instrument to measure the why directly.
+
+\textbf{The arc, in one line.} v1 asked \emph{``can we match the volunteers?''}; v2 asks
+\emph{``can we stop needing them --- and use them only to read off what the images already
+taught the model?''} The motivating pressure is the same one v1 opened with: forthcoming surveys
+(LSST/Rubin: ${\sim}150$\,PB, ${\sim}10^{10}$ galaxies) will produce far more imaging than
+crowdsourcing can ever label. Self-supervised learning on the unlabelled deluge is the field's
+answer --- and this project asks what such a representation actually \emph{knows} about human
+morphological concepts, before any label is applied.
+
+% ===================== 2. THE FRAMING DECISION =====================
+\section{The framing decision: A-spine, B-payoff}\label{sec:framing}
+
+
+This is the single most important architectural decision about the paper, and it governs how
+every deferred call below is held.
+
+\subsection{The two framings}
+
+\textbf{Framing A --- the method.} \emph{``Can a label-free representation recover human
+morphological concepts?''} Contribution is methodological: build a JEPA, freeze it, probe it,
+produce a per-feature nameability ladder. Subject = the representation. Galaxy Zoo is the
+\emph{yardstick}. Safe, always-true, promiseable in the abstract regardless of results.
+
+\textbf{Framing B --- the taxonomy audit.} \emph{``Which human morphological concepts are real,
+separable structure in galaxy images --- using a label-free representation as the
+instrument?''} Subject = the concepts themselves. Galaxy Zoo's decision tree is the \emph{object
+under audit}. Bigger, more original --- but a much higher defensibility bar, load-bearing on
+results not yet in hand.
+
+\begin{decidedbox}
+\textbf{Don't pick --- A is the spine, B is the earned payoff.} The paper's \emph{stated
+contribution and spine} is Framing~A (method + nameability ladder + controls): unimpeachable,
+true whatever the results. Framing~B is the \emph{interpretive arc} --- set up early, paid off
+in the discussion \emph{if and only if the results earn it}. Same discipline as the
+uncertainty-geometry hedge: backbone on what's always true; let the bold claims be earned
+headlines, never load-bearing premises.
+\end{decidedbox}
+
+\subsection{The decision rule (pre-registrable)}
+
+\begin{deferredbox}
+\textbf{B is earned iff} the entanglement on the headline confused features is consistent
+\emph{across objectives} (JEPA \emph{and} MAE \emph{and} MoCo) \emph{and across resolutions}
+(16$\times$16 \emph{and} 8$\times$8) --- and, added by this design, \emph{across the
+confound-fingerprint axes} (\S\ref{sec:confound}). Consistent $\Rightarrow$ likely the
+data/taxonomy (B). Inconsistent across objectives $\Rightarrow$ A-only, and the inconsistency
+is itself a finding (objective-specific entanglement). \textbf{Committed at analysis time, not
+now.}
+\end{deferredbox}
+
+\subsection{Three concrete design consequences}
+
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=2pt]
+\item \textbf{MAE/MoCo baselines: load-bearing for the payoff.} Promoted from
+``robustness nice-to-have'' to ``the test that decides whether the paper makes the strong or
+weak entanglement claim.'' They move up the priority order --- wanted on the headline confused
+features.
+\item \textbf{Entanglement figure (Fig.~3) becomes comparative.} Not ``here's the
+entanglement'' but ``here's whether it is consistent across objectives and resolutions,''
+because that consistency adjudicates A-vs-B.
+\item \textbf{Discussion written in two branches, committed at analysis time.} Consistency
+holds $\rightarrow$ the B payoff; doesn't $\rightarrow$ honest A-only. Either way the paper is
+complete and honest.
+\end{enumerate}
+
+% ===================== 3. CORE METHOD =====================
+\section{Core method: labels as a read-out key}\label{sec:method}
+
+\subsection{The methodological heart}
+
+
+The encoder is built unsupervised and \textbf{frozen}. It carves the latent space along
+whatever axes of variation actually exist in galaxy images. \textbf{The labels never bend those
+axes} --- they are consulted only afterwards, to ask \emph{``which pre-existing direction lines
+up with what humans called a bar / bulge / edge-on disk?''} A mislabelled galaxy can
+\emph{misname or blur a read-out direction} (a local, inspectable measurement error); it
+\emph{cannot reshape the encoder's geometry} the way it deformed v1's weights. Noise is not
+eliminated --- it is \textbf{relocated} from representation-learning to measurement, where it
+is bounded with controls.
+
+\begin{openbox}
+``Feature = direction'' is a \textbf{working hypothesis}, not an assumption. The science is
+\emph{which} features are nameable directions and which are not (the ladder). Held honest by
+the controls (\S\ref{sec:controls}).
+\end{openbox}
+
+\subsection{Stage 1 --- representation (label-free)}
+
+\dec{} \textbf{I-JEPA} (Assran et al.\ 2023): a context-encoder ViT, an EMA target encoder
+(the anti-collapse mechanism --- the target weights are an exponential moving average of the
+context weights, so they cannot be trivially matched), and a predictor. The model predicts the
+\emph{embeddings} of masked image blocks from the embeddings of a context block, with the loss
+an MSE in \emph{latent} space. \textbf{There is no pixel reconstruction} --- this is the axis
+that distinguishes I-JEPA from a masked autoencoder (MAE), and it matters for the science: a
+latent-prediction objective need not preserve pixel-level detail the way a reconstruction
+objective must, so the two objectives may organise the manifold differently. That difference is
+exactly what the cross-objective control exploits (\S\ref{sec:ladder}). Reuse v1's
+$256{\times}256 \rightarrow 256\times(16{\times}16)$ patchification as the tokeniser.
+
+Galaxy-specific design (\dec{} for the minimal run; later ablations noted):
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Masking must target the galaxy.} An SDSS cutout is mostly black sky; block-masking
+it uniformly wastes prediction budget on empty regions. Bias mask sampling toward the galaxy,
+reusing v1's average-image bounding box.
+\item \textbf{Rotational symmetry is a free inductive bias.} Galaxies have no canonical
+orientation. Start with rotation/reflection \emph{augmentation} (simplest, de-risks the minimal
+run). The principled extension --- an \textbf{E(2)-equivariant ViT} that bakes in continuous
+rotation/reflection --- reshapes the encoder geometry, so establish the vanilla-ViT ladder
+first, then ablate. (Precedent: Lens-JEPA, physics-informed, beats supervised + vanilla I-JEPA.)
+\item \textbf{Resolution floor.} The $16{\times}16$ token grid ($256 \div 16$) sets the
+spatial-resolution floor: the model cannot attend below a patch, and the patch-embed linear map
+compresses sub-patch structure. Thin arms / tight winding may live below that floor --- so an
+\textbf{8$\times$8-patch ablation} is the R4 control (\S\ref{sec:ladder}), distinguishing
+\emph{absent from the pixels} from \emph{under-resolved by the tokeniser}.
+\end{itemize}
+
+\subsection{Stage 2 --- readout = measurement (the heart)}
+
+The encoder is \textbf{frozen throughout}. Stage 2 is a \emph{measurement protocol}, not a
+training stage; labels never reach the encoder.
+
+\begin{decidedbox}
+\textbf{Concept direction --- canonically an L2-regularised logistic probe.} A feature is
+linearly nameable if an L2-regularised logistic probe on frozen embeddings reaches
+statistically significant held-out AUC \emph{and} selectivity over control labels; the
+unit-normalised probe weight vector is the concept direction. Logistic over mean-difference
+because it gives a proper decision axis, AUC, regularisation, calibration, and class-imbalance
+handling. \textbf{Keep the mean-difference (CAV) vector as a robustness check} --- and note they
+answer slightly different questions: logistic gives the \emph{discriminative} direction (best
+separating axis given everything else), mean-difference the \emph{marginal} one. Their
+\emph{disagreement} is itself an entanglement signal.
+\end{decidedbox}
+
+\textbf{Walk the ladder} (\S\ref{sec:ladder}): the linear probe first (defines ``clean
+direction''); then MLP/$k$-NN \emph{only} to distinguish entangled-but-present (R3) from absent
+(R4), and \emph{only} with the controls (\S\ref{sec:controls}).
+
+\textbf{Confidence does double duty} --- informing the probe and the evaluation, never the
+encoder --- but the two uses must stay \emph{separate axes} to avoid circularity:
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \emph{As a probe target (one axis):} regress the vote fraction, or weight the probe loss
+by confidence. Useful --- but this axis \textbf{cannot} be used to test uncertainty geometry
+(recovering the vote fraction along an axis you trained on it is a tautology).
+\item \emph{As uncertainty geometry --- the headline (a different axis):} train the concept axis
+on high-consensus extremes only, then project the held-out ambiguous middle and test whether
+margin distance ranks vote fractions. The axis never saw the graded values it is asked to
+reproduce (\S\ref{sec:uncertainty}).
+\end{itemize}
+
+\opn{} \textbf{Fine-tuning} is a subordinate comparison only --- unfreezing buys a few points
+but lets vote-noise bend the encoder again, re-introducing v1's coupling. A contrast with eyes
+open, never the main line.
+
+% ===================== 4. THE NAMEABILITY LADDER =====================
+\section{The nameability ladder}\label{sec:ladder}
+
+
+For any feature, ``can the labels name it?'' has four answers, each a \emph{different result}:
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=2pt]
+\item[\textbf{R1}] \textbf{Clean linear direction.} A single vector whose projection tracks the
+feature. \emph{(Bet: smooth/featured, edge-on.)}
+\item[\textbf{R2}] \textbf{Entangled linear direction.} The axis exists but isn't orthogonal ---
+moving along ``bar'' drags bulge-size or inclination. Nameable, not independent.
+\item[\textbf{R3}] \textbf{Nonlinear manifold.} No single vector; a small MLP/$k$-NN decodes it.
+\emph{Candidate} for ``present but tangled'' --- but see the guardrail.
+\item[\textbf{R4}] \textbf{Not recoverable.} No probe finds it.
+\end{enumerate}
+
+\begin{openbox}
+\textbf{Guardrail on R3.} A nonlinear probe succeeding does \emph{not} by itself mean ``present
+but tangled'' --- it may have found a \emph{spurious correlate} (survey, redshift, size,
+brightness, SNR, label prior). R3 is only credible with the controls battery
+(\S\ref{sec:controls}).
+\end{openbox}
+
+\subsection{The diagnosis v1 couldn't give}
+
+Mapping the confused features onto the ladder is the paper's core result:
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item Come back as \textbf{clean directions (R1)} $\rightarrow$ supports the strongest version of
+the v1 thesis: the information was present in the pixels, but the \emph{supervised objective and
+noisy vote targets} failed to extract it cleanly. (Note: \emph{failed to extract cleanly} ---
+not ``purely the labels''; architecture, splits, imbalance, thresholding, augmentation and
+resolution could also contribute.)
+\item Need a \textbf{(controlled) nonlinear probe (R3)} $\rightarrow$ present but tangled;
+supervised training never had a chance through noisy labels.
+\item \textbf{Nothing decodes them (R4)} $\rightarrow$ genuinely not in the pixels at this
+resolution; never a labels problem.
+\end{itemize}
+Which rung each confused feature lands on \textbf{is the paper}.
+
+\subsection{What sets the rung (besides the feature)}
+
+The rung is \textbf{not intrinsic to the feature} --- it is a joint property of
+\emph{(feature $\times$ SSL objective $\times$ architecture/resolution $\times$ probe)}. Four
+confounds, each with its control:
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Probe capacity / spurious correlates} $\rightarrow$ the controls battery
+(\S\ref{sec:controls}). A nonlinear probe can win on size / brightness / survey, not morphology.
+\item \textbf{Probe-target circularity} $\rightarrow$ train the axis on high-consensus
+\emph{extremes} only, test on the held-out ambiguous middle (\S\ref{sec:uncertainty}). Regressing
+the vote fraction then ``recovering'' it is a tautology.
+\item \textbf{SSL-objective geometry} $\rightarrow$ run the \emph{same ladder} on JEPA vs
+contrastive vs MAE. JEPA's latent-MSE objective may not flatten semantic manifolds the way
+contrastive's push-pull does, so an R3 result in JEPA could be R1-in-contrastive. Cross-objective
+comparison separates \emph{intrinsic to the images} from \emph{artefact of this objective}. (This
+is the same machinery that adjudicates Framing~B, \S\ref{sec:framing}.)
+\item \textbf{Patch size / resolution} $\rightarrow$ the 8$\times$8 ablation. Thin arms / tight
+winding living below the token grid can read as R4 (absent) when they are merely under-resolved.
+This is the R4 control, as the baselines are the R3 control.
+\end{itemize}
+\textbf{Attribution is the whole game}: a rung means something about \emph{the images} only once
+these are held down.
+
+% ===================== 5. UNCERTAINTY GEOMETRY =====================
+\section{Uncertainty geometry --- the high-beta headline}\label{sec:uncertainty}
+
+
+Not ``does the axis classify bars?'' but ``does \emph{distance} along the unsupervised axis
+reproduce the volunteer \emph{vote fraction}?'' --- a stronger diagnostic than AUC (which can be
+high on a brittle boundary).
+
+\begin{decidedbox}
+\textbf{The non-circular protocol.} Fit the axis on \textbf{high-consensus extremes only} (a
+binary logistic probe on $v>0.8$ vs $v<0.2$). Hold the ambiguous middle ($0.2<v<0.8$) out of
+estimation entirely. Then project those unseen middle galaxies and test (Spearman) whether
+their margin distance ranks their human vote fraction. An axis trained only on confident
+examples ordering the ambiguous ones by a human uncertainty it never saw $\Rightarrow$ the
+geometry genuinely aligns with the human ambiguity gradient, not by construction.
+\end{decidedbox}
+
+The meaning-flip this enables: v1's confusion matrices mirrored the volunteers' \emph{because
+trained on the votes}; if the latent geometry reproduces that uncertainty \emph{without ever
+being trained on votes}, the ambiguity is a \emph{real property of the images}, not a labelling
+artefact. Same observation, opposite conclusion.
+
+\begin{deferredbox}
+Uncertainty geometry is the highest-upside result \emph{and} the most likely to come out null.
+The paper is backboned on the ladder + controls + v1 comparison; this is the high-beta
+headline, not a load-bearing premise.
+\end{deferredbox}
+
+% ===================== 6. THE CONFOUND TAXONOMY (Framing B mechanism) =====================
+\section{The confound taxonomy --- Framing B's mechanism}\label{sec:confound}
+
+\begin{deferredbox}
+\textbf{Status of this entire section.} This specifies the \emph{mechanism} for Framing~B's
+earned payoff. It is held as an \emph{interpretive lens pending results}, \textbf{not the
+paper's spine} (which remains Framing~A, \S\ref{sec:framing}). The three-confound taxonomy is
+what B \emph{might deliver if the results earn it} --- the same A-spine/B-payoff discipline,
+one level deeper. It adds a measurement capability (inclination conditioning) but does not
+revise the locked experimental design (\S\ref{sec:harness}). Leading with this story must not
+read as committing to it.
+\end{deferredbox}
+
+
+\subsection{The organising idea}
+
+A label-free encoder never sees the votes during training, so it is not constrained to
+reproduce human confusion. This lets us ask, per confused feature: is the confusion in the
+\textbf{data} (the encoder is also confused $\rightarrow$ a genuine information limit) or in the
+\textbf{humans} (the info is in the pixels; the encoder separates what people cannot)? Grounded
+in v1's own correlation analysis, human confusion splits into (at least) three physical causes,
+each with a distinct fingerprint across the \textbf{(inclination $\times$ imaging-depth)} plane.
+
+\subsection{Confound 1 --- projection (viewing-angle information loss)}
+
+\textbf{Case:} edge-on disk $\leftrightarrow$ cigar elliptical. v1 data: Edge-on-Disk
+$\times$ Cigar $= +0.83$ (strong positive correlation between features on \emph{different} tree
+branches --- the edge-on 2D image cannot disambiguate them). \textbf{Fingerprint:}
+angle-dependent, imaging-depth-\emph{invariant} (no resolution recovers 3D lost to projection).
+\textbf{Test:} condition on inclination.
+
+\subsection{Confound 2 --- resolution \emph{or} semantic ambiguity}
+
+\textbf{Cases:} arm-count, winding, bulge-shape (near-zero off-diagonal structure in v1's
+per-question matrices). Two sub-causes the imaging-depth axis \emph{distinguishes}:
+\emph{resolution} (info in the sky, SDSS can't resolve it $\rightarrow$ \emph{improves} with
+deeper imaging) vs \emph{semantic} (the human concept has no sharp boundary $\rightarrow$
+imaging depth does nothing). \opn{} Likely per-feature split: arm-count partly semantic
+(the only non-zero off-diagonal is 3$\leftrightarrow$4 arms $= 0.16$); winding more purely
+resolution; bulge-shape resolution-or-subtle. \textbf{Test:} recoverability vs imaging depth,
+per feature.
+
+\subsection{Confound 3 --- genuine co-occurrence vs artefactual correlation}
+
+\begin{deferredbox}
+\textbf{Hypothesis --- unconfirmed.} \textbf{Case:} bar $+$ spiral structure (Bar $\times$
+2-arms $= +0.56$). Consistent with real astrophysical co-occurrence \emph{or} with artefact
+(clearly-featured galaxies get confident yes-votes downstream). This is the method's
+\textbf{hard case}, not a settled control: if the encoder shows bar+arms entangled, the
+entanglement might be \emph{correct} (physics), not a representation limit. Adjudicated by
+invariance to angle \emph{and} depth plus the astrophysical literature. Cannot be decided until
+the measurement exists.
+\end{deferredbox}
+
+\subsection{Why the confused questions are kept, not reduced away}
+
+v1's reduction dropped the confused questions out of frustration --- but v1 was a
+\emph{supervised classifier trained on the confused labels}, so it inherited the confusion by
+construction. v2's label-free encoder has no such constraint, so the confused questions are
+\textbf{precisely where v2 can beat v1}. Keep the full tree.
+
+% ===================== 7. THE FEATURE-SCHEME EXPERIMENT =====================
+\section{The feature-scheme experiment}\label{sec:scheme}
+
+
+\subsection{Conditional-population probing --- as a comparison, not a fixed mask}
+
+\dec{} Each feature is only well-defined within the population that reaches its question
+(boxy-bulge is meaningless for a no-bulge galaxy --- v1's insight: ``Q4 cannot be yes and Q7
+cannot be no for the same galaxy''). \textbf{But do not hard-mask the ``incoherent'' galaxies
+away} --- a no-bulge galaxy carrying boxy-bulge votes is a \emph{measurement of human
+disagreement}, and masking it pre-imposes the tree's logic before testing whether it holds
+(circular). Instead, probe each feature across \emph{different} population definitions (full vs
+consensus-conditional) and \textbf{compare}; study the off-population galaxies as their own
+object (concentrated $=$ systematic confusion $=$ finding; scattered $=$ noise). Reuse the
+\texttt{data/splits.py} firewall machinery.
+
+\subsection{The two schemes}
+
+\begin{itemize}[leftmargin=1.4em,itemsep=3pt]
+\item \textbf{Scheme 1 --- full tree (37 answers, per-bucket)}, each in its conditional
+population. Honest baseline; expected weak on the confused features (echoes v1 $=$ a finding).
+BY family $\approx 37$. \textbf{Power confound:} per-bucket deep-feature weakness is confounded
+between genuine-absence and split-sample ($\sim$9{,}870 spirals $\div$ 6 arm-buckets
+$\approx$ 1{,}600 each) --- Scheme~1 alone cannot distinguish; do not read per-bucket weakness
+as ``absent.''
+\item \textbf{Scheme 2 --- reduced/smart (diss-style)}: graded questions $\rightarrow$ one
+graded axis each; binary well-posed $\rightarrow$ one binary feature; odd-subtypes exploratory.
+BY family $\approx 10$--$13$. \textbf{Also a power diagnostic:} arm-count-as-axis on the full
+$\sim$9{,}870 recoverable but per-bucket isn't $\Rightarrow$ the per-bucket failure was power.
+\end{itemize}
+
+\dec{} \textbf{The comparison is a result.} Same ladder both ways $\Rightarrow$ reduction
+cosmetic; differ $\Rightarrow$ reducing changes what's expressible $\Rightarrow$ a real taxonomy
+result. \textbf{Order: full first} (transparent, no cherry-picking).
+
+\begin{openbox}
+\textbf{Graded-axis existence test --- AUC vs correlation.} A graded axis (winding, prominence)
+may get a \emph{correlation} existence test (projection vs vote-fraction, Spearman/permutation)
+rather than AUC --- but that is the \emph{same measurement} as the uncertainty geometry for that
+feature, so they may collapse into one thing. Binary features keep AUC regardless. Decide before
+wiring Scheme~2.
+\end{openbox}
+
+% ===================== 8. CONTROLS =====================
+\section{Controls and guardrails}\label{sec:controls}
+
+These are what separate ``we measured something real'' from ``the probe found a shortcut.''
+\emph{Attribution is the whole game}: a rung on the ladder (\S\ref{sec:ladder}) means something
+about \emph{the images} only once the confounds are held down. The battery is \textbf{tiered} to
+protect a small Paper~1 --- must-haves are non-negotiable, the rest defer to Paper~2.
+
+\subsection{Must-have (Paper 1)}
+\begin{itemize}[leftmargin=1.4em,itemsep=3pt]
+\item \dec{} \textbf{Selectivity (Hewitt--Liang).} Real-label probe performance \emph{minus}
+control-label performance. A direction counts only if it beats a control task --- this is the
+guard against probe capacity: a powerful enough probe decodes \emph{anything} (even random
+labels), so claim strength is tied to the \emph{gap} over a control, not raw performance.
+\item \dec{} \textbf{Negative controls.} Concepts that should \emph{not} be clean directions:
+shuffled vote fractions, random labels, random embeddings, image-metadata bins, sky-background /
+noise level. The ladder is credible precisely when these \emph{fail} --- ``bars linear; winding
+nonlinear; random labels fail; survey identity low after homogenisation'' is the shape of a
+trustworthy result.
+\item \dec{} \textbf{Core nuisance probes.} Can the same embedding-axis machinery read off
+\emph{redshift}, \emph{apparent magnitude}, \emph{angular size} (and survey, if multi-survey)?
+If a ``morphology'' direction is really tracking size or brightness, this catches it. This is
+\emph{the} reason the battery exists: an MLP that ``decodes winding'' may be decoding apparent
+size, SNR, or survey, not morphology.
+\end{itemize}
+
+\subsection{Deferred (Paper 2 / if feasible)}
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \dfr{} \textbf{Matched evaluation.} Re-test on galaxies matched in redshift / size /
+brightness, where sample size allows --- the strongest form of nuisance control.
+\item \dfr{} \textbf{Cross-split robustness.} Learn the direction on one split, test on another;
+ideally train on SDSS, test on DESI/DECaLS where labels later overlap (needs multi-survey ---
+Paper~2).
+\end{itemize}
+
+\textbf{The bar.} A feature is ``linearly nameable'' only if the logistic direction clears
+\textbf{AUC $+$ selectivity $+$ the nuisance battery}, not AUC alone. The eigen-triangulation of
+the entanglement analysis (\S\ref{sec:harness}) is the most rigorous machinery in the design and
+does not depend on the uncertainty-geometry result landing --- so the controls plus the ladder
+plus the v1 comparison form a backbone that is solid whatever the high-beta headlines do.
+
+% ===================== 9. STATISTICS =====================
+\section{Statistics --- the five decisions, owned}\label{sec:stats}
+
+
+The statistical layer is four readings of one picture (a real value vs a chance distribution,
+``is it past the tail?'') plus a size check. All five flagged decisions are now owned with a
+defensible rationale.
+
+\begin{decidedbox}
+\textbf{(1) Existence p-value.} Real value (AUC for binary; correlation for graded, pending the
+open question) vs a null, at the effect floor. Same add-one estimator as (4), so the same
+tie convention applies; \opn{} remains only the AUC $\approx 1.0$ ceiling case.
+
+\textbf{(2) Effect floor.} A single pre-registered minimum AUC; the scientific
+``how strong to call a direction real'' call. \opn{} value to be set by -M with rationale.
+
+\textbf{(3) Multiplicity --- Benjamini--Yekutieli (FDR).} Chosen knowingly: the existence tests
+are correlated by construction (bulge levels partition one variable; features co-occur), so
+independence-assuming methods are wrong; BY controls the false-\emph{discovery} rate (the right
+target for a discovery catalogue) under arbitrary dependence. Family count per-scheme
+($\approx$37 full, $\approx$10--13 reduced).
+
+\textbf{(4) Permutation test} (uncertainty geometry, possibly graded-existence): shuffle vote
+fractions, recompute Spearman, locate the real value in the shuffle null. $\geq$10{,}000
+shuffles, two-tailed. \dec{} \textbf{tie-handling: add-one, ties counted into the tail} --- the
+attainable floor is $1/(n+1)$, never zero (Phipson \& Smyth), and ties count against the observed
+value, which is the conservative direction. Implemented.
+
+\textbf{(5) Marchenko--Pastur null} (entanglement eigenvalues): eigenvalue past the MP edge
+computed for the actual matrix shape. ``Past the edge'' to start; Tracy--Widom p-value if a
+reviewer wants hard significance.
+\end{decidedbox}
+
+% ===================== EVALUATION =====================
+\section{Evaluation --- the deliverables}\label{sec:eval}
+
+A consolidated list of \emph{everything the project measures}. Most items are detailed in their
+own sections; gathered here so the full deliverable set is visible in one place.
+
+\begin{itemize}[leftmargin=1.4em,itemsep=3pt]
+\item \dec{} \textbf{v1 is the baseline.} Same schemes (Hubble / Reduced Set / All Features),
+same metrics, direct comparability with the existing v1 results table. The v1$\rightarrow$v2
+continuity is concrete, not rhetorical.
+\item \dec{} \textbf{The ladder, per feature} --- logistic concept-direction AUC $+$ calibration
+$\rightarrow$ MLP/$k$-NN selectivity (\S\ref{sec:ladder}). The core deliverable.
+\item \dec{} \textbf{Uncertainty geometry} --- projection-vs-vote-fraction (Spearman/Pearson)
+per feature (\S\ref{sec:uncertainty}).
+\item \dec{} \textbf{Embedding correlation geometry} --- the cosine matrix of concept directions
+against v1's Fig 18/19 (\S\ref{sub:ladder-machinery}, eigen-triangulation).
+\item \dec{} \textbf{Controls} --- selectivity, the five negative-control nulls, the five
+nuisance probes (\S\ref{sec:controls}, \S\ref{sub:controls-battery}). Non-negotiable for
+Paper~1.
+\item \dec{} \textbf{Label-efficiency curve} --- probe accuracy vs \#labels, SSL-pretrained vs
+supervised-from-scratch. Quantifies the value of pretraining and directly answers the LSST
+framing (\S\ref{sec:method}).
+\item \dec{} \textbf{SSL baselines $=$ a control, not box-ticking.} Run the \emph{same probe
+ladder} on JEPA vs \textbf{MAE} (latent prediction vs pixel reconstruction --- Wu et al.'s is
+public) vs \textbf{contrastive (MoCo / SimCLR / BYOL)}. Cross-objective comparison separates
+\emph{intrinsic to the images} from \emph{artefact of how JEPA organises the manifold} --- and is
+load-bearing for the Framing-B payoff (\S\ref{sec:framing}). A feature that is R3 in JEPA but R1
+in contrastive is an objective effect, not an image fact.
+\item \dec{} \textbf{Inclination conditioning} --- recoverability/entanglement as a function of
+axis ratio, the confound-fingerprint deliverable (\S\ref{sec:confound}).
+\item \dfr{} \textbf{Survey-leakage probe} (Paper 2 / multi-survey) --- predict source survey
+from embeddings; drives the merge experiment (\S\ref{sec:data}).
+\item \dec{} \textbf{GalaxyMNIST} (Walmsley, 4-class) --- external comparability beyond GZ2.
+\end{itemize}
+
+% ===================== THE HARNESS (locked design) =====================
+\section{The probing harness (locked experimental design)}\label{sec:harness}
+
+\begin{decidedbox}
+\textbf{Hub note.} The full derivations live in the authoritative
+\texttt{probing-harness-design.md} (586 lines). This section carries the \emph{actual locked
+decisions and machinery} at build fidelity --- not a summary --- because the harness \emph{is}
+the experimental design (the science), and a reader should not have to open a second document to
+learn what the controls test or why the eigen-triangulation works. The harness doc remains the
+source for the full derivations; this section must not contradict it.
+\end{decidedbox}
+
+\subsection{Two kinds of ``locked''}
+\dec{} The design distinguishes \emph{structure-locked} (the architecture of a test is fixed)
+from \emph{formula-flagged} (a specific statistical constant or null-application is -M's to own
+before finalising, \S\ref{sec:stats}). Everything below is structure-locked; the formula-flagged
+points are marked.
+
+\subsection{Sub-system 3 --- the controls battery}\label{sub:controls-battery}
+
+\subsubsection{3A --- the hard gate (the keystone)}
+\dec{} The rung verdict is \textbf{not a human reading the numbers} --- it is a
+\textbf{pre-registered deterministic function of the controls}, emitted in code, applied
+identically to every feature, thresholds fixed \emph{before} looking and stamped. Built on the
+existing \texttt{Gate} machinery. The MLP specifically \emph{cannot} return an R3 verdict unless
+selectivity \emph{and} nuisance-clearance pass --- enforced structurally.
+
+\emph{Why:} controls only protect you if they \emph{gate the conclusion}, not if they merely
+\emph{accompany} it. If a human assigns the rung after seeing the numbers, ``R1'' encodes a
+researcher degree of freedom and the apparatus is decorative. \emph{Cost (accepted):} a feature
+can land just below the bar and be forced to a rung you ``feel'' is wrong --- that is the point;
+it is what makes the result honest.
+
+\textbf{The boundary protocol} (sub-threshold-but-feels-present features): when the gate says R4
+for a feature intuition says is present, the response is \emph{not} to argue the verdict down. It
+is that \textbf{pre-registered alternative-hypothesis tests fire automatically}, each testing a
+\emph{named} alternative, each gated on its \emph{own} controls: a controlled MLP (R3 --- but
+only if it clears its own selectivity + nuisance); the resolution/patch-size ablation
+(under-resolved, not absent); cross-objective (R4 in JEPA but recoverable in MAE/MoCo $=$ an
+objective effect). If a pre-registered test recovers it (clearing its controls), the feature
+moves rung \emph{with a named mechanism}. If none do, it is reported honestly as R4 --- and that
+is a \emph{possible finding}: human-label confidence exceeding image information, the
+v1-confusion-explained-by-pixels story, the paper's reason for existing. \textbf{The discipline:}
+``prove it another way'' is legitimate \emph{only} when the other way is a pre-registered control
+testing a named alternative --- never ``try seventeen probe architectures until one clears the
+bar.'' The rescue-routes are fixed in advance.
+
+\subsubsection{3B --- null-calibrated thresholds + effect-size floor}
+\dec{}/\opn{}(formula) Thresholds are \emph{not arbitrary constants}. \textbf{Existence verdict
+$=$ exceeds the negative-control null at $p<0.05$} --- the bar for ``real'' is set relative to
+what the negative controls achieve, adapting to sample size and probe capacity automatically.
+\textbf{Plus a pre-registered effect-size floor} for ``clean vs marginal'' among real effects
+(guards the opposite failure: a significant-but-trivial AUC 0.54 at large $N$). The floor is a
+pre-registered constant, acceptable \emph{because it no longer does the existence work} ---
+significance-vs-null decides real/not-real, the floor only decides clean-vs-marginal.
+\textbf{Build-order dependency:} the negative-control null is an \emph{input to the gate
+function} --- the gate cannot fire until the null is computed (negatives $\rightarrow$ null
+$\rightarrow$ real features gated against it).
+
+\subsubsection{3C --- the negative-control battery (five nulls)}
+\dec{} Existence is calibrated against the \textbf{max (most conservative) across all five} ---
+a real feature must beat the \emph{strongest} null. Each closes a distinct attack:
+\begin{enumerate}[leftmargin=1.5em,itemsep=1pt]
+\item \textbf{Shuffled vote fractions} --- same distribution, destroyed correspondence. Kills
+``the probe exploits label marginals, not image content.''
+\item \textbf{Random embeddings} (Gaussian, matched covariance) --- kills ``any high-D vector
+predicts this.''
+\item \textbf{Noise images through the real frozen encoder} (matched to pixel-level statistics,
+\emph{not} white noise) --- kills ``the encoder imposes structure on anything.'' \emph{The
+strong one} --- ``noise images through our encoder give chance AUC'' is a clean statement that
+the encoder learned galaxy structure specifically.
+\item \textbf{Untrained-encoder embeddings} (frozen random ViT) --- kills ``the probe, not the
+pretraining, does the work.'' \emph{The headline ``pretraining mattered'' control} --- ``a random
+ViT gets ${\sim}0.5$ on featured-ness, ours gets ${\sim}0.9$.''
+\item \textbf{Sky-background / noise-level labels} --- kills ``the probe reads image depth, not
+morphology.''
+\end{enumerate}
+
+\subsubsection{3D --- the nuisance battery (five nuisances + triggered matching)}
+\dec{} Answers the most likely \emph{real} confound: morphology genuinely correlates with
+physical quantities (bars more visible in bigger/closer/brighter galaxies). \textbf{The five}
+(all from the metadata join): redshift, apparent magnitude, Petrosian radius (apparent size),
+SNR$_r$ (depth), PSF width (seeing). \textbf{Adjudication:} a parallel probe predicts each
+nuisance from the embeddings (diagnostic --- shows \emph{whether} there's a concern); when a
+nuisance-AUC is comparable-to-or-above the morphology-AUC, that feature \emph{must} be re-tested
+on galaxies \textbf{matched} on that nuisance (held constant, so it can't be the signal). The
+feature either \emph{survives} (real) or is \emph{marked confounded}. This makes matching
+\emph{targeted} (fires only for flagged features --- bounded cost), promoting it from the
+scratchpad's ``Paper-2/if-feasible'' to \textbf{Paper-1, targeted}. Every branch is defensible
+--- there is no outcome you'd want to hide.
+
+\subsection{Sub-system 2 --- the ladder}\label{sub:ladder-machinery}
+
+\subsubsection{2A --- entanglement (R1 vs R2): eigen-led triangulation \textnormal{\textit{(the strongest machinery)}}}
+\dec{} \emph{Not} raw-cosine-vs-arbitrary-threshold (ambiguous between representational
+entanglement and world-correlation, probe-dependent, trivially passed since random high-D
+vectors are near-orthogonal). Instead: \textbf{several independent measures with different
+failure modes, triangulated} --- where they agree, agreement can't be an artefact of any single
+method's blind spot; where they disagree, the disagreement \emph{localises the cause}.
+
+\textbf{The eigen spine:} effective rank of the concept-direction Gram matrix $WW^\top$ (``$k$
+named concepts span only $k_{\text{eff}}$ effective dims''; reuses the collapse-monitor code);
+the \textbf{Marchenko--Pastur null} on that spectrum (significantly more entangled than random,
+by random-matrix theory --- a citable null, not a hand-picked threshold); the
+\textbf{eigenvectors} of $WW^\top$ (\emph{which} features collapse onto shared axes ---
+localises); the embedding-covariance spectrum (the encoder's intrinsic dimensionality, as
+context).
+
+\textbf{Cross-checks, each covering an eigen blind spot from a different origin:} the
+\textbf{cosine matrix} (the human-readable $WW^\top$ off-diagonals) --- the direct visual bridge
+to v1, the embedding-recovered matrix laid against v1's Fig 18/19 human-confusion matrices
+(``does the representation entangle what humans confused?'' --- headline Fig 3);
+\textbf{logistic-vs-CAV direction disagreement} (genuinely independent --- two different
+\emph{definitions} of the direction); \textbf{conditional recoverability (matched)} --- the
+\emph{causal} attribution, the \emph{only} measure that resolves representation-vs-world (fired
+surgically, only on eigen-flagged pairs).
+
+\begin{decidedbox}
+\textbf{Verdict logic (pre-registered --- critical).} Convergence $=$ strong claim;
+\textbf{disagreements are interpreted, not averaged}, with the interpretation rules fixed
+\emph{before} results (else triangulation collapses into researcher degrees of freedom). E.g.:
+eigen-entangled $+$ cosine shows it $+$ logistic-CAV disagree $+$ conditional survives matching
+$\rightarrow$ representational entanglement, four methods agree, unassailable. Eigen-entangled
+\emph{but} conditional vanishes under matching $\rightarrow$ the entanglement was
+\emph{world-correlation (astrophysics)}, not representational --- itself a clean finding,
+distinguishable \emph{because} of the causal cross-check. This is the machinery that adjudicates
+the bar+arms hard case (\S\ref{sec:confound}) and Framing~B (\S\ref{sec:framing}).
+\end{decidedbox}
+\opn{}(formula) The MP-null application and significance machinery on the spectrum are -M's to
+own; the structure (triangulation + verdict logic) is locked.
+
+\subsubsection{2B/2C --- multiplicity and feature scope}
+\dec{} Multiplicity correction is structure-locked, formula per \S\ref{sec:stats} (BY). Feature
+scope is the two-scheme experiment of \S\ref{sec:scheme}.
+
+\subsection{Sub-system 4 --- uncertainty geometry (the headline)}\label{sub:uncertainty-machinery}
+\dec{} \textbf{Test statistic:} Spearman of projection-distance vs vote-fraction on the held-out
+ambiguous middle, with a permutation null (\S\ref{sec:stats}). \textbf{Scope:} gated on R1/R2
+(an axis must exist to project along), run on all qualifying features. \textbf{4C --- the v1
+comparison is a first-class deliverable, not an aside:} v1's supervised-confusion-mirroring laid
+beside v2's label-free-geometry-recovery is the clean hook (\S\ref{sec:uncertainty}).
+
+\subsection{Sub-system 1 --- the full run}\label{sub:fullrun}
+\dec{} \textbf{Compute path} is the gate that shapes everything (the medium 40k run vs the
+rented scale run). \textbf{1A:} $\beta$ stays 0.5 for the headline; the $\beta$-sweep is a
+downstream ablation. \textbf{1B:} free probe-replication always; paid encoder-replication only on
+headline features.
+
+\begin{decidedbox}
+\textbf{1C --- checkpoint choice: label-blind, NOT best-AUC (the subtle one).} Do \emph{not}
+pick the checkpoint that maximises probe AUC --- best-by-AUC lets the \emph{labels} (via the
+probe) choose which encoder you keep, which quietly \textbf{breaks the ``encoder never saw
+labels'' firewall} (a subtle circularity a sharp reviewer catches). The checkpoint is chosen by a
+\textbf{label-blind} rule, pre-registered before looking at any AUC: the final (most-trained)
+checkpoint, gated on the collapse trace being stable at the end, else the last-stable checkpoint.
+This is the one place the intuitive choice (``best performing'') is subtly \emph{wrong}.
+\end{decidedbox}
+
+\subsection{Sub-system 5 --- the headline figures (deliverables)}\label{sub:figures}
+\dec{} Specifying the deliverables sub-systems 2--4 \emph{emit}, so figures fall out of the run
+rather than being reverse-engineered. \textbf{Fig 1 --- the ladder} (per-feature R1--R4 $+$ AUC
+$+$ selectivity $+$ calibration $+$ controls-cleared, ordered as narrative). \textbf{Fig 2 ---
+uncertainty geometry} (projection vs vote-fraction on the held-out middle, a clean feature
+against a confused one, with the v1-vs-v2 panel). \textbf{Fig 3 --- entanglement geometry} (the
+embedding-recovered cosine matrix against v1's Fig 18/19, plus the eigenspectrum + MP comparison
+--- the visually striking one). Controls also get figures (generate generously, triage later);
+the two most likely to earn headline placement are \textbf{``untrained encoder ${\sim}0.5$ vs
+ours ${\sim}0.9$''} and \textbf{``noise-images give chance AUC.''}
+
+\subsection{New capability this design adds}
+\textbf{Inclination as a conditioning axis} (\S\ref{sec:confound}) is the one capability the
+confound work adds; it does \emph{not} revise the locked sub-systems --- it is a new axis the
+existing probe runs along.
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \dec{} \textbf{Inclination proxy $=$ axis ratio (b/a)} --- an independent photometric
+measurement (computed from the pixels by the SDSS pipeline), so conditioning on it to study
+\emph{vote}-confusion is \emph{not} circular. (Using the T01/T07 votes as the proxy \emph{would}
+be circular.)
+\item \opn{}/\textbf{metadata gap}: b/a is SDSS photometry (\texttt{expAB\_r},
+\texttt{deVAB\_r}), \emph{not} a GZ2 vote column, so almost certainly not in the current 40k
+pull. Fix is a \textbf{cheap metadata top-up} --- a SQL join on \texttt{objID}, few hundred KB,
+minutes, \emph{no image re-cut}. Pull both \texttt{expAB} (disks) and \texttt{deVAB}
+(ellipticals); usage per population is a minor flagged decision.
+\end{itemize}
+
+\subsection{Implementation state}
+\dec{} 14 modules scaffolded under \texttt{src/galaxy\_jepa/probing/} (config, extract, controls,
+nulls, mlp, entanglement, matching, uncertainty, gates, ladder, run, $+$ \texttt{eval/figures.py}),
+reusing the core firewall (\texttt{data/splits.py}), the frozen-encoder Protocol, and the
+effective-rank callback. The five statistical decisions (\S\ref{sec:stats}) sit as parameterised
+\texttt{\#~FLAGGED} interfaces. 147 tests passing; mypy/ruff clean. The thin vertical slice
+succeeded (frozen-probe AUC 0.905 on featured-ness), validating the mechanism end-to-end.
+
+% ===================== 11. ARCHITECTURE =====================
+\section{Codebase architecture}\label{sec:arch}
+
+\begin{decidedbox}
+\textbf{Hub note.} The codebase design is the authoritative \texttt{architecture.md} /
+\texttt{architecture-buildout.md} pair. Summary here; those remain the source of truth. The
+governing principle: the \emph{scratchpad} (now this spec, \S\ref{sec:method}--\ref{sec:scheme})
+is the \textbf{science} source of truth; the architecture doc is the \textbf{codebase} source of
+truth. A design choice in the codebase that would change the science is proposed as a
+science-doc edit, not made silently.
+\end{decidedbox}
+
+\dec{} The architecture borrows the \emph{patterns} of Prism's M1 (Developer SDK) --- its
+invariants, its normal/power/hard-invariant taxonomy, its gates, and its ``the model is just an
+\texttt{nn.Module}'' stance --- \textbf{not} Prism's platform machinery. (Prism is a separate
+project; only the design patterns transfer.) The deliberate non-goals matter as much as the
+goals: this is a single-author research codebase, not a platform --- no serving layer, no
+multi-tenant orchestration, no MLOps machinery beyond a lightweight sweep harness. The heavy
+declarative-sweep infrastructure earns its keep only at Paper~2's survey-leakage ablation
+(\S\ref{sec:data}); building it before the science is de-risked would be premature.
+
+% ===================== 12. DATA / MULTI-SURVEY (Paper 2) =====================
+\section{Data and multi-survey (Paper 2 scope)}\label{sec:data}
+
+\dfr{} Cross-survey transfer is \textbf{Paper 2 / a major ablation, not Paper 1} --- kept out
+of the first clean result, because it is its own deep topic (DeepAstroUDA, AstroCLIP) and
+because the whole thesis rests on probing being a \emph{trustworthy instrument}.
+
+\subsection{Is ``more data $\rightarrow$ richer representations'' even true here?}
+
+Mostly yes, but \emph{conditionally}. SSL's premise is that scale and diversity buy generality,
+and galaxy imaging sits on hundreds of millions of unlabelled cutouts --- the regime JEPA wants,
+one 200k set cannot reach. But ``richer'' is not automatic: it is gated on the \emph{new}
+variation being \emph{morphological}, not \emph{instrumental}. Add a second survey and if the
+dominant new axis the model discovers is ``SDSS-ness vs DESI-ness,'' capacity has been spent
+learning the cameras apart. \textbf{That gate is the whole game.}
+
+\subsection{The homogenisation checklist (worst-first)}
+
+Each item is a channel through which \emph{which telescope took the picture} leaks into the
+representation --- and JEPA's objective will exploit any leak that makes the masked target
+easier to predict from context (survey identity always does, since context and target share a
+survey):
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \textbf{Pixel scale (arcsec/pixel).} SDSS ${\sim}0.396''$, DESI Legacy ${\sim}0.262''$,
+HST ${\sim}0.05''$, JWST ${\sim}0.03''$. Resizing arrays \emph{looks} like a fix but is not ---
+each crop then covers a different patch of sky. Hold \textbf{arcsec/pixel} constant (or
+kpc/pixel, which needs a redshift), not pixel count.
+\item \textbf{PSF / sharpness.} Ground-based is seeing-limited and blurry; space-based is
+diffraction-limited and crisp. A space galaxy is intrinsically sharper than any resampled
+ground-based one --- an almost-perfect survey fingerprint.
+\item \textbf{Bandpass $+$ morphological k-correction.} \emph{ugriz} vs \emph{grz} vs near-IR
+mean different physical things across filter sets; at high $z$ the observed bands sample bluer
+rest-frame light, so a high-$z$ JWST galaxy is not even the same physical object as a low-$z$
+SDSS one in nominally ``the same'' colours.
+\item \textbf{Depth / SNR / noise texture.} Deeper surveys reveal faint tidal features shallow
+ones miss; noise statistics differ by instrument.
+\end{itemize}
+
+\subsection{The design fork --- degrade-down vs preserve-and-correct}
+
+\textbf{Degrade-down:} match everyone to the worst common denominator (coarsest PSF, shallowest
+depth, largest pixel scale). Conservative, kills most leakage, yields a genuinely comparable
+corpus; cost: throws away the resolution of the good data. \textbf{Preserve-and-correct:} keep
+native quality and make the model invariant to the gap (augmentation spanning it, explicit
+domain adaptation, or trust scale to wash it out). Higher ceiling, far more to go wrong.
+
+\dec{} \textbf{Recommendation: degrade-down first} --- you cannot trust a direction that might
+mean ``barred'' vs ``the survey where bars were easier to see.'' Get the comparable corpus and
+honest diagnostics working; \emph{then}, as a deliberate experiment, relax toward
+preserve-and-correct and watch leakage and probe quality move.
+
+\subsection{The merge as a controlled experiment}
+
+The survey-leakage probe turns ``did the merge help?'' into a measurement, not a hope. Pretrain
+single-survey vs multi-survey; probe morphology on the \emph{same} held-out labelled set both
+ways; read \textbf{two} numbers off each: \textbf{morphology probe AUC} (representation quality)
+and \textbf{survey-leakage AUC} (instrument contamination). \emph{Clean win:} morphology-AUC
+$\uparrow$ \emph{and} leakage-AUC flat/$\downarrow$. \emph{The trap (and the interesting
+failure):} morphology-AUC flat/$\downarrow$ while leakage-AUC $\uparrow$ --- the model spent the
+extra data on the cameras. Scale to an ablation: plot both AUCs against corpus heterogeneity
+(single $\rightarrow$ two close surveys $\rightarrow$ add a space-based one).
+
+\subsection{Connection to the confound taxonomy}
+
+The imaging-depth axis of the confound taxonomy (\S\ref{sec:confound}) lives here:
+\textbf{projection-confusion is invariant to imaging depth; resolution-confusion is not.} So the
+eventual GZ2 $\rightarrow$ DECaLS/DESI comparison is the instrument that \emph{splits} resolution
+from semantic confusion and \emph{tests} projection's depth-invariance --- a falsifiable,
+two-direction prediction. \textbf{Sequencing:} SDSS $+$ DESI Legacy first (both ground-based
+optical, overlapping bands, homogenisation tractable); the space-vs-ground jump is experiment
+two. Don't reach for JWST to prove the point.
+
+% ===================== 13. PRIOR ART =====================
+\section{Prior art and positioning}\label{sec:priorart}
+
+\begin{openbox}
+\textbf{Do not claim firstness.} Several IDs/details below are from search snippets and need a
+proper arXiv sweep before writing. Safest framing: \emph{JEPA-style (latent-prediction) SSL
+appears underexplored for galaxy morphology relative to contrastive and masked-reconstruction
+approaches.}
+\end{openbox}
+
+\subsection{Galaxy SSL --- contrastive, and (newer) masked-reconstruction}
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+\item Hayat et al.\ 2021 --- contrastive (MoCo) SSL on SDSS; downstream morphology + photo-z.
+\item Stein et al.\ 2022 --- MoCo for lens-finding.
+\item Walmsley et al.\ 2022 --- \emph{Towards Galaxy Foundation Models with Hybrid Contrastive
+Learning} (BYOL-style + GZ info; introduces \textbf{GZ-Evo}, ${\sim}552$k labelled +
+${\sim}1.34$M comparable unlabelled). (arXiv 2206.11927)
+\item Walmsley et al.\ 2023 --- \emph{Galaxy Zoo DESI}, 8.7M galaxies (arXiv 2309.11425);
+Zoobot.
+\item AstroCLIP (arXiv 2310.03024) --- cross-modal FM, DESI spectra + Legacy images.
+\item \textbf{Masked autoencoders (MAE)} for galaxies (Wu et al., below) --- pixel-reconstruction
+SSL, the natural foil for JEPA's latent prediction.
+\end{itemize}
+
+\subsection{Closest neighbour --- interpreting galaxy representations against Galaxy Zoo}
+\textbf{Wu et al.\ 2025} --- \emph{Re-envisioning Euclid Galaxy Morphology: Identifying and
+Interpreting Features with Sparse Autoencoders} (arXiv 2510.23749). SAEs on supervised (Zoobot)
+\emph{and} self-supervised (MAE) embeddings, Euclid Q1; finds interpretable features aligned
+\emph{with and beyond} the GZ decision tree, stronger GZ-alignment than PCA. Public code + MAE.
+\textbf{Our distinctions:}
+\begin{enumerate}[leftmargin=1.5em,itemsep=1pt]
+\item \textbf{JEPA latent-prediction vs their MAE pixel-reconstruction} --- their MAE is the
+ideal head-to-head baseline.
+\item \textbf{Top-down hypothesis-testing} (probe a \emph{named} human concept, walk the ladder)
+vs \textbf{bottom-up discovery} (read features off an SAE dictionary).
+\item \textbf{Uncertainty geometry} --- we test vote-fraction \emph{recovery}, not just label
+alignment.
+\end{enumerate}
+Complementary, not competing (one could run an SAE on the JEPA encoder --- see
+\S\ref{sec:parking}).
+
+\subsection{JEPA --- proven adjacent, not (apparently) galaxy morphology}
+Assran et al.\ 2023 (I-JEPA); Lens-JEPA (physics-informed gravitational lensing, NeurIPS ML4PS
+2025 --- beats supervised + vanilla I-JEPA); HEP-JEPA (collider physics, arXiv 2502.03933).
+
+\subsection{Cross-survey domain gap}
+DeepAstroUDA (Ćiprijanović et al., ML:S\&T 2023) --- frames cross-survey morphology as domain
+adaptation; warns models extract dataset-specific, non-robust features. Vision-FM-for-astronomy
+survey (arXiv 2409.11175) --- FM features helped optical galaxy classification, poor on radio;
+transfer isn't free.
+
+\subsection{Probing / concept-direction lineage (the method's ancestry)}
+Alain \& Bengio 2016 (linear classifier probes); Kim et al.\ 2018 (TCAV / Concept Activation
+Vectors); Hewitt \& Liang 2019 (control tasks + selectivity).
+
+% ===================== 14. RESULTS (scaffold) =====================
+\section{Results}\label{sec:results}
+
+\begin{fillbox}
+\textbf{EMPTY SCAFFOLD --- no results yet.} This section is structurally placed for the paper
+but cannot be written until the experiments run. The planned headline figures are listed below
+so the scaffold is concrete.
+\end{fillbox}
+
+\subsection{Headline figures (planned)}
+\begin{enumerate}[leftmargin=1.5em,itemsep=2pt]
+\item Concept-direction AUC $+$ calibration per feature --- the ladder, quantified.
+\item Projection vs vote-fraction per feature (Spearman) --- uncertainty geometry.
+\item Cosine-similarity matrix between concept directions --- entanglement structure (\emph{comparative} across objectives + resolutions, per \S\ref{sec:framing}); compare to v1's Figs 18--19, recovered from embeddings.
+\item Recoverability $\times$ inclination (and eventually $\times$ imaging-depth) --- the confound-fingerprint figure (\S\ref{sec:confound}).
+\item Label-efficiency curve --- probe accuracy vs \#labels, SSL-pretrained vs supervised-from-scratch.
+\end{enumerate}
+
+\subsection{Run order}
+Metadata top-up (axis ratio) $\rightarrow$ wire harness (conditional-population capability $+$
+inclination axis $+$ finalised stats) $\rightarrow$ \textbf{Scheme 1 full-37 medium run on
+40k} (code-correctness $+$ signs-of-life gate; deep features \emph{not} yet interpreted ---
+power-starved at 40k, that's fine, the run's job is plumbing) $\rightarrow$ Scheme 2
+$\rightarrow$ compare $\rightarrow$ [gated, rented scale] real ladder $+$ uncertainty geometry
+$+$ inclination conditioning $+$ MAE/MoCo baselines $\rightarrow$ [future] DECaLS/DESI
+imaging-depth comparison.
+
+% ===================== 15. DISCUSSION (scaffold) =====================
+\section{Discussion}\label{sec:discussion}
+
+\begin{deferredbox}
+\textbf{EMPTY SCAFFOLD --- written in two branches, committed at analysis time
+(\S\ref{sec:framing}).} If cross-objective $+$ cross-resolution $+$ confound-fingerprint
+consistency holds $\rightarrow$ the Framing-B payoff (``these features may not be separable
+structure --- here's the label-free evidence, and here's \emph{why} humans were confused:
+projection / resolution / semantic''). If it doesn't $\rightarrow$ the honest Framing-A-only
+version (``entanglement is objective-specific, a property of these representations, not
+necessarily the data''). Either way the paper is complete. \textbf{Do not pre-write either
+branch.}
+\end{deferredbox}
+
+% ===================== RISKS =====================
+\section{Risks and unknowns}\label{sec:risks}
+
+The failure modes the design guards against, gathered in one place. Each is either mitigated by a
+named control or accepted as a bounded risk.
+
+\begin{itemize}[leftmargin=1.4em,itemsep=3pt]
+\item \textbf{Spurious-correlate probes (R3).} A high-capacity probe can decode a feature via
+nuisance correlates (z, size, brightness, survey, SNR, PSF), not morphology. \emph{The} reason
+the controls battery exists (\S\ref{sec:controls}); an MLP result never stands alone --- the hard
+gate (\S\ref{sub:controls-battery}, 3A) structurally forbids an R3 verdict without selectivity
+$+$ nuisance clearance.
+\item \textbf{Probe-capacity confound.} A powerful enough probe decodes \emph{anything} (even
+random labels). Claim strength is tied to probe simplicity: linear$+$selective $=$ strongest;
+MLP-only $=$ weaker and must be controlled. Guarded by selectivity (the gap over a control) and
+the random-label / random-embedding nulls.
+\item \textbf{Representation collapse} --- JEPA's standard failure mode. Budget tuning on the EMA
+schedule $+$ masking ratio; the effective-rank collapse monitor (\S\ref{sec:harness}) is the
+detector, and the label-blind checkpoint rule (1C) is gated on a stable end-of-training trace.
+\item \textbf{Survey shortcut} \emph{(multi-survey, Paper 2)} --- instrument identity as the
+dominant learned axis. Caught by the survey-leakage probe; mitigated by homogenisation $+$ close
+surveys first (\S\ref{sec:data}).
+\item \textbf{Compute + orchestration.} Pretraining a ViT from scratch $\gg$ v1's
+transfer-learning runs. The EMA-schedule / masking-ratio grid is \emph{modest} for Paper~1, so a
+lightweight sweep harness suffices --- \textbf{do not build MLOps before the science is
+de-risked}. The heavy declarative-sweep machinery earns its keep only at Paper~2's survey-leakage
+ablation. Within FMX hardware, but plan it.
+\item \textbf{Null uncertainty geometry.} The highest-upside result is the most likely to come
+out null. \dfr{} Backbone the paper on the ladder $+$ controls $+$ v1 comparison, not on this
+landing positive (\S\ref{sec:framing}, \S\ref{sec:uncertainty}).
+\item \textbf{Scope creep.} Stage~1 $+$ frozen logistic probing $+$ must-have controls $+$ the
+three headline figures is \emph{the minimum that answers the question}. Everything else (E(2)
+equivariance, multi-survey, fine-tuning, SAE) is explicitly deferred or parked.
+\end{itemize}
+
+
+% ===================== OPEN QUESTIONS REGISTER =====================
+\section{Open questions register}\label{sec:open}
+
+A consolidated master list of every \opn{} item, for tracking. (To be kept current as the
+single register; individual sections above hold the context.) Split into \emph{design}
+questions (settle before the relevant wiring) and \emph{formula-flagged} statistical items
+(-M's to own before finalising, structure already locked).
+
+\textbf{Design questions:}
+\begin{enumerate}[leftmargin=1.5em,itemsep=1pt]
+\item Graded-axis existence test: AUC vs correlation (possible merge with uncertainty geometry). Before wiring Scheme 2.
+\item Conditional-population gating: which upstream vote, which threshold, consensus vs weight. Per-run knob; default to set.
+\item Vote-count filter threshold (v1: mean$+2\sigma \approx 21$); re-count usable deep-feature N at threshold.
+\item Effect-floor value --- -M's scientific call (clean-vs-marginal; not the existence work).
+\item Which axis ratio per population (\texttt{expAB} vs \texttt{deVAB}).
+\item Backbone size (ViT-S/16 to start?); from-scratch vs ImageNet warm-start (lean from-scratch); masking specifics; E(2)-equivariance ablation timing.
+\end{enumerate}
+
+\textbf{Formula-flagged (structure locked, formula to own):}
+\begin{enumerate}[leftmargin=1.5em,itemsep=1pt,start=7]
+\item \textbf{Existence significance machinery} (\S\ref{sub:controls-battery}, 3B) --- the specific null-calibrated test and its multiplicity-corrected (BY) form.
+\item \textbf{The five-null combination leaves the null degenerate} (\S\ref{sub:controls-battery},
+3C) --- \emph{measured}, not conjectured. Three of the five controls (noise-through-encoder,
+untrained-encoder, sky/noise) are single AUCs rather than distributions; only shuffled-labels and
+random-embeddings resample. Since 3C calibrates against the \emph{max} across all five, and the
+largest singleton exceeds every resampled draw, the combined null has zero variance --- so the
+existence $p$ can only be $1/(n+1)$ or $1$, and the draw count buys no resolution. Candidates
+(recorded, none chosen): a seeded \emph{ensemble} of untrained encoders (measured spread across 8
+seeds: AUC $0.648$--$0.702$, $\sigma = 0.018$, $\approx$5.6\,min per seed to embed a 40k corpus);
+resampling the remaining singletons; or a combination rule that keeps the singletons as a
+threshold rather than folding them into the sampled null.
+\item \textbf{Marchenko--Pastur null application} on the concept-direction spectrum (\S\ref{sub:ladder-machinery}, 2A) --- the edge computation for the actual matrix shape, and whether to add the Tracy--Widom significance.
+\item \textbf{Selectivity ceiling} (\S\ref{sub:ladder-machinery}, the MLP rung) --- the
+``control exceeds its own null'' predicate, which is \emph{not} one of the five and has no
+mapping onto them. \textbf{Candidate (recorded, not decided):} give the MLP rung its own null
+from the \emph{untrained-encoder} control rather than a fixed constant, so selectivity is
+relative in the same way every other rung already is and the ladder stays internally consistent.
+\item Tie-handling: existence p-value (AUC$\approx$1) --- \textbf{OPEN}. The permutation-test
+side is \textbf{DECIDED}: the add-one estimator counts ties into the tail, so the attainable
+floor is $1/(n+1)$ rather than $1/n$ --- a permutation p-value should never be zero
+(Phipson \& Smyth), and counting ties against the observed value is the conservative direction.
+\item Permutation shuffle count and one- vs two-tailed for the uncertainty geometry (lean $\geq$10{,}000, two-tailed).
+\end{enumerate}
+
+% ===================== 17. PARKING LOT =====================
+\section{Parking lot}\label{sec:parking}
+
+
+Deferred ideas worth recording, \emph{within this project's scope}: SAE as a disentanglement
+instrument on the frozen JEPA embeddings (a less-confounded R2/R3 discriminator than an MLP;
+bridges to Wu et al.); a mechanistic ``what did the encoder learn'' angle via Jacobian /
+polar-decomposition analysis of the layers (a complement to probing --- the operator structure
+rather than the read-out directions); attention-routing (exploratory, with the ``attention is
+not explanation'' caveat); and \emph{multimodal pairing of galaxy images with their SDSS
+spectra} (AstroCLIP-adjacent --- a possible future direction, and a separate project in its own
+right).
+
+\vfill
+\begin{center}\rule{0.4\textwidth}{0.4pt}\end{center}
+\begin{center}\small\itshape End of Rev 1 (skeleton). Bulk-prose \textsf{STUB} sections to be
+consolidated in subsequent passes; Results and Discussion to be written when the experiments
+exist.\end{center}
+
+\end{document}

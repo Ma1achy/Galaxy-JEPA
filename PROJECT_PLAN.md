@@ -3,6 +3,9 @@
 *v2 of Galaxy-Zoo-Classifier. Planning artefact; the design source of truth is
 `galaxy-jepa-scratchpad.md`. British English throughout.*
 
+> The consolidated design spec (`docs/galaxy-jepa-spec.pdf`) is the current design source of
+> truth; this doc predates the confound/inclination/feature-scheme work (see D13, D14).
+
 ---
 
 ## 1. Thesis
@@ -50,20 +53,31 @@ This plan is **Paper 1**; Paper 2 items appear only as deferred markers.
 |---|---|---|---|
 | **P0** Planning & scaffolding | This round | Plan docs + masking note signed off; repo skeleton green (`uv sync`, `pytest`, `pre-commit`) | — |
 | **P1** Env & repo skeleton | Reproducible env | devcontainer builds; `import galaxy_jepa`; CI-lint clean | P0 |
-| **P2** Data layer | GZ2 probing set + **large unlabelled SDSS pretraining set** + nuisance metadata, **small sample end-to-end first** | A small labelled+metadata sample loads as tensors; CasJobs/SkyServer join verified (z, Petrosian mag/radius, SNR, PSF); reliable-label (mean+2σ) filter; **separate unlabelled SDSS pretraining pull** (≫250k) wired in, **including petroRad + arcsec/pixel for the per-galaxy masking box** (distinct from the nuisance join) (D6) | P1 |
+| **P2** Data layer | GZ2 probing set + **large unlabelled SDSS pretraining set** + nuisance metadata, **small sample end-to-end first** | A small labelled+metadata sample loads as tensors; CasJobs/SkyServer join verified (z, Petrosian mag/radius, SNR, PSF); reliable-label (mean+2σ) filter; **separate unlabelled SDSS pretraining pull** (≫250k) wired in, **including petroRad + arcsec/pixel for the per-galaxy masking box** (distinct from the nuisance join) (D6); axis-ratio (`expAB_r`/`deVAB_r`) join for inclination conditioning (D13) | P1 |
 | **P3** Masking module | Bounding-box-biased masking + bbox computation | Mean-image bbox computed; masking matches `docs/masking.md`; β=0 reproduces I-JEPA; sky-waste metric falls with β | P2 |
 | **P4** JEPA model | ViT encoder + predictor + EMA target + latent-MSE | **Overfit-one-batch passes**; **collapse monitor** live (rep variance / rank); shapes correct | P3 |
 | **P5** Pretraining loop | Config-driven pretraining, small scale first | A small pretrain run completes without collapse; EMA + masking-ratio sweep harness (lightweight) | P4 |
-| **P6** Probing harness | Logistic concept directions + ladder + **controls** + uncertainty geometry | Per-feature AUC + calibration; selectivity; negative controls; nuisance battery; non-circular uncertainty Spearman | P5 |
+| **P6** Probing harness | Logistic concept directions + ladder + **controls** + uncertainty geometry | Per-feature AUC + calibration; selectivity; negative controls; nuisance battery; non-circular uncertainty Spearman; conditional-population probing (comparison, not mask); two-scheme feature experiment (Scheme 1 full-37 / Scheme 2 reduced); inclination conditioning (D13, D14) | P5 |
 | **P7** Figures | The three headline figures | All three render from real probe outputs | P6 |
 | **Parallel** arXiv sweep | `docs/related-work.md` | First pass done (this round); follow-ups closed before write-up | — (runs from day 1) |
 | **Baselines** (control) | MAE + contrastive, **same probe ladder**, **all trained on the same SDSS pretraining corpus** | Each baseline encoder probed identically; cross-objective comparison table. MAE = Wu & Walmsley recipe reproduced on SDSS (released Euclid MAE = reference/validation only); contrastive trained on SDSS (D12) | P5 (SDSS-trained baselines) → P6 |
+
+**The confound taxonomy is an interpretive layer, not the spine.** D13's three-way split of human
+confusion (projection / resolution-or-semantic / genuine co-occurrence) is the *mechanism for
+Framing B's earned payoff*, and it is held **pending results** — the paper's spine stays Framing A
+(method + ladder + controls), which stands whatever the taxonomy shows. Inclination conditioning
+is a new axis the existing probe runs along; it does not revise the locked probing sub-systems.
+See `docs/galaxy-jepa-spec.pdf`, §Framing and §Confound.
 
 ### Sanity gates (non-negotiable, from the scratchpad)
 - **Before any real pretrain run:** overfit-one-batch **and** the collapse monitor
   must be in place (P4).
 - **Before any ladder claim:** the controls battery (P6) must be wired in — a rung
   means nothing about the images until selectivity + nuisance probes hold it down.
+- **Before any existence verdict:** the null-draw budget must clear the family-corrected bar
+  (`nulls.assert_null_resolution`). Too few draws make the smallest attainable p exceed the
+  threshold, so every feature fails and the catalogue reads as a scientific null when it is an
+  artefact of the resample count.
 
 ---
 
@@ -173,7 +187,27 @@ Full detail in the scratchpad; the live ones for Paper 1:
 
 ## 8. Status
 
-- **P0** in progress: planning docs + `docs/masking.md` + `docs/related-work.md`
-  delivered for review; repo skeleton to be scaffolded on sign-off (no model /
-  training code). See `DECISIONS.md` for the forks awaiting your call — model code
-  starts only after the plan **and** the masking approach are signed off.
+- **P1 done.** Repo, toolchain and CI stand; `import galaxy_jepa` is clean.
+- **P2 data layer — both corpora pulled and verified.** Probe **230,358** GZ2-labelled
+  (raw vote fractions, axis ratios joined 230,358/230,358, `petrorad_suspect` derived);
+  pretrain **826,968** unlabelled SDSS on a resolution window. 783 GB on the external SSD.
+  Final numbers and their reasoning are recorded under **D6**. The **normalisation is now
+  frozen** (D16): fitted once over valid pixels on the whole pretraining corpus less a 0.1%
+  heaviest-stamp trim, pinned as an artefact, refitting refused. The fp16 parity cache is baked
+  over **both** corpora — 1,057,326 stamps, ~416 GB — not 230k, because the pretraining corpus
+  and the probing corpus must share one hash-keyed directory or the parity rule is not enforced.
+  What remains in P2 is the rotation/reflection augmentation.
+- **P3–P6 built, not yet run at scale.** Masking, the JEPA model, the pretraining loop and the
+  probing harness are all in place and green under test; the probing load path is smoked against
+  the pilot encoder. The five statistical decisions are **grounded and wired** — `effect_floor`
+  is deliberately **required-but-unset**, and `headline=True` is refused until it is frozen.
+- **The standing gate before training is down to one item.** The normalisation freeze and the
+  parity bake are **done** (D16, Brief E), and the reliable-label floor is **frozen** — D8 is
+  superseded rather than satisfied, running unfiltered at the defined minimum of 1, with the
+  reach recounted there (t09 boxy 7,894 positives against 302 at ≥5 and 33 at ≥37) and a
+  {1, 5, 11, 21, 37} sweep pre-registered as robustness. The **effect floor is the only one of
+  the five still open**: `headline=True` stays refused until the medium local run gives an AUC
+  distribution to set it from.
+- `DECISIONS.md` carries no fork still awaiting a call; what is open (the effect-floor *value*,
+  the graded-axis existence test, tie-handling in the entanglement cross-check) is tracked in the
+  spec's open-questions register, not here.

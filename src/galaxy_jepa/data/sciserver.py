@@ -10,7 +10,9 @@ be unit-tested offline and reused by the ``artifacts/`` driver:
   pull runs as several SciServer jobs each under the ~1 h Small-domain timeout cap;
 * :func:`merge_corpora` — stitch the per-chunk ``DirectorySource`` outputs back into one
   corpus directory (one ``metadata.csv`` + the ``<object_id>.fits`` stamps + a combined
-  ``manifest.json``), so the rest of the pipeline sees a single corpus.
+  ``manifest.json``), so the rest of the pipeline sees a single corpus;
+* :func:`align_append_fieldnames` — decide the column order an *incremental* chunk append
+  must write in, so a chunk can never be appended under a header it does not match.
 
 Neither touches the network, the SciServer SDK, or any secret. The live submit/poll/fetch
 driver — and all authentication — stays in ``artifacts/sciserver_pull.py``.
@@ -26,7 +28,7 @@ from pathlib import Path
 
 from galaxy_jepa.data.manifest import manifest_hash
 
-__all__ = ["chunk_target_ids", "merge_corpora"]
+__all__ = ["align_append_fieldnames", "chunk_target_ids", "merge_corpora"]
 
 
 def chunk_target_ids(ids: Sequence[int], max_per_job: int) -> list[list[int]]:
@@ -41,6 +43,42 @@ def chunk_target_ids(ids: Sequence[int], max_per_job: int) -> list[list[int]]:
         raise ValueError(f"max_per_job must be a positive integer, got {max_per_job!r}")
     ids = list(ids)
     return [ids[i : i + max_per_job] for i in range(0, len(ids), max_per_job)]
+
+
+def align_append_fieldnames(
+    corpus_meta: str | Path, chunk_fieldnames: Sequence[str]
+) -> tuple[list[str], bool]:
+    """Column order for appending a chunk to ``corpus_meta``, plus whether to write a header.
+
+    :func:`merge_corpora` is safe because it re-writes one file from the union of every
+    chunk's columns. The *incremental* path is not: it appends to a corpus whose header is
+    already fixed, and a chunk's own column order is **not** the corpus's. A chunk arrives in
+    SQL order (``object_id`` then passthrough); the corpus is alphabetised by
+    ``pull.write_metadata``. Handing ``csv.DictWriter`` the chunk's order writes every value
+    under the wrong name, and nothing complains -- ``object_id`` occupies slot 0 in both
+    orderings, so even an ID-keyed integrity check passes. That silently mislabelled 190,358
+    galaxies of the probe corpus: vote counts landed in ``_fraction`` columns and a specobjid
+    in ``deVAB_r``.
+
+    So: the existing header wins. Columns it declares that the chunk lacks are the caller's
+    to fill empty (the D13 axis-ratio top-up is exactly this case), matching
+    ``pull.merge_columns``' "never silently shrink a corpus". A column the *chunk* carries
+    and the header does not is real schema drift -- appending would discard it, so it raises.
+    """
+    path = Path(corpus_meta)
+    if not path.exists():
+        return list(chunk_fieldnames), True
+    with path.open(newline="") as handle:
+        header = next(csv.reader(handle), None)
+    if not header:
+        raise ValueError(f"{path} exists but has no header row")
+    unknown = [c for c in chunk_fieldnames if c not in set(header)]
+    if unknown:
+        raise ValueError(
+            f"chunk columns absent from {path}: {unknown}. Appending would silently drop "
+            f"them -- the corpus schema has drifted."
+        )
+    return header, False
 
 
 def merge_corpora(

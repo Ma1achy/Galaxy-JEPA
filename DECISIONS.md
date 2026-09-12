@@ -11,9 +11,9 @@ doc)**. Tick a box when you sign off.
 
 ---
 
-## D1 — Framework — *needs your call (recommend PyTorch)*
+## D1 — Framework — *decided (signed off): PyTorch*
 
-- [ ] **PyTorch** ☐  ·  Keep TF/Keras (v1) ☐
+- [x] **PyTorch** ☑  ·  Keep TF/Keras (v1) ☐
 
 **Recommendation: PyTorch.** The I-JEPA reference implementations and the SSL /
 interpretability ecosystem (linear probes, CAV/TCAV, SAEs) live in PyTorch, and a
@@ -52,9 +52,9 @@ masking cleanliness, not assumed-optimal accuracy.
 
 ---
 
-## D3 — Environment tooling — *proposed (recommend uv + devcontainer)*
+## D3 — Environment tooling — *decided (signed off): uv + devcontainer*
 
-- [ ] **uv + devcontainer + pytest + pre-commit (ruff), Python 3.11** ☐
+- [x] **uv + devcontainer + pytest + pre-commit (ruff), Python 3.11** ☑
 
 **Recommendation:** match your other repos — **uv** for env, **devcontainer** for
 reproducibility, **pytest** for tests, **pre-commit + ruff** for lint/format.
@@ -63,9 +63,9 @@ supported by PyTorch). Flag if you'd rather pin 3.10 for parity with v1.
 
 ---
 
-## D4 — From-scratch vs ImageNet warm-start — *needs your call (recommend from-scratch)*
+## D4 — From-scratch vs ImageNet warm-start — *decided (signed off): from-scratch*
 
-- [ ] **From-scratch** ☐  ·  ImageNet warm-start ☐
+- [x] **From-scratch** ☑  ·  ImageNet warm-start ☐
 
 **Recommendation: from-scratch.** The central claim is that morphological
 directions are *present before any label*; an ImageNet-initialised encoder imports
@@ -76,9 +76,9 @@ eyes open.
 
 ---
 
-## D5 — Masking strategy — *needs your call (recommend bounding-box-biased; see `docs/masking.md`)*
+## D5 — Masking strategy — *decided (signed off): bounding-box-biased; see `docs/masking.md`*
 
-- [ ] **Bounding-box-biased multi-block** (β-sweep, β=0 = I-JEPA control) ☐
+- [x] **Bounding-box-biased multi-block** (β-sweep, β=0 = I-JEPA control) ☑
 
 **Recommendation:** adopt the scheme in `docs/masking.md`. It is a **strict
 generalisation** of I-JEPA (β=0 reproduces it), adds three knobs (β, τ, φ),
@@ -88,9 +88,9 @@ code.**
 
 ---
 
-## D6 — Pretraining vs probing corpus — *needs your call (recommend decouple; both single-survey)*
+## D6 — Pretraining vs probing corpus — *decided (signed off): decouple; both single-survey*
 
-- [ ] **Decouple corpora** — pretrain on a **large unlabelled SDSS** sample
+- [x] **Decouple corpora** — pretrain on a **large unlabelled SDSS** sample
   (≫250k), probe on the **GZ2-labelled ~250k** ☐
 - [x] **Single-survey for Paper 1** — no multi-survey (that is Paper 2).
 
@@ -125,6 +125,52 @@ pretraining-vs-probing distribution shift (fainter, smaller apparent size).
 
 Multi-survey scaling + the survey-leakage merge experiment remain **Paper 2**.
 
+### D6 final — what was actually built
+
+Both corpora are pulled and verified; these are measured, not planned, numbers.
+
+| | probe | pretrain |
+|---|---|---|
+| galaxies | **230,358** | **826,968** |
+| source | full `zoo2MainSpecz` | SDSS `PhotoPrimary`, never in any GZ2 table |
+| selection | GZ2's own | `type=3`, `clean=1`, `modelMag_r` 14–19, **`petroRad_r` ∈ (5″, 25″]** |
+| labels | raw vote fractions, t01–t11 (no debiased column) | none |
+| footprint | 171 GB | 612 GB |
+| median angular size | 2.05 ViT patches | 1.94 ViT patches |
+
+The pretrain pull targeted 826,984 and landed **826,968** — sixteen galaxies lost to chunks that
+died at the SciServer end and whose retries also failed. Recorded rather than papered over; at
+this scale it changes nothing, and `data_snapshot` hashes what exists, not what was intended.
+
+**The reasoning, recorded so it is never relitigated:**
+
+- **The 5″ floor is a *resolution* requirement, not distribution matching.** Below it the median
+  galaxy spans about one 16×16 patch — one token, no resolved morphology to learn, and nothing
+  for the bbox-biased masking (D5) to bias toward. After the cut the pretrain median is **1.94
+  patches against the probe's 2.05**: parity, and it is the floor that buys it.
+- **The 25″ ceiling is "wider than the stamp", and it is *not* purely a quality cut.** Measured on
+  the 2,143 probe galaxies above it: 25–100″ is 98.7% of them and they are **real** — redshift
+  falling monotonically with radius (0.023 → 0.007) at r ≈ 13.5–14.5, featured fraction steady at
+  ~0.66 — big nearby disks, correctly measured, simply too large for a 256 px (101″) cutout. Only
+  past 100″ (27 objects, to 258″ = 651 px) does the signature invert into deblending failure:
+  fainter, more distant, featured collapsing to 0.41, star-or-artifact vote quadrupling to 0.20.
+  So the ceiling **also declines a genuine population** — bright nearby spirals the encoder will
+  not see in pretraining. Accepted, because an uncontained galaxy teaches a truncated shape, but
+  it is a selection consequence, not a free win. The probe corpus keeps them, flagged
+  (`petrorad_suspect`), and only the Petrosian-radius nuisance control excludes them.
+- **The magnitude/SNR shift is structural and accepted** (KS ≈ 0.78 / 0.76). GZ2 labelled
+  essentially every bright, well-resolved SDSS galaxy, so *unlabelled* nearly means *fainter*.
+  Verified: even discarding the rarest 5% of the probe distribution, a strictly matched corpus
+  caps at **146,552** — smaller than the probe corpus itself. It is *impossible*, not merely
+  inconvenient.
+- **Why that is acceptable:** the shift runs in the **favourable transfer direction** (train
+  faint/noisy → probe bright/clean); normalisation absorbs much of it (relative structure
+  survives, absolute flux does not); the pilot cleared AUC 0.905 under a *worse* mismatch (no size
+  floor at all); and the brightness/SNR **nuisance probes exist precisely to test** whether the
+  representation encodes these rather than morphology.
+- **Write-up stance:** a **known limitation leaning on the existing controls** — *not* a matched
+  design. Do not overclaim parity.
+
 ---
 
 ## D7 — Canonical probe — *decided (scratchpad): L2 logistic*
@@ -134,17 +180,145 @@ Multi-survey scaling + the survey-leakage merge experiment remain **Paper 2**.
 
 ---
 
-## D8 — "Reliable" label filter — *needs your call (recommend reuse v1's mean+2σ)*
+## D8 — "Reliable" label filter — *SUPERSEDED: run unfiltered, frozen at the defined minimum*
 
-- [ ] **Reuse v1 vote-agreement filter (mean + 2σ)** ☐
+> The original decision and its correction are kept below **as the record of what was
+> reversed**, not as current guidance. The live decision is "D8 superseded" at the end of
+> this section.
+
+- [x] **Reuse v1 vote-agreement filter (mean + 2σ)** ☑
 
 **Recommendation:** reuse v1's agreement filter for **general probe label
 quality**, but note it is **separate** from the uncertainty-geometry protocol —
 which deliberately uses the **consensus-extremes** split (train on v>0.8 vs v<0.2,
 test on the held-out 0.2–0.8 middle) and must *not* be pre-filtered in a way that
-removes the ambiguous middle it needs to test on. *(v1 only applied a 0.5
-threshold; the mean+2σ filter is net-new and must be implemented.)*
+removes the ambiguous middle it needs to test on.
 
+That separation survives scrutiny, and it is worth saying why: this filter removes poorly
+**sampled** galaxies, not ambiguous ones. A 50/50 split on 60 votes is thoroughly ambiguous but
+well measured, so it passes the filter and remains available to the uncertainty test — which is
+exactly the galaxy that test exists to use.
+
+### D8 correction — the method transfers, the value does not
+
+An earlier version of this record said *"v1 only applied a 0.5 threshold; the mean+2σ filter is
+net-new"*. **That was wrong**, and it is corrected here rather than quietly edited: v1's
+dissertation §5.2.1 specifies mean+2σ ≈ 21 votes, and the 0.5 was its *binarisation* threshold
+in `__to_binary` — a separate mechanism. v1 used both, and `schemes.derive_vote_count_min`'s
+citation was right all along.
+
+**But the number does not carry over.** v1 computed 21 on the PyPI `galaxy-datasets` release;
+this corpus is a direct SciServer pull with different vote counts. Re-deriving the same method
+here gives **≈36.6 per question**, or ≈300 taken over `total_votes` — an order of magnitude
+apart depending on which distribution it is applied to, which is itself a sign the heuristic is
+doing less work than it appears to.
+
+So `DEFAULT_VOTE_COUNT_MIN` is **removed**. `vote_count_min` is now a **required** field with no
+default anywhere in the code, and `headline=True` is refused until a `VoteCountFreeze` pins it —
+the same posture as the effect floor, because it is the same kind of call. A known-wrong default
+sitting in the path of every result is worse than no default.
+
+**The value itself is still open**, and two things should shape it:
+
+- A **standard-error framing** is more defensible than either heuristic. The filter exists
+  because a vote fraction from few votes is a noisy estimate, and `SE ≈ √(p(1−p)/n)` makes that
+  explicit: ±0.11 at n=21, ±0.08 at n=37. "Include galaxies whose vote fraction is known to ±X"
+  justifies itself on its own terms and converts cleanly to a count, with no appeal to v1.
+- **Per-question beats one global number.** The tree funnels — t11 is reached only by spirals —
+  so a single floor either over-filters the deep questions or under-filters the shallow ones.
+
+Measured reach on the 230,358-galaxy corpus, for the questions this decides
+(`artifacts/` recount, vote-count floor → galaxies reaching the question):
+
+| question | ≥5 | ≥21 | ≥37 |
+|---|---|---|---|
+| t09 bulge shape | 33,956 | 7,108 | **829** |
+| t10 arms winding | 66,999 | 29,738 | 8,844 |
+| t11 arms number | 66,998 | 29,721 | 8,834 |
+
+At ≥21 the per-**bucket** positives are what bite: t09 boxy 100, t11 4-arms 229, t11 >4-arms
+271. Scheme 1's deep per-bucket tests are underpowered at any threshold in this range, and
+raising the floor to 36.6 makes that strictly worse — which is the trade the choice has to
+weigh, not a reason to keep 21.
+
+### D8 superseded — the filter is withdrawn, and that is the decision
+
+**This is a reversal with a reason, not a value being filled in.** D8 above said to reuse v1's
+mean+2σ agreement filter and left only the *number* open. The filter itself is now withdrawn, and
+the floor runs **unfiltered**. A bare `vote_count_min = 1` would read as an oversight, so the
+reasoning is recorded here and, verbatim, in the freeze artefact that stamps every result.
+
+> v1 needed the mean+2σ filter because v1 **trained on the labels** — vote noise flowed through
+> the loss and bent the encoder weights, so noisy galaxies had to be excluded up front. v2 breaks
+> that coupling: the encoder never sees a label. The filter's original purpose does not transfer.
+>
+> Label noise in a **probe target** is conservative: it attenuates measured association toward
+> chance and cannot manufacture a direction. A feature clearing the gate despite unfiltered
+> labels is therefore a **stronger** result, not a weaker one. The existence null is computed on
+> the same labels, so the comparison stays like-for-like.
+>
+> Filtering costs power precisely on the features the paper is about.
+
+**The value is 1, not 0 — the minimum at which the fraction is *defined*.** A question nobody
+answered has a 0/0 fraction and no measurement to probe. On this corpus that is load-bearing
+rather than pedantic: **GZ2 stores an unreached question's fraction as a literal `0.0`, not as a
+blank.** 118,962 of the 230,358 probe galaxies (51.6%) carry
+`t09_bulge_shape_a26_boxy_fraction = 0.0` meaning *never asked*, byte-identical by value to
+*asked, nobody said boxy*. Nothing downstream can tell them apart: `binary_label` computes
+`fraction >= 0.5`, so they would enter as negatives silently — not as NaN, which at least would
+be visible. The vote floor is the **only** thing standing between that and the probe, which is
+why "unfiltered" means 1 and not 0.
+
+**A defect found while closing this, and fixed.** `eligible_ids` summed `spec.count_col` — the
+*single answer's own* count — for binary specs, while graded specs already summed every answer. A
+fraction's denominator is the question total, so the per-answer version filtered on the numerator
+and discarded the **well-defined zeros**: at a floor of 1 it would have dropped 72.6% of t09
+boxy's eligible galaxies, 85.6% of t11 4-arms and 87.2% of t11 >4-arms — almost all the
+negatives, leaving probe sets of nearly nothing but positives. It also disagreed with D8's own
+published reach table above, which the fixed version now reproduces exactly at ≥5 / ≥21 / ≥37.
+`FeatureSpec.reach_count_cols()` is the one denominator, for every kind.
+
+**Reach and per-bucket positives at the frozen floor** (full population, binarised at 0.5):
+
+| bucket | ≥1 (frozen) | ≥5 | ≥11 | ≥21 | ≥37 |
+|---|---|---|---|---|---|
+| *reach* — t09 bulge shape | **111,396** | 33,956 | 17,837 | 7,108 | 829 |
+| *reach* — t10 arms winding | **134,688** | 66,999 | 46,565 | 29,738 | 8,844 |
+| *reach* — t11 arms number | **134,684** | 66,998 | 46,574 | 29,721 | 8,834 |
+| t09 boxy | **7,894** | 302 | 125 | 100 | 33 |
+| t10 tight | **60,809** | 24,436 | 15,239 | 9,136 | 2,649 |
+| t10 medium | **49,519** | 23,210 | 16,808 | 11,533 | 3,727 |
+| t10 loose | **22,541** | 8,534 | 5,874 | 3,902 | 1,162 |
+| t11 1-arm | **8,265** | 2,233 | 1,264 | 572 | 91 |
+| t11 4-arms | **1,075** | 258 | 246 | 229 | 113 |
+| t11 >4-arms | **2,801** | 286 | 274 | 271 | 163 |
+
+The brief's "t09 boxy: 302 at ≥5, 100 at ≥21, 829 at ≥37" mixed one reach figure into a positives
+series; **33** is the positives count at ≥37, and the corrected series runs the same way and
+further — 302 → 100 → 33 against 7,894 unfiltered.
+
+**Stated honestly: most of the extra reach is shallow.** 89.8% of t09 boxy's positives at this
+floor rest on ≤2 votes, median question total 1; t11 >4-arms is 88.5%, t11 4-arms 73.9%. Those
+are *unreplicated human judgements*, not fabrications — a fraction of 1/1 is one person's real
+answer with n=1 — so they attenuate toward chance rather than inventing a direction, exactly as
+the reasoning above requires. What turns that from an assertion into a measurement is the sweep.
+
+**The sensitivity sweep is pre-registered, and it is a robustness check, not a selection step.**
+Recorded here and in `VoteCountFreeze.sweep` **before any results exist**: the ladder is re-run at
+**{1, 5, 11, 21, 37}** and the agreement across them reported as a stability claim. The headline
+threshold is **fixed in advance at 1** and **must not be revised on the basis of which threshold
+produces better results** — the same discipline the pre-registered hard gate carries.
+`ProbingConfig` refuses a headline value that is not one of its own registered sweep points, so
+"chosen in advance" is checkable rather than asserted.
+
+**Frozen like the others.** `VoteCountFreeze` carries value, sweep, `derived_from`, `frozen_at`,
+`frozen_by` and the rationale; it is a `RunConfig`, so it is hashed into `config_hash` and
+stamped on every artefact, and a record disagreeing with the live value is refused at load.
+`headline=True` was already gated on it. With this frozen, the **effect floor is the only one of
+the five still open**.
+
+**Still separate, and deliberately not acted on here.** Vote count is *not* merely noise for the
+uncertainty geometry — see the open item in `TODO.md`.
 ---
 
 ## D9 — Confidence usage — *decided (scratchpad): both, kept separate*
@@ -191,16 +365,218 @@ to validate the reimplementation, *not* the controlled baseline** (it is
 Euclid-trained). Byline verified and **unchanged**: John F. Wu & Michael Walmsley,
 two co-first authors (see `docs/related-work.md`).
 
-**Contrastive: MoCo (decided), trained on the SDSS corpus.** BYOL is negative-free +
+**Contrastive: MoCo — *sub-decision resolved (signed off)*, trained on the SDSS corpus.** BYOL is negative-free +
 EMA-target — *too architecturally close to JEPA* for a clean Rung-3 contrast; MoCo's
 explicit negatives make it a genuinely different objective, and it is the established
 galaxy-SSL baseline (Hayat et al. 2021, on SDSS — see `docs/related-work.md`).
 
 ---
 
-## Summary — what needs your call
+## D13 — Confound taxonomy + inclination conditioning — *decided (signed off; Framing-B mechanism)*
 
-| # | Fork | Recommendation |
+- [x] **Human confusion has distinct *physical* causes, diagnosed with the label-free encoder.**
+- [x] **Inclination is a first-class conditioning axis; proxy = axis ratio (b/a).**
+
+The label-free encoder never sees votes, so per confused feature we can ask whether the confusion
+is in the **data** (encoder also confused → genuine information limit) or the **humans** (info in
+the pixels; encoder separates what people cannot). Grounded in v1's own correlation analysis,
+confusion splits three ways, each with a distinct fingerprint across the
+**(inclination × imaging-depth)** plane:
+
+1. **Projection** (viewing-angle information loss) — e.g. edge-on disk ↔ cigar elliptical
+   (v1: Edge-on × Cigar = +0.83). Angle-dependent, imaging-depth-**invariant**.
+2. **Resolution *or* semantic** — arm-count, winding, bulge-shape (near-zero v1 off-diagonals).
+   The imaging-depth axis distinguishes them: resolution **improves** with deeper imaging;
+   semantic does not.
+3. **Genuine co-occurrence vs artefactual correlation** *(HYPOTHESIS — unconfirmed)* — bar +
+   spiral structure (v1: Bar × 2-arms = +0.56). The method's hard case: entanglement here may be
+   **correct physics**, not a representation limit. Adjudicated by the eigen-triangulation's
+   causal cross-check (conditional-recoverability under matching).
+
+**Inclination proxy = axis ratio (b/a)** — an *independent photometric* measurement (SDSS
+pipeline, from the pixels), so conditioning on it to study *vote*-confusion is **not circular**
+(using the T01/T07 votes as the proxy *would* be). This is a **new capability on the existing
+probe** (probe within inclination bins / with b/a as covariate) — it does **not** revise the
+locked probing sub-systems.
+
+**Status of the taxonomy for the paper:** it is the *mechanism for Framing-B's earned payoff*,
+held as interpretive lens **pending results** — NOT the paper's spine (which stays Framing-A:
+method + ladder + controls). See the design spec (`docs/galaxy-jepa-spec.pdf`, §Framing,
+§Confound).
+
+**Data-layer consequence:** b/a (`expAB_r`, `deVAB_r`) is SDSS photometry, **not** a GZ2 vote
+column — a **new pull requirement** for the probe corpus, distinct from both the masking pull
+(petroRad + arcsec/pixel) and the nuisance join (z/mag/radius/SNR/PSF). Cheap: a `PhotoObj` join
+on `objID`, no image re-cut.
+
+> **Landed.** `metadata.AXIS_RATIO_SQL` / `pull.pull_axis_ratios` + `pull.merge_columns`; the two
+> columns are in `data/probe-40k/metadata.csv` (40,000/40,000 matched). Deliberately **not** in
+> `probing.extract.DEFAULT_NUISANCE_COLS` — inclination is a conditioning axis, and regressing it
+> out as a nuisance would remove the very thing the taxonomy studies (invariant-tested).
+> **Open:** which axis ratio per population (`expAB` for disks vs `deVAB` for ellipticals) — both
+> are pulled, so the choice stays downstream of the data.
+
+---
+
+## D14 — Feature-set = a two-scheme experiment, conditional-population probing — *decided (signed off)*
+
+- [x] **The feature set is an *experiment over schemes*, not a fixed choice.**
+- [x] **Each feature probed within its conditional population — as a *comparison*, not a hard mask.**
+
+**Conditional-population probing.** The GZ2 tree is conditional: a feature is only well-defined
+within the population that reaches its question (boxy-bulge is meaningless for a no-bulge galaxy —
+v1's "Q4 can't be yes and Q7 can't be no for the same galaxy"). **But do not hard-mask the
+"incoherent" galaxies away** — a no-bulge galaxy carrying boxy-bulge votes is a *measurement of
+human disagreement*, and masking it pre-imposes the tree's logic before testing whether it holds
+(circular). Instead: probe each feature across **different** population definitions (full vs
+consensus-conditional) and **compare**; study the off-population galaxies as their own object
+(concentrated = systematic confusion = finding; scattered = noise). Reuse `data/splits.py`
+firewall machinery. The consensus gate threshold is a **per-run knob**.
+
+**The two schemes (the experiment).**
+- **Scheme 1 — full tree (37 answers, per-bucket)**, each in its conditional population. Honest
+  baseline; expected weak on the v1-confused features (echoes v1 = a finding). BY family = 37.
+  **Power confound:** per-bucket deep-feature weakness is confounded between genuine-absence and
+  split-sample (~9,870 spirals ÷ 6 arm-buckets ≈ 1,600 each) — Scheme 1 alone can't distinguish;
+  do **not** read per-bucket weakness as "absent."
+- **Scheme 2 — reduced/smart**: graded questions → one graded axis each; binary well-posed → one
+  binary feature; odd-subtypes exploratory. BY family ≈ 10–13. Also a **power diagnostic**.
+- **The comparison is a result.** Same ladder both ways ⇒ reduction cosmetic; differ ⇒ reducing
+  changes what's expressible ⇒ a real taxonomy result. **Order: full first** (transparent).
+
+Implementation: **schemes are configs**, one harness (reconfigure, don't rebuild); BY family count
+is per-config. See `docs/galaxy-jepa-spec.pdf`, §Feature-scheme experiment.
+
+> **Landed.** `probing/schemes.py` (`full_tree_scheme` = 37, `reduced_scheme`), the conditional
+> chains as `metadata.GZ2_CONDITIONS`, per-feature eligibility on `LabelProvider`, and the
+> full-vs-conditional comparison in `run_probing` (`ProbingReport.population_comparison`).
+> **Open sub-question — graded-axis existence test (AUC vs correlation).** A graded axis may get a
+> *correlation* test (Spearman/permutation) rather than AUC — but that is the *same measurement*
+> as the uncertainty geometry for that feature, so they may collapse. Binary features keep AUC.
+> **Not resolved:** `FeatureSpec.require_testable()` raises `GradedExistenceTestUndecided` rather
+> than defaulting. Scheme 1 has no graded features, so it runs first and this blocks nothing.
+> **t09 bulge shape — resolved (signed off): one binary feature, boxy versus rounded**,
+> conditioned on edge-on **and** bulge-present. Scheme 2 goes to **10 primaries**, inside the
+> spec's stated band.
+>
+> *Why binary and not a fifth graded axis.* Rounded / boxy / no-bulge is not ordered. The four
+> axes already named are all genuinely ordinal (1→2→3→4→5+; tight→medium→loose;
+> none→just-noticeable→obvious→dominant; round→in-between→cigar). Bulge shape is a categorical
+> contrast with an absence bolted on, and collapsing it to an axis would impose an order that
+> does not exist — the exact failure the graded framing exists to prevent. The two-way contrast
+> also *is* D13's confound-2 deliverable: whether the encoder separates boxy from rounded where
+> humans cannot lives entirely there. The double condition exercises the conditional-population
+> machinery harder than a flat three-way split would.
+>
+> *Rejected-but-**deferred**, not discarded: three per-answer binaries at family 12.* Its one
+> real argument is that t05 and t09 are asked of **disjoint** populations (featured non-edge-on
+> versus featured edge-on), so t09's no-bulge is **not** redundant with t05's low end — it is the
+> same concept measured on the other branch, structurally v1's Q4/Q7 situation. If a cross-branch
+> consistency check is wanted later, family 12 is where it lives.
+>
+> Implementation note: the gate is expressed as the **summed** rounded+boxy share clearing the
+> consensus threshold, not as a negated no-bulge gate, so every condition in the scheme keeps
+> pointing the same way (`schemes.FeatureSpec.condition_groups`).
+
+---
+
+## D15 — What a run's identity covers — *decided (signed off)*
+
+**Fork.** `config_hash` hashed the whole `HarnessConfig`, `pretrain_dir` / `probe_dir` /
+`out_dir` included. Moving the probe corpus onto the external SSD would therefore have
+restamped every run — a different hash for identical science.
+
+**Decision.** Split the config into *where* it ran and *what it was*, and hash only the
+latter.
+
+- `PathsConfig` (`paths:`) holds the three directories and is named in
+  `RunConfig.NON_DETERMINING`, so `determining_dump()` drops it before hashing. A location is
+  neither necessary nor sufficient for data identity; `RunStamp.data_snapshot` already hashes
+  the object-id set, which is.
+- `RuntimeConfig` (`runtime:`) holds `device` and **is** hashed. A backend is not a location:
+  MPS, CPU and CUDA differ numerically, so they must hash apart. `device: null` resolves to
+  the concrete backend *before* hashing, or two backends would collide on one hash.
+- A **deny**-list, not an allow-list: a new field is hashed by default, so the failure mode is
+  a spurious "different run", never a false "same run".
+- The stamped hash carries a scheme marker (`STAMP_SCHEME = "v2:"`) so a v1 hex can never be
+  quietly compared against a v2 one. It is applied in `RunStamp.create` and **not** inside
+  `config_hash`, because `data.cache.pipeline_hash` reuses `config_hash` as the fp16 cache
+  *directory name* — prefixing there would force a full re-bake through the parity lock.
+
+**Landed.** `core/config.py` (`NON_DETERMINING`, `determining_dump`, `STAMP_SCHEME`,
+`RunStamp.device`), `harness.py` (`PathsConfig`, `RuntimeConfig`, `with_resolved_device`),
+`configs/pretrain.yaml` renested — `extra='forbid'` makes an un-renested config a loud
+load-time error, which is the intended crossing of the hash-scheme boundary. Pinned by
+`tests/test_provenance_identity.py`, including the re-bake guard on `pipeline_hash`.
+
+---
+
+## D16 — The normalisation statistic is an artefact, not a per-run computation — *decided (signed off)*
+
+**Fork.** `harness._build_pipeline` fitted the statistic on every run and persisted nothing. It
+was seeded, so it read as reproducible — but the subsample is `rng.choice(len(source), n_sample)`
+and `len(source)` went from 10,000 to 826,968, so the same seed began drawing an entirely
+different sample. The stamped `config.json` recorded `norm_sample: 8000` — the *instruction* to
+fit — not the constants fitting produced. `runs/slice/config.json` still does: replayed today it
+fits different numbers, lands in a different `pipeline_hash`, silently re-bakes, and stamps the
+same `config_hash`. The statistic is the parity lock across the pretraining corpus, the probing
+corpus and every baseline; a lock that re-derives itself per run is not one.
+
+**Decision.** Fit it **once**, on **valid pixels only**, over the **whole pretraining corpus less
+a 0.1% heaviest-stamp trim**, and pin it as a `FrozenChoice`.
+
+- **`NormalisationFreeze`** carries mean/std, corpus, `n_sample`, `stretch_q`,
+  `valid_pixels_only`, the detector rule, the full trim rule, a content hash over exactly those,
+  and the usual `frozen_at` / `frozen_by` / `rationale`. Being a `RunConfig` it is hashed into
+  `config_hash` and written to every artefact, so a result now says where its normalisation came
+  from.
+- **The harness cannot fit.** `_build_pipeline` takes the record and has no fitting path;
+  `harness.py` no longer imports `fit_normalise`. **No escape hatch**, unlike `effect_floor`: a
+  run that fitted its own statistic and stamped the forfeit would still have broken parity with
+  every other run, so the forfeit would be unpayable. A missing record, a `Q` mismatch, or a
+  hand-edited value each raise at load — including a value merely *rounded*, which is how the
+  guard first proved itself.
+- **Valid pixels only.** Cutout padding is exactly-constant and sits at 0, dragging every mean
+  down 1.71% and deflating every σ by 0.83–0.84% (`docs/spec/data.md` §1.2–1.3).
+- **The whole corpus, not a subsample.** `n_sample=8000` could not pin the number — two disjoint
+  halves disagreed by 4.54%, and the curve is a clean 1/√n that nothing reachable clears. Every
+  stamp is counted, `n_sample` is removed from the config, and no run can ask for a draw at all.
+- **The trim is a degree of freedom, so it is pinned like one.** The census statistic still failed
+  the gate: 11.0% of 200 disjoint halves disagreed past 1%, because the variance is carried by a
+  minority (the heaviest stamp alone holds 0.090% of the corpus's ch0 sum-of-squares, 745× its
+  uniform share). Stamps are ranked by **one** scalar — total valid-pixel sum-of-squares across
+  all channels — and those above the 99.9th percentile are dropped **from the fit only**: 827
+  stamps, 0.100%, pinned by a sha256 over the excluded IDs. One scalar and not a per-channel cut,
+  or different stamps would leave different channel statistics and the channels would stop being
+  comparable. Every stamp stays in the corpus, the cache and training. With the trim the gate
+  passes cleanly: median 0.314%, worst 0.861%, **0.0% breaching**.
+  It is **not** gate-passing: constants are a preprocessing transform, not a population parameter
+  needing an unbiased estimate, and a σ inflated by outliers compresses the typical galaxy's
+  post-normalisation range. Bright stamps should extend past ±1; that is what ±1 is for.
+- **The gate had to be fixed before it could be trusted.** The first version took the worst of 20
+  half-splits — a noisy estimator of a tail, which read 0.95% on one run and 1.70% on the next and
+  so decided by luck. Same 1% tolerance, stable estimator: 200 splits, gated on the *fraction*
+  that breach (≤5%).
+
+**Landed.** `data/validity.py` (new), `data/cache.py` (`fit_normalise` over valid pixels,
+`NormaliseFit` carrying the naive statistic alongside as the evidence), `data/transforms.py`
+(`NormalisationFreeze`), `core/config.py` (`FrozenChoice` lifted here), `harness.py`
+(`normalisation:` replaces `norm_sample:`), `configs/pretrain.yaml`. The fit has one honest
+window, `artifacts/e5_fit_normalisation.py`, which refuses to emit a record unless the corpus
+halves agree. Pinned by `tests/test_normalisation_freeze.py` and by a shipped-config check in
+`tests/test_configs_load.py`.
+
+**Flagged, not acted on.** The 827 trimmed stamps are not bright galaxies or saturated stars but
+**low-SNR stamps concentrated in a few bad SDSS imaging runs** — 67.4% from run 1000 alone, which
+is trimmed at 111× the corpus rate. No GZ2 probe galaxy comes from those runs, so the probing
+corpus is untouched. Recorded in `docs/spec/data.md` §1.3 as a data-quality finding.
+---
+
+## Summary — decisions and their state
+
+All of D1–D15 are now resolved. The table records what was chosen.
+
+| # | Fork | Decision |
 |---|---|---|
 | D1 | Framework | **PyTorch** |
 | D2 | Backbone | **Clean ViT-S/16 default** (masking-clean); backbone sweep (ViT→CCT/CvT→E(2)) is a rung confound control; CCT fallback if corpus thin |
@@ -208,9 +584,15 @@ galaxy-SSL baseline (Hayat et al. 2021, on SDSS — see `docs/related-work.md`).
 | D4 | From-scratch vs warm-start | **From-scratch** |
 | D5 | Masking | **Bounding-box-biased** (`docs/masking.md`) |
 | D6 | Pretraining vs probing corpus | **Decouple** — pretrain on large unlabelled SDSS, probe on GZ2 ~250k (both single-survey) |
-| D8 | Reliable-label filter | **Reuse v1 mean+2σ** (separate from uncertainty protocol) |
+| D8 | Reliable-label filter | **SUPERSEDED — run unfiltered.** v1 needed it because v1 trained on the labels; v2's encoder never sees one, and probe-target noise is conservative. Frozen at **1**, the minimum where a fraction is defined (GZ2 stores an unreached question as a literal 0.0). Sweep {1,5,11,21,37} pre-registered as robustness, not selection |
 | D12 | Cross-objective baselines | **All trained on the same SDSS corpus** (MAE = reproduce Wu & Walmsley recipe on SDSS; Euclid MAE is reference only) |
 | D12 (sub) | Contrastive choice | **MoCo** (SDSS-trained) — explicit negatives = clean contrast vs JEPA; established galaxy baseline (Hayat) |
+| D13 | Confound taxonomy + inclination | **Axis ratio (b/a) as the non-circular inclination proxy**; taxonomy is the Framing-B interpretive layer, held pending results |
+| D14 | Feature scope | **Two schemes as configs on one harness** (full-37 first, then reduced); conditional population as a **comparison**, never a mask; BY family per-scheme |
+| D15 | Run identity | **`paths` excluded from `config_hash`, `runtime` kept in**; deny-list; stamped hash carries a `v2:` scheme marker (never the cache key) |
+| D16 | Normalisation statistic | **Fitted once as an artefact, never per run** — valid pixels only, whole pretraining corpus less a 0.1% heaviest-stamp trim (fit only); `NormalisationFreeze` hashed into `config_hash`; refitting refused, no escape hatch |
 
-Everything else is already settled in the scratchpad and repeated above for the
-record.
+**Still open** (tracked in `docs/galaxy-jepa-spec.pdf` §Open questions register, not re-litigated
+here): the graded-axis existence test (D14); the effect-floor *value*; tie-handling in the
+existence p and the permutation test; the consensus-gate and vote-count thresholds; which axis
+ratio per population (D13).

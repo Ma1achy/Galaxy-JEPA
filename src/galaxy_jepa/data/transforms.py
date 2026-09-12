@@ -28,7 +28,7 @@ from typing import Protocol, runtime_checkable
 
 import numpy as np
 
-from galaxy_jepa.core.config import Configurable
+from galaxy_jepa.core.config import Configurable, FrozenChoice, config_hash
 
 # Images flow through the pipeline as float arrays shaped ``(C, H, W)`` (channels-first,
 # to match torch). Transforms preserve that shape.
@@ -124,6 +124,81 @@ class Normalise(Configurable):
         mean = np.asarray(self.mean, dtype=np.float64).reshape(-1, 1, 1)
         std = np.asarray(self.std, dtype=np.float64).reshape(-1, 1, 1)
         return (np.asarray(image, dtype=np.float64) - mean) / std
+
+
+class NormalisationFreeze(FrozenChoice):
+    """The pinned normalisation statistic — the parity lock, made into an artefact.
+
+    **This exists because its absence was a defect, not merely a gap.** ``fit_normalise``
+    draws ``rng.choice(len(source), n_sample)``, so the subsample depends on the corpus's
+    *size*; the harness refit it on every run and persisted nothing. When the pretraining
+    corpus went from 10,000 stamps to 826,968 the same seed began drawing an entirely
+    different sample, and the constants moved with no record anywhere that they had. Every
+    run before this freeze therefore used its own statistic.
+
+    So the record carries enough to prove a refit is unnecessary *and* to catch a stale one:
+    the values, what they were fit on, and the two things they are only valid *under* —
+    ``stretch_q`` (they are post-stretch statistics, so another Q makes them meaningless) and
+    ``detector`` (which pixels were counted). ``content_hash`` closes the last hole, so a value
+    edited by hand without re-fitting is refused rather than believed.
+
+    **The trim is a degree of freedom, so it is pinned like one.** Which stamps were excluded
+    from the *fit* is as free a choice as the sample size, and a record that omitted it would
+    let two different statistics claim the same provenance. The rule is therefore carried in
+    full — the ranking scalar, the threshold it was cut at, how many that excluded, and a hash
+    over the excluded object IDs so the exact set is verifiable rather than merely described.
+    Set ``trim_threshold`` to infinity and ``trim_excluded`` to 0 to record that nothing was
+    trimmed: "no trim" is a choice that gets stated, not a field left out.
+    """
+
+    mean: tuple[float, ...]
+    std: tuple[float, ...]
+    corpus: str  # which corpus the statistic was fitted on — always the *pretraining* one
+    n_sample: int
+    seed: int
+    stretch_q: float  # the AsinhStretch Q these statistics sit downstream of
+    valid_pixels_only: bool
+    detector: str  # the validity rule that decided which pixels counted
+    trim_rank: str  # the ONE scalar stamps were ranked by, applied across all channels together
+    trim_threshold: float  # a stamp is excluded from the FIT iff its rank exceeds this
+    trim_excluded: int
+    trim_ids_sha256: str  # sha256 over the excluded object IDs, sorted, as 8-byte big-endian
+    content_hash: str
+    code_sha: str
+
+    def determining_fields(self) -> dict[str, object]:
+        """Everything the statistic actually depends on — what ``content_hash`` covers."""
+        return {
+            "mean": list(self.mean),
+            "std": list(self.std),
+            "corpus": self.corpus,
+            "n_sample": self.n_sample,
+            "seed": self.seed,
+            "stretch_q": self.stretch_q,
+            "valid_pixels_only": self.valid_pixels_only,
+            "detector": self.detector,
+            "trim_rank": self.trim_rank,
+            "trim_threshold": self.trim_threshold,
+            "trim_excluded": self.trim_excluded,
+            "trim_ids_sha256": self.trim_ids_sha256,
+        }
+
+    def expected_hash(self) -> str:
+        return config_hash(self.determining_fields())
+
+    def to_normalise(self) -> Normalise:
+        """The frozen transform. Constructed, never fitted."""
+        self.assert_intact()
+        return Normalise(mean=self.mean, std=self.std)
+
+    def assert_intact(self) -> None:
+        if self.content_hash != self.expected_hash():
+            raise ValueError(
+                "the normalisation freeze has been edited since it was fitted: content_hash "
+                f"{self.content_hash[:12]} does not match the record it covers "
+                f"({self.expected_hash()[:12]}). Re-fit it rather than hand-editing — the "
+                "whole point of the record is that the numbers cannot drift silently."
+            )
 
 
 class Pipeline(Configurable):

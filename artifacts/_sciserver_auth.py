@@ -50,9 +50,22 @@ def _valid(token: str) -> str | None:
         return None
 
 
+def _login(name: str, secret: str) -> str | None:
+    """Mint a token from SciServer credentials, or None — never leak the password."""
+    try:
+        token = str(Authentication.login(name, secret)).strip()
+    except Exception:  # noqa: BLE001 — scrub: the raw error can echo the credentials
+        return None
+    return token if token and _valid(token) else None
+
+
 def authenticate(*, verbose: bool = True) -> str:
     """Return a valid SciServer token, refreshing via login if the cached one is stale."""
-    load_dotenv(ENV)
+    # override=True matters: without it a second call is a no-op, because python-dotenv
+    # refuses to replace a variable already in os.environ. A long-running driver could then
+    # never pick up a refreshed token -- it would re-read the stale one forever and have to be
+    # killed and relaunched. Re-reading .env is the whole point of calling this again.
+    load_dotenv(ENV, override=True)
     token = os.environ.get("SCISERVER_TOKEN", "").strip()
 
     user = _valid(token)
@@ -62,16 +75,35 @@ def authenticate(*, verbose: bool = True) -> str:
             print(f"auth: cached token OK (user {user})")
         return token
 
-    # This account logs into SciServer via institutional SSO (Microsoft), so the
-    # username/password login API cannot mint a token (it 401s for federated accounts).
-    # The only path is a portal token: log into SciServer in the browser, open a Compute
-    # container, run `from SciServer import Authentication; print(Authentication.getToken())`,
-    # and paste it into the SCISERVER_TOKEN line in .env.
+    # Token lifetime is NOT predictable: measured at 24 h once (Sun 19:40 -> Mon 19:39) and
+    # 7.5 h the next time (Mon 22:03 -> Tue 05:30). Do not build a clock on it -- probe.
+    #
+    # Minting from credentials would make a long pull unattended, and SciServer's docs are
+    # clear that SSO links to a native account rather than replacing one, so credentials do
+    # exist. Measured 2026-09-07: they sign in fine at the web portal but this endpoint
+    # (login-portal/keystone/v3/tokens) returns 401 for the same pair -- the portal and the
+    # Keystone API are different backends. The branch stays wired because it costs nothing
+    # and would start working if that is ever fixed; today it always falls through.
+    name = os.environ.get("SCISERVER_USERNAME", "").strip()
+    secret = os.environ.get("SCISERVER_PASSWORD", "").strip()
+    if name and secret:
+        fresh = _login(name, secret)
+        if fresh:
+            Authentication.setToken(fresh)
+            _persist_token(fresh)
+            if verbose:
+                print(f"auth: minted a fresh token by login (user {_valid(fresh) or name})")
+            return fresh
+        if verbose:
+            print("auth: login with SCISERVER_USERNAME/PASSWORD was refused; falling back")
+
     raise SystemExit(
-        "SciServer token in .env is missing or expired. This is an SSO account, so it must "
-        "be refreshed manually: log into SciServer, open a Compute container, run "
-        "`from SciServer import Authentication; print(Authentication.getToken())`, and paste "
-        "the value into SCISERVER_TOKEN in .env."
+        "SciServer token in .env is missing or expired.\n"
+        "  Refresh it: sign in at apps.sciserver.org, then read the `portalCookie` cookie --\n"
+        "  that IS the token (32 hex). No Compute container or JupyterLab wait is needed.\n"
+        "  Put the value on the SCISERVER_TOKEN line in .env.\n"
+        "  Credentials do not help: the Keystone login API 401s even for the username and\n"
+        "  password the web portal accepts."
     )
 
 

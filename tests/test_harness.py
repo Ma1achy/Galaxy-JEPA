@@ -14,13 +14,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from conftest import fit_freeze, make_freeze
 from galaxy_jepa.core.config import RunStamp
 from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
 from galaxy_jepa.harness import (
     HarnessConfig,
     ModelConfig,
     ObjectiveConfig,
+    PathsConfig,
     ProbeConfig,
+    RuntimeConfig,
     evaluate_probe,
     run_harness,
 )
@@ -70,13 +73,13 @@ def _make_corpus(root: Path, *, n: int, base_id: int, labelled: bool, seed: int)
     return root
 
 
-def _cfg(pretrain: Path, probe: Path, out: Path) -> HarnessConfig:
+def _cfg(pretrain: Path, probe: Path, out: Path, *, fit: bool = True) -> HarnessConfig:
     return HarnessConfig(
-        pretrain_dir=str(pretrain),
-        probe_dir=str(probe),
-        out_dir=str(out),
-        device="cpu",
-        norm_sample=10_000,
+        paths=PathsConfig(pretrain_dir=str(pretrain), probe_dir=str(probe), out_dir=str(out)),
+        runtime=RuntimeConfig(device="cpu"),
+        normalisation=fit_freeze(pretrain)
+        if fit
+        else make_freeze((0.1, 0.2, 0.3), (1.1, 1.2, 1.3)),
         monitor_frac=0.25,
         objective=_OBJ,
         model=_MODEL,
@@ -85,7 +88,7 @@ def _cfg(pretrain: Path, probe: Path, out: Path) -> HarnessConfig:
 
 
 def test_harness_config_roundtrips_and_stamps(tmp_path):
-    cfg = _cfg(tmp_path / "pre", tmp_path / "probe", tmp_path / "out")
+    cfg = _cfg(tmp_path / "pre", tmp_path / "probe", tmp_path / "out", fit=False)
     dumped = cfg.model_dump(mode="json")
     assert HarnessConfig.model_validate(dumped) == cfg  # serialise → load round-trips
     # the objective config builds a JepaConfig carrying the headline β knob
@@ -134,3 +137,52 @@ def test_evaluate_probe_reproduces_headline(tmp_path):
     again = evaluate_probe(cfg)
     assert again.auc == pytest.approx(report.auc)
     assert again.n_test == report.n_test
+
+
+class TestTheSeedActuallyDeterminesTheEncoder:
+    """``RunStamp`` claims a run is determined by ``(config_hash, code_sha, data_snapshot, seed)``.
+
+    It was not. ``seed`` reached the masker (``loss_step(seed=cfg.seed + step)``) and, since Brief
+    G1, the data order (``ResumableShuffle``) — but **nothing in the package ever called**
+    ``torch.manual_seed``, so the ViT's parameters came from whatever ambient RNG state the process
+    held. Two runs with byte-identical stamps produced different encoders. Found while comparing two
+    Brief G3 throughput runs whose collapse traces diverged under the same seed.
+    """
+
+    def _encoder(self, seed: int):
+        import torch
+
+        from galaxy_jepa.harness import seed_init
+
+        torch.manual_seed(999)  # ambient state the fix must override, not inherit
+        return seed_init(seed, 64, {"patch_size": 16, "embed_dim": 32, "depth": 2, "heads": 2})
+
+    def test_the_same_seed_gives_byte_identical_weights(self):
+        import torch
+
+        a, b = self._encoder(0), self._encoder(0)
+        for pa, pb in zip(a.parameters(), b.parameters(), strict=True):
+            assert torch.equal(pa, pb)
+
+    def test_a_different_seed_gives_different_weights(self):
+        import torch
+
+        a, b = self._encoder(0), self._encoder(1)
+        assert any(
+            not torch.equal(pa, pb) for pa, pb in zip(a.parameters(), b.parameters(), strict=True)
+        )
+
+    def test_the_ambient_rng_state_cannot_leak_in(self):
+        """Without the seeding, drawing first from the same generator changed the init."""
+        import torch
+
+        from galaxy_jepa.harness import seed_init
+
+        kwargs = {"patch_size": 16, "embed_dim": 32, "depth": 2, "heads": 2}
+        torch.manual_seed(7)
+        first = seed_init(3, 64, kwargs)
+        torch.manual_seed(7)
+        _ = torch.randn(1000)  # advance the ambient stream
+        second = seed_init(3, 64, kwargs)
+        for pa, pb in zip(first.parameters(), second.parameters(), strict=True):
+            assert torch.equal(pa, pb)

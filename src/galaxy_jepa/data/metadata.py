@@ -34,11 +34,12 @@ PRETRAIN_SQL = """\
 SELECT TOP {limit}
     p.objID, p.ra, p.dec,
     p.petroRad_r, p.petroRadErr_r,
-    p.modelMag_r,
+    p.modelMag_r, p.modelMagErr_r,
     p.run, p.camcol, p.field, p.rerun
 FROM PhotoPrimary AS p
 WHERE p.type = 3 AND p.clean = 1
   AND p.modelMag_r BETWEEN {mag_min} AND {mag_max}
+  AND p.petroRad_r > {petro_min} AND p.petroRad_r <= {petro_max}{stride_clause}
 ORDER BY p.objID"""
 
 # Join keys confirmed against the live DR17 schema:
@@ -84,6 +85,74 @@ GZ2_TREE: dict[str, tuple[str, ...]] = {
         "a37_cant_tell",
     ),
 }
+
+# The GZ2 tree is **conditional** (Willett+2013 Fig. 1 / Table 2): most questions are only put
+# to a volunteer who gave a particular upstream answer. This maps each question to the chain of
+# upstream *answers* that reaches it — catalogue structure, not a modelling choice.
+#
+# It exists so a feature can be probed within the population that actually reached its question
+# (D14). Crucially that is run as a **comparison** against the full population, never as a hard
+# mask: a no-bulge galaxy carrying boxy-bulge votes is a measurement of human disagreement, and
+# masking it away would pre-impose the tree's logic before testing whether it holds.
+#: question -> the ``(question, answer)`` chain that must be satisfied to reach it.
+GZ2_CONDITIONS: dict[str, tuple[tuple[str, str], ...]] = {
+    "t01_smooth_or_features": (),  # asked of everything
+    "t02_edgeon": (("t01_smooth_or_features", "a02_features_or_disk"),),
+    "t03_bar": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+    ),
+    "t04_spiral": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+    ),
+    "t05_bulge_prominence": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+    ),
+    "t06_odd": (),  # asked of everything
+    "t07_rounded": (("t01_smooth_or_features", "a01_smooth"),),
+    "t08_odd_feature": (("t06_odd", "a14_yes"),),
+    "t09_bulge_shape": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a04_yes"),
+    ),
+    "t10_arms_winding": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+        ("t04_spiral", "a08_spiral"),
+    ),
+    "t11_arms_number": (
+        ("t01_smooth_or_features", "a02_features_or_disk"),
+        ("t02_edgeon", "a05_no"),
+        ("t04_spiral", "a08_spiral"),
+    ),
+}
+
+#: Questions whose answers form an **ordered** scale rather than unordered alternatives. Scheme 2
+#: collapses each of these to a single graded axis (D14); the ordering is the answer order in
+#: :data:`GZ2_TREE`, which is the catalogue's own.
+GZ2_GRADED_QUESTIONS: tuple[str, ...] = (
+    "t05_bulge_prominence",
+    "t07_rounded",
+    "t10_arms_winding",
+    "t11_arms_number",
+)
+
+
+def vote_column(question: str, answer: str, variant: str = "fraction") -> str:
+    """The catalogue column for one ``(question, answer, variant)`` triple.
+
+    Single place the naming convention is spelled, so a scheme cannot drift from the pull.
+    """
+    if variant in _DISQUALIFIED_VOTE_VARIANTS:
+        raise ValueError(f"variant {variant!r} is disqualified (debiased/flag must never be read)")
+    if question not in GZ2_TREE:
+        raise KeyError(f"unknown GZ2 question {question!r}")
+    if answer not in GZ2_TREE[question]:
+        raise KeyError(f"{answer!r} is not an answer to {question!r}")
+    return f"{question}_{answer}_{variant}"
+
 
 # RAW continuous vote variants only. `_debiased` and `_flag` are DELIBERATELY EXCLUDED and
 # the exclusion is enforced below: `_debiased` applies the Willett+2013 redshift correction,
@@ -142,6 +211,37 @@ JOIN Field AS f ON f.fieldID = p.fieldID
 JOIN SpecObj AS s ON s.specObjID = g.specobjid
 ORDER BY g.dr8objid"""
 
+# --- axis ratio (inclination proxy, D13) ---------------------------------------------
+
+# b/a from the SDSS pipeline's two-dimensional profile fits: `expAB_r` (exponential/disk) and
+# `deVAB_r` (de Vaucouleurs/elliptical). This is an *independent photometric* measurement made
+# from the pixels, which is exactly why conditioning on it to study **vote** confusion is not
+# circular — using the t01/t07 votes as the inclination proxy would be (D13).
+#
+# Deliberately a separate, catalogue-only query rather than columns bolted onto PROBE_SQL:
+#   * the 40k probe corpus is already cut, and re-running the probe pull to gain two columns
+#     would re-cut every stamp for nothing;
+#   * the FROM/JOIN/ORDER BY below mirror PROBE_SQL_TEMPLATE exactly, so `TOP {limit}` selects
+#     the *same* deterministic objID set the corpus was pulled with — the top-up joins on
+#     objID with no upload step and no manifest drift.
+# Both variants are pulled: which one applies per population (disk vs elliptical) is an open
+# item in the spec's register, so the choice stays downstream of the data.
+AXIS_RATIO_SQL = """\
+SELECT TOP {limit}
+    g.dr8objid AS objID,
+    p.expAB_r, p.deVAB_r
+FROM zoo2MainSpecz AS g
+JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
+JOIN Field AS f ON f.fieldID = p.fieldID
+JOIN SpecObj AS s ON s.specObjID = g.specobjid
+ORDER BY g.dr8objid"""
+
+#: The axis-ratio columns landed by the top-up. NOT nuisance regressors: inclination is an
+#: experimental *conditioning* axis for the confound-fingerprint work (D13), and regressing it
+#: out as a nuisance would remove the very thing the taxonomy is trying to study.
+AXIS_RATIO_COLS: tuple[str, ...] = ("expAB_r", "deVAB_r")
+
+
 # Selects BOTH sides' ra/dec so the join key can be validated before it is trusted.
 JOIN_CHECK_SQL = """\
 SELECT TOP {limit}
@@ -152,8 +252,92 @@ JOIN PhotoObjAll AS p ON p.objID = g.dr8objid
 ORDER BY g.dr8objid"""
 
 
-def pretrain_sql(limit: int, *, mag_min: float = 14.0, mag_max: float = 19.0) -> str:
-    return PRETRAIN_SQL.format(limit=int(limit), mag_min=mag_min, mag_max=mag_max)
+# The over-stamp threshold, in arcsec, and the *one* place the number lives — the probe corpus's
+# own 99th percentile (24.3"). Past it the galaxy is wider than the 256 px (101") stamp can hold,
+# so the measured radius stops describing the image the encoder sees, whether or not the
+# measurement is sound.
+#
+# Two populations sit above it, and they are **not** the same thing (measured on the 2,143
+# flagged probe galaxies). 25-100" is 98.7% of them and they are *real*: redshift falls
+# monotonically with radius (0.023 -> 0.007) at r ~ 13.5-14.5, featured fraction steady at ~0.66
+# — big nearby disks, correctly measured, simply too large for the cutout. Past 100" (27 objects)
+# the pattern inverts — redshift back up to 0.051, fainter, featured collapsing to 0.41 and the
+# star-or-artifact vote quadrupling to 0.20 — which is the deblending-failure signature, running
+# to 258" = 651 px. So the cut is "larger than the stamp", not "broken", and only its far tail is
+# the pathology.
+#
+# The pretraining pull cuts the whole tail away structurally (`pretrain_sql`); the probe corpus
+# keeps those galaxies and flags them instead (`pull.with_derived_columns`) — see D6 and
+# `docs/spec/data.md`.
+PETRORAD_SUSPECT_ARCSEC = 25.0
+
+
+def pretrain_sql(
+    limit: int,
+    *,
+    mag_min: float = 14.0,
+    mag_max: float = 19.0,
+    petro_min: float = 5.0,
+    petro_max: float = PETRORAD_SUSPECT_ARCSEC,
+    stride: int = 1,
+) -> str:
+    """The unlabelled pretraining query (D6). ``stride`` sub-samples it uniformly.
+
+    ``TOP {limit} ... ORDER BY p.objID`` alone returns a **contiguous patch of sky**, not a
+    sample of it: an SDSS objID is bit-packed by run/camcol/field, so "the first N by objID"
+    walks the survey in observation order. Harmless for a 10k pilot; for a multi-million-stamp
+    corpus it would bake a spatial selection into the encoder.
+
+    ``stride`` fixes that by keeping objIDs where ``objID % stride = 0`` — roughly 1/stride of
+    the galaxies in *every* field, so coverage stays uniform across the footprint and the
+    sample is reproducible from the stride alone. Measured on the 230,358 real objIDs of the
+    probe corpus, strides 2-17 select within 1.5% of their expected fraction and shift mean
+    r-magnitude by <0.01 mag and mean Petrosian radius by <0.05" — no brightness or size
+    selection. A prime is marginally the most even, so prefer one.
+
+    ``modelMagErr_r`` is carried purely so ``pull.with_derived_columns`` — the single SNR
+    derivation site, which every pull path routes through — can compute ``snr_r`` instead of
+    warning and writing NaN once per galaxy. The pretraining corpus is label-free and never
+    probed, so SNR is not a nuisance regressor here; it is kept because it costs one column
+    and makes the pretrain/probe distribution comparison possible.
+
+    ``petro_min`` is the **resolution floor**, and it is load-bearing rather than cosmetic.
+    GZ2's own selection (bright, r < ~17.77, with a size cut) means excluding Galaxy Zoo
+    strips the bright end and leaves a pool whose median galaxy spans ~18 px at 0.396"/px —
+    about *one* 16x16 ViT patch, against ~33 px (two patches) for the probe corpus. Masking
+    one-token galaxies would spend I-JEPA's prediction budget on sky, and a weak probe would
+    then measure the tokeniser rather than the science (the spec's own resolution-floor
+    concern). ``> 5"`` restores parity: median 34 px, matching the probe's 33 px.
+
+    ``petro_max`` cuts the other tail: ``<= 25"`` is the probe corpus's own 99th percentile, and
+    past it a galaxy no longer fits the 256 px (101") stamp. It is **not** purely a data-quality
+    cut, and the earlier claim that GZ2's own cuts shielded the probe corpus from the tail was
+    simply wrong — the probe corpus carries 2,143 such galaxies (`PETRORAD_SUSPECT_ARCSEC`
+    records what they are). Only the far tail, past 100" and running to 258" = 651 px, is
+    deblending failure; the bulk are real nearby disks that the cutout cannot contain. So this
+    cut also declines a genuine population, which is a selection consequence to record (D6)
+    rather than a free win — accepted because an uncontained galaxy teaches the encoder a
+    truncated shape.
+
+    What these cuts cannot fix is the **magnitude** shift, and that is structural rather than
+    an oversight: GZ2 labelled essentially every bright well-resolved SDSS galaxy, so
+    "unlabelled" almost *means* "fainter". Matching the probe's magnitude distribution caps a
+    pretraining corpus at ~150k — smaller than the probe corpus itself. The residual shift
+    (KS ~0.78 in r-magnitude) is therefore accepted, documented, and left to the probe-time
+    brightness/SNR controls; it also runs in the favourable direction, training on the noisy
+    faint end and probing on the clean bright one.
+    """
+    if stride < 1:
+        raise ValueError(f"stride must be >= 1; got {stride}")
+    clause = "" if stride == 1 else f"\n  AND p.objID % {int(stride)} = 0"
+    return PRETRAIN_SQL.format(
+        limit=int(limit),
+        mag_min=mag_min,
+        mag_max=mag_max,
+        petro_min=petro_min,
+        petro_max=petro_max,
+        stride_clause=clause,
+    )
 
 
 def probe_sql(limit: int) -> str:
@@ -163,6 +347,11 @@ def probe_sql(limit: int) -> str:
 
 def join_check_sql(limit: int = 10) -> str:
     return JOIN_CHECK_SQL.format(limit=int(limit))
+
+
+def axis_ratio_sql(limit: int) -> str:
+    """The catalogue-only axis-ratio top-up query (D13) — same object set as :func:`probe_sql`."""
+    return AXIS_RATIO_SQL.format(limit=int(limit))
 
 
 # --- GZ2 t01 label derivation -------------------------------------------------------

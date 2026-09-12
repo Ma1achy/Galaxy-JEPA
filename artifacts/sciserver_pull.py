@@ -38,7 +38,9 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import itertools
 import json
+import os
 import shutil
 import sys
 import tarfile
@@ -50,11 +52,47 @@ from _sciserver_auth import authenticate  # noqa: E402
 
 from galaxy_jepa.data.manifest import manifest_hash  # noqa: E402
 from galaxy_jepa.data.metadata import pretrain_sql, probe_sql, run_sql  # noqa: E402
-from galaxy_jepa.data.pull import check_join  # noqa: E402
-from galaxy_jepa.data.sciserver import chunk_target_ids, merge_corpora  # noqa: E402
+from galaxy_jepa.data.pull import check_join, with_derived_columns  # noqa: E402
+from galaxy_jepa.data.sciserver import (  # noqa: E402
+    align_append_fieldnames,
+    chunk_target_ids,
+    merge_corpora,
+)
 
 CUTTER = Path(__file__).with_name("sciserver_cut.py")
 WORK = Path(".sciserver_work")
+
+# A *stalled* transfer is the failure mode the retry loop in `_fetch_one` cannot see. It
+# handles a connection that drops loudly (ChunkedEncodingError), but when the file service
+# stops sending without closing, `iter_content` blocks in a socket read forever and no
+# exception ever reaches the `except` — the pull simply stops, alive and at 0% CPU.
+# (Observed twice, ~3 h lost: socket ESTABLISHED, zero bytes for 45 min.) A stall always
+# lands on a multiple of the 8 MiB read size, so a repeated byte count means nothing — it
+# is not a server-side cap to route around.
+#
+# `socket.setdefaulttimeout` does NOT fix this: `SciServer.Files.download` calls
+# `requests.get(..., stream=True)` with no timeout, and requests then explicitly applies
+# `settimeout(None)` to the connection, overriding the process default. The timeout has to
+# be injected where requests actually reads it — the transport adapter, which is the one
+# seam every verb and Session funnels through.
+_CONNECT_TIMEOUT, _READ_TIMEOUT = 30, 180  # 8 MiB lands in ~6-8 s at 1.0-1.4 MiB/s
+
+
+def _install_default_timeouts() -> None:
+    """Give every SciServer HTTP read a deadline, so a half-open socket raises instead of hanging."""
+    import requests.adapters
+
+    original = requests.adapters.HTTPAdapter.send
+
+    def send(self, request, **kwargs):  # type: ignore[no-untyped-def]
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = (_CONNECT_TIMEOUT, _READ_TIMEOUT)
+        return original(self, request, **kwargs)
+
+    requests.adapters.HTTPAdapter.send = send  # type: ignore[method-assign]
+
+
+_install_default_timeouts()
 
 # SciServer job status codes. CANCELED (128) is how the Small domain reports a job that hit
 # its hard ~60-min wall-clock cap — it is a TERMINAL FAILURE, not a transient: treating it as
@@ -62,6 +100,83 @@ WORK = Path(".sciserver_work")
 _SUCCESS = 32
 _FAILED = {64, 128}  # ERROR, CANCELED/TIMEOUT
 _TERMINAL = {_SUCCESS} | _FAILED
+
+#: A graceful stop, for rotating the token without interrupting a wave. Touch
+#: ``.sciserver_work/<corpus>.stop`` and the driver finishes the wave already in flight —
+#: downloading and merging it — then exits without submitting more. Killing the process
+#: instead would abandon a part-downloaded chunk and, worse, leave new jobs cut against a
+#: token that dies before they can be fetched. Resume with the same --mode full.
+def stop_path(corpus: str) -> Path:
+    return WORK / f"{corpus}.stop"
+
+
+def _stop_requested(corpus: str) -> bool:
+    """True once, consuming the sentinel so a stale file cannot stop the next run."""
+    f = stop_path(corpus)
+    if f.exists():
+        f.unlink(missing_ok=True)
+        return True
+    return False
+
+
+#: The fail-safe behind the planned rotation. If a token dies mid-run anyway, an expired
+#: token is neither a dead job nor a dead transfer: requeueing on it burns a bounded retry
+#: pass, and across a whole wave that can end a run while every job is still alive
+#: server-side. Hold position and re-read .env instead -- drop a fresh token in and the pull
+#: carries on with nothing lost. Bounded, so it can never hang silently forever.
+# Retries per call site, not per run: `_wait_for_token` is itself bounded, so the only way
+# these are all spent is a token that validates and is then refused, repeatedly. One retry
+# was too few -- a token in its dying minutes passed validation, 401'd on the very next call,
+# and killed a run with 350 chunks left.
+_AUTH_RETRIES = 5
+_TOKEN_WAIT_H = 12.0
+
+
+def _is_auth_error(exc: BaseException) -> bool:
+    t = str(exc).lower()
+    return "not authenticated" in t or "x-auth-token" in t or "401" in t
+
+
+def _token_works() -> bool:
+    """Does the token actually serve the APIs the pull uses?
+
+    Keystone validation is not a sufficient proxy: a token minutes from expiry passed
+    `getKeystoneUserWithToken` and was then refused by the file service on the very next
+    call. Probe what the caller is about to use, so "restored" means restored.
+    """
+    from SciServer import Files
+
+    try:
+        authenticate(verbose=False)
+        Files.getFileServices(verbose=False)
+    except (SystemExit, Exception):  # noqa: BLE001 — any failure means not usable yet
+        return False
+    return True
+
+
+def _wait_for_token(corpus: str, *, budget_h: float = _TOKEN_WAIT_H) -> None:
+    """Block until .env holds a working token again, logging so a wait never looks like a stall."""
+    deadline = time.time() + budget_h * 3600
+    tick = 0
+    while time.time() < deadline:
+        if _token_works():
+            print("[full] token restored — resuming")
+            return
+        if tick % 5 == 0:  # ~every 5 min: visible progress, and the log-silence watchdog stays quiet
+            left = int((deadline - time.time()) / 60)
+            print(f"[full] WAITING for a fresh SCISERVER_TOKEN in .env — {left} min of budget left")
+        tick += 1
+        time.sleep(60)
+    raise SystemExit(
+        f"[full] no valid token within {budget_h:g} h. Refresh SCISERVER_TOKEN in .env and "
+        f"re-run --mode full; {corpus} state is checkpointed, nothing is lost."
+    )
+
+
+#: Retry passes over chunks a pass requeued (a dead job, a connection dropped by the
+#: laptop sleeping). Bounded, and a pass that heals nothing ends the loop, so a
+#: permanently-broken chunk can never spin the run forever.
+_MAX_PASSES = 6
 
 
 def safe(fn, *args, _tries: int = 6, **kwargs):
@@ -104,7 +219,10 @@ def _targets(corpus: str, limit: int) -> tuple[list[dict], str]:
     rows = _net_retry(run_sql, sql)
     if not rows:
         sys.exit(f"no rows from {corpus} SQL (limit={limit})")
-    return rows, sql
+    # The package's single derivation site (object_id + snr_r). sciserver_cut.py passes every
+    # target column straight through to metadata.csv, so deriving here is what puts the SNR
+    # nuisance in the corpus — the HTTP path in data/pull.py calls the same function.
+    return with_derived_columns(rows), sql
 
 
 def _write_targets(rows: list[dict], path: Path) -> None:
@@ -118,8 +236,15 @@ def _write_targets(rows: list[dict], path: Path) -> None:
 
 
 def _pick_domain(Jobs, prefer: str):
+    # SciServer renamed the mount: the volume that was plain "SDSS SAS" is now published per
+    # release ("SDSS SAS DR19", "SDSS SAS DR20"), so an exact match finds nothing and the pull
+    # dies with "no compute domain mounts SDSS SAS". Prefix-match instead. This does NOT relax
+    # the release the stamps are cut from: `sciserver_cut.py` globs `**/dr17/**/frame-r-*` and
+    # exits loudly if that tree is absent, so the DR17 frames our existing corpus was cut from
+    # stay the only thing that can be cut. That guard is the format-parity lock, not this name.
     def has_sas(d):
-        return any((v.get("name") or "").lower() == "sdss sas" for v in d.get("volumes", []))
+        return any((v.get("name") or "").lower().startswith("sdss sas")
+                   for v in d.get("volumes", []))
 
     def has_astro(d):
         return any("astro" in (i.get("name") or "").lower() for i in d.get("images", []))
@@ -129,7 +254,12 @@ def _pick_domain(Jobs, prefer: str):
         sys.exit("no compute domain mounts SDSS SAS with an Astronomy image")
     chosen = next((d for d in cands if prefer.lower() in (d.get("name") or "").lower()), cands[0])
     image = next(i for i in chosen.get("images", []) if "astro" in (i.get("name") or "").lower())
-    sdss = next(v for v in chosen.get("volumes", []) if (v.get("name") or "").lower() == "sdss sas")
+    # Lowest-numbered release first: the older mount is likeliest to still carry the dr17 tree.
+    sas = sorted((v for v in chosen.get("volumes", [])
+                  if (v.get("name") or "").lower().startswith("sdss sas")),
+                 key=lambda v: (v.get("name") or ""))
+    sdss = sas[0]
+    print(f"[full] SAS volume={sdss.get('name')!r} (cutter still requires the dr17 frame tree)")
     return chosen, image, sdss
 
 
@@ -189,7 +319,10 @@ def _submit_chunk(Jobs, Files, *, corpus: str, k: int, rows: list[dict], stamp_p
     rel = f"{tmp['rootVolumeName']}/{tmp['owner']}/{tmp['name']}/galaxy_pull_{corpus}_{k}"
     results = f"/home/idies/workspace/{rel}"
 
-    fs = Files.getFileServices(verbose=False)[0]
+    # Through `safe`: this is a plain lookup, but it is the first call of both submit and
+    # fetch, so every transient the service throws lands here first. A bare call made a
+    # single 500 from /racm/storem/fileservices fatal to a 15-hour run.
+    fs = safe(Files.getFileServices, verbose=False)[0]
     safe(Files.createDir, fs, rel, quiet=True)
     safe(Files.upload, fs, f"{rel}/targets.csv", localFilePath=str(targets_local), quiet=True)
 
@@ -238,7 +371,10 @@ def _fetch_chunk(Jobs, Files, chunk: dict, dest: Path, *, poll_s: int, max_wait_
             "min — giving up. Re-run --mode full to resume."
         )
 
-    fs = Files.getFileServices(verbose=False)[0]
+    # Through `safe`: this is a plain lookup, but it is the first call of both submit and
+    # fetch, so every transient the service throws lands here first. A bare call made a
+    # single 500 from /racm/storem/fileservices fatal to a 15-hour run.
+    fs = safe(Files.getFileServices, verbose=False)[0]
     job_rel = rel
     for _ in range(90):  # results subfolder + corpus.tar.gz can lag the status flip by minutes
         job_rel = _job_output_dir(Files, fs, rel, jid)
@@ -257,10 +393,26 @@ def _fetch_chunk(Jobs, Files, chunk: dict, dest: Path, *, poll_s: int, max_wait_
 
     dest.mkdir(parents=True, exist_ok=True)
     local_tar = WORK / f"{chunk['k']}_corpus.tar.gz"
-    res = safe(Files.download, fs, f"{job_rel}/corpus.tar.gz", format="response")
-    with local_tar.open("wb") as fh:
-        for piece in res.iter_content(chunk_size=8 << 20):
-            fh.write(piece)
+    # A multi-hundred-MB transfer at ~1-2 MB/s runs for minutes and does drop
+    # (ChunkedEncodingError: IncompleteRead). Retry the transfer itself, and check the byte
+    # count against what the file service advertised — a truncated tarball that still opens
+    # would merge a short chunk and mark it done, silently losing galaxies.
+    for attempt in range(4):
+        try:
+            res = safe(Files.download, fs, f"{job_rel}/corpus.tar.gz", format="response")
+            with local_tar.open("wb") as fh:
+                for piece in res.iter_content(chunk_size=8 << 20):
+                    fh.write(piece)
+            got = local_tar.stat().st_size
+            if got != size:
+                raise OSError(f"truncated transfer: {got} of {size} bytes")
+            break
+        except Exception as exc:  # noqa: BLE001 — transfers drop; that is what this retries
+            local_tar.unlink(missing_ok=True)
+            if attempt == 3:
+                raise
+            print(f"[fetch] chunk {chunk['k']} transfer failed ({exc}); retrying ...")
+            time.sleep(10 * (attempt + 1))
     with tarfile.open(local_tar) as tar:
         tar.extractall(dest)
     local_tar.unlink(missing_ok=True)
@@ -351,6 +503,17 @@ def _read_all_targets(corpus: str) -> list[dict]:
         return list(csv.DictReader(fh))
 
 
+def _read_target_slice(corpus: str, offset: int, n: int) -> list[dict]:
+    """Rows ``[offset, offset+n)`` of the target list, read a row at a time.
+
+    Not ``_read_all_targets(...)[a:b]``: at the full-GZ2 scale the target list is 230k rows x
+    ~135 columns, which is several GB as dicts and OOM'd an 18 GiB machine mid-wave. A wave only
+    ever needs its own chunks, so hold only those.
+    """
+    with _all_targets_path(corpus).open(newline="") as fh:
+        return list(itertools.islice(csv.DictReader(fh), offset, offset + n))
+
+
 def _plan_chunks(n_rows: int, max_per_job: int) -> list[dict]:
     """Contiguous, order-preserving chunks recorded as (offset, n_targets) into the target list."""
     chunks, off, k = [], 0, 0
@@ -395,9 +558,12 @@ def _accumulate(chunk_dir: Path, out: Path) -> int:
     """Copy a fetched chunk's stamps into ``out`` and append its metadata rows (incremental merge).
 
     Per-wave accumulation keeps peak disk at out_dir + one wave's staging, rather than holding
-    every chunk's staging dir until a single final merge. All probe chunks share one header (the
-    same probe_sql), so a plain append is correct; the manifest is written once at the end over
-    the full accumulated object-ID set.
+    every chunk's staging dir until a single final merge. The manifest is written once at the
+    end over the full accumulated object-ID set.
+
+    The column order comes from :func:`align_append_fieldnames`, never from the chunk -- a
+    chunk-ordered row appended beneath the corpus's alphabetised header misaligns every column
+    silently, which is what mislabelled 190,358 galaxies here. See that function for why.
     """
     meta = chunk_dir / "metadata.csv"
     if not meta.exists():
@@ -407,19 +573,39 @@ def _accumulate(chunk_dir: Path, out: Path) -> int:
         fieldnames = reader.fieldnames or []
         rows = list(reader)
     out_meta = out / "metadata.csv"
-    new = not out_meta.exists()
+    fieldnames, write_header = align_append_fieldnames(out_meta, fieldnames)
     with out_meta.open("a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=fieldnames)
-        if new:
+        w = csv.DictWriter(fh, fieldnames=fieldnames, restval="")
+        if write_header:
             w.writeheader()
         for r in rows:
             oid = r["object_id"]
             src = chunk_dir / f"{oid}.fits"
             if not src.exists():
                 raise FileNotFoundError(f"{chunk_dir} lists {oid} but {src} is missing")
-            shutil.copy2(src, out / f"{oid}.fits")
+            _relocate(src, out / f"{oid}.fits")
             w.writerow(r)
+    # Force writeback before the next chunk: a wave writes several GB to an external disk, and
+    # dirty pages awaiting writeback are what put an 18 GiB machine under enough memory pressure
+    # to get this process killed mid-fetch.
+    os.sync()
     return len(rows)
+
+
+def _relocate(src: Path, dst: Path) -> None:
+    """Move a stamp into the corpus — a rename when possible, a copy only across devices.
+
+    Staging (``.sciserver_work/``) and the corpus normally sit on the same filesystem, so this
+    is a metadata operation. It used to be ``shutil.copy2``, which re-read and re-wrote every
+    stamp: ~1.4 GB of pointless I/O per chunk, and roughly 2.7 GB of page-cache churn that was
+    the local half of the memory kills. Extraction still lands in staging first, so a chunk that
+    dies mid-fetch cannot leave half its stamps in the corpus.
+    """
+    try:
+        os.replace(src, dst)
+    except OSError:  # EXDEV — staging and corpus on different filesystems
+        shutil.copy2(src, dst)
+        src.unlink(missing_ok=True)
 
 
 def _finalize_manifest(out: Path, query: str | None) -> None:
@@ -449,38 +635,143 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
     state = _load_or_plan(corpus, limit, out_dir, stamp_px=stamp_px, max_per_job=max_per_job)
     out = Path(state["out_dir"])
     out.mkdir(parents=True, exist_ok=True)
-    all_rows = _read_all_targets(corpus)
 
     domain, image, sdss = _pick_domain(Jobs, domain_pref)
     print(f"[full] domain={domain.get('name')!r} image={image.get('name')!r}")
 
-    pending = [c for c in state["chunks"] if c["status"] != "done"]
-    waves = [pending[i : i + max_concurrent] for i in range(0, len(pending), max_concurrent)]
-    print(f"[full] {len(state['chunks'])} chunks, {len(pending)} pending → {len(waves)} wave(s) "
-          f"of ≤{max_concurrent}" + (f"; running {max_waves} this invocation" if max_waves else ""))
+    n_chunks = len(state["chunks"])
 
-    ran = 0
-    for w, wave in enumerate(waves):
-        if max_waves and ran >= max_waves:
-            print(f"[full] stopping after {ran} wave(s) (--max-waves); re-run --mode full to resume")
-            break
-        print(f"[full] === wave {w + 1}/{len(waves)}: submit chunks {[c['k'] for c in wave]} ===")
+    def _submit_wave(wave: list[dict], label: str) -> None:
+        print(f"[full] === {label}: submit chunks {[c['k'] for c in wave]} ===")
         for c in wave:
-            rows = all_rows[c["offset"] : c["offset"] + c["n_targets"]]
-            rec = _submit_chunk(Jobs, Files, corpus=corpus, k=c["k"], rows=rows,
-                                stamp_px=state["stamp_px"], domain=domain, image=image, sdss=sdss)
-            c.update(jid=rec["jid"], rel=rec["rel"], status="submitted")
+            # A chunk already submitted has a job running server-side, independent of this
+            # process and of the local token (see the module docstring). Resuming after a crash
+            # or a token expiry must adopt that job, not fire a duplicate and orphan it.
+            if c["status"] == "submitted" and c.get("jid"):
+                print(f"[full] chunk {c['k']}: adopting live job {c['jid']} (already submitted)")
+                continue
+            rows = _read_target_slice(corpus, c["offset"], c["n_targets"])
+            # Submitting is the third place a 401 lands, and the one that actually killed a
+            # run: `_submit_chunk` asks for the file-service list before cutting, and an
+            # expired token there raised straight through the wave loop and out of main().
+            # Hold for a fresh token here too — the alternative is dying with 600 chunks left.
+            for attempt in range(_AUTH_RETRIES + 1):
+                try:
+                    rec = _submit_chunk(Jobs, Files, corpus=corpus, k=c["k"], rows=rows,
+                                        stamp_px=state["stamp_px"], domain=domain, image=image,
+                                        sdss=sdss)
+                except Exception as exc:  # noqa: BLE001
+                    if _is_auth_error(exc) and attempt < _AUTH_RETRIES:
+                        _wait_for_token(corpus)
+                        continue
+                    raise
+                c.update(jid=rec["jid"], rel=rec["rel"], status="submitted")
+                break
         _save_state(corpus, state)
+
+    def _await_wave(wave: list[dict]) -> None:
+        """Block until every job in ``wave`` has left the cluster (succeeded or failed).
+
+        This is what keeps the pipelining honest: submitting the next wave the moment the
+        previous one is *submitted* would put 2x max_concurrent jobs on a shared domain, and
+        the contention pushes every job toward the per-job wall-clock cap. Waiting for the cut to
+        finish — but not for the download — overlaps transfer with compute and nothing else.
+        """
+        for c in wave:
+            t0 = time.time()
+            while (time.time() - t0) < 90 * 60:
+                try:
+                    status = safe(Jobs.getJobDescription, c["jid"]).get("status")
+                except Exception as exc:  # noqa: BLE001
+                    if not _is_auth_error(exc):
+                        raise
+                    _wait_for_token(corpus)
+                    continue
+                if status in _TERMINAL:
+                    break
+                time.sleep(15)
+
+    def _drain_wave(wave: list[dict]) -> None:
         for c in wave:
             dest = WORK / f"{corpus}_chunk_{c['k']}"
-            _fetch_chunk(Jobs, Files, {"k": c["k"], "jid": c["jid"], "rel": c["rel"]},
-                         dest, poll_s=15, max_wait_min=90)
-            n = _accumulate(dest, out)
-            c["status"], c["n_written"] = "done", n
-            _save_state(corpus, state)
-            shutil.rmtree(dest, ignore_errors=True)
-            print(f"[full] chunk {c['k']} merged ({n} stamps) → {out}; staging freed")
-        ran += 1
+            for attempt in range(_AUTH_RETRIES + 1):
+                try:
+                    _fetch_chunk(Jobs, Files, {"k": c["k"], "jid": c["jid"], "rel": c["rel"]},
+                                 dest, poll_s=15, max_wait_min=90)
+                    n = _accumulate(dest, out)
+                except Exception as exc:  # noqa: BLE001 — nothing here may abort the whole pull
+                    # An expired token is neither of the two failures below: the job is alive
+                    # and its output is intact, only this process cannot ask for it. Hold for a
+                    # fresh one rather than requeueing, which would spend a bounded retry pass.
+                    if _is_auth_error(exc) and attempt < _AUTH_RETRIES:
+                        shutil.rmtree(dest, ignore_errors=True)
+                        _wait_for_token(corpus)
+                        continue
+                    # A dead job must not wedge the run. Leaving the chunk `submitted` with its
+                    # jid meant every later invocation re-adopted the corpse and aborted on it —
+                    # one transient server-side failure (or a laptop sleeping mid-poll) blocked
+                    # the whole pull permanently. Reset it to pending so a later pass resubmits
+                    # it, and carry on with the rest of the wave.
+                    if isinstance(exc, RuntimeError):  # the *job* died — it needs cutting again
+                        print(f"[full] chunk {c['k']} job failed, requeued for a fresh cut: {exc}")
+                        c.update(status="pending", jid=None, rel=None)
+                    else:  # the *transfer* died — the job's output is still there to re-download
+                        print(f"[full] chunk {c['k']} transfer failed, will retry download: {exc}")
+                    _save_state(corpus, state)
+                    shutil.rmtree(dest, ignore_errors=True)
+                    break
+                c["status"], c["n_written"] = "done", n
+                _save_state(corpus, state)
+                shutil.rmtree(dest, ignore_errors=True)
+                print(f"[full] chunk {c['k']} merged ({n} stamps) → {out}; staging freed")
+                break
+
+    # Submit the NEXT wave before draining the current one, so the cluster is cutting while we
+    # download. The two phases are independent — jobs run server-side, detached from this
+    # process — but were serialised, which left the cluster idle for the whole transfer. The
+    # file service moves ~1-2 MB/s, so at full-GZ2 scale that idle time is ~8 h of the run.
+    # In-flight cutting jobs are still `max_concurrent`: the wave being drained has already
+    # finished cutting.
+    for p_no in range(_MAX_PASSES):
+        pending = [c for c in state["chunks"] if c["status"] != "done"]
+        before = len(pending)
+        if not pending:
+            break
+        waves = [pending[i : i + max_concurrent] for i in range(0, before, max_concurrent)]
+        print(f"[full] pass {p_no + 1}: {n_chunks} chunks, {before} pending → {len(waves)} "
+              f"wave(s) of ≤{max_concurrent}"
+              + (f"; running {max_waves} this invocation" if max_waves else ""))
+
+        ran, in_flight, stopping = 0, None, False
+        for w, wave in enumerate(waves):
+            if max_waves and ran >= max_waves:
+                print(f"[full] stopping after {ran} wave(s) (--max-waves); re-run --mode full to resume")
+                break
+            if _stop_requested(corpus):
+                stopping = True
+                print("[full] stop requested — draining the wave in flight, submitting no more")
+                break
+            if in_flight is not None:
+                _await_wave(in_flight)  # cluster free again — never more than max_concurrent cutting
+            _submit_wave(wave, f"wave {w + 1}/{len(waves)}")
+            if in_flight is not None:
+                _drain_wave(in_flight)  # download the finished wave while this one cuts
+                ran += 1
+            in_flight = wave
+        if in_flight is not None and not (max_waves and ran >= max_waves):
+            _drain_wave(in_flight)
+            ran += 1
+
+        if max_waves:
+            break  # a bounded invocation runs its waves once and reports
+        if stopping:
+            print("[full] STOPPED at a wave boundary; re-run --mode full to resume")
+            break
+
+        still = [c for c in state["chunks"] if c["status"] != "done"]
+        if not still or len(still) >= before:
+            break  # finished, or a pass that healed nothing — don't spin
+        print(f"[full] pass {p_no + 1} done; {len(still)} chunk(s) requeued, retrying")
 
     remaining = [c for c in state["chunks"] if c["status"] != "done"]
     if not remaining:

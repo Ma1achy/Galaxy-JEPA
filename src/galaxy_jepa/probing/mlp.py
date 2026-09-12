@@ -156,12 +156,18 @@ def capacity_sweep(
 def selectivity_ceiling(rows: list[SweepRow], *, null_threshold: float) -> int | None:
     """The width at which the negative control **first exceeds its own null** (design 2D).
 
-    FLAGGED: pending stats grounding — do not finalise. Placeholder predicate: the control
-    AUC exceeds ``null_threshold`` (e.g. the 95th percentile of a chance null for this probe,
-    supplied by the caller from the control battery). The grounding session owns the precise
-    null-distribution machinery for the breakdown point; only this predicate changes. Returns
-    the first such width, or ``None`` if the control never decodes across the swept range
-    (the whole range is then valid).
+    FLAGGED — still undecided, and deliberately **not** one of the five grounded statistical
+    decisions (it has no mapping onto any of them). Placeholder predicate: the control AUC
+    exceeds ``null_threshold``, supplied by the caller from the control battery.
+
+    **Candidate recorded, not chosen** (spec open register): give the MLP rung its own null from
+    the **untrained-encoder** control rather than a fixed constant or a quantile of the shuffled
+    null. That would make selectivity relative here in the same way it already is at every other
+    rung, so the ladder stays internally consistent rather than mixing an absolute bar into an
+    otherwise relative cascade. Do not implement it without a decision.
+
+    Returns the first such width, or ``None`` if the control never decodes across the swept
+    range (the whole range is then valid).
     """
     for row in rows:
         if row.control_auc > null_threshold:
