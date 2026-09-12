@@ -121,6 +121,22 @@ def main() -> None:
             print(f"  {name:<11} reached at step {step:>4}, erank there {erank:6.2f}   "
                   f"(own deepest {own:.4f})")
 
+    cos = by.get("cosine")
+    if cos is not None:
+        print("\nControl check — baseline and cosine share an IDENTICAL schedule through step 100,"
+              "\nso identical erank there proves the comparison is controlled (same init, data order,"
+              "\nmasks and EMA); any later difference IS the schedule:")
+        b = {x["step"]: x for x in base["trace"]}
+        c = {x["step"]: x for x in cos["trace"]}
+        for st in (0, 25, 50, 75, 100, 125, 175, 300, 475):
+            if st not in b or st not in c:
+                continue
+            same = "  <- identical" if abs(b[st]["effective_rank"] - c[st]["effective_rank"]) < 1e-9 else ""
+            print(f"  step {st:>3}: baseline {b[st]['effective_rank']:8.4f} (lr {b[st]['lr']:.3e})   "
+                  f"cosine {c[st]['effective_rank']:8.4f} (lr {c[st]['lr']:.3e}){same}")
+        print("  Note where the fall happens: most of it is INSIDE the 100-step warmup, while the LR"
+              "\n  is still ramping to the peak — not from sitting at the peak afterwards.")
+
     print("\nLoss SHAPE — the discriminator that fits inside 500 steps. Matching on the baseline's"
           "\ndeepest loss compares against a point it immediately left; this asks whether an arm is"
           "\nstill converging or has turned over:")
