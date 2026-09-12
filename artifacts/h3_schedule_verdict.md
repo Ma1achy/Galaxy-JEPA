@@ -60,6 +60,33 @@ responds to the learning rate in both directions.
 **5. The weight-decay ramp does essentially nothing.** `wd_ramp` reaches wd 0.383 and stays within
 noise of baseline throughout (4.95 vs 4.84 at step 175; 4.10 vs 3.75 at the end). Not the cause.
 
+**6. The embedding scale is the cleanest diagnostic of the six, and mean-cosine is useless.** The
+brief asked for std and mean-cosine alongside erank. Taken at step 475, the monitor-batch std orders
+the arms in *strict inverse* to effective rank — all six, no exceptions:
+
+| arm | std@0 → @475 | inflation | erank@475 | mean-cos@475 |
+|---|---|---|---|---|
+| linear | 0.303 → 0.595 | 2.0× | 12.50 | +0.854 |
+| sqrt | 0.303 → 1.800 | 5.9× | 7.19 | +0.742 |
+| warmup1250 | 0.303 → 2.536 | 8.4× | 7.10 | +0.708 |
+| cosine | 0.304 → 3.408 | 11.2× | 5.87 | +0.757 |
+| wd_ramp | 0.304 → 5.213 | 17.2× | 4.10 | +0.661 |
+| baseline | 0.304 → 6.201 | **20.4×** | 3.75 | +0.715 |
+
+Two things follow. **The failure mode is not the textbook one.** Classic representation collapse
+shrinks embeddings towards a point — std → 0. Here std *inflates* twenty-fold while rank concentrates:
+the activations are growing in magnitude while occupying fewer directions. That is what an LR well
+above its scaled setting looks like, and it is a second independent signal pointing at the schedule.
+
+**Mean-cosine does not discriminate at all.** The baseline (+0.715) sits *between* `wd_ramp` (+0.661)
+and `cosine` (+0.757); it carries no ordering. It should not be relied on as a collapse signal in this
+regime. A note for G5, which thresholds effective rank only: adding a std-inflation term would be
+cheap, `CollapseMonitor` already records it, and on this evidence it is the better-behaved number.
+Proposed for consideration, not done — the floor is frozen and changing it is a deliberate act.
+
+*Aside, confirming H1 empirically:* `ema_momentum` at step 475 reads 0.9960008906656822 for **every**
+arm, to all 16 digits. The EMA schedule was not a confound, as the arithmetic said.
+
 ## The trap, guarded
 
 The brief warns against adopting the best-erank arm. **`linear` has the highest rank (12.50) and by
