@@ -307,14 +307,18 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
 - [ ] (P1) **The cosine decay is adopted but untested.** Because D17's schedule is the real
   50,000-step one rather than a compressed proxy, the LR is still **99.7% of peak at step 3,000** —
   so H5 tested the *peak and the warmup*. The decay rides on the reference recipe's authority
-  alone and is the weakest-supported third of D17. Check it against the first full-length run.
-- [ ] (P1) **The probing path still carries the 4 GB metadata table the training path escaped.**
-  `harness.evaluate_probe` builds `rows_by_id(DirectorySource(probe_dir).rows)` — `csv.DictReader`
-  over 230,358 rows × ~150 columns — while `StampDataset` reads exactly **one** of those columns.
-  It was killed for memory on the 18 GB machine before embedding a single stamp.
-  `artifacts/h5_probe_lean.py` works around it with `pandas.usecols` (two columns), but the
-  production path retains the defect and wants the same treatment Brief G2 gave the training path.
-  *(found during H5)*
+  alone and is the weakest-supported third of D17. **Not to be tested with a compressed proxy** —
+  a proxy answers a different question; the real schedule is exercised by the full run. Carried
+  into the write-up under "limitations, not tasks".
+- [x] (P1) **The probing path carried the metadata table the training path escaped — fixed.**
+  `harness.evaluate_probe` built `rows_by_id(DirectorySource(probe_dir).rows)` over 230,358 rows
+  × 132 columns and `LabelProvider` copied it: measured **1.49 GB → 2.99 GB**, to read columns the
+  probing layer could name up front. It was killed for memory before embedding a single stamp.
+  Now `data.cache.write_probe_columns` bakes the 81 columns `probing.extract.required_columns`
+  declares into one index-aligned float64 block, with the digest in the index and a refusal on
+  mismatch or length disagreement — G2's discipline, applied where it still hurt. Columns load
+  lazily, so a single-feature probe never materialises the other seventy-nine. Parity is exact
+  over 2,000,000 sampled values. *(found during H5, fixed in Brief I)*
 
 ## Epic F — Probing harness `[P6]` (frozen encoder) — controls interleaved
 - [x] (P0) **L2 logistic concept-direction probe** → held-out AUC + bootstrap CI; unit-normalised
@@ -394,16 +398,35 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 - [ ] (P1) Label-efficiency curve (SSL-pretrained vs supervised-from-scratch).
 - [ ] (P1) v1-comparable evaluation, and the v1-vs-v2 comparison as a first-class deliverable.
 
-## Brief I — SIGReg ablation `[measured; proposal open]`
-- [x] SIGReg implemented off by default; AUC improved on separated intervals at both lambdas.
-- [ ] (P0) **Sign off or reject D18.** `sigreg_lambda` stays 0.0 in `configs/pretrain.yaml` until
-  then. If adopted: retire the soft rank floor rather than re-deriving it (under SIGReg it cannot
-  bind), and keep a lambda=0 arm in the beta sweep so the published-I-JEPA control survives.
+## Brief I — SIGReg `[D18 adopted]`
+- [x] SIGReg on at lambda=0.05 in `configs/pretrain.yaml`; `config_hash` b5acc6779df49070.
+- [x] Soft rank floor scoped to non-SIGReg runs (not deleted — D12's arms still need the gate).
+- [x] Probing path's metadata table replaced by an index-aligned column sidecar.
+- [ ] (P1) **Keep a lambda=0 arm in the beta sweep.** beta=0 with SIGReg on is no longer the
+  published-I-JEPA control; the control now needs both knobs off.
+- [ ] (P1) **D12 framing, unsettled.** SIGReg gives the JEPA arm a distributional constraint MAE
+  and MoCo lack, so "of course its geometry differs" is a fair objection to a cross-objective
+  consistency argument — but entanglement *surviving* enforced isotropy is stronger evidence it
+  is in the data. Decide when D12 is written: run the JEPA arm both ways, restrict the claim to
+  non-geometric read-outs, or state the asymmetry and argue the second point.
 - [ ] (P2) Question 2 is underpowered — n=6 per arm cannot resolve |rho| < 0.886. A real answer
   needs many more checkpoints, or the paper's across-run design over a hyperparameter sweep.
   The *penalty term alone* was the most informative component (-0.31, -0.71); worth a powered test.
 - [ ] (P2) The attachment point was chosen, not tested: final-block post-norm, or per-token rather
   than pooled, are separate arms.
+
+## Carried into the write-up — limitations, not tasks `[write-up]`
+- [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so
+  H tested the peak and the warmup; the decay rides on the reference recipe's authority and is the
+  weakest third of D17. **Do not test it with a compressed proxy** — a proxy answers a different
+  question (how a steep decay behaves early). The real schedule is exercised by the full run.
+- [ ] **The SIGReg loss-selection claim did not transfer** (D18 Q2). Report it as a
+  non-reproduction in this regime, not as evidence against the paper: their rho is across runs
+  over a hyperparameter sweep on ImageNet at eight views; ours is within one 3,000-step run at one
+  view. The 1C label-blind checkpoint rule stands unchanged.
+- [ ] **The lambda-robustness result is a positive replication** worth reporting: an 8x difference
+  in weight gave indistinguishable AUC (0.9470 vs 0.9471) on a corpus, architecture and objective
+  the paper did not test.
 
 ## Epic I — arXiv sweep `[parallel]`
 - [x] First pass → `docs/related-work.md` (gap confirmed cautiously; Wu & Walmsley MAE pinned).

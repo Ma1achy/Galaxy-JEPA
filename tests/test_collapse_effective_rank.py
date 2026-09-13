@@ -147,3 +147,79 @@ class TestThePreRegisteredCollapseFloor:
         ]
         monitor = CollapseMonitor(floor=self._floor(), total_steps=10_000, history=prior)
         assert self._drive(monitor, [3.0], first_step=5_200) == 5_200
+
+
+class TestTheSoftFloorIsScopedNotRemoved:
+    """D18: under SIGReg the soft rank floor cannot fire, so it does not apply — and only then.
+
+    Effective rank becomes constraint-satisfied rather than diagnostic (measured: 34.2 against
+    the unregularised arm's 11.8, monotone), so a criterion below it is decoration. D12's
+    cross-objective arms — MAE, MoCo, plain I-JEPA — still need the gate, so this is scoped by
+    configuration rather than deleted.
+    """
+
+    @staticmethod
+    def _sunk(monitor, *, rank: float = 1.5, step: int = 900):
+        """Feed enough consecutive readings below both floors to arm the criterion."""
+        signals = None
+        for i in range(monitor.floor.consecutive_readings):
+            monitor.history.append(
+                {"step": step + i, "std": 0.5, "effective_rank": rank, "mean_cosine": 0.1}
+            )
+            signals = CollapseSignals(std=0.5, effective_rank=rank, mean_cosine=0.1, n=8)
+        return signals
+
+    @pytest.mark.invariant
+    def test_the_soft_floor_still_fires_without_sigreg(self):
+        floor = CollapseFloorFreeze(
+            min_effective_rank=5.0,
+            derived_from="test",
+            frozen_at="2026-09-13",
+            frozen_by="test",
+            rationale="test",
+        )
+        monitor = CollapseMonitor(floor=floor, total_steps=1000)
+        assert monitor.should_halt(self._sunk(monitor, rank=3.0))
+        assert "below the pre-registered floor" in (monitor.halt_reason or "")
+
+    @pytest.mark.invariant
+    def test_the_soft_floor_is_silent_with_it(self):
+        floor = CollapseFloorFreeze(
+            min_effective_rank=5.0,
+            derived_from="test",
+            frozen_at="2026-09-13",
+            frozen_by="test",
+            rationale="test",
+        )
+        monitor = CollapseMonitor(floor=floor, total_steps=1000, soft_rank_floor=False)
+        assert not monitor.should_halt(self._sunk(monitor, rank=3.0))
+
+    @pytest.mark.invariant
+    def test_the_hard_floor_and_the_std_floor_survive_the_scoping(self):
+        """Scoped, not removed: a genuinely collapsed run must still be caught under SIGReg."""
+        floor = CollapseFloorFreeze(
+            min_effective_rank=5.0,
+            hard_floor=2.0,
+            derived_from="test",
+            frozen_at="2026-09-13",
+            frozen_by="test",
+            rationale="test",
+        )
+        monitor = CollapseMonitor(floor=floor, total_steps=1000, soft_rank_floor=False)
+        assert monitor.should_halt(self._sunk(monitor, rank=1.5))
+        assert "hard floor" in (monitor.halt_reason or "")
+
+        flat = CollapseMonitor(floor=floor, total_steps=1000, soft_rank_floor=False)
+        assert flat.should_halt(
+            CollapseSignals(std=1e-9, effective_rank=30.0, mean_cosine=0.0, n=8)
+        )
+
+    def test_the_loop_derives_it_from_sigreg_lambda(self):
+        """The scoping must come from the hashed config, not from a flag set at the keyboard."""
+        import inspect
+
+        from galaxy_jepa.objectives import jepa as mod
+
+        source = inspect.getsource(mod.train_jepa)
+        assert "soft_rank_floor = cfg.sigreg_lambda <= 0.0" in source
+        assert "soft_rank_floor=soft_rank_floor" in source

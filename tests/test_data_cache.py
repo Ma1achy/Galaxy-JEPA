@@ -13,6 +13,7 @@ The cache is the parity-locked pipeline run once on disk, so the load-bearing gu
 from __future__ import annotations
 
 import json
+import math
 
 import numpy as np
 import pytest
@@ -23,10 +24,13 @@ from galaxy_jepa.data.cache import (
     _read_index,
     bake_cache,
     fit_normalise,
+    load_probe_columns,
     pipeline_hash,
+    write_probe_columns,
     write_scalars,
 )
 from galaxy_jepa.data.dataset import StampDataset, rows_by_id
+from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
 from galaxy_jepa.data.sources import DirectorySource
 from galaxy_jepa.data.transforms import AsinhStretch, Normalise, Pipeline
 
@@ -223,8 +227,8 @@ class TestTheScalarSidecarIsAlignedOrRefused:
     Petrosian radius — so these pin that it is checked rather than trusted.
     """
 
-    def _cache(self, corpus, tmp_path):
-        source = DirectorySource(corpus)
+    def _cache(self, probing_corpus, tmp_path):
+        source = DirectorySource(probing_corpus)
         pipeline = _fitted_pipeline(source)
         cache = bake_cache(source, pipeline, tmp_path / "cache", normalisation_hash=NORM_HASH)
         return source, cache
@@ -286,3 +290,107 @@ class TestTheScalarSidecarIsAlignedOrRefused:
         path.write_bytes(path.read_bytes()[:-8])
         with pytest.raises(RuntimeError, match="Misaligned by construction"):
             _ = TensorCache(cache.cache_dir).scalars
+
+
+class TestTheProbeColumnSidecar:
+    """The probing path's equivalent of the scalar sidecar (Brief I).
+
+    ``evaluate_probe`` built ``rows_by_id`` over 230,358 rows x 132 columns — measured at
+    1.49 GB, doubled to 2.99 GB by ``LabelProvider``'s copy — to read columns that fit in
+    677 MB as arrays. It was killed for memory before embedding a stamp. Same discipline as
+    ``write_scalars``: the digest lives in the index, and anything that does not match is
+    refused rather than used.
+    """
+
+    @staticmethod
+    def _baked(probing_corpus, tmp_path):
+        source = DirectorySource(probing_corpus)
+        pipeline = Pipeline([AsinhStretch(q=4.0)])
+        cache = bake_cache(source, pipeline, tmp_path / "cache", normalisation_hash="test")
+        return source, cache
+
+    @pytest.mark.invariant
+    def test_values_round_trip_exactly(self, probing_corpus, tmp_path):
+        """float64 storage of a float64 parse — exact, not approximate.
+
+        The confident-extremes cut is a comparison against exactly these bits, so a parity
+        claim that needed a tolerance would not be a parity claim.
+        """
+        source, cache = self._baked(probing_corpus, tmp_path)
+        cols = ["object_id", "petroRad_r", "snr", "psf"]
+        write_probe_columns(cache.cache_dir, source.rows, cols)
+        columns = load_probe_columns(cache.cache_dir, TensorCache(cache.cache_dir).index)
+
+        for row in source.rows:
+            oid = int(row["object_id"])
+            if oid not in columns:
+                continue
+            assert columns[oid]["snr"] == float(row["snr"])
+            assert columns[oid]["petroRad_r"] == float(row["petroRad_r"])
+
+    @pytest.mark.invariant
+    def test_a_missing_object_is_a_misalignment_and_is_refused(self, probing_corpus, tmp_path):
+        """Every later row would carry another galaxy's votes: a value may be absent, a row
+        may not."""
+        source, cache = self._baked(probing_corpus, tmp_path)
+        write_probe_columns(cache.cache_dir, source.rows, ["object_id", "snr"])
+        index = TensorCache(cache.cache_dir).index
+        # a sidecar one row short of the index it claims to align to
+        (cache.cache_dir / "probe_columns.f64").write_bytes(
+            np.zeros((1, index.n - 1), dtype=np.float64).tobytes()
+        )
+        with pytest.raises(RuntimeError, match="Misaligned by construction"):
+            load_probe_columns(cache.cache_dir, index)
+
+    @pytest.mark.invariant
+    def test_a_changed_file_under_an_unchanged_index_is_refused(self, probing_corpus, tmp_path):
+        source, cache = self._baked(probing_corpus, tmp_path)
+        write_probe_columns(cache.cache_dir, source.rows, ["object_id", "snr"])
+        index = TensorCache(cache.cache_dir).index
+        path = cache.cache_dir / "probe_columns.f64"
+        values = np.fromfile(path, dtype=np.float64)
+        values[0] += 1.0
+        path.write_bytes(values.tobytes())
+        with pytest.raises(RuntimeError, match="refusing to read it"):
+            load_probe_columns(cache.cache_dir, index)
+
+    @pytest.mark.invariant
+    def test_a_cache_without_one_says_so_rather_than_returning_empty(
+        self, probing_corpus, tmp_path
+    ):
+        _, cache = self._baked(probing_corpus, tmp_path)
+        with pytest.raises(FileNotFoundError, match="no probe-column sidecar"):
+            load_probe_columns(cache.cache_dir, cache.index)
+
+    def test_an_absent_or_unparseable_cell_is_nan_not_a_failure(self, probing_corpus, tmp_path):
+        """Absent, blank or unreadable is a missing *measurement*; the floors already treat it so.
+
+        Both cases at once: this fixture corpus carries no vote-fraction column at all, and
+        ``snr`` is blanked. A sidecar naming a column the corpus lacks is the ordinary case
+        when the schemes widen ahead of a pull, and it must be NaN rather than a crash.
+        """
+        source, cache = self._baked(probing_corpus, tmp_path)
+        rows = [{**r, "snr": ""} for r in source.rows]
+        cols = ["object_id", "snr", FEATURED_FRACTION_COL]
+        write_probe_columns(cache.cache_dir, rows, cols)
+        columns = load_probe_columns(cache.cache_dir, TensorCache(cache.cache_dir).index)
+        oid = int(source.rows[0]["object_id"])
+        assert math.isnan(columns[oid]["snr"])  # present but blank
+        assert math.isnan(columns[oid][FEATURED_FRACTION_COL])  # never in the corpus
+
+    def test_only_the_columns_touched_are_materialised(self, probing_corpus, tmp_path):
+        """The memory claim: a single-feature probe must not pay for the other eighty columns."""
+        source, cache = self._baked(probing_corpus, tmp_path)
+        cols = ["object_id", "petroRad_r", "snr", "psf"]
+        write_probe_columns(cache.cache_dir, source.rows, cols)
+        columns = load_probe_columns(cache.cache_dir, TensorCache(cache.cache_dir).index)
+        assert columns._loaded == {}
+        _ = columns[int(source.rows[0]["object_id"])]["snr"]
+        assert set(columns._loaded) == {"snr"}
+
+    def test_rows_from_another_corpus_are_refused(self, probing_corpus, tmp_path):
+        _, cache = self._baked(probing_corpus, tmp_path)
+        with pytest.raises(ValueError, match="aligned to nothing"):
+            write_probe_columns(
+                cache.cache_dir, [{"object_id": -1, "snr": 0.5}], ["object_id", "snr"]
+            )

@@ -40,7 +40,14 @@ from torch.utils.data import DataLoader
 from galaxy_jepa.callbacks.checkpoint import TrainCheckpointer
 from galaxy_jepa.callbacks.collapse import CollapseFloorFreeze
 from galaxy_jepa.core.config import RunConfig, RunStamp, write_stamp
-from galaxy_jepa.data.cache import TensorCache, bake_cache, write_scalars
+from galaxy_jepa.data.cache import (
+    ProbeColumns,
+    TensorCache,
+    bake_cache,
+    load_probe_columns,
+    write_probe_columns,
+    write_scalars,
+)
 from galaxy_jepa.data.dataset import ResumableShuffle, StampDataset, rows_by_id
 from galaxy_jepa.data.manifest import manifest_hash
 from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
@@ -58,7 +65,7 @@ from galaxy_jepa.objectives.sigreg import DEFAULT_DOMAIN as SIGREG_DEFAULT_DOMAI
 from galaxy_jepa.objectives.sigreg import DEFAULT_QUAD_POINTS as SIGREG_DEFAULT_QUAD_POINTS
 from galaxy_jepa.objectives.sigreg import DEFAULT_SLICES as SIGREG_DEFAULT_SLICES
 from galaxy_jepa.probing.config import ProbingConfig
-from galaxy_jepa.probing.extract import LabelProvider
+from galaxy_jepa.probing.extract import LabelProvider, required_columns
 from galaxy_jepa.probing.logistic import (
     Embeddings,
     ProbeResult,
@@ -72,6 +79,7 @@ from galaxy_jepa.probing.schemes import (
     DEFAULT_CONSENSUS_GATE,
     FeatureScheme,
     get_scheme,
+    scheme_names,
 )
 
 logger = logging.getLogger(__name__)
@@ -488,6 +496,16 @@ def _prepare(
             for r in [*pre_src.rows, *probe_src.rows]
         },
     )
+    # 2c. and the probing path's equivalent: the 81 metadata columns the ladder and the nuisance
+    # controls read, as one index-aligned float64 block. Same reason and same discipline — the
+    # probe corpus's row dicts are 1.49 GB and `LabelProvider` copies them to 2.99 GB, to read
+    # columns that fit in 75 MB as arrays. Streamed from `probe_src.rows`, so writing it costs
+    # no more memory than the thing it removes.
+    write_probe_columns(
+        cache.cache_dir,
+        probe_src.rows,
+        required_columns(schemes=[get_scheme(name) for name in scheme_names()]),
+    )
     del pre_src, probe_src  # 4.07 GB of metadata has done its job; the run does not need it
     # re-open: `write_scalars` rewrote the index to vouch for the sidecar, and the reader must
     # hold the index that carries the digest, not the one from before it existed
@@ -648,6 +666,31 @@ def _required_vote_floor(config: HarnessConfig) -> float:
     return float(floor)
 
 
+def _probe_rows(cache: TensorCache, probe_dir: str | Path) -> tuple[Any, list[int]]:
+    """The probe corpus's metadata, from the compact sidecar where there is one.
+
+    The fallback is the old whole-table path, kept because a cache baked before the sidecar
+    existed is still a valid cache — but it is *announced*, because it is the difference
+    between 75 MB and 2.99 GB and it is what killed the H5 probe before it embedded a stamp.
+    """
+    try:
+        columns = load_probe_columns(cache.cache_dir, cache.index)
+    except (FileNotFoundError, RuntimeError) as exc:
+        logger.warning(
+            "no probe-column sidecar (%s) — falling back to the whole metadata table, which "
+            "measured 1.49 GB on the 230k probe corpus and 2.99 GB once LabelProvider copies "
+            "it. Write it with `data.cache.write_probe_columns`; it takes seconds and no re-bake.",
+            exc,
+        )
+        probe_src = DirectorySource(probe_dir)
+        return rows_by_id(probe_src.rows), [int(r["object_id"]) for r in probe_src.rows]
+    # the sidecar is aligned to the whole cache — both corpora — so the probe ids are the
+    # baked objects that actually carry a measurement, not every row in it
+    label = columns.column(FEATURED_FRACTION_COL)
+    ids = [int(o) for o, v in zip(cache.index.object_ids, label, strict=True) if np.isfinite(v)]
+    return columns, ids
+
+
 def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = None) -> ProbeResult:
     """Probe-only re-evaluation on an existing frozen checkpoint — no retraining.
 
@@ -659,9 +702,7 @@ def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = Non
     out = Path(config.paths.out_dir)
     ckpt = Path(checkpoint) if checkpoint is not None else out / "encoder.pt"
     cache = _open_existing_cache(out)
-    probe_src = DirectorySource(config.paths.probe_dir)
-    rows = rows_by_id(probe_src.rows)
-    probe_ids = [int(r["object_id"]) for r in probe_src.rows]
+    rows, probe_ids = _probe_rows(cache, config.paths.probe_dir)
     # The deterministic probe split — identical to the one the training run used (same seed +
     # ratios), so the headline reproduces exactly. No pretrain split is needed here.
     probe_split = assign_three_way(probe_ids, seed=config.seed, ratios=config.ratios)
@@ -727,6 +768,9 @@ def build_label_provider(
         scheme=scheme,
         vote_count_min=vote_count_min,
         consensus_gate=consensus_gate,
+        # a ProbeColumns view is array-backed and read-only, so the defensive copy buys nothing
+        # and costs the 1.49 GB it was built to avoid
+        copy_rows=not isinstance(rows, ProbeColumns),
     )
 
 
@@ -773,13 +817,11 @@ def probe_frozen_checkpoint(
     ckpt = Path(checkpoint) if checkpoint is not None else Path(config.paths.out_dir) / "encoder.pt"
 
     cache = _open_existing_cache(config.paths.out_dir)
-    probe_src = DirectorySource(config.paths.probe_dir)
-    rows = rows_by_id(probe_src.rows)
+    rows, corpus_ids = _probe_rows(cache, config.paths.probe_dir)
 
     # Only galaxies the cache actually holds can be probed; StampDataset intersects, but doing it
     # here too keeps the truncation deterministic (sorted) rather than dependent on corpus order.
-    probe_ids = sorted(int(r["object_id"]) for r in probe_src.rows)
-    probe_ids = cache.present(probe_ids)
+    probe_ids = cache.present(sorted(corpus_ids))
     if max_galaxies is not None:
         probe_ids = probe_ids[:max_galaxies]
     if not probe_ids:

@@ -685,72 +685,178 @@ full-length run.
   decay). Under D17 it differs in beta and the weight-decay ramp alone.
 * **Every H-series artefact predating this decision was produced under the old recipe** and is
   stamped with the old `config_hash` (`157903bd5180788b...`; D17 moves it to `538bf997880a8767...`).
+* **The cosine decay is adopted but UNTESTED.** H5's arms ran 3,000 steps, where the LR is still
+  **99.7% of peak** — so what was measured is the peak and the warmup, and the decay rides on the
+  reference recipe's authority alone. It is the weakest third of this decision. Deliberately *not*
+  tested with a compressed proxy: a proxy over 3,000 steps answers a different question (how a
+  steep decay behaves early), and the real schedule will be exercised by the full run. Carry the
+  limitation into the write-up rather than manufacturing a number for it.
 
 ---
 
-## D18 — SIGReg improves the representation and does not fix the loss — *proposed (measured), not adopted*
-
-**Status: a proposal.** `sigreg_lambda` is **0.0** in `configs/pretrain.yaml` and stays there until
-this is signed off. Brief I was an ablation, not an adoption; everything below is measured on
-`smoke: true` arms at 3,000 steps. Full measurements in `artifacts/i_findings.md`.
+## D18 — SIGReg is on, at the paper's λ — *decided (measured)*
 
 **Fork.** H5 established that this project's training loss runs *against* the objective: the arm
-19x better on latent MSE lost frozen-probe AUC decisively. LeJEPA (Balestriero & LeCun,
-arXiv:2511.08544) claims SIGReg — a distribution-matching penalty pushing embeddings towards an
-isotropic Gaussian via the Epps-Pulley statistic on random 1-D projections — fixes exactly that.
-Two questions, ablated on I-JEPA with everything else held: does it improve AUC, and does it make
-the loss usable for label-free checkpoint selection?
+19× better on latent MSE lost frozen-probe AUC decisively, because latent MSE against a moving EMA
+target rewards a predictor and target co-adapting onto a shared mean component. LeJEPA
+(Balestriero & LeCun, arXiv:2511.08544) claims SIGReg — a distribution-matching penalty pushing
+embeddings towards an isotropic Gaussian, via the Epps–Pulley statistic on random 1-D projections —
+fixes exactly that. Brief I ablated it **on I-JEPA**, everything else held. Full measurements in
+`artifacts/i_findings.md`; the rule was committed before any arm ran (`artifacts/i_decision_rule.md`).
 
-**The measurement.** Three arms, 3,000 steps, every H5 control unchanged (one seed, one data
-order, the same per-step mask seeds and monitor batch, `steps=50000` fixed so the EMA ramp could
-not move). Only `sigreg_lambda` varies. lambda = 0.05 is section 6.1 verbatim; lambda = 0.00625 is
-0.05 x (1/8) from its note that the optimum scales with view count. Both were fixed before any arm
-ran (`artifacts/i_decision_rule.md`).
+**Decision: adopt, at λ = 0.05.** `config_hash` moves `538bf997880a8767` → `b5acc6779df49070`.
 
-| | d17 (lambda=0) | sigreg_050 | sigreg_006 |
+| | d17 (λ=0) | sigreg_050 | sigreg_006 |
 |---|---|---|---|
 | consensus AUC | 0.9358 [0.9315, 0.9402] | **0.9470** [0.9435, 0.9506] | **0.9471** [0.9433, 0.9508] |
 | all held-out | 0.8420 [0.8376, 0.8467] | **0.8558** [0.8516, 0.8603] | **0.8573** [0.8529, 0.8616] |
-| effective rank / std / cosine | 11.77 / 4.03 / +0.286 | 34.23 / 0.996 / +0.114 | 29.87 / 1.255 / +0.116 |
+| ambiguous middle | 0.6624 [0.6524, 0.6720] | 0.6734 [0.6637, 0.6829] | 0.6760 [0.6661, 0.6854] |
+| erank / std / cosine | 11.77 / 4.03 / +0.286 | 34.23 / 0.996 / +0.114 | 29.87 / 1.255 / +0.116 |
 | loss @3000 | **0.3573** | 0.4285 | 0.4028 |
+| steps/s | 1.4790 | 1.4765 | 1.4782 |
 
-**Question 1: yes.** Both arms separate from `d17` on non-overlapping intervals on consensus
-(+0.011) and all-held-out (+0.014 / +0.015); the ambiguous middle overlaps and reads as
-indistinguishable. The two lambda values are **indistinguishable from each other** across an 8x
-difference in weight, which is the paper's robustness claim reproduced rather than assumed — and
-the strongest argument that the effect is SIGReg rather than a tuned coefficient. Throughput cost
-is **0.17%**.
+Both SIGReg arms separate from the comparator on consensus (+0.011) and all-held-out
+(+0.014 / +0.015); the ambiguous middle overlaps and reads as indistinguishable. Cost: **0.17%**.
 
-**Question 2: no.** Six checkpoints per arm, probed on a fixed reduced subset. `d17` reproduces
-H5's anti-correlation *within a single run* (rho = +0.657, lower loss -> worse AUC); both SIGReg
-arms sit at approximately 0. No correlation is significant — at n=6 the 5% threshold is
-|rho| = 0.886 and every exact permutation p is >= 0.136. Removing a misleading signal is not the
-same as supplying a good one, and the practical read is unambiguous: **selecting the lowest-loss
-checkpoint costs AUC in every arm**, -0.0110 / -0.0072 / -0.0181. SIGReg roughly halves the cost at
-lambda = 0.05 and makes it worse at 0.00625.
+### λ = 0.05 is a **provenance** tie-break, not a performance one
 
-**Consequences, if adopted.**
+0.9470 against 0.9471 is not a difference; the two arms are statistically indistinguishable on
+every read-out. The tie is broken on where the number comes from. **0.05 is stated verbatim** in
+§6.1 — *"we thus recommend to use λ = 0.05, V_g = 2, V_l = 8, and batch size ≥ 128 as starting
+points"*. **0.00625 was extrapolated** from figure 8's view-count trend, below its plotted range,
+by this project. Between two equal measurements, take the one whose provenance is a statement
+rather than a reading-off.
 
-* **Retire the soft rank floor, do not re-derive it.** `CollapseFloorFreeze.min_effective_rank`
-  was re-derived to 2.5 last brief on grounding H5 had already undercut. Under SIGReg effective
-  rank is constraint-satisfied rather than diagnostic — 34.23 against 11.77, monotone — so the
-  soft floor could never bind. A criterion that cannot fire is decoration, not a tripwire. Keep
-  the hard floor (erank < 2) and the std floor, which still detect a genuinely broken run.
-* **The eigen-triangulation survives, measured not argued.** Logistic-vs-CAV disagreement declines
-  under SIGReg but does not collapse: 0.9738 -> 0.9118 and 0.9691 -> 0.9142, against `d17`'s
-  0.9804 -> 0.9479. At 0.91 the discriminative and marginal definitions still disagree on 91% of
-  the available angle, as `Sigma_within = sigma^2 I - Sigma_between` predicts. The
-  Marchenko-Pastur null becomes *better* justified, its isotropy assumption enforced rather than
-  hoped for.
-* **D12 gains an asymmetry, and it is not settled here.** A SIGReg arm would carry a distributional
-  constraint the MAE and contrastive arms lack. The counter-argument is equally real: entanglement
-  *surviving* enforced isotropy is stronger evidence it is in the data. A framing decision.
-* **The 1C checkpoint rule does not change.** Question 2 does not support it.
-* **The beta sweep improves again.** Under D17, beta = 0 differed from published I-JEPA in beta
-  and the weight-decay ramp. Adopting SIGReg would add a third difference back, so the control's
-  value argues for keeping a lambda = 0 arm in any sweep that claims to reproduce I-JEPA.
+**The λ-robustness finding is itself a result worth reporting.** An 8× difference in weight
+produced indistinguishable AUC, and near-identical geometry (rank 34.2 vs 29.9, std 1.00 vs 1.26).
+That **corroborates the paper's stability claim** on a corpus, architecture and objective it did
+not test, and it is the strongest evidence that the AUC gain is SIGReg rather than a tuned
+coefficient. It is a positive replication and should be reported as one.
 
-**What is not known.** 3,000 steps against a 50,000-step run, one seed, one feature, everything
-`smoke: true`. All three arms were still moving. The attachment point — pooled penultimate
-pre-norm, the tensor `DEFAULT_LAYER` probing reads — was chosen on the argument that the intent is
-to constrain what gets probed, and was not itself ablated.
+### Where the penalty attaches — the most consequential judgement in the implementation
+
+LeJEPA regularises the **encoder output**, and for LeJEPA that is the same tensor a linear probe
+reads: encoder output, prediction input and probed representation all coincide. **Here they do
+not.** `DEFAULT_LAYER = -2`, so `encode()` — what `extract_embeddings`, the frozen probe and
+`CollapseMonitor` all read — is the **penultimate block, pre-norm, mean-pooled**, while the context
+handed to the predictor is the **final block, post-`norm`**. Two different tensors, two blocks and
+a normalisation apart.
+
+When an identity in the source breaks, the right move is to follow the **intent**, not the literal
+line. The intent of SIGReg is to shape the distribution that downstream probing consumes — the
+paper's whole derivation (§3) is about which embedding distribution minimises worst-case
+downstream risk. So the penalty goes on the probed tensor: pooled `DEFAULT_LAYER`, pre-norm.
+
+Two consequences follow, both wanted. The collapse monitor's rank, std and cosine now describe
+*the constrained object*, so the diagnostics and the constraint agree about what they are talking
+about. And the final block and `norm` stay **unconstrained**, free to specialise for the pretext
+task — the penalty shapes the representation without dictating the prediction head.
+
+Attaching at the encoder output instead would have regularised a tensor two blocks from the one
+measured, and a null result would then have been uninterpretable: unclear whether SIGReg does not
+help, or simply does not reach. **This was chosen, not tested** — final-block post-norm, and
+per-token rather than pooled, are separate arms that were not run.
+
+### The seven deviations, and what they bound
+
+| # | Here | The paper | Bounds the conclusion how |
+|---|---|---|---|
+| 1 | **Predictor + EMA target retained** | LeJEPA removes both | **Substantive.** This is not LeJEPA; it is I-JEPA plus SIGReg. Says nothing about LeJEPA's own claim that the predictor and teacher–student machinery become unnecessary. |
+| 2 | **One context view**, bbox-biased multi-block masking | DINO multi-crop, V=8 | **Substantive.** λ's recommended value is tied to view count (§6.1), so the transfer of 0.05 to V=1 is an assumption the ablation could not test — and the λ-robustness result is the only reason to think it is safe. |
+| 3 | Latent MSE against EMA targets | views-predict-global-mean | **Substantive.** The prediction term is a different objective, so the *balance* λ strikes is not the paper's balance. |
+| 4 | **Attached at the penultimate block, pre-norm** | encoder output | **Substantive.** Argued above; not ablated. A different attachment could give a different number. |
+| 5 | batch 32 | recommends ≥ 128 | Their Epps–Pulley bias is O(1/N) and stated fine "as small as 16"; measured floor here ≈ 1.0 at n=32. |
+| 6 | Real-arithmetic ECF | complex ECF | None. The target CF is real, so the modulus expands exactly; verified against a transcription of algorithm 1 at 0.0e+00 across four scales. |
+| 7 | Host-drawn sketch, 1024 slices | device generator, listing defaults 256 | None. 1024 is §6.1's own recommendation; host drawing makes the directions backend-independent. |
+
+Taken together: **this decision is about SIGReg as a regulariser on I-JEPA at one attachment point,
+on this corpus.** It is not a reproduction of LeJEPA and does not claim to be.
+
+### Question 2 — the paper's loss-selection claim **did not transfer**
+
+The second reason for running this was checkpoint selection: LeJEPA reports its training loss
+correlating ρ_s ≈ 0.99 with downstream accuracy, which would make label-free selection possible.
+**It did not transfer to this configuration.** Six checkpoints per arm, probed on a fixed reduced
+subset; exact two-sided permutation p over all 720 orderings, where the 5% threshold at n=6 is
+|ρ| = 0.886:
+
+| arm | ρ(total loss, AUC) | p | ρ(prediction) | ρ(penalty) |
+|---|---|---|---|---|
+| `d17` | **+0.657** | 0.175 | +0.657 | — |
+| `sigreg_050` | +0.086 | 0.919 | −0.143 | −0.314 |
+| `sigreg_006` | −0.086 | 0.919 | −0.086 | **−0.714** (p 0.136) |
+
+`d17` reproduces H5's anti-correlation *within a single run*; both SIGReg arms sit at ≈ 0. So the
+misleading signal weakens — but **no correlation here is significant**, and removing a misleading
+signal is not supplying a good one. The practical read is unambiguous: **selecting the lowest-loss
+checkpoint costs AUC in every arm** — **−0.0110** (`d17`), **−0.0072** (`sigreg_050`),
+**−0.0181** (`sigreg_006`). SIGReg roughly halves the cost at λ = 0.05 and makes it worse at
+0.00625.
+
+**This is not evidence against the paper.** Different regime in every respect that matters: their
+ρ is measured *across runs over a hyperparameter sweep* (learning rate, weight decay, epochs, λ)
+on ImageNet with eight views; ours is *within one 3,000-step run* at one view and one λ, over six
+points. Those are different quantities, and ours is underpowered by construction. What can be said
+is only that the claim did not reproduce here, in the form the 1C checkpoint rule would need.
+
+**Therefore the 1C label-blind checkpoint rule STANDS, unchanged** — final checkpoint, gated on
+collapse stability. Best-AUC selection would let labels choose the encoder and breach the firewall;
+lowest-loss selection is measurably worse than taking the last checkpoint. Nothing here licenses
+changing it.
+
+### The collapse floor is **scoped**, not removed
+
+Under SIGReg effective rank is constraint-satisfied rather than diagnostic — 34.23 against 11.77,
+monotone, and still climbing at 3,000 steps. `CollapseFloorFreeze.min_effective_rank` (2.5, itself
+re-derived only last brief on grounding H5 had already undercut) could therefore never fire, and a
+criterion that cannot fire is decoration rather than a tripwire.
+
+So the **soft** rank floor does not apply when `sigreg_lambda > 0`, and applies normally when it is
+zero. `CollapseMonitor` takes `soft_rank_floor`, `train_jepa` derives it from `sigreg_lambda` —
+which is hashed into `config_hash`, so a run cannot quietly forfeit the tripwire without its
+identity changing — and logs the fact. The **hard floor** (erank < 2) and the **std floor** still
+apply under SIGReg, and the whole mechanism is intact for **D12's non-SIGReg arms** (MAE, MoCo,
+plain I-JEPA), which still need a collapse gate and do not get isotropy for free.
+
+### The eigen-triangulation: one leg weakened, measured rather than argued
+
+The logistic-vs-CAV cross-check compares a *discriminative* concept direction against a *marginal*
+one; SIGReg constrains the **total** covariance, not the within-class covariance, and since
+Σ_total = Σ_within + Σ_between, Σ_within = σ²I − Σ_between is **not** isotropic. The algebra
+predicts the check should weaken without vanishing. Measured over each arm's six checkpoints:
+
+| arm | disagreement, step 500 → 3000 |
+|---|---|
+| `d17` | 0.9804 → 0.9479 |
+| `sigreg_050` | 0.9738 → **0.9118** |
+| `sigreg_006` | 0.9691 → 0.9142 |
+
+Enforced isotropy does bring the two definitions closer, and does **not** collapse them: at 0.912
+they still disagree on 91% of the available angle. **The leg survives, weakened, as predicted.**
+The **Marchenko–Pastur null becomes better justified** — its isotropy assumption is now enforced
+rather than hoped for.
+
+### D12 — flagged, not settled
+
+Adopting SIGReg gives the JEPA arm a distributional constraint MAE and MoCo lack. Both sides are
+real, and neither is decided here:
+
+* **Against.** "Of course its geometry differs — you constrained it" becomes a fair objection to any
+  cross-objective *consistency* argument built on embedding geometry. The arms are no longer
+  like-for-like in the respect the comparison reads.
+* **For.** Entanglement **surviving enforced isotropy** is *stronger* evidence it is in the data
+  than entanglement in an unconstrained representation, where it could be an artefact of an
+  arbitrary covariance. A constraint that fails to remove a structure is informative about the
+  structure.
+
+This is a framing decision for the write-up, not a config one. Options when it is faced: run the
+JEPA arm both ways, restrict the cross-objective claim to non-geometric read-outs, or state the
+asymmetry and argue the second point. Record both; decide later.
+
+### What is not known
+
+3,000 steps against a 50,000-step run — all three arms were still moving, and `sigreg_050`'s rank
+climbed 29.9 → 34.2 over its last 500 steps. One seed, one feature, everything stamped
+`smoke: true`, so "separated" means separated on bootstrap intervals over the test set, not across
+training runs. The attachment point was chosen, not ablated. And **D17's cosine decay remains
+untested** and is inherited unchanged by this decision.

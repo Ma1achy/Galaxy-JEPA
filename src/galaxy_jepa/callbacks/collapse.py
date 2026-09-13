@@ -146,8 +146,18 @@ class CollapseMonitor:
         floor: CollapseFloorFreeze | None = None,
         total_steps: int | None = None,
         history: list[dict[str, float]] | None = None,
+        soft_rank_floor: bool = True,
     ):
         self.std_floor = std_floor
+        #: Whether :attr:`floor`'s **soft** rank criterion applies. It does not under SIGReg
+        #: (D18), where effective rank is constraint-satisfied rather than diagnostic — measured
+        #: at 34.2 against the unregularised arm's 11.8, monotone — so the floor could never
+        #: fire, and a criterion that cannot fire is decoration rather than a tripwire. This is
+        #: **scoped, not removed**: the hard floor and the std floor still apply here, and
+        #: D12's non-SIGReg arms (MAE, MoCo, plain I-JEPA) keep the soft floor intact. Derived
+        #: from ``sigreg_lambda`` by the caller, which is hashed into ``config_hash``, so a run
+        #: cannot quietly forfeit the tripwire without its identity changing.
+        self.soft_rank_floor = soft_rank_floor
         #: The pre-registered rank criterion. ``None`` keeps the historical behaviour — halt only
         #: on the unambiguous failures — and a run without it forfeits the tripwire, which
         #: ``harness`` records in ``escape_hatches_used`` rather than leaving implied.
@@ -197,6 +207,8 @@ class CollapseMonitor:
             )
             return True
         grace = int(floor.grace_fraction * (self.total_steps or 0))
+        if not self.soft_rank_floor:
+            return False
         if step >= grace and all(r < floor.min_effective_rank for r in ranks):
             self.halt_reason = (
                 f"effective rank {ranks[-1]:.2f} below the pre-registered floor "

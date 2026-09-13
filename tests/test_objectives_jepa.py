@@ -9,6 +9,8 @@ signals and the EMA schedule.
 
 from __future__ import annotations
 
+import math
+
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -242,3 +244,41 @@ class TestSigRegLandsInert:
 
         assert parts.sigreg is not None
         assert float(parts.sigreg.detach()) == pytest.approx(float(expected.detach()), rel=1e-6)
+
+
+class TestTheMpsPoolRelease:
+    """Brief I: ``train_jepa`` releases the MPS allocator pool at the monitor interval.
+
+    Measured at batch 32: the pool settles at 6.9 GB while only 0.87 GB is live, so 3.2 GB of an
+    18 GB machine is held for nothing, and a second arm was killed for memory after the first had
+    finished. Releasing holds it at 3.67 GB and costs nothing (133 s vs 135 s over 200 steps).
+
+    **Bit-identity is an empirical result, not something a CPU test can prove** — the call is
+    device-guarded, so it never executes here. It was measured instead: after the change, a
+    3,000-step arm reproduced all 3,000 per-step losses of the pre-change run exactly, and ran
+    5.5% faster for the reduced pressure (`artifacts/i_findings.md`). What *is* pinned here is
+    the structural claim that makes that result inevitable — the release is device-guarded, and
+    sits outside the forward, the backward and the optimiser step, where an allocator operation
+    cannot reach the arithmetic.
+    """
+
+    def test_it_is_guarded_and_outside_the_computation(self):
+        import inspect
+
+        source = inspect.getsource(train_jepa)
+        assert 'if device.startswith("mps") and step % cfg.monitor_every == 0:' in source
+        assert "torch.mps.empty_cache()" in source
+        release = source.index("torch.mps.empty_cache()")
+        for after in ("loss.backward()", "opt.step()", "jepa.ema_update("):
+            assert source.index(after) < release, f"the release must come after {after}"
+
+    def test_a_cpu_run_is_untouched_by_it(self, pretraining_corpus, tmp_path):
+        """The guard means a CPU run executes exactly the pre-change loop."""
+        loader = _loader(pretraining_corpus, tmp_path)
+        jepa = Jepa(
+            VisionTransformer(img_size=64, patch_size=16, embed_dim=32, depth=2, heads=2),
+            JepaConfig(steps=2, batch_size=4, monitor_every=1),
+        )
+        result = train_jepa(jepa, loader, device="cpu")
+        assert len(result.losses) == 2
+        assert all(math.isfinite(v) for v in result.losses)

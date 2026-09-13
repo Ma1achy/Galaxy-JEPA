@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 _INDEX_FILE = "index.json"
 _DATA_FILE = "stamps.f16"
 _SCALARS_FILE = "petro_rad_arcsec.f64"
+_PROBE_COLUMNS_FILE = "probe_columns.f64"
 
 
 class _Source(Protocol):
@@ -181,6 +182,11 @@ class CacheIndex:
     #: The digest lives here because the index is the cache's commit point: a sidecar the index
     #: does not vouch for is not a sidecar, and one whose digest disagrees is refused, never used.
     scalars_sha256: str = ""
+    #: The probing path's equivalent: the column names baked into ``probe_columns.f64`` (a
+    #: ``(len(probe_columns), n)`` float64 block in this index's row order) and its digest.
+    #: Empty means the sidecar has not been written and the probe falls back to the full table.
+    probe_columns: list[str] = dataclasses.field(default_factory=list)
+    probe_columns_sha256: str = ""
 
     @property
     def n(self) -> int:
@@ -206,6 +212,8 @@ def _read_index(cache_dir: Path) -> CacheIndex | None:
         # tolerant: a cache baked before D16 has no such field, and says so by being empty
         normalisation_hash=str(raw.get("normalisation_hash", "")),
         scalars_sha256=str(raw.get("scalars_sha256", "")),
+        probe_columns=[str(c) for c in raw.get("probe_columns", [])],
+        probe_columns_sha256=str(raw.get("probe_columns_sha256", "")),
     )
 
 
@@ -315,6 +323,187 @@ def load_scalars(cache_dir: str | Path, index: CacheIndex) -> np.ndarray:
             "vouches for. The file changed under a cache that did not; refusing to read it."
         )
     return values
+
+
+def write_probe_columns(
+    cache_dir: str | Path, rows: Iterable[Mapping[str, Any]], columns: Sequence[str]
+) -> Path:
+    """Bake the probing path's metadata columns into one index-aligned float64 block.
+
+    **The same fix the training path got in G2, applied where it still hurt.**
+    ``harness.evaluate_probe`` built ``rows_by_id(DirectorySource(probe_dir).rows)`` —
+    ``csv.DictReader`` over 230,358 rows x 132 columns — and ``LabelProvider`` then copied it,
+    while ``StampDataset`` reads exactly one of those columns. Measured on this corpus: the
+    row-dict table is **1.49 GB** and the provider's copy takes it to **2.99 GB**. It was killed
+    for memory before embedding a single stamp.
+
+    Selecting columns is not the win: the probing layer genuinely needs 81 of the 132, and the
+    same 81 as row dicts is still 0.73 GB. The win is **arrays instead of dicts of strings** —
+    81 columns over the probe corpus is 75 MB at float32, and the block is loaded one column at
+    a time, so a single-feature probe never materialises the other 80.
+
+    **float64, for the reason the scalar sidecar gives.** At float32 a stored vote fraction
+    differs from the CSV's value in its last bits, and the confident-extremes cut
+    (``fraction < 0.2`` / ``> 0.8``) is a comparison against exactly those bits. A parity claim
+    that needs a tolerance is not a parity claim.
+
+    ``rows`` is consumed as a stream, so this adds nothing to whatever the caller already
+    holds — and a caller that streams the CSV (``artifacts/i4_probe_columns.py``) never builds
+    the table at all. A column absent from a row is written NaN —
+    that is a *value*, and the vote-count floor and the extremes filter both already treat NaN
+    as "no measurement". Alignment is the contract: an indexed object missing from ``rows``
+    would shift every later row onto another galaxy, so it is refused, not filled.
+    """
+    cache_dir = Path(cache_dir)
+    index = _read_index(cache_dir)
+    if index is None:
+        raise FileNotFoundError(f"no cache index under {cache_dir}; nothing to align against")
+    names = list(dict.fromkeys(columns))  # de-duplicate, keep the caller's order
+    if not names:
+        raise ValueError("refusing to write an empty probe-column sidecar; name the columns")
+
+    row_of = {int(o): i for i, o in enumerate(index.object_ids)}
+    block = np.full((len(names), index.n), np.nan, dtype=np.float64)
+    seen = 0
+    for row in rows:  # streamed: the whole point is never to hold the table
+        i = row_of.get(int(row["object_id"]))
+        if i is None:
+            continue  # in the corpus but not baked into this cache — not this artefact's problem
+        seen += 1
+        for j, name in enumerate(names):
+            raw = row.get(name)
+            try:
+                block[j, i] = float(raw)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                pass  # stays NaN: absent, blank or unparseable is a missing *measurement*
+
+    covered = int(np.isfinite(block).any(axis=0).sum())
+    if seen == 0:
+        raise ValueError(
+            "no supplied row matched an indexed object. The rows and the cache describe "
+            "different corpora; a sidecar written from them would be aligned to nothing."
+        )
+    path = cache_dir / _PROBE_COLUMNS_FILE
+    tmp = path.with_suffix(".f64.tmp")
+    tmp.write_bytes(block.tobytes())
+    with tmp.open("rb") as fh:
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+    _write_index(
+        cache_dir,
+        dataclasses.replace(index, probe_columns=names, probe_columns_sha256=_sha256_file(path)),
+    )
+    logger.info(
+        "probe-column sidecar: %d columns x %d rows (%d carry a measurement), %.1f MB, sha %s",
+        len(names),
+        index.n,
+        covered,
+        path.stat().st_size / 1e6,
+        _sha256_file(path)[:12],
+    )
+    return path
+
+
+def load_probe_columns(cache_dir: str | Path, index: CacheIndex) -> ProbeColumns:
+    """Read the probe-column sidecar, refusing anything that does not match its index."""
+    path = Path(cache_dir) / _PROBE_COLUMNS_FILE
+    if not index.probe_columns_sha256:
+        raise FileNotFoundError(
+            f"cache {Path(cache_dir).name[:12]} has no probe-column sidecar recorded in its "
+            "index. Write it with `data.cache.write_probe_columns` (seconds, from metadata.csv "
+            "— no re-bake), or the probing path falls back to carrying the whole table."
+        )
+    if not path.exists():
+        raise FileNotFoundError(
+            f"the index vouches for a probe-column sidecar (sha "
+            f"{index.probe_columns_sha256[:12]}) but {path} is gone. Re-write it; do not "
+            "proceed on the index alone."
+        )
+    expected = len(index.probe_columns) * index.n * 8
+    if path.stat().st_size != expected:
+        raise RuntimeError(
+            f"probe-column sidecar is {path.stat().st_size} bytes but its index describes "
+            f"{len(index.probe_columns)} columns x {index.n} stamps = {expected}. Misaligned by "
+            "construction — every row past the divergence would carry another galaxy's votes."
+        )
+    digest = _sha256_file(path)
+    if digest != index.probe_columns_sha256:
+        raise RuntimeError(
+            f"probe-column sidecar digest {digest[:12]} != the "
+            f"{index.probe_columns_sha256[:12]} its index vouches for. The file changed under a "
+            "cache that did not; refusing to read it."
+        )
+    block = np.memmap(path, dtype=np.float64, mode="r", shape=(len(index.probe_columns), index.n))
+    return ProbeColumns(block, list(index.probe_columns), index.object_ids)
+
+
+class ProbeColumns(Mapping[int, Mapping[str, float]]):
+    """``object_id`` -> column view over the sidecar, shaped like the row dicts it replaces.
+
+    Both consumers — ``StampDataset`` and ``probing.extract.LabelProvider`` — reach for
+    ``rows[oid][column]`` and ``rows.get(oid, {}).get(column)``, so this satisfies them
+    unchanged rather than rewriting the probing layer around an array.
+
+    Columns are materialised from the memmap **on first use and cached**, so a single-feature
+    probe pays for the two or three columns it reads and not the other seventy-eight, while the
+    full battery ends up holding all of them as contiguous arrays — which is still the point,
+    since the alternative was the same data as Python dicts at forty times the size.
+    """
+
+    def __init__(self, block: Any, names: Sequence[str], object_ids: Sequence[int]):
+        self._block = block
+        self._names = {name: j for j, name in enumerate(names)}
+        self._row_of = {int(o): i for i, o in enumerate(object_ids)}
+        self._loaded: dict[str, np.ndarray] = {}
+
+    @property
+    def columns(self) -> list[str]:
+        return list(self._names)
+
+    def column(self, name: str) -> np.ndarray:
+        """The whole column as a float64 array in index order — loaded once, then cached."""
+        cached = self._loaded.get(name)
+        if cached is None:
+            j = self._names.get(name)
+            if j is None:
+                raise KeyError(
+                    f"column {name!r} is not in this sidecar. It holds "
+                    f"{len(self._names)} columns; re-write it naming the ones this run needs."
+                )
+            cached = np.array(self._block[j], dtype=np.float64)
+            self._loaded[name] = cached
+        return cached
+
+    def __getitem__(self, object_id: int) -> Mapping[str, float]:
+        i = self._row_of.get(int(object_id))
+        if i is None:
+            raise KeyError(object_id)
+        return _ColumnRow(self, i)
+
+    def __iter__(self) -> Any:
+        return iter(self._row_of)
+
+    def __len__(self) -> int:
+        return len(self._row_of)
+
+
+class _ColumnRow(Mapping[str, float]):
+    """One galaxy's view across the sidecar's columns — resolved per lookup, never built."""
+
+    __slots__ = ("_owner", "_row")
+
+    def __init__(self, owner: ProbeColumns, row: int):
+        self._owner = owner
+        self._row = row
+
+    def __getitem__(self, name: str) -> float:
+        return float(self._owner.column(name)[self._row])
+
+    def __iter__(self) -> Any:
+        return iter(self._owner.columns)
+
+    def __len__(self) -> int:
+        return len(self._owner.columns)
 
 
 def _assert_untorn(data_path: Path, index: CacheIndex | None, dtype: np.dtype[Any]) -> None:

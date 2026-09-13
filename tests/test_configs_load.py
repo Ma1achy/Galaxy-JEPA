@@ -166,25 +166,28 @@ class TestEffectFloorFreeze:
         )  # the shipped default is OPEN
 
 
-def test_sigreg_added_no_meaning_to_any_existing_field():
-    """Brief I: adding the SIGReg knobs must not change what any *other* field means.
+def test_sigreg_is_adopted_and_changed_no_other_field():
+    """D18: SIGReg is on at the paper's lambda, and nothing else about the run moved.
 
     ``config_hash`` does move, and that is by design: ``determining_dump`` is a deliberate
-    deny-list, so a newly added field is hashed and the failure mode is a spurious "different
-    run" rather than a false "same run" (``core/config.py``). What can be pinned — and is the
-    thing that actually matters for reading back an artefact — is that nothing *else* shifted:
-    strip the four new keys and the hash is the one H5's arms were stamped with, so an old
-    ``config.json`` still compares field for field against a new one.
+    deny-list, so a new field is hashed and the failure mode is a spurious "different run"
+    rather than a false "same run" (``core/config.py``). What can be pinned — and is the thing
+    that matters for reading an artefact back — is that nothing *else* shifted: strip the four
+    SIGReg keys and the hash is the one H5's arms were stamped with, so a D17-era
+    ``config.json`` still compares field for field against a D18 one.
     """
     from galaxy_jepa.core.config import config_hash
 
     with open("configs/pretrain.yaml") as fh:
         dump = HarnessConfig(**yaml.safe_load(fh)).determining_dump()
 
-    new_keys = {"sigreg_lambda", "sigreg_slices", "sigreg_quad_points", "sigreg_domain"}
-    assert new_keys <= set(dump["objective"])
-    assert dump["objective"]["sigreg_lambda"] == 0.0  # off in the shipped config, whatever I found
+    keys = {"sigreg_lambda", "sigreg_slices", "sigreg_quad_points", "sigreg_domain"}
+    assert keys <= set(dump["objective"])
+    # 0.05 is LeJEPA section 6.1 verbatim. The tie against 0.00625 was broken on PROVENANCE,
+    # not performance: 0.9470 against 0.9471 is not a difference.
+    assert dump["objective"]["sigreg_lambda"] == 0.05
+    assert dump["objective"]["sigreg_slices"] == 1024
 
     without = dict(dump)
-    without["objective"] = {k: v for k, v in dump["objective"].items() if k not in new_keys}
+    without["objective"] = {k: v for k, v in dump["objective"].items() if k not in keys}
     assert config_hash(without)[:16] == "538bf997880a8767"  # the D17 hash, recorded in h5_findings

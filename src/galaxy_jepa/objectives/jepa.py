@@ -355,7 +355,22 @@ def train_jepa(
             sampler.start = start_step * cfg.batch_size
             logger.info("resuming at step %d of %d", start_step, cfg.steps)
 
-    monitor = CollapseMonitor(floor=collapse_floor, total_steps=cfg.steps, history=restored)
+    soft_rank_floor = cfg.sigreg_lambda <= 0.0
+    if not soft_rank_floor and collapse_floor is not None:
+        logger.info(
+            "SIGReg is on (lambda=%.4g), so the soft rank floor of %.2f is not applied: effective "
+            "rank is constraint-satisfied under it and the criterion could never fire (D18). The "
+            "hard floor (%.2f) and the std floor still apply.",
+            cfg.sigreg_lambda,
+            collapse_floor.min_effective_rank,
+            collapse_floor.hard_floor,
+        )
+    monitor = CollapseMonitor(
+        floor=collapse_floor,
+        total_steps=cfg.steps,
+        history=restored,
+        soft_rank_floor=soft_rank_floor,
+    )
     stopped_early = False
     done = start_step
     data = _cycle(loader)

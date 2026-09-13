@@ -73,6 +73,16 @@ objective:                  # docs/masking.md; the JEPA recipe
   pred_dim: 192
   pred_depth: 6
   pred_heads: 6
+  # D18 — SIGReg on (LeJEPA, arXiv:2511.08544 §4). A distribution-matching penalty pushing the
+  # PROBED embedding — pooled DEFAULT_LAYER, pre-norm — towards an isotropic Gaussian, via the
+  # Epps-Pulley statistic on random 1-D projections resampled every step. Measured, not adopted
+  # on the paper's authority: frozen-probe AUC 0.9470 [0.9435, 0.9506] against the lambda=0
+  # arm's 0.9358 [0.9315, 0.9402] on the same galaxies, intervals cleanly separated, at a
+  # throughput cost of 0.17%. See artifacts/i_findings.md.
+  sigreg_lambda: 0.05     # 0.0 disables it entirely (the penalty is never computed)
+  sigreg_slices: 1024     # §6.1's recommendation; their algorithm 1 listing defaults to 256
+  sigreg_quad_points: 17  # trapezoidal knots over the integration domain
+  sigreg_domain: 5.0      # [-5, 5]; table 1a shows the statistic is insensitive to both
   monitor_every: 100
   checkpoint_every: 1500    # steps. At the measured 1.297 steps/s that is ~19 min of work at
                             #   risk; 0 would gamble the whole job and is stamped as a forfeit.
@@ -80,10 +90,16 @@ objective:                  # docs/masking.md; the JEPA recipe
 # The pre-registered collapse kill criterion (G5). Recorded BEFORE the run, because a criterion
 # chosen after seeing the curve is not a criterion. Hashed into `config_hash` and enforced by
 # `CollapseMonitor`; leaving it unset stamps `collapse_floor_open`.
+# NOTE (D18): with `sigreg_lambda > 0` the SOFT rank floor below does not apply — effective rank
+# is constraint-satisfied under SIGReg (measured 34.2 against the unregularised arm's 11.8,
+# monotone), so the criterion could never fire and a criterion that cannot fire is decoration.
+# `train_jepa` derives that from `sigreg_lambda`, which is hashed, and logs it. The hard floor and
+# the std floor still apply here, and the machinery is intact for D12's non-SIGReg arms.
 collapse_floor:
-  min_effective_rank: 2.5   # RE-DERIVED under D17. The old 5.0 would have killed a WORKING run:
-                            #   H5's baseline sat below it for 53 consecutive readings from step
-                            #   125 and still reached AUC 0.9043. See `rationale`.
+  min_effective_rank: 2.5   # RE-DERIVED under D17; INERT under D18's sigreg_lambda > 0. The old
+                            #   5.0 would have killed a WORKING run: H5's baseline sat below it
+                            #   for 53 consecutive readings from step 125 and still reached AUC
+                            #   0.9043. See `rationale`.
   grace_fraction: 0.10      # of `steps`, from the EMA ramp's own timescale — not from a curve
   hard_floor: 2.0           # essentially one direction; unambiguous
   hard_floor_after_step: 100 # the LR warmup

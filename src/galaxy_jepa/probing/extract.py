@@ -48,6 +48,7 @@ __all__ = [
     "DEFAULT_FEATURE_COLS",
     "DEFAULT_NUISANCE_COLS",
     "NUISANCE_FLAG_COLS",
+    "required_columns",
 ]
 
 # The slice's single feature. The full dissertation-fixed GZ2 tree (design 2C) extends this
@@ -79,6 +80,44 @@ DEFAULT_NUISANCE_COLS: dict[str, str] = {
 # "size" read as morphology, firing a false nuisance-competitive trigger. The rows stay in the
 # corpus and in every other probe — flagged, never dropped (`docs/spec/data.md`).
 NUISANCE_FLAG_COLS: dict[str, str] = {"size": "petrorad_suspect"}
+
+
+def required_columns(
+    *,
+    schemes: Sequence[FeatureScheme] = (),
+    feature_cols: Mapping[str, str] | None = None,
+    nuisance_cols: Mapping[str, str] | None = None,
+    nuisance_flag_cols: Mapping[str, str] | None = None,
+    label_col: str = FEATURED_FRACTION_COL,
+    extra: Sequence[str] = (),
+) -> list[str]:
+    """Every metadata column the probing path actually reads, named up front.
+
+    This module is "the single reader of the GZ2 vote-fraction columns", so it is also the only
+    place that can say which ones a run needs — and saying so is what lets
+    ``data.cache.write_probe_columns`` bake a compact aligned artefact instead of the probing
+    path carrying the whole 132-column table.
+
+    Deliberately a *superset* per scheme rather than per feature: a sidecar is written once at
+    bake time and read by every later probe, so scoping it to one feature would mean re-writing
+    it whenever the ladder widened. Measured on this corpus the two schemes together need 81 of
+    132 columns, and the artefact is sized by rows far more than by columns.
+    """
+    needed: list[str] = ["object_id", label_col, "petroRad_r"]
+    for scheme in schemes:
+        needed.extend(scheme.feature_cols().values())
+        needed.extend(scheme.count_cols().values())
+        for spec in scheme.specs:
+            needed.extend(spec.reach_count_cols())
+            for group in spec.condition_groups():
+                needed.extend(group)
+    needed.extend((feature_cols or DEFAULT_FEATURE_COLS).values())
+    needed.extend((nuisance_cols or DEFAULT_NUISANCE_COLS).values())
+    needed.extend(
+        (NUISANCE_FLAG_COLS if nuisance_flag_cols is None else nuisance_flag_cols).values()
+    )
+    needed.extend(extra)
+    return list(dict.fromkeys(needed))  # de-duplicated, order stable
 
 
 @dataclasses.dataclass(frozen=True)
@@ -160,12 +199,18 @@ class LabelProvider:
         population: str = "full",
         vote_count_min: float,
         consensus_gate: float = DEFAULT_CONSENSUS_GATE,
+        copy_rows: bool = True,
     ):
         if scheme is not None and feature_cols is None:
             feature_cols = scheme.feature_cols()
         if population not in ("full", "conditional"):
             raise ValueError(f"population must be 'full' or 'conditional', got {population!r}")
-        self.rows = {int(k): dict(v) for k, v in rows.items()}
+        # The defensive copy normalises keys to int and freezes the values against later
+        # mutation — worth it for a plain dict, and ruinous for the real corpus: measured at
+        # 1.49 GB for the probe table, which this line doubles to 2.99 GB. A caller handing
+        # over an array-backed, read-only view (``data.cache.ProbeColumns``) has nothing to
+        # defend against and says so here, rather than this guessing from the type.
+        self.rows = {int(k): dict(v) for k, v in rows.items()} if copy_rows else rows
         self.feature_cols = dict(feature_cols or DEFAULT_FEATURE_COLS)
         self.nuisance_cols = dict(nuisance_cols or DEFAULT_NUISANCE_COLS)
         # Part of the schema, so it travels with `nuisance_cols`: a caller mapping the nuisances
