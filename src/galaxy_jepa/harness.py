@@ -107,6 +107,9 @@ class ObjectiveConfig(RunConfig):
     steps: int = 1000
     batch_size: int = 256
     lr: float = 1e-3
+    #: Cosine-decay floor (D17). ``None`` is warmup-only — the pre-D17 recipe — so an unchanged
+    #: config keeps its ``config_hash`` and the field lands inert.
+    lr_final: float | None = None
     weight_decay: float = 0.04
     warmup_steps: int = 100
     ema_start: float = 0.996
@@ -127,6 +130,7 @@ class ObjectiveConfig(RunConfig):
             steps=self.steps,
             batch_size=self.batch_size,
             lr=self.lr,
+            lr_final=self.lr_final,
             weight_decay=self.weight_decay,
             warmup_steps=self.warmup_steps,
             ema_start=self.ema_start,

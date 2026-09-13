@@ -58,9 +58,16 @@ objective:                  # docs/masking.md; the JEPA recipe
   global_box_frac: 0.4      # the fallback box when petroRad is missing/<=0
   steps: 50000              # the interpretable full run (the pilot was 6k)
   batch_size: 32            # measured: MPS is compute-bound here (runs/calib2.log)
-  lr: 0.001
-  weight_decay: 0.04
-  warmup_steps: 100
+  # D17 — the reference recipe adapted. I-JEPA peaks at 1e-3 AT BATCH 2048; sqrt-scaling to
+  # batch 32 gives 1.25e-4, its relative warmup (15 of 600 epochs = 2.50%) gives 1,250 steps, and
+  # its peak -> peak/1000 cosine gives the 1.25e-7 floor. Settled by measurement, not preference:
+  # frozen-probe AUC 0.9358 [0.9315, 0.9402] against the old recipe's 0.9043 [0.8988, 0.9097] on
+  # the same galaxies, intervals cleanly separated. See artifacts/h5_findings.md.
+  lr: 0.000125
+  lr_final: 0.000000125   # cosine floor; null = warmup-only, the pre-D17 behaviour
+  weight_decay: 0.04      # NOT ramped. I-JEPA ramps 0.04 -> 0.4; H2 measured no effect and 500
+                          #   steps cannot test a regularisation schedule, so it is not adopted.
+  warmup_steps: 1250
   ema_start: 0.996
   ema_end: 1.0
   pred_dim: 192
@@ -74,32 +81,45 @@ objective:                  # docs/masking.md; the JEPA recipe
 # chosen after seeing the curve is not a criterion. Hashed into `config_hash` and enforced by
 # `CollapseMonitor`; leaving it unset stamps `collapse_floor_open`.
 collapse_floor:
-  min_effective_rank: 5.0   # half the pilot's ~10.3, the only erank in this project tied to a
-                            #   working probe (AUC 0.905). Deliberately NOT the smoke's 4.1.
+  min_effective_rank: 2.5   # RE-DERIVED under D17. The old 5.0 would have killed a WORKING run:
+                            #   H5's baseline sat below it for 53 consecutive readings from step
+                            #   125 and still reached AUC 0.9043. See `rationale`.
   grace_fraction: 0.10      # of `steps`, from the EMA ramp's own timescale — not from a curve
   hard_floor: 2.0           # essentially one direction; unambiguous
   hard_floor_after_step: 100 # the LR warmup
   consecutive_readings: 3   # one noisy monitor batch must not end a ten-hour job
   derived_from: >-
-    Pilot run (runs/pilot.log, 6,000 steps on a 10,000-stamp pretrain split): effective rank
-    22.6 -> 10.2 by step 100 and held 10.2-10.6 to the end; frozen-probe AUC 0.900-0.905. Brief F
-    smoke (300 steps, 827k corpus): 22.6 -> 4.1 by step 175, then flat, std rising 0.28 -> 5.17.
+    H5 resolving run (artifacts/h5_findings.md; runs/h5/, 3,000 steps per arm on the 827k corpus,
+    one seed, identical data order and masks, only the schedule differing). Baseline (the pre-D17
+    recipe): effective rank fell to a minimum of 3.50, sat BELOW 5.0 for 53 consecutive readings
+    from step 125, recovered to 7.91, and its frozen probe reached AUC 0.9043 [0.8988, 0.9097].
+    Proposal (the D17 recipe): rank never fell below 7.59, reached 11.77, AUC 0.9358 [0.9315,
+    0.9402]. Earlier evidence retained for context: the pilot (6,000 steps, 10,000 stamps) held
+    10.2-10.6 with AUC 0.905; the Brief F smoke (300 steps) plateaued at 4.1.
   frozen_at: '2026-09-12'
   frozen_by: malachy
   rationale: >-
-    The threshold is anchored on the one place a collapse signal is tied to a SCIENTIFIC OUTCOME:
-    the pilot held erank around 10.3 and its frozen probe reached AUC 0.905. Half that is the
-    floor, so a run in the pilot's regime is never killed. It is deliberately not set near the
-    4.1 the Brief F smoke plateaued at, because reading the threshold off the curve it is meant to
-    judge would make it no criterion at all. The grace period comes from the schedule's own shape
-    rather than any observed trace: the EMA momentum ramps from ema_start to ema_end across the
-    whole run, so early steps have a fast-moving target and an unsettled representation is
-    expected. The hard floor is the unambiguous case. WHAT IS NOT KNOWN: the pilot is one trace,
-    on 10,000 stamps of a different corpus, with a smaller batch of monitor galaxies; the smoke
-    ran 300 steps. Neither says what 827k should look like. This floor is therefore conservative
-    about declaring failure and explicitly PROVISIONAL — a tripwire against burning days on a
-    dead run, not a claim about where healthy training sits. Re-derive it from the first real
-    trace, deliberately, and record that as a new freeze.
+    RE-DERIVED because the old threshold was FALSIFIED by measurement, not merely un-grounded by
+    a recipe change. The 5.0 was "half the pilot's ~10.3", the one effective rank then tied to a
+    working probe. H5 supplied a second such trace and it broke the premise: the baseline arm
+    spent 53 consecutive readings below 5.0, from step 125 onwards, and went on to score AUC
+    0.9043 - indistinguishable from the pilot's own 0.905. Had the 5,000-step grace elapsed, the
+    frozen criterion would have killed a run that was working. A tripwire that fires on a healthy
+    run is worse than no tripwire, because it destroys the evidence that would have corrected it.
+    So the floor is now bounded FROM ABOVE by evidence rather than derived as a fraction of a
+    working level: it must sit below 3.50, the lowest effective rank yet seen in any run that went
+    on to probe successfully. 2.5 is that, with margin, and still above the hard floor of 2.0.
+    BE CLEAR THAT THIS IS WEAKER GROUNDING THAN THE VALUE IT REPLACES. The old number had a
+    positive derivation and was wrong; this one has only an upper bound. Every trace this project
+    holds that dipped low still worked, so the evidence cannot yet say where a genuinely dead run
+    sits, and the soft floor is doing less work than its name suggests. Re-derive it again from
+    the first full-length run under D17 - which, unlike the pilot, will be on the corpus and the
+    recipe the headline actually uses. The grace period is unchanged and still comes from the
+    schedule's own shape rather than any curve: the EMA momentum ramps across the whole run, so
+    early steps have a fast-moving target and an unsettled representation is expected. The hard
+    floor of 2.0 is unchanged and remains the unambiguous case - essentially a single direction.
+    NEITHER floor has ever fired in this project, on any run.
+
 
 probe:                      # the single-feature headline read-out (NOT the battery below)
   label_col: t01_smooth_or_features_a02_features_or_disk_fraction   # RAW, never debiased

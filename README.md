@@ -12,7 +12,7 @@ This is **v2 of my undergraduate dissertation** &mdash; a direct follow-on from 
 
 A [JEPA](https://arxiv.org/abs/2301.08243) (Joint-Embedding Predictive Architecture) is trained **self-supervised** on hundreds of thousands of galaxy images: mask out patches, and have the model predict the *representation* of the hidden region from the visible context &mdash; never the pixels, and never a human label. To predict a masked galaxy region well, the model has to build an internal representation of what galaxies actually look like &mdash; their shapes, structures and features. The encoder is then **frozen**, and the Galaxy Zoo labels are brought in only as a *read-out key*, relocating the label noise out of representation-learning and into a measurement stage where it can be quantified and controlled rather than baked into the weights.
 
-> **Status &mdash; research in progress.** The premise is proven at pilot scale (see [The First Result](#the-first-result)). Since then the data layer has been built out to the full corpus &mdash; **826,968 galaxies pulled at native fidelity and pre-baked** &mdash; and the training loop, the frozen-probing harness and the controls battery are all standing. The full-scale run is deliberately **not launched yet**: a controlled experiment found that the configured learning-rate schedule is itself driving the representation's effective rank down, and that is being resolved before 12 hours of compute are spent on it (see [Before the Full Run](#before-the-full-run)). This README is a tour of the project as it stands.
+> **Status &mdash; research in progress.** The premise is proven at pilot scale (see [The First Result](#the-first-result)). Since then the data layer has been built out to the full corpus &mdash; **826,968 galaxies pulled at native fidelity and pre-baked** &mdash; and the training loop, the frozen-probing harness and the controls battery are all standing. The learning-rate schedule was found to be driving the representation's effective rank down, and has been [resolved by measurement](#before-the-full-run) &mdash; a scaled recipe lifts frozen-probe AUC from 0.904 to 0.936 on identical held-out galaxies. The full-scale run has not been launched yet. This README is a tour of the project as it stands.
 
 # **The Problem**
 
@@ -132,9 +132,23 @@ The answer was yes, on four independent grounds:
 
 The trap here is obvious and worth naming: the arm with the **highest** effective rank has by far the **worst** loss &mdash; it holds rank by barely having started. It is the arm being rejected. Effective rank is a collapse diagnostic, not the objective, and an arm that holds rank while learning nothing is worse than the baseline.
 
-What is *not* settled at 500 steps is which schedule is best, and the pilot is the reason for caution: it ran the **same** 1e-3 and still held rank around 10.3 &mdash; on a 10k corpus each galaxy saw about nineteen times, against 827k seen once. So the schedule is a demonstrated cause, not demonstrably the whole one. A [proposed recipe](artifacts/h4_schedule_proposal.md) is written up &mdash; the reference recipe adapted by stated rules rather than picked off the best-looking trace &mdash; and gated behind a longer two-arm run that ends by probing both frozen checkpoints, because the objective is AUC and 500 steps of effective rank cannot stand in for it.
+What that could *not* settle is which schedule is better. Effective rank is a collapse diagnostic, not the objective &mdash; and the arm with the **highest** rank of the six had by far the **worst** loss, holding rank by barely having started. So the question went to a longer run that ends in the actual objective: two arms at 3,000 steps, a decision rule written down and committed *before* either was launched, then both frozen encoders probed on the same held-out galaxies.
 
-This is what most of the engineering in this repository is for: making that kind of question cheap to ask and hard to fudge.
+<p align="center">
+  <img src="assets/resolving_run.png" width="980" alt="Two arms at 3,000 steps and the frozen-probe AUC of each" />
+</p>
+
+<p align="center">
+  <em>The resolving run. Same seed, same data order, same masks; only the schedule differs. The fourth panel is the one that decides.</em>
+</p>
+
+The scaled recipe wins, and the intervals do not overlap: **AUC 0.9358** (95% CI 0.9315&ndash;0.9402) against **0.9043** (0.8988&ndash;0.9097) on the same 34,829 held-out galaxies. It wins on the full held-out set too (0.8420 vs 0.8084) and on the ambiguous middle (0.6624 vs 0.6358). It is now the recipe: [D17](DECISIONS.md).
+
+**The interesting part is that the loss said the opposite.** The old recipe was **19&times; better on loss** &mdash; 0.0164 against 0.3168 &mdash; and lost the objective decisively. Look at the third panel for why: its mean pairwise cosine ends at **+0.984**, embeddings 98% aligned. Latent MSE is measured against a moving EMA target, so a predictor and target that co-adapt onto a shared mean component score beautifully while encoding almost nothing. **A low loss here is a collapse signature, not a score.** Anyone selecting on it would have kept the worse recipe &mdash; which is the whole argument for ending the experiment at a probe rather than at a training curve.
+
+It also falsified this project's own pre-registered kill criterion. The old collapse floor would have halted the *baseline* run &mdash; it sat below the threshold for 53 consecutive readings and then went on to score 0.9043. The floor has been [re-derived](DECISIONS.md), with the honest note that its new value has weaker grounding than the one it replaces: every trace here that dipped low still worked, so the evidence cannot yet say where a genuinely dead run sits.
+
+This is what most of the engineering in this repository is for: making that kind of question cheap to ask, hard to fudge, and impossible to quietly get wrong.
 
 # **The Data Layer**
 

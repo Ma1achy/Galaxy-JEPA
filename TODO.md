@@ -225,7 +225,7 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   It does *not* flatline immediately and the loss stays finite, so nothing is degenerate at this
   length — but the pilot held erank ≈ 10.2–10.6 out to 6,000 steps, so ~4 is lower than the one
   reference trace that ended in AUC 0.905. **Cause now identified — see the schedule item below.**
-- [ ] (P0) **The LR schedule is a measured cause of the rank fall; the recipe is not yet changed.**
+- [x] (P0) **The LR schedule is a measured cause of the rank fall.** *(resolved by H5 — see below)*
   Six 500-step arms, one seed, identical data order / masks / EMA / `steps`, varying only
   `(lr, wd)` per step (`artifacts/h2_schedule_arms.py`, read by `h3_read_arms.py`; findings in
   `artifacts/h3_schedule_verdict.md`). The causal question is settled four ways: erank@175 is
@@ -255,8 +255,7 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   **Next:** the resolving run — `baseline` vs the H4 proposal, **3,000 steps, ~1.6 h for the pair** —
   then probe both frozen checkpoints, because the objective is AUC and 500 steps of erank cannot
   stand in for it. *(Brief H1–H3)*
-- [ ] (P0) **Proposed schedule, awaiting the resolving run — `artifacts/h4_schedule_proposal.md`.
-  Nothing merged into `configs/pretrain.yaml`.** The **reference recipe adapted**, each number by a
+- [x] (P0) **Proposed schedule — adopted as D17 after the resolving run.** The **reference recipe adapted**, each number by a
   stated rule and **none read off an H2 trace**: peak **1.25e-4** (√-scaling of I-JEPA's batch-2048
   1e-3 — √ not linear because AdamW normalises by the gradient's second moment, so linear scaling's
   SGD derivation does not apply); warmup **1,250 steps** (the reference's *relative* 2.50%, 15 of 600
@@ -274,6 +273,48 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   plus three schedule respects); the **pilot comparison degrades** and should be recorded as an
   existence proof, not a like-for-like baseline. Needs a **D-series entry** with the scaling argument
   written out — drafted on 3,000-step evidence, not on 500. *(Brief H4)*
+
+- [x] (P0) **H5 resolving run: the schedule is settled, and the loss was lying.** Two arms, 3,000
+  steps, one seed, identical data order / masks / EMA / `steps`; both frozen encoders probed on the
+  same 34,829 held-out galaxies. Decision rule pre-registered **before** the arms ran
+  (`artifacts/h5_decision_rule.md`; the commit precedes the launch). **The D17 recipe wins on AUC
+  with no interval overlap** — consensus **0.9358** `[0.9315, 0.9402]` vs **0.9043**
+  `[0.8988, 0.9097]`; all-held-out 0.8420 vs 0.8084; ambiguous middle 0.6624 vs 0.6358. It also
+  holds erank 11.77 vs 7.91 (minimum **7.59 vs 3.50**) and never let std exceed **4.07** where the
+  baseline's peaked at **11.68**.
+  **The finding to carry forward: the loss inverted the answer.** The baseline was **19× better on
+  loss** (0.0164 vs 0.3168), on *both* framings — which agree at 3,000 steps where they disagreed
+  at 500 — and lost the objective decisively. Its mean pairwise cosine ends at **+0.984**:
+  embeddings 98% aligned, predictor and target co-adapted onto a shared mean component. **Low
+  latent MSE against a moving EMA target is a collapse signature, not a score.** Selecting on loss
+  would have kept the worse recipe.
+  Three corrections to H2's 500-step reading: **`std_final` is the wrong summary** (both arms
+  finish within 10% by opposite routes — the peak separates them 2.87×); **mean-cosine is not
+  uninformative** (+0.984 vs +0.286 is the widest separation of any diagnostic, and it tracks the
+  AUC — H2's finding was an artefact of stopping early); and **the baseline's 500-step picture was
+  a transient** (bottomed at 3.50, recovered to 7.91, reached 0.9043 — a working recipe, not a
+  straw man). The extension clause was **not** triggered and that was stated before acting: nothing
+  was descending and the arms had separated. *(Brief H5)*
+- [x] (P0) **`CollapseFloorFreeze` re-derived — the old value was falsified, not just outdated.**
+  H5's baseline sat **below the 5.0 soft floor for 53 consecutive readings** from step 125 and went
+  on to score AUC 0.9043. Had the 5,000-step grace elapsed, the frozen criterion would have killed
+  a working run. New soft floor **2.5**, bounded *from above* by evidence (below 3.50, the lowest
+  rank yet seen in a run that probed successfully) rather than derived as a fraction of a working
+  level. **Weaker grounding than what it replaces**, and flagged as such in the freeze's own
+  `rationale`: every trace this project holds that dipped low still worked, so the evidence cannot
+  yet say where a genuinely dead run sits. Re-derive again from the first full-length D17 run.
+  Neither floor has ever fired, on any run.
+- [ ] (P1) **The cosine decay is adopted but untested.** Because D17's schedule is the real
+  50,000-step one rather than a compressed proxy, the LR is still **99.7% of peak at step 3,000** —
+  so H5 tested the *peak and the warmup*. The decay rides on the reference recipe's authority
+  alone and is the weakest-supported third of D17. Check it against the first full-length run.
+- [ ] (P1) **The probing path still carries the 4 GB metadata table the training path escaped.**
+  `harness.evaluate_probe` builds `rows_by_id(DirectorySource(probe_dir).rows)` — `csv.DictReader`
+  over 230,358 rows × ~150 columns — while `StampDataset` reads exactly **one** of those columns.
+  It was killed for memory on the 18 GB machine before embedding a single stamp.
+  `artifacts/h5_probe_lean.py` works around it with `pandas.usecols` (two columns), but the
+  production path retains the defect and wants the same treatment Brief G2 gave the training path.
+  *(found during H5)*
 
 ## Epic F — Probing harness `[P6]` (frozen encoder) — controls interleaved
 - [x] (P0) **L2 logistic concept-direction probe** → held-out AUC + bootstrap CI; unit-normalised

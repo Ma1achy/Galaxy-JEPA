@@ -365,9 +365,73 @@ def schedule_dose_response() -> None:
     print("wrote schedule_dose_response.png")
 
 
+def resolving_run() -> None:
+    """H5 — the deciding measurement: two arms at 3,000 steps, then AUC on both frozen encoders."""
+    arms, probes = {}, {}
+    for line in (ROOT / "artifacts" / "out" / "h5_arms.jsonl").read_text().splitlines():
+        if line.strip():
+            d = json.loads(line)
+            arms[d["arm"]] = d
+    for line in (ROOT / "artifacts" / "out" / "h5_probes.jsonl").read_text().splitlines():
+        if line.strip():
+            d = json.loads(line)
+            probes[d["arm"]] = d
+
+    colour = {"baseline": "#b3352b", "proposal": ACCENT}
+    fig, axes = plt.subplots(1, 4, figsize=(15.4, 3.8))
+
+    for key, ax, label in [
+        ("effective_rank", axes[0], "effective rank"),
+        ("std", axes[1], "embedding std"),
+        ("mean_cosine", axes[2], "mean pairwise cosine"),
+    ]:
+        for name in ("baseline", "proposal"):
+            tr = arms[name]["trace"]
+            ax.plot([p["step"] for p in tr], [p[key] for p in tr],
+                    lw=1.8, color=colour[name], label=name)
+        ax.set_xlabel("step")
+        ax.set_title(label, fontsize=11, pad=8)
+        ax.grid(lw=0.6)
+        ax.set_axisbelow(True)
+    axes[0].axhline(5.0, color=MUTED, ls="--", lw=1.0)
+    axes[0].text(2960, 5.15, "G5 floor ", color=MUTED, fontsize=8, ha="right")
+    axes[0].legend(frameon=False, fontsize=9.5)
+
+    # the deciding panel
+    ax = axes[3]
+    names = ["baseline", "proposal"]
+    xs = np.arange(2)
+    aucs = [probes[n]["auc"] for n in names]
+    err = np.array([[a - probes[n]["auc_lo"] for a, n in zip(aucs, names, strict=True)],
+                    [probes[n]["auc_hi"] - a for a, n in zip(aucs, names, strict=True)]])
+    ax.bar(xs, aucs, width=0.5, color=[colour[n] for n in names], alpha=0.85)
+    ax.errorbar(xs, aucs, yerr=err, fmt="none", ecolor=INK, capsize=6, lw=1.4)
+    for x, a in zip(xs, aucs, strict=True):
+        ax.text(x, a + 0.012, f"{a:.4f}", ha="center", fontsize=10.5, fontweight="bold")
+    ax.axhline(0.9052, color=GOOD, ls=":", lw=1.4)
+    ax.text(-0.44, 0.9075, "pilot 0.905", color=GOOD, fontsize=8.5, va="bottom", ha="left")
+    ax.set_xticks(xs)
+    ax.set_xticklabels(names)
+    ax.set_ylim(0.84, 0.97)
+    ax.set_ylabel("frozen-probe AUC")
+    ax.set_title("the deciding measurement\nheld-out AUC, 95% CI", fontsize=11, pad=8)
+    ax.grid(axis="y", lw=0.6)
+    ax.set_axisbelow(True)
+
+    fig.suptitle(
+        "H5 — the schedule resolved. Same seed, same data, same masks; only the schedule differs.",
+        fontsize=12.5, y=1.04,
+    )
+    fig.tight_layout()
+    fig.savefig(ASSETS / "resolving_run.png")
+    plt.close(fig)
+    print(f"wrote resolving_run.png  baseline {aucs[0]:.4f} / proposal {aucs[1]:.4f}")
+
+
 if __name__ == "__main__":
     ASSETS.mkdir(exist_ok=True)
     pilot_collapse()
     pilot_concept_axis()
     schedule_dose_response()
     vote_decisiveness()
+    resolving_run()

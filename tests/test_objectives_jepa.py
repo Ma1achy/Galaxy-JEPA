@@ -21,7 +21,7 @@ from galaxy_jepa.data.sources import DirectorySource
 from galaxy_jepa.data.transforms import AsinhStretch, Pipeline
 from galaxy_jepa.masking.blocks import MaskConfig
 from galaxy_jepa.models.vit import VisionTransformer, load_frozen_encoder
-from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, ema_momentum, train_jepa
+from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, ema_momentum, learning_rate, train_jepa
 
 
 def _loader(corpus, tmp_path, batch_size=4):
@@ -109,3 +109,45 @@ def test_ema_momentum_schedule():
     assert ema_momentum(1000, 1000, 0.996, 1.0) == pytest.approx(1.0, abs=1e-6)  # ends at end
     mid = ema_momentum(500, 1000, 0.996, 1.0)
     assert 0.996 < mid < 1.0  # monotone ramp in between
+
+
+class TestTheLearningRateSchedule:
+    """D17: warmup, then optional cosine decay. A pure function of ``(step, cfg)``."""
+
+    def test_default_is_byte_identical_to_the_pre_d17_warmup_only_line(self):
+        """``lr_final=None`` must reproduce the old schedule exactly, so it lands inert.
+
+        This is what lets the field be added without moving any existing run's ``config_hash``
+        or changing what an unchanged config does.
+        """
+        cfg = JepaConfig(steps=50_000, lr=1e-3, warmup_steps=100)
+        assert cfg.lr_final is None
+        for step in (0, 1, 50, 99, 100, 101, 1_000, 25_000, 49_999):
+            expected = cfg.lr * min(1.0, (step + 1) / cfg.warmup_steps)
+            assert learning_rate(step, cfg) == expected
+
+    def test_warmup_then_cosine_hits_its_endpoints(self):
+        cfg = JepaConfig(steps=50_000, lr=1.25e-4, warmup_steps=1250, lr_final=1.25e-7)
+        assert learning_rate(0, cfg) == pytest.approx(cfg.lr / cfg.warmup_steps)
+        assert learning_rate(cfg.warmup_steps - 1, cfg) == pytest.approx(cfg.lr)
+        # the decay only begins after warmup, and ends at the floor
+        assert learning_rate(cfg.warmup_steps, cfg) == pytest.approx(cfg.lr, rel=1e-6)
+        assert learning_rate(cfg.steps - 1, cfg) == pytest.approx(cfg.lr_final, rel=1e-6)
+
+    def test_the_decay_is_monotone_after_warmup(self):
+        cfg = JepaConfig(steps=50_000, lr=1.25e-4, warmup_steps=1250, lr_final=1.25e-7)
+        after = [learning_rate(s, cfg) for s in range(1250, 50_000, 500)]
+        assert all(b <= a for a, b in zip(after, after[1:], strict=False))
+
+    def test_it_never_runs_past_the_floor_if_a_run_overshoots_its_steps(self):
+        """``min(t, 1.0)`` clamps: a step beyond ``cfg.steps`` must not swing back up."""
+        cfg = JepaConfig(steps=1_000, lr=1e-3, warmup_steps=100, lr_final=1e-6)
+        assert learning_rate(5_000, cfg) == pytest.approx(cfg.lr_final, rel=1e-6)
+
+    def test_the_schedule_is_what_the_loop_applies(self):
+        """The loop must use the shared function, not a second copy that could drift from it."""
+        import inspect
+
+        from galaxy_jepa.objectives import jepa as mod
+
+        assert "learning_rate(step, cfg)" in inspect.getsource(mod.train_jepa)

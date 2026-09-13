@@ -596,3 +596,92 @@ All of D1–D15 are now resolved. The table records what was chosen.
 here): the graded-axis existence test (D14); the effect-floor *value*; tie-handling in the
 existence p and the permutation test; the consensus-gate and vote-count thresholds; which axis
 ratio per population (D13).
+
+## D17 — The learning-rate schedule is the reference recipe scaled to this batch, not I-JEPA's literal numbers — *decided (measured)*
+
+**Fork.** `train_jepa` applied **warmup only**: `lr * min(1, (step+1)/warmup)`, clamped at the peak
+for the remaining 49,900 steps. No cosine decay, no weight-decay ramp. The reference (I-JEPA,
+Assran et al. 2023, arXiv:2301.08243) uses both, and — the part that matters — its published peak
+of **1e-3 is a batch-2048 learning rate**. This project runs batch 32. Borrowing the number without
+the batch borrows nothing but the digits.
+
+**The scaling argument, written out.** For batch *B* against reference *B*<sub>ref</sub>:
+
+| rule | equivalent peak at batch 32 | configured 1e-3 is above it by |
+|---|---|---|
+| linear, `lr x B/B_ref` | 1.563e-5 | 64.0x |
+| square-root, `lr x sqrt(B/B_ref)` | **1.250e-4** | 8.00x |
+
+**Square-root, not linear.** Linear scaling is derived for SGD with momentum (Goyal et al. 2017),
+where the parameter update is proportional to the gradient, so shrinking the batch by *k* shrinks
+the gradient noise and the step together. AdamW normalises each coordinate by a running second
+moment, so its step size does not track gradient magnitude the same way and the linear rule
+over-corrects. Square-root is the conventional choice for Adam-family optimisers. This is the
+reason 1.25e-4 was chosen — **not** that it produced the nicest trace.
+
+Two further numbers follow from the same source by the same logic:
+
+* **Warmup 1,250 steps.** The reference warms over 15 of 600 epochs = **2.50%** of its schedule.
+  Ours was 100 of 50,000 = 0.20%, twelve and a half times shorter *in relative terms*. 2.50% of
+  50,000 is 1,250.
+* **Cosine floor 1.25e-7.** The reference decays peak -> peak/1000 (1e-3 -> 1e-6). Scaling **both**
+  endpoints by the same square-root factor preserves that 1000x range; scaling only the peak would
+  silently compress it to 125x and change the recipe's shape while appearing to follow it.
+
+**Not adopted: the 0.04 -> 0.4 weight-decay ramp.** The reference has it. H2's `wd_ramp` arm was
+indistinguishable from baseline (erank 4.10 vs 3.75; both crossed the old floor at the identical
+step 125), and 500 steps cannot speak to a regularisation schedule anyway. Bundling an unmeasured
+change with two measured ones would make the outcome unattributable. Weight decay stays constant at
+0.04. This is the one place the recipe deliberately departs from the reference.
+
+**Decision.** `objective.lr: 1.25e-4`, `warmup_steps: 1250`, `lr_final: 1.25e-7`, weight decay
+unchanged. `JepaConfig.lr_final = None` means warmup-only, so the field lands **inert** and an
+unchanged config keeps its `config_hash`.
+
+**Evidence — a controlled comparison ending in the objective, not a diagnostic.** H5
+(`artifacts/h5_findings.md`, `runs/h5/`): two arms, 3,000 steps, one seed, identical initial
+weights, identical data order, identical per-step mask seeds, `steps=50000` fixed so the EMA ramp
+could not move. Both frozen encoders probed on the same 34,829 held-out galaxies.
+
+| | old recipe | D17 recipe |
+|---|---|---|
+| frozen-probe AUC (consensus) | 0.9043 `[0.8988, 0.9097]` | **0.9358** `[0.9315, 0.9402]` |
+| AUC, all held-out | 0.8084 | **0.8420** |
+| AUC, ambiguous middle | 0.6358 | **0.6624** |
+| effective rank, final / min | 7.91 / 3.50 | **11.77 / 7.59** |
+| mean pairwise cosine | +0.984 | **+0.286** |
+| latent MSE at step 3,000 | **0.0164** | 0.3168 |
+
+No confidence interval overlaps on any of the three AUCs.
+
+**The loss inverted the answer, and that is the finding to carry forward.** The old recipe was
+**19x better on loss** — on both framings, which agree at 3,000 steps — and lost the objective
+decisively. Latent MSE is measured against a moving EMA target, so a predictor and target that
+co-adapt onto a large shared mean component score beautifully while encoding little; the old
+recipe ends with mean pairwise cosine +0.984, embeddings 98% aligned. **Low latent MSE is a
+collapse signature, not a score.** Anyone selecting on loss alone would have kept the worse recipe.
+
+**What this does not establish.** The cosine decay is **untested**. Because the schedule is the
+real 50,000-step one rather than a compressed proxy, the LR is still 99.7% of peak at step 3,000 —
+so H5 tested the **peak and the warmup**, and the decay is carried on the reference's authority
+alone. It is the weakest-supported third of this decision and should be revisited from the first
+full-length run.
+
+**Consequences, recorded.**
+
+* **`CollapseFloorFreeze` is re-derived** (same commit). Not merely because the recipe moved, but
+  because H5 **falsified** the old value: the baseline arm sat below the 5.0 soft floor for 53
+  consecutive readings from step 125 and still reached AUC 0.9043. Had the 5,000-step grace
+  elapsed, the frozen criterion would have killed a working run. New soft floor 2.5, now bounded
+  *from above* by evidence (below 3.50, the lowest rank yet seen in a run that probed
+  successfully) rather than derived as a fraction of a working level — weaker grounding than what
+  it replaces, and flagged as such in the freeze's own `rationale`.
+* **The pilot's status changes.** Its AUC 0.905 was measured under the pre-D17 recipe on 10,000
+  stamps seen ~19x each. It is an **existence proof** that the premise works, and is no longer a
+  like-for-like baseline for anything. H5's own baseline arm (0.9043 on 827k at 3,000 steps)
+  reproduced it closely, which is what makes the comparison a fair fight rather than a straw man.
+* **The beta sweep gets stronger.** beta = 0 is the published-I-JEPA control. Under the old recipe it
+  differed from the reference in beta *and* in three schedule respects (peak, relative warmup,
+  decay). Under D17 it differs in beta and the weight-decay ramp alone.
+* **Every H-series artefact predating this decision was produced under the old recipe** and is
+  stamped with the old `config_hash` (`157903bd5180788b...`; D17 moves it to `538bf997880a8767...`).

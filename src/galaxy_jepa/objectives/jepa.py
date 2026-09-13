@@ -97,6 +97,10 @@ class JepaConfig:
     lr: float = 1e-3
     weight_decay: float = 0.04
     warmup_steps: int = 100
+    #: Cosine-decay floor. ``None`` is warmup-only — the recipe before D17, kept as the default
+    #: so an unchanged config keeps its ``config_hash``. Set it and the LR anneals from ``lr`` to
+    #: this value over the steps after warmup, which is the reference recipe's shape (D17).
+    lr_final: float | None = None
     ema_start: float = 0.996
     ema_end: float = 1.0
     pred_dim: int = 192
@@ -175,6 +179,21 @@ class Jepa(nn.Module):
             self.encoder.parameters(), self.target_encoder.parameters(), strict=True
         ):
             target.mul_(momentum).add_(online.detach(), alpha=1.0 - momentum)
+
+
+def learning_rate(step: int, cfg: JepaConfig) -> float:
+    """The learning rate at ``step``: linear warmup, then optional cosine decay (D17).
+
+    A pure function of ``(step, cfg)`` exactly as :func:`ema_momentum` is, which is what lets a
+    resume recompute the same value from the checkpointed step without a stateful scheduler to
+    restore. ``cfg.lr_final is None`` reproduces the pre-D17 warmup-only line byte for byte, so
+    an unchanged config is an unchanged run.
+    """
+    lr = cfg.lr * min(1.0, (step + 1) / max(cfg.warmup_steps, 1))
+    if cfg.lr_final is None or step + 1 <= cfg.warmup_steps:
+        return lr
+    t = (step + 1 - cfg.warmup_steps) / max(cfg.steps - cfg.warmup_steps, 1)
+    return cfg.lr_final + (cfg.lr - cfg.lr_final) * 0.5 * (1.0 + math.cos(math.pi * min(t, 1.0)))
 
 
 def ema_momentum(step: int, total: int, start: float, end: float) -> float:
@@ -266,7 +285,7 @@ def train_jepa(
     bar = _progress(cfg.steps, start=start_step)
     for step in bar:
         batch = _to_device(next(data), device)
-        lr = cfg.lr * min(1.0, (step + 1) / max(cfg.warmup_steps, 1))
+        lr = learning_rate(step, cfg)
         for group in opt.param_groups:
             group["lr"] = lr
 
