@@ -394,6 +394,17 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 - [ ] (P1) Label-efficiency curve (SSL-pretrained vs supervised-from-scratch).
 - [ ] (P1) v1-comparable evaluation, and the v1-vs-v2 comparison as a first-class deliverable.
 
+## Brief I — SIGReg ablation `[measured; proposal open]`
+- [x] SIGReg implemented off by default; AUC improved on separated intervals at both lambdas.
+- [ ] (P0) **Sign off or reject D18.** `sigreg_lambda` stays 0.0 in `configs/pretrain.yaml` until
+  then. If adopted: retire the soft rank floor rather than re-deriving it (under SIGReg it cannot
+  bind), and keep a lambda=0 arm in the beta sweep so the published-I-JEPA control survives.
+- [ ] (P2) Question 2 is underpowered — n=6 per arm cannot resolve |rho| < 0.886. A real answer
+  needs many more checkpoints, or the paper's across-run design over a hyperparameter sweep.
+  The *penalty term alone* was the most informative component (-0.31, -0.71); worth a powered test.
+- [ ] (P2) The attachment point was chosen, not tested: final-block post-norm, or per-token rather
+  than pooled, are separate arms.
+
 ## Epic I — arXiv sweep `[parallel]`
 - [x] First pass → `docs/related-work.md` (gap confirmed cautiously; Wu & Walmsley MAE pinned).
 - [ ] (P1) Fetch Wu & Walmsley MAE card (licence, resolution, patch size, corpus).
