@@ -49,9 +49,11 @@ CHECKPOINT_EVERY = 500  # six per arm — the Q2 loss-usability sweep needs the 
 RUNS = Path(__file__).resolve().parent.parent / "runs" / "i2"
 POINTS = OUT / "i2_arms.jsonl"
 
-#: What the `d17` arm must reproduce: H5's `proposal` arm at step 3,000. Not a tolerance chosen
-#: to pass — the two runs share seed, data order, masks and schedule, so the only licensed
-#: difference is float non-determinism in the MPS kernels over 3,000 steps.
+#: What the `d17` arm must reproduce: H5's `proposal` arm at its LAST MONITOR READING, step
+#: 2,975 — not step 3,000. H5's headline "loss @3000" of 0.3168 is that reading, and a per-step
+#: latent MSE swings enough between neighbouring steps to make the distinction matter. Not a
+#: tolerance chosen to pass: the two runs share seed, data order, masks and schedule, so the
+#: only licensed difference is float non-determinism in the MPS kernels over 3,000 steps.
 H5_PROPOSAL = {"loss": 0.3168, "erank": 11.77, "std": 4.03, "cos": 0.286}
 
 
@@ -104,6 +106,9 @@ def run_arm(name: str) -> dict:
     checkpointer = TrainCheckpointer(
         out / "checkpoints",
         every=CHECKPOINT_EVERY,
+        # the default keep=3 prunes the older ones, and question 2 needs every checkpoint the
+        # run wrote — the point of the sweep is the trajectory, not the endpoint
+        keep=STEPS // CHECKPOINT_EVERY + 2,
         config_hash=ch,
         normalisation_hash=cfg.normalisation.content_hash,
         schedule={
@@ -204,7 +209,7 @@ def _finite(v: float) -> float | None:
 def replication(rec: dict) -> dict:
     """How far the `d17` arm sits from H5's `proposal`. Reported whether or not it passes."""
     got = {
-        "loss": rec["loss_final"],
+        "loss": rec["trace"][-1]["loss"],  # the same monitor reading H5 quoted, not step 3,000
         "erank": rec["erank_final"],
         "std": rec["std_final"],
         "cos": rec["mean_cosine_final"],

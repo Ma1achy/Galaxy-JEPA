@@ -411,6 +411,15 @@ def train_jepa(
                 halted = True
                 break
 
+        if device.startswith("mps") and step % cfg.monitor_every == 0:
+            # Release the MPS allocator's cached-but-unused blocks. Measured on this machine at
+            # batch 32: the pool settles at 6.9 GB while only 0.87 GB is live, so ~3.2 GB of an
+            # 18 GB machine sits held for nothing; releasing every monitor interval holds it at
+            # 3.67 GB. It is numerically inert — the losses are identical step for step — and
+            # costs nothing measurable (133 s vs 135 s over 200 steps). Brief I found this the
+            # hard way, when a second arm was killed for memory after the first had finished.
+            torch.mps.empty_cache()
+
         if checkpointer is not None and (step + 1) % checkpointer.every == 0:
             checkpointer.save(
                 step=step + 1,
