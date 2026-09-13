@@ -51,11 +51,11 @@ RUNS = Path(__file__).resolve().parent.parent / "runs" / "h5"
 PROBES = OUT / "h5_probes.jsonl"
 
 
-def probe(arm: str, max_train: int) -> dict:
+def probe(arm: str, max_train: int, runs: Path = RUNS) -> dict:
     cfg, cache = check(verbose=False)
     pc = cfg.probe
     device = cfg.runtime.resolved_device()
-    ckpt = RUNS / arm / "encoder.pt"
+    ckpt = runs / arm / "encoder.pt"
 
     # only the id and the one label column this probe reads — not the other ~150
     meta = Path(cfg.paths.probe_dir) / "metadata.csv"
@@ -99,6 +99,7 @@ def probe(arm: str, max_train: int) -> dict:
 
     rec = {
         "arm": arm, "checkpoint": str(ckpt), "smoke": True, "device": device,
+        "runs": str(runs),
         "auc": auc, "auc_lo": lo, "auc_hi": hi,
         "n_train": int(len(train_emb.y)), "n_test": int(len(test_emb.y)),
         "auc_all": auc_all, "auc_all_lo": lo_all, "auc_all_hi": hi_all,
@@ -118,9 +119,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", required=True)
     ap.add_argument("--max-train", type=int, default=40000)
+    # Brief I reuses this driver verbatim so its numbers sit alongside H5's 0.9043 / 0.9358.
+    # Only *where the checkpoint lives* is a parameter; the measurement is untouched, and the
+    # default still reproduces the H5 invocation exactly.
+    ap.add_argument("--runs", type=Path, default=RUNS)
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    print("PROBE " + json.dumps(probe(args.arm, args.max_train)))
+    print("PROBE " + json.dumps(probe(args.arm, args.max_train, args.runs)))
 
 
 if __name__ == "__main__":
