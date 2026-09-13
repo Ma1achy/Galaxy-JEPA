@@ -318,7 +318,8 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   declares into one index-aligned float64 block, with the digest in the index and a refusal on
   mismatch or length disagreement — G2's discipline, applied where it still hurt. Columns load
   lazily, so a single-feature probe never materialises the other seventy-nine. Parity is exact
-  over 2,000,000 sampled values. *(found during H5, fixed in Brief I)*
+  over 2,000,000 sampled values, and `evaluate_probe` now runs to completion on the 230k corpus at
+  **2.43 GB peak RSS** for the whole process. *(found during H5, fixed in Brief I)*
 
 ## Epic F — Probing harness `[P6]` (frozen encoder) — controls interleaved
 - [x] (P0) **L2 logistic concept-direction probe** → held-out AUC + bootstrap CI; unit-normalised

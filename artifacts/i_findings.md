@@ -104,6 +104,11 @@ latent MSE swings enough between neighbours that the distinction is worth statin
   inert**: after the change, `d17` reproduced all 3,000 per-step losses bit-identically, and ran
   **5.5% faster** (1.402 → 1.479 steps/s) for the reduced pressure. H5's own driver did this; the
   production path did not.
+- **The probing path still carried the metadata table the training path escaped.**
+  `evaluate_probe` built `rows_by_id(DirectorySource(probe_dir).rows)` over 230,358 rows × 132
+  columns and `LabelProvider` copied it — **1.49 GB → 2.99 GB** measured, to read columns the
+  probing layer can name up front. It was killed for memory before embedding a single stamp.
+  Fixed in the production path, not worked around; see below.
 - **`ObjectiveConfig.from_jepa_config` silently dropped `lr_final`.** A round trip turned D17's
   adopted cosine decay back into warmup-only while the config still looked clean — and that class
   is what gets *stamped*. Now pinned by comparing the shared field set rather than by hand.
@@ -226,6 +231,47 @@ between the λ=0 arm and the SIGReg arms, leaving one point per family.
   and not settled.
 - **The 1C checkpoint rule must not change.** Question 2 does not support it. Selecting on lowest
   loss still costs AUC under SIGReg.
+
+---
+
+## The probing path, fixed in production
+
+Not a workaround: `probing.extract.required_columns` declares the columns the ladder and the
+nuisance controls read — **81 of the corpus's 132** — and `data.cache.write_probe_columns` bakes
+them into one index-aligned float64 block, with the digest in the cache index and a refusal on
+mismatch or length disagreement. The same discipline `petro_rad_arcsec.f64` gets.
+
+**Column selection is not the win.** The probing layer genuinely needs 61% of the table, and the
+same 81 columns as row dicts is still 0.73 GB. The win is **arrays instead of dicts of strings**:
+
+| | resident |
+|---|---|
+| `rows_by_id` over the probe corpus | 1.49 GB |
+| …and `LabelProvider`'s defensive copy | **2.99 GB** |
+| the same 81 columns as row dicts | 0.73 GB |
+| the sidecar, every column touched (the full battery) | 0.68 GB |
+| the sidecar, two columns touched (a single-feature probe) | **0.017 GB** |
+
+Columns load from the memmap on first use, so a single-feature probe pays for the two it reads.
+`ProbeColumns` presents them in the shape both consumers already reach for — `rows[oid][column]` —
+so the probing layer itself is unchanged, and `LabelProvider` takes `copy_rows=False` for a view
+that is already array-backed and read-only.
+
+**float64, not float32**, for the reason the scalar sidecar gives: the confident-extremes cut is a
+comparison against exactly these bits, and a parity claim that needs a tolerance is not a parity
+claim. **Parity verified exact over 2,000,000 sampled values** — 25,000 rows × 80 columns, zero
+mismatches.
+
+**The end-to-end result.** `harness.evaluate_probe`, the path that was killed, now runs to
+completion on the `d17` checkpoint: **peak RSS 2.43 GB** for the whole process — torch, 230,358
+embeddings, UMAP and the explorer blobs included — in 27 minutes.
+
+Two cross-checks fall out of it. `n_test` is **21,974**, identical to the lean driver's consensus
+test set, so the sidecar path reproduces the split and the extremes filter exactly. And its AUC is
+**0.9403 [0.9362, 0.9445]** against the lean driver's 0.9358 on the same encoder — higher because
+it is a *different probe*, fitting on the full 101,591-galaxy train split where the lean driver
+caps at 40,000 (25,305 after the extremes cut). More training data, a better probe; the arm
+comparisons in this report all use the capped driver, identically, so they are unaffected.
 
 ---
 
