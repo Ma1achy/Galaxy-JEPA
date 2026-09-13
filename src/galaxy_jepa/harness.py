@@ -618,16 +618,26 @@ def run_harness(config: HarnessConfig) -> RunReport:
         collapse_png=_safe_collapse_plot(result.collapse_trace, out / "collapse_trace.png"),
         umap_png=None,
     )
+    _write_traces(out, result)
 
     # freeze + probe the confident extremes → the headline (+ CI, figures, explorer blobs)
     if not result.halted and result.checkpoint is not None:
         frozen = load_frozen_encoder(result.checkpoint)
+        # The vote columns are rebuilt here rather than carried through training — the pretrain
+        # loop needs one float per stamp and only the loop runs for hours (Brief G2) — but from
+        # the COLUMN SIDECAR, not by re-reading the whole table. `rows_by_id(DirectorySource(...))`
+        # is 1.49 GB that `LabelProvider` copies to 2.99 GB, and building it here spends that
+        # *after* a multi-hour run has already banked its checkpoint. Brief I fixed
+        # `evaluate_probe` and `probe_frozen_checkpoint` and missed this third call site, so the
+        # one path that pays for the failure last was the one still carrying it. The split is
+        # unaffected: `assign_three_way` hashes each objID independently and returns frozensets,
+        # so it is order-blind, and the sidecar's finite-label ids are exactly the probe corpus
+        # (measured: 230,358 of 1,057,326 baked stamps).
+        probe_rows, _ = _probe_rows(prep.cache, prep.probe_dir)
         _probe_and_persist(
-            # rebuilt here, not carried through training: probing needs the vote columns, the
-            # pretrain loop needs one float, and only the loop runs for hours (Brief G2)
             frozen,
             prep.cache,
-            rows_by_id(DirectorySource(prep.probe_dir).rows),
+            probe_rows,
             prep.probe_split,
             config,
             device,
@@ -1052,6 +1062,28 @@ def _open_existing_cache(out_dir: str | Path) -> TensorCache:
             "run the full harness first to bake the cache."
         )
     return TensorCache(subdirs[0])
+
+
+def _write_traces(out: Path, result: Any) -> None:
+    """Persist the numeric training traces, not just the PNG of one of them.
+
+    ``_safe_collapse_plot`` renders the collapse trace and ``RunReport`` keeps only
+    ``final_loss``, so everything else the run measured used to reach disk as pixels or not at
+    all. ``prediction_losses`` / ``sigreg_losses`` are additionally **not** checkpointed — they
+    are diagnostics rather than training state — so on the current path a multi-hour run's loss
+    decomposition existed only in the returned object and died with the process. Reading a
+    trajectory rather than two endpoints is the whole lesson of H5 (``std_final`` called two arms
+    equivalent where the peak separated them 2.87x), so the trajectory is an artefact.
+    """
+    payload = {
+        "losses": [round(v, 8) for v in result.losses],
+        "prediction_losses": [round(v, 8) for v in result.prediction_losses],
+        "sigreg_losses": [round(v, 8) for v in result.sigreg_losses],
+        "collapse_trace": result.collapse_trace,
+        "steps_completed": result.steps_completed,
+        "halted": result.halted,
+    }
+    (out / "traces.json").write_text(json.dumps(payload))
 
 
 def _write_report(out: Path, report: RunReport) -> None:

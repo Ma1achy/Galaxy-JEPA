@@ -243,3 +243,67 @@ def test_run_harness_keeps_the_whole_checkpoint_trajectory(tmp_path):
     assert len(saved) >= scheduled, f"the trajectory was pruned on disk: {[p.name for p in saved]}"
     assert len(manifest["entries"]) >= scheduled, "the manifest forgot part of the trajectory"
     assert {int(e["step"]) for e in manifest["entries"]} >= set(range(1, scheduled + 1))
+
+
+def test_run_harness_probes_from_the_sidecar_not_the_whole_table(tmp_path, monkeypatch):
+    """The in-run probe reads the column sidecar. It was the one call site still re-reading the CSV.
+
+    Brief G2 built the sidecar and Brief I routed ``evaluate_probe`` and
+    ``probe_frozen_checkpoint`` through it, but ``run_harness``'s own post-train probe still did
+    ``rows_by_id(DirectorySource(probe_dir).rows)`` — 1.49 GB that ``LabelProvider`` copies to
+    2.99 GB, built *after* a multi-hour run has already banked its checkpoint. So the path that
+    pays for the failure last was the one still carrying it.
+
+    Pinned by making the whole-table path raise for the whole run: a ``run_harness`` that still
+    reaches for it cannot finish. ``_probe_rows``' documented fallback is exactly what this closes
+    off, and closing it off is the point — ``_prepare`` writes a sidecar here, so the fallback is
+    not the route.
+    """
+    import galaxy_jepa.harness as harness_mod
+
+    pretrain = _make_corpus(tmp_path / "pre", n=16, base_id=1000, labelled=False, seed=1)
+    probe = _make_corpus(tmp_path / "probe", n=40, base_id=5000, labelled=True, seed=2)
+    out = tmp_path / "out"
+    cfg = _cfg(pretrain, probe, out)
+
+    def refuse(rows):
+        raise AssertionError("run_harness built the whole metadata table to probe")
+
+    monkeypatch.setattr(harness_mod, "rows_by_id", refuse)
+    report = run_harness(cfg)  # must complete without ever reaching for the table
+
+    assert not report.halted
+    assert (out / "cache").exists()
+    # and the headline is still a number, so the sidecar served the probe rather than starving it
+    assert report.auc is None or 0.0 <= report.auc <= 1.0
+
+
+def test_run_harness_persists_the_numeric_traces(tmp_path):
+    """The trajectory is an artefact, not a PNG and a final scalar.
+
+    ``RunReport`` keeps ``final_loss`` and ``_safe_collapse_plot`` renders pixels, and the loss
+    decomposition (``prediction_losses`` / ``sigreg_losses``) is deliberately *not* checkpointed
+    — diagnostics, not training state. So a multi-hour run's decomposition used to exist only in
+    the returned object and die with the process. H5's lesson is that endpoints lie: ``std_final``
+    called two arms equivalent where the peak separated them 2.87x.
+    """
+    import json
+
+    pretrain = _make_corpus(tmp_path / "pre", n=16, base_id=1000, labelled=False, seed=1)
+    probe = _make_corpus(tmp_path / "probe", n=40, base_id=5000, labelled=True, seed=2)
+    out = tmp_path / "out"
+    cfg = _cfg(pretrain, probe, out)
+    cfg = cfg.model_copy(
+        update={"objective": _OBJ.model_copy(update={"steps": 4, "sigreg_lambda": 0.05})}
+    )
+
+    run_harness(cfg)
+
+    traces = json.loads((out / "traces.json").read_text())
+    assert len(traces["losses"]) == 4
+    # index-aligned with `losses`, so a decomposition can be read step for step
+    assert len(traces["prediction_losses"]) == len(traces["losses"])
+    assert len(traces["sigreg_losses"]) == len(traces["losses"])
+    assert all(v is not None for v in traces["sigreg_losses"])  # the penalty was on
+    assert traces["collapse_trace"]["effective_rank"]
+    assert traces["steps_completed"] == 4
