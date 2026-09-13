@@ -15,6 +15,18 @@ runtime:                      # WHAT it ran on. This one IS hashed — MPS / CPU
                               #   what enters the hash, or two backends would share one.
 
 seed: 0
+
+# Brief J. This run is for end-to-end correctness at 50,000 steps and for the one measurement that
+# closes the effect floor. It is NOT a results run, so it says so structurally rather than in a
+# comment. Being a determining field this CHANGES `config_hash` away from D18's b5acc6779df49070 —
+# the invariant working, not a fault — and additionally stamps `smoke` into `escape_hatches_used`,
+# so the artefact says it in words as well as in the hash. THE CONSEQUENCE TO KNOW BEFORE LAUNCHING:
+# `TrainCheckpointer` records `config_hash` in every payload so a resume cannot silently continue a
+# different experiment, therefore these weights can never be promoted to a headline run — the
+# headline costs its own full budget from scratch. Set this back to false only when the effect floor
+# is frozen and a headline run is deliberately launched.
+smoke: true
+
 q: 4.0                      # asinh stretch softening
 monitor_frac: 0.02          # pretrain slice held out for the collapse monitor
 autocast: null              # null | bf16 | fp16

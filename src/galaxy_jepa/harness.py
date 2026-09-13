@@ -571,6 +571,14 @@ def run_harness(config: HarnessConfig) -> RunReport:
         TrainCheckpointer(
             out / "checkpoints",
             every=jcfg.checkpoint_every,
+            # Retain the WHOLE trajectory, derived from the schedule rather than left at the
+            # default of 3. Brief I's arms lost steps 500-1500 to that default mid-measurement:
+            # the intermediate checkpoints are *evidence* (the label-blind 1C rule, the loss-vs-AUC
+            # read, a re-derivable collapse floor), not merely a crash backstop. Deliberately NOT a
+            # config field — how many files survive on disk cannot change a number the run produces,
+            # and `NON_DETERMINING` is a top-level-key deny-list, so a nested knob would move
+            # `config_hash` for pure housekeeping. The bound is in the config either way.
+            keep=jcfg.steps // jcfg.checkpoint_every + 2,
             config_hash=stamp.config_hash,
             normalisation_hash=config.normalisation.content_hash,
             schedule={

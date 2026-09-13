@@ -188,6 +188,32 @@ def test_sigreg_is_adopted_and_changed_no_other_field():
     assert dump["objective"]["sigreg_lambda"] == 0.05
     assert dump["objective"]["sigreg_slices"] == 1024
 
-    without = dict(dump)
+    # `smoke` is put back to False alongside, because Brief J turned it on and it is a
+    # determining field too. The chain of strips is the point: each one names exactly what moved.
+    without = dict(dump, smoke=False)
     without["objective"] = {k: v for k, v in dump["objective"].items() if k not in keys}
     assert config_hash(without)[:16] == "538bf997880a8767"  # the D17 hash, recorded in h5_findings
+
+
+def test_the_medium_run_is_a_smoke_and_that_is_the_only_thing_that_moved():
+    """Brief J: the 50,000-step run is stamped ``smoke``, and it moved nothing else.
+
+    Two facts worth pinning together, because the second is what makes the first readable. The
+    run says structurally that it is not a result — J's own framing, since the effect floor is
+    still a placeholder. And turning that on *changes* ``config_hash``, by design: so the number
+    an artefact carries is neither D18's recipe hash nor an accident, and the only way to tell
+    which is to be able to walk back. Put ``smoke`` back to False and D18's ``b5acc…`` returns
+    exactly; the test above walks one step further back to D17's.
+
+    The consequence this pins, in words: a resume refuses across a ``config_hash`` change
+    (``TrainCheckpointer`` records it in every payload), so **this run's weights cannot be
+    promoted to a headline run**. Flipping the flag is not a relabelling, it is a new run.
+    """
+    from galaxy_jepa.core.config import config_hash
+
+    with open("configs/pretrain.yaml") as fh:
+        dump = HarnessConfig(**yaml.safe_load(fh)).determining_dump()
+
+    assert dump["smoke"] is True
+    assert config_hash(dump)[:16] == "f561d7f5039f23d8"  # what this run's artefacts will carry
+    assert config_hash(dict(dump, smoke=False))[:16] == "b5acc6779df49070"  # D18, unmoved

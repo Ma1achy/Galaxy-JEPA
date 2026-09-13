@@ -209,3 +209,37 @@ def test_the_objective_config_round_trip_drops_nothing():
     back = ObjectiveConfig.from_jepa_config(cfg)
     for name in sorted(shared):
         assert getattr(back, name) == getattr(cfg, name), f"{name} was lost in the round trip"
+
+
+def test_run_harness_keeps_the_whole_checkpoint_trajectory(tmp_path):
+    """``keep`` is derived from the schedule, so the trajectory survives to be read back.
+
+    It was not. ``run_harness`` built ``TrainCheckpointer`` with no ``keep`` and took its default
+    of 3, so Brief I's arms lost steps 500-1500 *mid-measurement*. The intermediate checkpoints
+    are evidence — the label-blind 1C choice reads them, the loss-vs-AUC question is asked of
+    them, and a collapse floor is re-derived from them — not a crash backstop that only the
+    newest matters for. Pinned by counting what survives on disk and in the manifest rather than
+    by reading the argument back, so a refactor cannot satisfy it cosmetically.
+
+    Deliberately not a config field: retention cannot change a number the run produces, and
+    ``RunConfig.NON_DETERMINING`` is a top-level-key deny-list, so a nested knob would move
+    ``config_hash`` for pure housekeeping. Derived, and bounded by the config either way.
+    """
+    import json
+
+    pretrain = _make_corpus(tmp_path / "pre", n=16, base_id=1000, labelled=False, seed=1)
+    probe = _make_corpus(tmp_path / "probe", n=40, base_id=5000, labelled=True, seed=2)
+    out = tmp_path / "out"
+    cfg = _cfg(pretrain, probe, out)
+    cfg = cfg.model_copy(
+        update={"objective": _OBJ.model_copy(update={"steps": 5, "checkpoint_every": 1})}
+    )
+
+    run_harness(cfg)
+
+    scheduled = cfg.objective.steps // cfg.objective.checkpoint_every  # 5, and 5 > the old 3
+    saved = sorted((out / "checkpoints").glob("*.pt"))
+    manifest = json.loads((out / "checkpoints" / "checkpoints.json").read_text())
+    assert len(saved) >= scheduled, f"the trajectory was pruned on disk: {[p.name for p in saved]}"
+    assert len(manifest["entries"]) >= scheduled, "the manifest forgot part of the trajectory"
+    assert {int(e["step"]) for e in manifest["entries"]} >= set(range(1, scheduled + 1))
