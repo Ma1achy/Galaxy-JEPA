@@ -54,6 +54,9 @@ from galaxy_jepa.data.sources import DirectorySource
 from galaxy_jepa.data.transforms import AsinhStretch, NormalisationFreeze, Pipeline
 from galaxy_jepa.models.vit import VisionTransformer, load_frozen_encoder
 from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, _to_device, train_jepa
+from galaxy_jepa.objectives.sigreg import DEFAULT_DOMAIN as SIGREG_DEFAULT_DOMAIN
+from galaxy_jepa.objectives.sigreg import DEFAULT_QUAD_POINTS as SIGREG_DEFAULT_QUAD_POINTS
+from galaxy_jepa.objectives.sigreg import DEFAULT_SLICES as SIGREG_DEFAULT_SLICES
 from galaxy_jepa.probing.config import ProbingConfig
 from galaxy_jepa.probing.extract import LabelProvider
 from galaxy_jepa.probing.logistic import (
@@ -120,6 +123,12 @@ class ObjectiveConfig(RunConfig):
     beta: float = 0.5  # the headline masking-bias knob (mask.beta); 0 ≡ standard I-JEPA
     petro_k: float = 2.5
     global_box_frac: float = 0.40
+    #: SIGReg trade-off weight (Brief I). ``0.0`` is I-JEPA unchanged — the penalty is never
+    #: computed and the loss is literally ``1.0 * prediction``, so the field lands inert.
+    sigreg_lambda: float = 0.0
+    sigreg_slices: int = SIGREG_DEFAULT_SLICES
+    sigreg_quad_points: int = SIGREG_DEFAULT_QUAD_POINTS
+    sigreg_domain: float = SIGREG_DEFAULT_DOMAIN
     monitor_every: int = 100
     checkpoint_every: int = 1500  # steps; ~19 min of work at the measured 1.297 steps/s
 
@@ -141,6 +150,10 @@ class ObjectiveConfig(RunConfig):
             mask=MaskConfig(beta=self.beta),
             petro_k=self.petro_k,
             global_box_frac=self.global_box_frac,
+            sigreg_lambda=self.sigreg_lambda,
+            sigreg_slices=self.sigreg_slices,
+            sigreg_quad_points=self.sigreg_quad_points,
+            sigreg_domain=self.sigreg_domain,
             monitor_every=self.monitor_every,
             checkpoint_every=self.checkpoint_every,
             seed=seed,
@@ -148,10 +161,20 @@ class ObjectiveConfig(RunConfig):
 
     @classmethod
     def from_jepa_config(cls, cfg: JepaConfig) -> ObjectiveConfig:
+        """The inverse of :meth:`to_jepa_config`.
+
+        Every field the two classes share must cross, or the round trip silently drops a
+        hyperparameter and the config that gets *stamped* stops describing the run that
+        happened. It did: ``lr_final`` was added in D17 and never added here, so a round trip
+        turned the cosine decay back into warmup-only while still looking like a clean config.
+        ``tests/test_harness.py`` now pins the field list rather than trusting this to be
+        maintained by hand.
+        """
         return cls(
             steps=cfg.steps,
             batch_size=cfg.batch_size,
             lr=cfg.lr,
+            lr_final=cfg.lr_final,
             weight_decay=cfg.weight_decay,
             warmup_steps=cfg.warmup_steps,
             ema_start=cfg.ema_start,
@@ -162,7 +185,12 @@ class ObjectiveConfig(RunConfig):
             beta=cfg.mask.beta,
             petro_k=cfg.petro_k,
             global_box_frac=cfg.global_box_frac,
+            sigreg_lambda=cfg.sigreg_lambda,
+            sigreg_slices=cfg.sigreg_slices,
+            sigreg_quad_points=cfg.sigreg_quad_points,
+            sigreg_domain=cfg.sigreg_domain,
             monitor_every=cfg.monitor_every,
+            checkpoint_every=cfg.checkpoint_every,
         )
 
 

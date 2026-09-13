@@ -186,3 +186,26 @@ class TestTheSeedActuallyDeterminesTheEncoder:
         second = seed_init(3, 64, kwargs)
         for pa, pb in zip(first.parameters(), second.parameters(), strict=True):
             assert torch.equal(pa, pb)
+
+
+@pytest.mark.invariant
+def test_the_objective_config_round_trip_drops_nothing():
+    """Every field the two config classes share must survive ``JepaConfig`` → ``ObjectiveConfig``.
+
+    It did not. ``lr_final`` was added to both in D17 and to ``from_jepa_config`` in neither, so
+    a round trip quietly turned the adopted cosine decay back into warmup-only while the config
+    still looked clean — and ``ObjectiveConfig`` is what gets *stamped*, so the artefact would
+    have described a run that did not happen. Pinned by comparison rather than by hand, so the
+    next field added cannot reopen it.
+    """
+    import dataclasses
+
+    from galaxy_jepa.objectives.jepa import JepaConfig
+
+    shared = {f.name for f in dataclasses.fields(JepaConfig)} & set(ObjectiveConfig.model_fields)
+    assert "lr_final" in shared and "sigreg_lambda" in shared  # the two that motivated this
+
+    cfg = JepaConfig(steps=777, lr=1.25e-4, lr_final=1.25e-7, warmup_steps=1250, sigreg_lambda=0.05)
+    back = ObjectiveConfig.from_jepa_config(cfg)
+    for name in sorted(shared):
+        assert getattr(back, name) == getattr(cfg, name), f"{name} was lost in the round trip"

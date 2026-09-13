@@ -31,6 +31,7 @@ from torch import nn
 
 from galaxy_jepa.callbacks.checkpoint import TrainCheckpointer
 from galaxy_jepa.callbacks.collapse import CollapseFloorFreeze, CollapseMonitor
+from galaxy_jepa.core.encoder import DEFAULT_LAYER
 from galaxy_jepa.data.bbox import petrosian_box
 from galaxy_jepa.masking.blocks import (
     MaskConfig,
@@ -39,6 +40,12 @@ from galaxy_jepa.masking.blocks import (
     token_weight_map,
 )
 from galaxy_jepa.models.vit import VisionTransformer, _Block, _sincos_2d, save_encoder
+from galaxy_jepa.objectives.sigreg import (
+    DEFAULT_DOMAIN,
+    DEFAULT_QUAD_POINTS,
+    DEFAULT_SLICES,
+    sigreg,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -109,12 +116,32 @@ class JepaConfig:
     mask: MaskConfig = dataclasses.field(default_factory=MaskConfig)
     petro_k: float = 2.5
     global_box_frac: float = 0.40  # global-fallback box half-width as a fraction of stamp_px
+    #: SIGReg trade-off weight (LeJEPA §5.1). ``0.0`` is I-JEPA unchanged — the loss is then
+    #: literally ``1.0 * prediction`` and the penalty is never computed, so the field lands
+    #: inert. The paper recommends 0.05 at eight views; this project has one. Brief I.
+    sigreg_lambda: float = 0.0
+    sigreg_slices: int = DEFAULT_SLICES
+    sigreg_quad_points: int = DEFAULT_QUAD_POINTS
+    sigreg_domain: float = DEFAULT_DOMAIN
     monitor_every: int = 100
     #: Mid-run checkpoint interval in steps. At the measured 1.297 steps/s (Brief F) 1,500 steps
     #: bounds a crash's cost to ~19 min. 0 disables it — which for a multi-hour run is a choice
     #: to gamble the whole job, so the harness records it rather than letting it pass.
     checkpoint_every: int = 1500
     seed: int = 0
+
+
+@dataclasses.dataclass(frozen=True)
+class LossParts:
+    """A step's loss and the terms behind it — the thing an arm's trace records.
+
+    ``total`` is what backpropagates. ``sigreg`` is ``None``, not zero, when the penalty was
+    not computed: a trace should be able to say "off" rather than imply a measured zero.
+    """
+
+    total: torch.Tensor
+    prediction: torch.Tensor
+    sigreg: torch.Tensor | None
 
 
 class Jepa(nn.Module):
@@ -153,8 +180,22 @@ class Jepa(nn.Module):
             maps.append(token_weight_map(in_box, self.config.mask.beta))
         return np.stack(maps)
 
-    def loss_step(self, batch: dict[str, Any], *, seed: int | None = None) -> torch.Tensor:
-        """One latent-MSE step on a batch dict (image + petro/pixel-scale)."""
+    def loss_parts(self, batch: dict[str, Any], *, seed: int | None = None) -> LossParts:
+        """One training step's loss, broken into its terms.
+
+        The prediction term is I-JEPA's latent MSE. With ``sigreg_lambda > 0`` the total is the
+        paper's convex combination, ``(1 − λ)·prediction + λ·sigreg``, so λ=0 is exactly
+        ``1.0 · prediction`` and the branch below never runs.
+
+        **Where SIGReg attaches, and why it is not the encoder's output.** LeJEPA regularises
+        the encoder output because for LeJEPA that *is* the representation a probe reads. Here
+        they differ: ``encode()`` reads the penultimate block pre-norm (:data:`DEFAULT_LAYER`),
+        while the context handed to the predictor is the final block post-``norm``. The intent
+        is to constrain the distribution that gets probed, so the penalty is applied to a
+        mean-pooled :data:`DEFAULT_LAYER` context — the same tensor :class:`CollapseMonitor`
+        reads, which is what makes its rank/std/cosine describe the constrained object. The
+        final block and ``norm`` stay unconstrained, free to specialise for the pretext task.
+        """
         images = batch["image"].float()
         device = images.device
         petro = batch["petro_rad_arcsec"].cpu().numpy()
@@ -164,14 +205,39 @@ class Jepa(nn.Module):
         context_idx, target_idx = context_idx.to(device), target_idx.to(device)
 
         tokens = self.encoder.patch_embed_tokens(images)
-        context = self.encoder.run_tokens(_gather_tokens(tokens, context_idx))
+        context_tokens = _gather_tokens(tokens, context_idx)
+        penalty: torch.Tensor | None = None
+        if self.config.sigreg_lambda > 0.0:
+            layers = self.encoder.run_tokens_layers(context_tokens)
+            context = self.encoder.norm(layers[-1])  # identical to run_tokens, by construction
+            penalty = sigreg(
+                layers[DEFAULT_LAYER].mean(dim=1),
+                seed=seed if seed is not None else 0,
+                slices=self.config.sigreg_slices,
+                quad_points=self.config.sigreg_quad_points,
+                domain=self.config.sigreg_domain,
+            )
+        else:
+            context = self.encoder.run_tokens(context_tokens)
 
         with torch.no_grad():
             full = self.target_encoder.run_tokens(self.target_encoder.patch_embed_tokens(images))
             targets = _gather_tokens(full, target_idx)
 
         pred = self.predictor(context, context_idx, target_idx)
-        return torch.nn.functional.mse_loss(pred, targets)
+        prediction = torch.nn.functional.mse_loss(pred, targets)
+        if penalty is None:
+            return LossParts(total=prediction, prediction=prediction, sigreg=None)
+        lam = self.config.sigreg_lambda
+        return LossParts(
+            total=(1.0 - lam) * prediction + lam * penalty,
+            prediction=prediction,
+            sigreg=penalty,
+        )
+
+    def loss_step(self, batch: dict[str, Any], *, seed: int | None = None) -> torch.Tensor:
+        """One latent-MSE step on a batch dict (image + petro/pixel-scale)."""
+        return self.loss_parts(batch, seed=seed).total
 
     @torch.no_grad()
     def ema_update(self, momentum: float) -> None:
@@ -212,6 +278,12 @@ class TrainResult:
     losses: list[float]
     collapse_trace: dict[str, list[float]]
     halted: bool
+    #: The two terms behind ``losses``, index-aligned with it. Diagnostics, not training state,
+    #: so they are **not** in the checkpoint: on a resumed run the restored steps come back as
+    #: NaN rather than being dropped, so the lists stay aligned and the gap is visible instead
+    #: of implied. ``sigreg_losses`` is all-NaN when the penalty is off.
+    prediction_losses: list[float] = dataclasses.field(default_factory=list)
+    sigreg_losses: list[float] = dataclasses.field(default_factory=list)
     #: Steps completed in total, restored ones included — not the same as ``len(losses)`` once a
     #: run has halted, and the thing a resume needs to know it landed where it meant to.
     steps_completed: int = 0
@@ -257,6 +329,8 @@ def train_jepa(
         weight_decay=cfg.weight_decay,
     )
     losses: list[float] = []
+    prediction_losses: list[float] = []
+    sigreg_losses: list[float] = []
     halted = False
     start_step = 0
     restored: list[dict[str, float]] = []
@@ -275,6 +349,9 @@ def train_jepa(
         if state is not None:
             assert isinstance(sampler, ResumableShuffle)  # guaranteed by the refusal above
             start_step, losses, restored = state.step, list(state.losses), state.collapse_history
+            # the terms were never checkpointed; pad so the indices keep meaning what they say
+            prediction_losses = [math.nan] * len(losses)
+            sigreg_losses = [math.nan] * len(losses)
             sampler.start = start_step * cfg.batch_size
             logger.info("resuming at step %d of %d", start_step, cfg.steps)
 
@@ -292,9 +369,10 @@ def train_jepa(
         opt.zero_grad(set_to_none=True)
         if autocast_dtype is not None:
             with torch.autocast(device_type=device.split(":")[0], dtype=autocast_dtype):
-                loss = jepa.loss_step(batch, seed=cfg.seed + step)
+                parts = jepa.loss_parts(batch, seed=cfg.seed + step)
         else:
-            loss = jepa.loss_step(batch, seed=cfg.seed + step)
+            parts = jepa.loss_parts(batch, seed=cfg.seed + step)
+        loss = parts.total
 
         if not torch.isfinite(loss):  # T3.no-nan-loss
             logger.error("step %d: non-finite loss (%s) — halting", step, loss.item())
@@ -305,6 +383,8 @@ def train_jepa(
         jepa.ema_update(ema_momentum(step, cfg.steps, cfg.ema_start, cfg.ema_end))
         loss_val = float(loss.item())
         losses.append(loss_val)
+        prediction_losses.append(float(parts.prediction.item()))
+        sigreg_losses.append(math.nan if parts.sigreg is None else float(parts.sigreg.item()))
         _set_postfix(bar, loss=loss_val)
 
         if monitor_batch is not None and step % cfg.monitor_every == 0:
@@ -371,7 +451,15 @@ def train_jepa(
             checkpoint_path,
             extra={"steps": len(losses), "halted": halted, "halt_reason": monitor.halt_reason},
         )
-    return TrainResult(checkpoint, losses, monitor.trace(), halted, steps_completed=done)
+    return TrainResult(
+        checkpoint,
+        losses,
+        monitor.trace(),
+        halted,
+        steps_completed=done,
+        prediction_losses=prediction_losses,
+        sigreg_losses=sigreg_losses,
+    )
 
 
 def _progress(steps: int, *, start: int = 0) -> Any:

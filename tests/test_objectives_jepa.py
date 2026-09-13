@@ -151,3 +151,94 @@ class TestTheLearningRateSchedule:
         from galaxy_jepa.objectives import jepa as mod
 
         assert "learning_rate(step, cfg)" in inspect.getsource(mod.train_jepa)
+
+
+class TestSigRegLandsInert:
+    """Brief I: the penalty is off by default, and off must mean *absent*, not zero.
+
+    The analogue of :class:`TestTheLearningRateSchedule`'s first test. ``lr_final=None`` was
+    pinned by reproducing the pre-D17 line; ``sigreg_lambda=0.0`` is pinned by reproducing the
+    pre-I1 loss body — so an unchanged config is an unchanged run, and every existing artefact
+    keeps describing the thing that produced it.
+    """
+
+    @staticmethod
+    def _fixture(seed: int = 0):
+        torch.manual_seed(seed)
+        encoder = VisionTransformer(img_size=64, patch_size=16, embed_dim=32, depth=4, heads=2)
+        jepa = Jepa(encoder, JepaConfig(batch_size=4, mask=MaskConfig(beta=0.5)))
+        batch = {
+            "image": torch.randn(4, 3, 64, 64, generator=torch.Generator().manual_seed(seed + 1)),
+            "petro_rad_arcsec": torch.full((4,), 8.0),
+            "pixel_scale": torch.full((4,), 0.396),
+        }
+        return jepa, batch
+
+    @pytest.mark.invariant
+    def test_the_default_loss_is_byte_identical_to_the_pre_i1_body(self):
+        """The pre-I1 body, transcribed, must give the same number bit for bit."""
+        from galaxy_jepa.objectives.jepa import _gather_tokens
+
+        jepa, batch = self._fixture()
+        assert jepa.config.sigreg_lambda == 0.0
+
+        images = batch["image"].float()
+        weight_maps = jepa.weight_maps(
+            batch["petro_rad_arcsec"].numpy(), batch["pixel_scale"].numpy()
+        )
+        context_idx, target_idx = jepa.masker.sample(weight_maps, seed=3)
+        tokens = jepa.encoder.patch_embed_tokens(images)
+        context = jepa.encoder.run_tokens(_gather_tokens(tokens, context_idx))
+        with torch.no_grad():
+            full = jepa.target_encoder.run_tokens(jepa.target_encoder.patch_embed_tokens(images))
+            targets = _gather_tokens(full, target_idx)
+        pre_i1 = torch.nn.functional.mse_loss(
+            jepa.predictor(context, context_idx, target_idx), targets
+        )
+
+        assert torch.equal(jepa.loss_step(batch, seed=3), pre_i1)
+
+    @pytest.mark.invariant
+    def test_off_reports_absent_rather_than_a_measured_zero(self):
+        jepa, batch = self._fixture()
+        parts = jepa.loss_parts(batch, seed=3)
+        assert parts.sigreg is None
+        assert torch.equal(parts.total, parts.prediction)
+
+    def test_on_it_is_the_papers_convex_combination(self):
+        """``(1 − λ)·prediction + λ·sigreg`` — the form algorithm 2 uses."""
+        jepa, batch = self._fixture()
+        jepa.config.sigreg_lambda = 0.05
+        jepa.config.sigreg_slices = 64
+        parts = jepa.loss_parts(batch, seed=3)
+        assert parts.sigreg is not None
+        total, pred, pen = (
+            float(v.detach()) for v in (parts.total, parts.prediction, parts.sigreg)
+        )
+        assert total == pytest.approx(0.95 * pred + 0.05 * pen, rel=1e-6)
+
+    def test_on_it_constrains_the_tensor_the_probe_reads(self):
+        """SIGReg is applied at ``DEFAULT_LAYER``, not at the encoder's final output.
+
+        For LeJEPA those coincide; here ``encode()`` reads the penultimate block pre-norm while
+        the predictor's context is the final block post-norm. Regularising the wrong one would
+        leave the probed representation unconstrained and the null uninterpretable.
+        """
+        from galaxy_jepa.core.encoder import DEFAULT_LAYER
+        from galaxy_jepa.objectives.jepa import _gather_tokens
+        from galaxy_jepa.objectives.sigreg import sigreg
+
+        jepa, batch = self._fixture()
+        jepa.config.sigreg_lambda, jepa.config.sigreg_slices = 0.5, 64
+        parts = jepa.loss_parts(batch, seed=3)
+
+        weight_maps = jepa.weight_maps(
+            batch["petro_rad_arcsec"].numpy(), batch["pixel_scale"].numpy()
+        )
+        context_idx, _ = jepa.masker.sample(weight_maps, seed=3)
+        tokens = jepa.encoder.patch_embed_tokens(batch["image"].float())
+        layers = jepa.encoder.run_tokens_layers(_gather_tokens(tokens, context_idx))
+        expected = sigreg(layers[DEFAULT_LAYER].mean(dim=1), seed=3, slices=64)
+
+        assert parts.sigreg is not None
+        assert float(parts.sigreg.detach()) == pytest.approx(float(expected.detach()), rel=1e-6)

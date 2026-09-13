@@ -142,14 +142,24 @@ class VisionTransformer(nn.Module):
             x = block(x)
         return self.norm(x) if norm else x
 
-    def layer_tokens(self, images: torch.Tensor) -> list[torch.Tensor]:
-        """Per-block token outputs for the full image (no final norm), one per block."""
-        x = self.patch_embed_tokens(images)
+    def run_tokens_layers(self, tokens: torch.Tensor) -> list[torch.Tensor]:
+        """Per-block outputs over arbitrary tokens (no final norm), one per block.
+
+        :meth:`run_tokens` for callers that need an *intermediate* depth rather than the last
+        one — which is every caller that wants what the probe reads, since that is pinned at
+        :data:`DEFAULT_LAYER`, not at the final block. :meth:`run_tokens` deliberately does not
+        go through here: it keeps no intermediates, and it is the hot path.
+        """
+        x = tokens
         outs: list[torch.Tensor] = []
         for block in self.blocks:
             x = block(x)
             outs.append(x)
         return outs
+
+    def layer_tokens(self, images: torch.Tensor) -> list[torch.Tensor]:
+        """Per-block token outputs for the full image (no final norm), one per block."""
+        return self.run_tokens_layers(self.patch_embed_tokens(images))
 
     # --- Encoder Protocol ----------------------------------------------------------
 
