@@ -416,6 +416,49 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 - [ ] (P2) The attachment point was chosen, not tested: final-block post-norm, or per-token rather
   than pooled, are separate arms.
 
+## Brief J — the medium run `[smoke, 50,000 steps]`
+- [x] 50,000 steps end to end, 11.09 h, no halt, zero resume gaps, 34 checkpoints retained.
+  Stamped `v2:bb9945b617b53e3b`, `escape_hatches_used: ["smoke"]`. See `artifacts/j_findings.md`.
+- [x] `run_harness`'s post-train probe read the 4 GB metadata table — the third call site Brief I
+  missed. Now the sidecar. `traces.json` now persists the loss decomposition.
+- [ ] (P0) **BLOCKING: the sky-noise control makes the existence gate unreachable.** 3C-5 measures
+  0.8355-0.8416 on every feature and enters `nulls.five_null_samples`' per-draw maximum, so every
+  feature fails existence on this encoder — featured-ness included (0.8365 under its own control's
+  0.8373). The designed ladder would return an all-R3/R4 catalogue that reads like a scientific
+  null and is not one. Four of the five controls break something and are chance-calibrated by
+  construction; 3C-5 keeps everything real and substitutes a different label, so it measures
+  nuisance content. It is also **bit-identical** to the `snr` nuisance probe — the same
+  measurement twice, once as a bar and once as a diagnostic. **Settle in the spec (§3C) before any
+  ladder runs.** Nothing downstream — effect floor included — can be calibrated until it is.
+- [ ] (P0) **The representation encodes observing conditions more strongly than morphology.**
+  Nuisance panel on the frozen embedding: magnitude 0.8733, size 0.8501, SNR 0.8373, redshift
+  0.7918, PSF 0.5813 — against featured-ness at 0.8365 and every other morphology feature below
+  0.74. Physically unsurprising, a serious confound for the probe programme, and the reason the
+  matched-evaluation machinery (`matching.py`) matters rather than being a formality.
+- [ ] (P1) **Training longer made the representation worse, and the budget is unexplained.** This
+  run is Brief I's `sigreg_050` arm continued (verified: all three loss traces agree to 5.0e-7
+  over 3,000 steps; every collapse reading identical at every shared step, step 0 included). One
+  trajectory, two stopping points: 0.9470 at step 3,000, 0.9278 at 50,000, intervals separated,
+  all three framings agreeing. The prediction term bottomed at ~step 2,000 and rose 28% while the
+  SIGReg penalty fell to 1.086 against a measured isotropic floor of ~1.0. Candidates to separate:
+  over-training under the EMA/SIGReg trade-off, the cosine decay's long tail at a tiny LR, SIGReg
+  dominating once the constraint saturates, or 1.93 epochs vs 0.12. **This does not license
+  AUC-based checkpoint selection** — 1C stands; Brief I measured that question and found no usable
+  signal.
+- [ ] (P1) **The untrained encoder is the binding null on every feature.** Margins: edge-on
+  +0.0952, featured +0.0457, t10 loose +0.0453, tight +0.0267, t09 boxy +0.0176, t10 medium
+  +0.0000. A random-init ViT-S reaches 0.7908 on featured-ness. The measured structure argues for
+  a **margin over the untrained control** rather than an absolute `effect_floor`; that is a change
+  to a mechanism the spec records as settled, so it is raised, not made.
+- [ ] (P1) **Effect floor: proposed NOT to freeze yet.** Its input population is empty while
+  existence is blocked; the encoder is not the best on its own trajectory; an absolute AUC cannot
+  encode a per-feature untrained baseline spanning 0.5160-0.7908; and n=6 cannot locate a
+  threshold. Candidates recorded in `artifacts/j_findings.md` — 0.7908 (the untrained ceiling) is
+  the one whose meaning survives questioning. `effect_floor_freeze` stays `None`.
+- [ ] (P2) The 72-minute `_prepare` setup is unbudgeted and unmeasured elsewhere: two
+  `DirectorySource` passes over 1.06 M rows, `resolve_corpora`, two cache scans, the sidecar write.
+  Worth knowing before costing any multi-arm sweep.
+
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so
   H tested the peak and the warmup; the decay rides on the reference recipe's authority and is the
