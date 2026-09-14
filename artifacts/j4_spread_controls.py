@@ -57,12 +57,12 @@ OUT = REPO / "artifacts" / "out"
 #: rather than picked after seeing the numbers. `draws` is the null-characterisation budget: the
 #: two ends of the range get more, because they are what a floor is argued between.
 SPREAD: tuple[tuple[str, str, int], ...] = (
-    ("t01_smooth_or_features_a02_features_or_disk", "clean binary — the comparison point", 200),
+    ("t01_smooth_or_features_a02_features_or_disk", "clean binary — the comparison point", 50),
     ("t02_edgeon_a04_yes", "clean binary — strong visual signal", 50),
     ("t10_arms_winding_a28_tight", "graded axis (1/3) — ordered question", 50),
     ("t10_arms_winding_a29_medium", "graded axis (2/3)", 50),
     ("t10_arms_winding_a30_loose", "graded axis (3/3)", 50),
-    ("t09_bulge_shape_a26_boxy", "deep + confused — 89.8% of positives on <=2 votes", 200),
+    ("t09_bulge_shape_a26_boxy", "deep + confused — 89.8% of positives on <=2 votes", 50),
 )
 
 
@@ -172,6 +172,10 @@ def main() -> None:
             "nuisance_aucs": dict(fc.nuisance_aucs),
         }
         records.append(rec)
+        # Written after EVERY feature, not once at the end. The first run of this took 2h48m for
+        # two features on a thrashing machine, and an end-of-run write means an interrupted pass
+        # yields nothing at all — the same "a long job must bank its work" lesson as `keep=3`.
+        (OUT / f"{args.tag}_spread_controls.partial.json").write_text(json.dumps(records, indent=2))
         shown = f"{auc:.4f} [{lo:.4f},{hi:.4f}]" if auc is not None else f"undefined ({reason})"
         print(f"  {feature:48s} {shown}  sel {fc.selectivity:+.4f}  "
               f"untrained {fc.untrained_encoder_auc:.4f}  noise {fc.noise_encoder_auc:.4f}",

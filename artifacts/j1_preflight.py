@@ -39,7 +39,8 @@ D17_HASH = "538bf997880a8767"  # + the four sigreg keys stripped
 
 PRETRAIN_STAMPS = 826_968
 PROBE_STAMPS = 230_358
-MEASURED_STEPS_PER_S = 1.4765  # sigreg_050, post the MPS-pool fix (Brief I)
+MEASURED_STEPS_PER_S = 1.4279  # J2, measured on THIS path immediately before launch;
+#                              Brief I's 1.4765 was its own driver, 3.3% optimistic here
 
 
 def _git(*args: str) -> str:
