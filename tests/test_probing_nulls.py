@@ -61,12 +61,12 @@ def test_unknown_method_raises():
 class TestGroundedStatistics:
     """The five decisions, as behaviour rather than as comments."""
 
-    def test_five_null_is_the_strongest_control_per_draw(self):
-        """3C: a real feature must beat the *strongest* null, not an average of the five."""
+    def test_existence_null_is_the_strongest_control_per_draw(self):
+        """3C: a real feature must beat the *strongest* null, not an average of them."""
         import numpy as np
 
         from galaxy_jepa.probing.controls import FeatureControls
-        from galaxy_jepa.probing.nulls import five_null_samples
+        from galaxy_jepa.probing.nulls import existence_null_samples
 
         fc = FeatureControls(
             feature="f",
@@ -79,10 +79,50 @@ class TestGroundedStatistics:
             selectivity=0.3,
             nuisance_aucs={},
         )
-        null = five_null_samples(fc)
+        null = existence_null_samples(fc)
         # every draw is dominated by the strongest control (untrained, 0.70)
         assert null.tolist() == [0.70, 0.70]
         assert null.min() >= 0.70
+
+    def test_the_sky_noise_control_is_a_diagnostic_and_never_sets_the_bar(self):
+        """D19. 3C-5 is not chance-calibrated, so it cannot be part of the existence null.
+
+        The regression this pins is not hypothetical: measured on the 50,000-step encoder
+        (J4) it sat at 0.8355-0.8416 on every feature and failed *every* one of them,
+        featured-ness included — an all-R3/R4 catalogue that reads like a scientific null and
+        is nothing of the kind. Four of the five controls break something and are therefore
+        chance-calibrated; 3C-5 keeps images, encoder and probe real and swaps in a different
+        real label, so its AUC measures image-quality content. It stays on `FeatureControls`
+        and in the nuisance panel; it does not enter the bar.
+        """
+        import numpy as np
+
+        from galaxy_jepa.probing.controls import FeatureControls
+        from galaxy_jepa.probing.nulls import existence_null_samples, existence_verdicts
+
+        def fc(sky: float) -> FeatureControls:
+            return FeatureControls(
+                feature="f",
+                real_auc=0.90,
+                shuffled_nulls=np.full(400, 0.50),
+                random_embedding_nulls=np.full(400, 0.52),
+                noise_encoder_auc=0.51,
+                untrained_encoder_auc=0.60,
+                sky_noise_auc=sky,
+                selectivity=0.4,
+                nuisance_aucs={"snr": sky},
+            )
+
+        # the J4 value, which under the old bar dominated every draw and sank the feature
+        assert existence_null_samples(fc(0.8373)).max() == 0.60
+        # moving it cannot move the null, the p-value, or the verdict
+        assert np.array_equal(existence_null_samples(fc(0.51)), existence_null_samples(fc(0.99)))
+        (low,) = existence_verdicts({"f": fc(0.51)}, n_tests=1, effect_floor=0.65).values()
+        (high,) = existence_verdicts({"f": fc(0.99)}, n_tests=1, effect_floor=0.65).values()
+        assert (low.pvalue, low.exceeds_null) == (high.pvalue, high.exceeds_null)
+        assert high.exceeds_null is True
+        # but it is still measured and still carried — removed from the bar, not from the record
+        assert fc(0.8373).sky_noise_auc == 0.8373
 
     def test_multiplicity_defaults_to_benjamini_yekutieli(self):
         from galaxy_jepa.probing.config import ProbingConfig
@@ -167,7 +207,7 @@ _TINY_VIT = {
 
 
 def test_untrained_encoder_null_is_reproducible_from_the_seed():
-    """The strongest of the five nulls sets the bar; an unseeded one makes the bar move.
+    """The strongest chance-calibrated null sets the bar; an unseeded one makes the bar move.
 
     Unseeded, this manifests as a feature flipping R1↔R3 across reruns of the *identical*
     config — a verdict that is not reproducible from (config_hash, code_sha, data_snapshot,

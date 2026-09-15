@@ -3,8 +3,17 @@
 The controls are the difference between "a probe predicted bars" (worthless) and "bar-ness is
 a recoverable direction, and it is not capacity / a nuisance / a label prior" (the paper).
 Each control closes a *distinct* "how do I know it's real" attack; the existence verdict
-(``nulls.py``) is calibrated against the **most conservative** of the five, so no
-"but you didn't control for X" survives.
+(``nulls.py``) is calibrated against the **most conservative of the four that are
+chance-calibrated**, so no "but you didn't control for X" survives.
+
+**Four of the five, not all five — D19.** Controls 1–4 each *break* something (the
+correspondence, the representation, the images, the pretraining) and so answer "what does this
+machinery reach when the thing being measured is absent?". Control 5 breaks nothing: real
+images, real encoder, real probe, a *different real label*. It measures how much image-quality
+content the representation holds, which is a **diagnostic**, and entering it as a bar asks a
+morphology probe to beat a nuisance probe — a comparison the matched-evaluation machinery
+(3D-ii, ``matching.py``) exists to make properly. It is built here and reported; it is not in
+:func:`nulls.existence_null_samples`.
 
 This module **generates** the controls — the buildable part. How a threshold *reads against*
 them (the significance machinery, the multiplicity correction) is flagged and lives in
@@ -23,7 +32,8 @@ The five negative controls (3C):
 4. **Untrained-encoder embeddings** — real images through a frozen random-init ViT. Kills
    "the probe, not the pretraining, did the work". *The headline "pretraining mattered" null.*
 5. **Sky/noise-level labels** — probe the real embeddings against an image-quality label.
-   Kills "the probe reads image depth, not morphology".
+   Asks "does the probe read image depth rather than morphology?". **Diagnostic, not a null**
+   (D19) — it is the `snr` nuisance under another name, and at J4 came out bit-identical to it.
 """
 
 from __future__ import annotations
@@ -142,7 +152,7 @@ def untrained_encoder_matrix(
     (not ``objectives``) — the freeze boundary holds.
 
     **The initialisation is seeded**, and it has to be. This control is routinely the *strongest*
-    of the five nulls, so it sets the existence bar; an unseeded random ViT makes the bar move
+    of the chance-calibrated nulls, so it sets the existence bar; an unseeded random ViT moves it
     between runs, and a verdict that is not reproducible from
     ``(config_hash, code_sha, data_snapshot, seed)`` is not stamped provenance at all. Left
     unseeded this manifests as a feature flipping R1↔R3 on reruns of the identical config.
@@ -223,12 +233,12 @@ class ControlEmbeddings:
 
 @dataclasses.dataclass(frozen=True)
 class FeatureControls:
-    """The full five-null battery for one feature, plus the Hewitt–Liang selectivity.
+    """The full 3C battery for one feature, plus the Hewitt–Liang selectivity.
 
-    Each ``*_nulls`` is an array (a distribution); the single-AUC controls are length-1
-    arrays, so :func:`nulls.five_null_max` treats them uniformly. ``nuisance_aucs`` is the
-    diagnostic parallel-probe panel (3D-ii); the matched-evaluation it can trigger is in
-    ``matching.py``.
+    Four of these five enter the existence bar (:func:`nulls.existence_null_samples`);
+    ``sky_noise_auc`` is carried as a **diagnostic** and is not one of them — see D19 and this
+    module's header. ``nuisance_aucs`` is the diagnostic parallel-probe panel (3D-ii); the
+    matched-evaluation it can trigger is in ``matching.py``.
     """
 
     feature: str
@@ -255,7 +265,7 @@ def build_feature_controls(
     n_draws: int = 50,
     seed: int = 0,
 ) -> FeatureControls:
-    """Assemble the five negative-control nulls + selectivity + the nuisance panel for a feature.
+    """Assemble the 3C battery + selectivity + the nuisance panel for a feature.
 
     Reuses the one-shot control embedding sources in ``controls`` (no per-feature re-encode);
     the resamplable nulls (shuffled, random-embedding) are drawn here, the encoder-source

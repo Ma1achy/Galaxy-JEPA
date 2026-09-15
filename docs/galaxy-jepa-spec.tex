@@ -627,9 +627,9 @@ $\rightarrow$ MLP/$k$-NN selectivity (\S\ref{sec:ladder}). The core deliverable.
 per feature (\S\ref{sec:uncertainty}).
 \item \dec{} \textbf{Embedding correlation geometry} --- the cosine matrix of concept directions
 against v1's Fig 18/19 (\S\ref{sub:ladder-machinery}, eigen-triangulation).
-\item \dec{} \textbf{Controls} --- selectivity, the five negative-control nulls, the five
-nuisance probes (\S\ref{sec:controls}, \S\ref{sub:controls-battery}). Non-negotiable for
-Paper~1.
+\item \dec{} \textbf{Controls} --- selectivity, the five negative controls (four of which are
+the existence null; 3C-5 is a diagnostic, D19), the five nuisance probes (\S\ref{sec:controls},
+\S\ref{sub:controls-battery}). Non-negotiable for Paper~1.
 \item \dec{} \textbf{Label-efficiency curve} --- probe accuracy vs \#labels, SSL-pretrained vs
 supervised-from-scratch. Quantifies the value of pretraining and directly answers the LSST
 framing (\S\ref{sec:method}).
@@ -705,9 +705,10 @@ significance-vs-null decides real/not-real, the floor only decides clean-vs-marg
 function} --- the gate cannot fire until the null is computed (negatives $\rightarrow$ null
 $\rightarrow$ real features gated against it).
 
-\subsubsection{3C --- the negative-control battery (five nulls)}
-\dec{} Existence is calibrated against the \textbf{max (most conservative) across all five} ---
-a real feature must beat the \emph{strongest} null. Each closes a distinct attack:
+\subsubsection{3C --- the negative-control battery (five controls, four of them nulls)}
+\dec{} Existence is calibrated against the \textbf{max (most conservative) across the four
+chance-calibrated controls} --- a real feature must beat the \emph{strongest} null. Each of the
+four closes a distinct attack. \textbf{Control 5 is a diagnostic, not a null (D19).} Each closes:
 \begin{enumerate}[leftmargin=1.5em,itemsep=1pt]
 \item \textbf{Shuffled vote fractions} --- same distribution, destroyed correspondence. Kills
 ``the probe exploits label marginals, not image content.''
@@ -720,8 +721,20 @@ the encoder learned galaxy structure specifically.
 \item \textbf{Untrained-encoder embeddings} (frozen random ViT) --- kills ``the probe, not the
 pretraining, does the work.'' \emph{The headline ``pretraining mattered'' control} --- ``a random
 ViT gets ${\sim}0.5$ on featured-ness, ours gets ${\sim}0.9$.''
-\item \textbf{Sky-background / noise-level labels} --- kills ``the probe reads image depth, not
-morphology.''
+\item \textbf{Sky-background / noise-level labels} --- asks ``does the probe read image depth
+rather than morphology?''. \textbf{DIAGNOSTIC, NOT A NULL --- D19, changed by measurement.} A
+null must be \emph{chance-calibrated}: it answers ``what does this machinery reach when the thing
+being measured is absent?''. Controls 1--4 each break something (the correspondence, the
+representation, the images, the pretraining) and therefore do. This one breaks nothing --- real
+images, real encoder, real probe, a \emph{different real label} --- so its AUC measures how much
+image-quality content the representation holds. That is a real and serious question, and it is
+3D's question: measured on the 50,000-step encoder it came out \emph{bit-identical} to the
+\texttt{snr} nuisance probe, one measurement entered twice, once as a bar and once as a
+diagnostic. Entered as a bar it sat at 0.8355--0.8416 and failed \emph{every} feature,
+featured-ness included, returning an all-R3/R4 catalogue that reads like a scientific null and is
+nothing of the kind. It remains computed, reported, and adjudicated --- by 3D-ii's matched
+evaluation, which is the machinery built to ask whether a morphology axis is really a nuisance
+axis. It does not set the existence bar.
 \end{enumerate}
 
 \subsubsection{3D --- the nuisance battery (five nuisances + triggered matching)}
@@ -732,10 +745,21 @@ SNR$_r$ (depth), PSF width (seeing). \textbf{Adjudication:} a parallel probe pre
 nuisance from the embeddings (diagnostic --- shows \emph{whether} there's a concern); when a
 nuisance-AUC is comparable-to-or-above the morphology-AUC, that feature \emph{must} be re-tested
 on galaxies \textbf{matched} on that nuisance (held constant, so it can't be the signal). The
-feature either \emph{survives} (real) or is \emph{marked confounded}. This makes matching
-\emph{targeted} (fires only for flagged features --- bounded cost), promoting it from the
-scratchpad's ``Paper-2/if-feasible'' to \textbf{Paper-1, targeted}. Every branch is defensible
---- there is no outcome you'd want to hide.
+feature either \emph{survives} (real) or is \emph{marked confounded}. This was specified as making
+matching \emph{targeted} (fires only for flagged features --- bounded cost), promoting it from the
+scratchpad's ``Paper-2/if-feasible'' to \textbf{Paper-1, targeted}. Every branch is defensible ---
+there is no outcome you'd want to hide.
+
+\opn{} \textbf{``Targeted, bounded cost'' is measured to be false on this encoder --- scope change,
+Brief K.} The 50{,}000-step nuisance panel reads magnitude $0.8733$, size $0.8501$,
+SNR $0.8373$, redshift $0.7918$, PSF $0.5813$, against featured-ness at $0.8365$ and every other
+probed morphology feature below $0.74$. The trigger therefore fires for \emph{every} feature on
+three or four nuisances each, not for a flagged few. Matched evaluation is consequently a
+\textbf{load-bearing component of Paper 1}, not a targeted contingency, and its cost is a
+headline-run cost rather than a tail. \texttt{matching.py} moves from formality to critical path,
+and the headline run must be budgeted with it in. Physically this is unsurprising --- morphology
+genuinely correlates with depth, size and brightness, which is 3D's own premise --- but the
+magnitude was not anticipated and the machinery's sizing was.
 
 \subsection{Sub-system 2 --- the ladder}\label{sub:ladder-machinery}
 
@@ -1085,12 +1109,15 @@ questions (settle before the relevant wiring) and \emph{formula-flagged} statist
 \textbf{Formula-flagged (structure locked, formula to own):}
 \begin{enumerate}[leftmargin=1.5em,itemsep=1pt,start=7]
 \item \textbf{Existence significance machinery} (\S\ref{sub:controls-battery}, 3B) --- the specific null-calibrated test and its multiplicity-corrected (BY) form.
-\item \textbf{The five-null combination leaves the null degenerate} (\S\ref{sub:controls-battery},
-3C) --- \emph{measured}, not conjectured. Three of the five controls (noise-through-encoder,
-untrained-encoder, sky/noise) are single AUCs rather than distributions; only shuffled-labels and
-random-embeddings resample. Since 3C calibrates against the \emph{max} across all five, and the
-largest singleton exceeds every resampled draw, the combined null has zero variance --- so the
-existence $p$ can only be $1/(n+1)$ or $1$, and the draw count buys no resolution. Candidates
+\item \textbf{The null combination leaves the null degenerate} (\S\ref{sub:controls-battery},
+3C) --- \emph{measured}, not conjectured. \textbf{Still open after D19, which narrowed it
+without closing it}: two of the four chance-calibrated controls (noise-through-encoder,
+untrained-encoder) are single AUCs rather than distributions; only shuffled-labels and
+random-embeddings resample. Since 3C calibrates against the \emph{max}, and the largest
+singleton exceeds every resampled draw --- measured on the 50,000-step encoder, untrained-encoder
+$0.5160$--$0.7908$ against shuffled-max $0.5136$--$0.5552$ on all six probed features --- the
+combined null has zero variance, so the existence $p$ can only be $1/(n+1)$ or $1$ and the draw
+count buys no resolution. Candidates
 (recorded, none chosen): a seeded \emph{ensemble} of untrained encoders (measured spread across 8
 seeds: AUC $0.648$--$0.702$, $\sigma = 0.018$, $\approx$5.6\,min per seed to embed a 40k corpus);
 resampling the remaining singletons; or a combination rule that keeps the singletons as a

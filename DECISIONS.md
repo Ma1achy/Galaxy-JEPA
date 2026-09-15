@@ -860,3 +860,76 @@ climbed 29.9 → 34.2 over its last 500 steps. One seed, one feature, everything
 `smoke: true`, so "separated" means separated on bootstrap intervals over the test set, not across
 training runs. The attachment point was chosen, not ablated. And **D17's cosine decay remains
 untested** and is inherited unchanged by this decision.
+
+---
+
+## D19 — The sky/noise control (3C-5) is a diagnostic, not a null — *decided (measured; corrects a pre-registered gate)*
+
+**This changes a pre-registered gate.** It is written down at length because of that: the bar
+moved *after* a measurement existed, which is exactly the situation where a reader is entitled to
+ask whether it moved because it was wrong or because it was inconvenient. The reasoning is below,
+and it does not depend on which features pass.
+
+**The defect.** `nulls.five_null_samples` took the elementwise maximum over all five 3C controls.
+Four of them break something and are therefore *chance-calibrated* — they answer "what AUC does
+this machinery reach when the thing being measured is absent?":
+
+| control | what it breaks | what it kills |
+|---|---|---|
+| 3C-1 shuffled vote fractions | the image–label correspondence | "the probe exploits label marginals" |
+| 3C-2 random embeddings | the representation | "any high-D vector predicts this" |
+| 3C-3 noise through the real encoder | the images | "the encoder imposes structure on anything" |
+| 3C-4 untrained encoder | the **pretraining** | "the probe, not the pretraining, did the work" |
+
+3C-5 breaks nothing. Real images, real frozen encoder, real probe — and a *different real label*.
+Its AUC is not "what chance looks like"; it is **how much image-quality content the representation
+holds**. Folding it into a maximum asks a morphology probe to beat a nuisance probe before the
+morphology feature is allowed to exist. That is a category error, not a bug: no value of it is
+evidence about whether morphology is a direction in the representation.
+
+**The proof that it is the same measurement twice.** 3C-5 and the `snr` nuisance probe came out
+**bit-identical** on all six features probed at J4 — 0.8373, 0.8381, 0.8416, 0.8416, 0.8416,
+0.8355. One measurement, entered once as a bar and once as a diagnostic. Both read `snr_r` through
+a median split on the same eligible ids; they are the same code path with two names.
+
+**What it did.** Measured on the 50,000-step encoder (`artifacts/out/j4_spread_controls.json`):
+
+| feature | real AUC | 3C-5 | strongest chance-calibrated null | verdict, old bar | verdict, corrected bar |
+|---|---|---|---|---|---|
+| t01 featured-or-disk | 0.8365 | 0.8373 | 0.7908 (untrained) | **fails** | clears by +0.0457 |
+| t02 edge-on yes | 0.7320 | 0.8381 | 0.6368 (untrained) | **fails** | clears by +0.0952 |
+| t10 arms tight | 0.5740 | 0.8416 | 0.5474 (untrained) | **fails** | clears by +0.0266 |
+| t10 arms medium | 0.5161 | 0.8416 | 0.5160 (untrained) | **fails** | +0.0001 — a tie |
+| t10 arms loose | 0.6098 | 0.8416 | 0.5645 (untrained) | **fails** | clears by +0.0453 |
+| t09 bulge boxy | 0.5534 | 0.8355 | 0.5359 (untrained) | **fails** | clears by +0.0175 |
+
+**State it plainly: every feature failed existence under the broken bar, featured-ness included.**
+The designed ladder would have returned an all-R3/R4 catalogue — a catalogue that reads like a
+scientific null and is nothing of the kind, on an encoder whose headline feature probes at 0.9278
+consensus. **That near-miss is why this is documented rather than quietly applied.** A gate that
+cannot be passed by a real effect is not conservative; it is broken, and its output is
+indistinguishable from an honest negative result.
+
+**The decision.** The existence null is the max over the **four chance-calibrated** controls.
+3C-5 stays computed, stays on `FeatureControls`, stays in the reported record, and is adjudicated
+where it belongs: **3D-ii's triggered matched evaluation**, the machinery built precisely to ask
+whether a morphology axis is really a nuisance axis. In the artefact its key is renamed
+`sky_noise_diagnostic`, so `ladder_summary.json` cannot read a diagnostic back as a bar.
+
+**What this does not do.** It does not make the nuisance problem go away — it relocates it to the
+machinery that can answer it. The J4 panel is severe: magnitude 0.8733, size 0.8501, SNR 0.8373,
+redshift 0.7918 against featured-ness at 0.8365 and every other morphology feature below 0.74. On
+this evidence matched evaluation fires for **every** feature, not for a flagged few, which is a
+scope change for 3D-ii recorded in `TODO.md`. Nor does it close the register's degeneracy item
+(item 8): the untrained-encoder singleton still exceeds every resampled draw, so the combined null
+still has zero variance and the existence *p* can still only be 1/(n+1) or 1.
+
+**Naming.** `five_null_samples` → `existence_null_samples`. A function that combines four controls
+must not be named for five; the count belonged in the name only while the count was the claim.
+
+- Code: `probing/nulls.py`, `probing/controls.py`, `probing/ladder.py`, `probing/run.py`.
+- Spec: `docs/galaxy-jepa-spec.tex` §3C + open-questions item 8, `docs/probing-harness-design.md`
+  §3C, `docs/spec/gates.md`. **The PDF is stale** — no LaTeX toolchain in this environment; the
+  `.tex` is the corrected source and the PDF needs a rebuild.
+- Test: `tests/test_probing_nulls.py::TestGroundedStatistics
+  ::test_the_sky_noise_control_is_a_diagnostic_and_never_sets_the_bar`.

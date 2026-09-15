@@ -128,11 +128,12 @@ must be: negatives → null distribution → real features gated against it.
 > form, see 2B) is tagged for Malachy to own before finalising. Structure (null-calibrated
 > existence + effect floor) is locked.
 
-### 3C — The negative-control battery (five nulls)
+### 3C — The negative-control battery (five controls, four of them nulls)
 
-The existence verdict is calibrated against the **max (most conservative) across all five**
-— a real feature must beat the *strongest* null, so there is no "but you didn't control for
-X" left. All five are cheap (computed anyway) and each closes a *distinct* attack:
+The existence verdict is calibrated against the **max (most conservative) across the four
+chance-calibrated controls** — a real feature must beat the *strongest* null, so there is no
+"but you didn't control for X" left. **Control 5 is a diagnostic, not a null (D19)** — see its
+entry below. All five are cheap (computed anyway) and each closes a *distinct* attack:
 
 1. **Shuffled vote fractions** — same label distribution, destroyed image-label
    correspondence. Kills: "the probe exploits label marginals / class imbalance, not image
@@ -150,8 +151,21 @@ X" left. All five are cheap (computed anyway) and each closes a *distinct* attac
    not the pretraining, does the work." *The headline "pretraining mattered" control* — "a
    random ViT gets ~0.5 on featured-ness, ours gets ~0.9" is the single most convincing
    one-line demonstration that label-free pretraining did the work.
-5. **Sky-background / noise-level labels** — kills: "the probe reads image depth/quality,
-   not morphology." *Image-quality nuisance negative.*
+5. **Sky-background / noise-level labels** — asks: "does the probe read image depth/quality
+   rather than morphology?" **DIAGNOSTIC, NOT A NULL — D19, changed by measurement, not by
+   convenience.** A null has to be *chance-calibrated*: it answers "what does this machinery
+   reach when the thing being measured is absent?". Controls 1–4 each break something (the
+   correspondence, the representation, the images, the pretraining) and therefore do. This one
+   breaks nothing — real images, real encoder, real probe, a *different real label* — so its
+   AUC measures how much image-quality content the representation holds. That is a real and
+   serious question, and it is **3D's** question: measured on the 50,000-step encoder it came
+   out *bit-identical* to the `snr` nuisance probe on every feature, one measurement entered
+   twice, once as a bar and once as a diagnostic. Entered as a bar it sat at 0.8355–0.8416 and
+   failed **every** feature, featured-ness included (0.8365 against its own control's 0.8373) —
+   an all-R3/R4 catalogue that reads like a scientific null and is nothing of the kind. It stays
+   computed and reported, and is adjudicated by **3D-ii's matched evaluation**, which is the
+   machinery built to ask whether a morphology axis is really a nuisance axis. It does not set
+   the existence bar. *Image-quality nuisance diagnostic.*
 
 ### 3D — The nuisance battery (five nuisances + triggered matching)
 
@@ -176,9 +190,18 @@ one out is a "did you control for seeing?" gap):
   can't be the signal). The feature either **survives** (signal is real, not the nuisance)
   or is **marked confounded**. A feature cannot claim a clean rung while a nuisance is
   competitive AND it hasn't survived matching.
-- This makes matching *targeted* (fires only for flagged features — bounded cost), not
-  "always" (too expensive) or "never/Paper-2" (leaves confounds unresolved). It promotes
-  matched-evaluation from the scratchpad's "Paper-2/if-feasible" to "Paper-1, targeted."
+- This was specified as making matching *targeted* (fires only for flagged features — bounded
+  cost), not "always" (too expensive) or "never/Paper-2" (leaves confounds unresolved). It
+  promotes matched-evaluation from the scratchpad's "Paper-2/if-feasible" to "Paper-1, targeted."
+- **SCOPE CHANGE — "targeted, bounded cost" is measured to be false on this encoder (Brief K).**
+  The 50,000-step nuisance panel: magnitude 0.8733, size 0.8501, SNR 0.8373, redshift 0.7918,
+  PSF 0.5813 — against featured-ness at 0.8365 and every other probed morphology feature below
+  0.74. The trigger fires for **every** feature on three or four nuisances each, not for a flagged
+  few. Matched evaluation is therefore **load-bearing for Paper 1**, not a targeted contingency,
+  and its cost is a headline-run cost rather than a tail: `matching.py` moves from formality to
+  critical path, and the headline run must be budgeted with it in. Physically unsurprising —
+  morphology genuinely correlates with depth, size and brightness, which is 3D's own premise —
+  but the magnitude was not anticipated and the machinery's sizing was.
 
 **Why every branch is defensible:** "no nuisance competitive → clean" (strong); "nuisance
 competitive → matched → survived" (arguably *more* convincing — found a plausible confound
@@ -200,7 +223,8 @@ recoverable by anything. Per 3A, escalation is a *gated cascade* where each rung
 *named* alternative hypothesis and is itself gated.
 
 **The cascade (per feature):**
-1. **Linear probe** (canonical L2-logistic) → beats the 5-null max (3C) at the effect floor
+1. **Linear probe** (canonical L2-logistic) → beats the chance-calibrated null max (3C, four
+   controls — D19) at the effect floor
    (3B)? **No** → not linearly present, go to step 4. **Yes** → at least R2, continue.
 2. **Entanglement test** (2A) → clean (R1) or entangled (R2)?
 3. **Nuisance gate** (3D) → competitive nuisance → matched eval → survive (stays R1/R2) or

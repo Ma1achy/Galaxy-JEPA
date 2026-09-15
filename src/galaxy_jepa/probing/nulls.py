@@ -1,7 +1,7 @@
 """Null-calibrated existence verdict + the multiplicity correction (design 3B / 2B).
 
 The gate's "is this feature real?" bar is **not** a hand-picked constant — it is "exceeds the
-negative-control null at p < α" (3B). This module turns the five-control battery
+negative-control null at p < α" (3B). This module turns the negative-control battery
 (``controls.py``) into that verdict. The structural dependency the design insists on holds
 here: the null is an *input* to the gate, so the gate cannot fire until this module has
 computed it.
@@ -25,7 +25,7 @@ import numpy as np
 from galaxy_jepa.probing.controls import FeatureControls
 
 __all__ = [
-    "five_null_samples",
+    "existence_null_samples",
     "existence_pvalue",
     "family_significant",
     "ExistenceVerdict",
@@ -38,20 +38,33 @@ __all__ = [
 ]
 
 
-def five_null_samples(controls: FeatureControls) -> np.ndarray:
-    """Combine the five negative controls into one null: **the strongest control, per draw**.
+def existence_null_samples(controls: FeatureControls) -> np.ndarray:
+    """Combine the **four chance-calibrated** negative controls into one null: max, per draw.
 
-    Design 3C is explicit that existence is calibrated against the *max (most conservative)
-    across all five* — a real feature must beat the **strongest** null, not an average of them.
-    Pooling every sample into one bag (the earlier placeholder) is not that: it lets the weak
-    controls dilute the upper tail, which is the wrong direction for a conservative bar.
+    Design 3C is explicit that existence is calibrated against the *max (most conservative)*
+    across the battery — a real feature must beat the **strongest** null, not an average of
+    them. Pooling every sample into one bag (the earlier placeholder) is not that: it lets the
+    weak controls dilute the upper tail, which is the wrong direction for a conservative bar.
 
     So the null is assembled **per draw**: the two resamplable controls contribute a paired draw
-    each, the three single-AUC controls are constants that every draw must also clear, and the
+    each, the two single-AUC controls are constants that every draw must also clear, and the
     null sample is the elementwise maximum. That keeps a *distribution* (which the empirical
     p-value needs) while making every sample "the best any control managed on this draw".
 
-    NOTE — the spec fixes "max across all five" but not whether the max is taken per draw or
+    **The fifth control (3C-5, sky/noise labels) is deliberately NOT here — D19.** A null has to
+    be chance-calibrated: it must answer "what AUC does this machinery reach when the thing being
+    measured is absent?". Four of the five break something and therefore do —
+    ``shuffled`` destroys the image-label correspondence, ``random_embedding`` replaces the
+    representation, ``noise_encoder`` replaces the images, and ``untrained_encoder`` replaces the
+    *pretraining* while keeping images and labels real, which is exactly the "the probe, not the
+    pretraining, did the work" null. 3C-5 breaks nothing: real images, real encoder, real probe,
+    a *different real label*. Its AUC measures how much image-quality content the representation
+    holds, which is a **diagnostic**, not a bar — it stays on ``FeatureControls`` and in the
+    nuisance panel. Measured at J4 it is bit-identical to ``nuisance_aucs["snr"]``: one
+    measurement, entered twice, once as a null and once as a diagnostic. Under the old bar it
+    sat at 0.8355–0.8416 and failed *every* feature, featured-ness included. See D19.
+
+    NOTE — the spec fixes "max across the battery" but not whether the max is taken per draw or
     over the controls' means. Per-draw is used because a max-of-means collapses the null to a
     single point and leaves :func:`existence_pvalue` no distribution to locate the real value
     in; changing it is a change to this one function.
@@ -59,7 +72,6 @@ def five_null_samples(controls: FeatureControls) -> np.ndarray:
     singleton_max = max(
         float(controls.noise_encoder_auc),
         float(controls.untrained_encoder_auc),
-        float(controls.sky_noise_auc),
     )
     shuffled = np.asarray(controls.shuffled_nulls, dtype=np.float64)
     random_emb = np.asarray(controls.random_embedding_nulls, dtype=np.float64)
@@ -75,7 +87,7 @@ def existence_pvalue(real_auc: float, null_samples: np.ndarray) -> float:
     The real value located in the chance null: the add-one empirical estimator
     ``(1 + #{null ≥ real}) / (1 + N)``. Conservative, never returns exactly 0 (so a finite
     resample count cannot manufacture an infinitely-small p), and assumes nothing about the
-    null's shape — which matters because the five-control null is a per-draw maximum and is not
+    null's shape — which matters because the existence null is a per-draw maximum and is not
     remotely Gaussian.
 
     OPEN (spec register item 9): tie-handling when ``real_auc`` is ≈1.0. The ``>=`` comparison
@@ -90,9 +102,10 @@ def existence_pvalue(real_auc: float, null_samples: np.ndarray) -> float:
 
 
 def existence_pvalues(controls: Mapping[str, FeatureControls]) -> dict[str, float]:
-    """Per-feature existence p-value against each feature's own five-null battery."""
+    """Per-feature existence p-value against that feature's own chance-calibrated nulls."""
     return {
-        feat: existence_pvalue(fc.real_auc, five_null_samples(fc)) for feat, fc in controls.items()
+        feat: existence_pvalue(fc.real_auc, existence_null_samples(fc))
+        for feat, fc in controls.items()
     }
 
 
@@ -239,7 +252,7 @@ def existence_verdicts(
     """
     pvals = existence_pvalues(controls)
     if controls:
-        n_null = min(five_null_samples(fc).size for fc in controls.values())
+        n_null = min(existence_null_samples(fc).size for fc in controls.values())
         assert_null_resolution(n_null, alpha=alpha, method=method, n_tests=n_tests or len(pvals))
     significant = family_significant(pvals, alpha=alpha, method=method, n_tests=n_tests)
     return {

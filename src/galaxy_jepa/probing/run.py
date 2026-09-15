@@ -249,7 +249,10 @@ def _write_summary(
         },
         # Which control set the bar. Without this the verdict is unreadable: "p = 1.0" says the
         # feature lost, not *what to*, and the answer (an untrained encoder vs a shuffled label)
-        # is a different scientific statement each time.
+        # is a different scientific statement each time. The first four keys ARE the bar
+        # (`nulls.existence_null_samples`); `sky_noise_diagnostic` is named apart from them
+        # because it is not one (D19) — an artefact that reads a diagnostic back as a bar is the
+        # same defect as a stamp that is wrong about its own code.
         "nulls": {
             f: {
                 "shuffled_max": float(c.shuffled_nulls.max()) if c.shuffled_nulls.size else None,
@@ -258,7 +261,7 @@ def _write_summary(
                 ),
                 "noise_encoder": c.noise_encoder_auc,
                 "untrained_encoder": c.untrained_encoder_auc,
-                "sky_noise": c.sky_noise_auc,
+                "sky_noise_diagnostic": c.sky_noise_auc,
                 "selectivity": c.selectivity,
                 "nuisance_aucs": dict(c.nuisance_aucs),
             }

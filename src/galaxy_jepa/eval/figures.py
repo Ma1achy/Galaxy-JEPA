@@ -11,7 +11,7 @@ the figures fall out of the run.
   here once the v1 confusion data is wired — a later consumer.)
 * **Figure 3 — the entanglement geometry** (sub-system 2A): the recovered cosine matrix
   (the bridge to v1's Fig 18/19) + the eigenspectrum (effective rank, the MP comparison).
-* **Control figures** (generate generously, triage later): the five-null comparison and the
+* **Control figures** (generate generously, triage later): the 3C control comparison and the
   nuisance-AUC panel — especially "untrained ~0.5 vs ours ~0.9" and noise-through-encoder.
 
 Follows ``eval/embed.py``: matplotlib (Agg) imported lazily (the ``eval`` extra), returns the

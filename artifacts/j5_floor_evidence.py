@@ -24,16 +24,21 @@ import numpy as np
 
 OUT = Path(__file__).resolve().parent / "out"
 
-#: Every control is a negative control: under it the probe should not beat chance. They are
-#: pooled because the floor is ONE number for a whole catalogue, so the relevant ceiling is the
-#: highest any of them reached on any feature, not a per-feature one.
-CONTROL_KEYS = (
+#: The four CHANCE-CALIBRATED controls: each breaks something, so under it the probe should not
+#: beat chance. They are pooled because the floor is ONE number for a whole catalogue, so the
+#: relevant ceiling is the highest any of them reached on any feature, not a per-feature one.
+NULL_KEYS = (
     ("shuffled_max", "shuffled labels (max over draws)"),
     ("random_emb_max", "random embeddings (max over draws)"),
     ("untrained_encoder_auc", "untrained encoder"),
     ("noise_encoder_auc", "noise images"),
-    ("sky_noise_auc", "sky-noise label"),
 )
+
+#: 3C-5 is NOT pooled — D19. It breaks nothing (real images, real encoder, real probe, a different
+#: real label), so its AUC measures image-quality content rather than chance, and pooling it makes
+#: the ceiling a nuisance measurement. It sat at 0.8355-0.8416 and dominated the pooled maximum,
+#: which is exactly how it came to fail every feature. Reported below the pooled block, apart.
+DIAGNOSTIC_KEYS = (("sky_noise_auc", "sky-noise label — DIAGNOSTIC, not pooled (D19)"),)
 
 
 def main() -> None:
@@ -70,9 +75,9 @@ def main() -> None:
     print()
 
     # --- 2. the pooled null distribution ---------------------------------------------------
-    print("POOLED NULL DISTRIBUTION — every control, every feature")
+    print("POOLED NULL DISTRIBUTION — the four chance-calibrated controls, every feature")
     pooled = []
-    for key, label in CONTROL_KEYS:
+    for key, label in NULL_KEYS:
         v = np.array([f[key] for f in feats], dtype=float)
         pooled.append(v)
         print(f"  {label:36s} min {v.min():.4f}  median {np.median(v):.4f}  max {v.max():.4f}")
@@ -83,6 +88,10 @@ def main() -> None:
           f"{np.median(pooled_v):.4f}  **max {ceiling:.4f}**")
     print(f"  shuffled-label mean across features: {allshuf.mean():.4f} "
           f"(chance is 0.5 by construction)")
+    for key, label in DIAGNOSTIC_KEYS:
+        v = np.array([f[key] for f in feats], dtype=float)
+        print(f"  {label:36s} min {v.min():.4f}  median {np.median(v):.4f}  max {v.max():.4f}"
+              f"  <- NOT in the ceiling above")
     print()
 
     # --- 3. the real spread, and 4. the gap -------------------------------------------------

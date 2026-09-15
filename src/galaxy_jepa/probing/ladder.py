@@ -8,8 +8,9 @@ a **deterministic function of the gate tree**, never a human read (the keystone 
 Run-level phases (ordering forced by data dependencies):
 
 0. Caller extracts the embeddings once and builds the control sources (``run.py``).
-1. Per feature: linear probe + direction; assemble the five-null battery (``controls.py``).
-2. Family-corrected existence verdict vs the five-null max + effect floor (``nulls.py``).
+1. Per feature: linear probe + direction; assemble the 3C battery (``controls.py``).
+2. Family-corrected existence verdict vs the chance-calibrated null max + the effect floor
+   (``nulls.py``; the sky/noise control is a diagnostic and not in that max — D19).
 3. Global entanglement geometry over the existence-passing directions (``entanglement.py``).
 4. Existence-passing features → entanglement R1/R2 + nuisance gate (+ triggered matching).
 5. Existence-failing features → MLP capacity ladder → R3 / R4 (``mlp.py``).
@@ -302,7 +303,7 @@ def run_ladder(
     features = labels.features
     n_tests = config.n_primary_tests if config.n_primary_tests is not None else len(features)
 
-    # Phase 1: per-feature linear probe + direction + the five-null battery.
+    # Phase 1: per-feature linear probe + direction + the 3C battery.
     directions: dict[str, ConceptDirection] = {}
     real_aucs: dict[str, float] = {}
     feature_controls: dict[str, ctl.FeatureControls] = {}

@@ -38,7 +38,7 @@ Compositions of the primitives, each consuming a named metric the probing run pr
 | Gate | Composition | Metric consumed | Pass means |
 |---|---|---|---|
 | `selectivity` | `MetricGate("selectivity", gte=τ_sel)` | real-label AUC − control-label AUC (Hewitt–Liang) | the axis beats a control task |
-| `negative_control` | `MetricGate("<ctrl>_auc", lte=τ_neg)` | AUC on shuffled votes / random labels / random embeddings / metadata bins / sky-noise | the control axis **does not** decode (it must fail to be credible) |
+| `negative_control` | `MetricGate("<ctrl>_auc", lte=τ_neg)` | AUC on shuffled votes / random labels / random embeddings / noise-through-encoder / untrained encoder. **Not sky-noise** — it is a diagnostic, not a null (D19) | the control axis **does not** decode (it must fail to be credible) |
 | `nuisance_clearance` | `MetricGate("nuisance_auc_max", lte=τ_nui)` | max AUC across z / magnitude / Petrosian size / SNR / PSF | the morphology axis is **not** reading off a nuisance |
 
 A linearly-nameable feature is then, e.g.:

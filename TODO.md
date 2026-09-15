@@ -421,20 +421,28 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   Stamped `v2:bb9945b617b53e3b`, `escape_hatches_used: ["smoke"]`. See `artifacts/j_findings.md`.
 - [x] `run_harness`'s post-train probe read the 4 GB metadata table — the third call site Brief I
   missed. Now the sidecar. `traces.json` now persists the loss decomposition.
-- [ ] (P0) **BLOCKING: the sky-noise control makes the existence gate unreachable.** 3C-5 measures
-  0.8355-0.8416 on every feature and enters `nulls.five_null_samples`' per-draw maximum, so every
-  feature fails existence on this encoder — featured-ness included (0.8365 under its own control's
-  0.8373). The designed ladder would return an all-R3/R4 catalogue that reads like a scientific
-  null and is not one. Four of the five controls break something and are chance-calibrated by
-  construction; 3C-5 keeps everything real and substitutes a different label, so it measures
-  nuisance content. It is also **bit-identical** to the `snr` nuisance probe — the same
-  measurement twice, once as a bar and once as a diagnostic. **Settle in the spec (§3C) before any
-  ladder runs.** Nothing downstream — effect floor included — can be calibrated until it is.
-- [ ] (P0) **The representation encodes observing conditions more strongly than morphology.**
-  Nuisance panel on the frozen embedding: magnitude 0.8733, size 0.8501, SNR 0.8373, redshift
-  0.7918, PSF 0.5813 — against featured-ness at 0.8365 and every other morphology feature below
-  0.74. Physically unsurprising, a serious confound for the probe programme, and the reason the
-  matched-evaluation machinery (`matching.py`) matters rather than being a formality.
+- [x] (P0) **The sky-noise control made the existence gate unreachable — corrected as D19.** 3C-5
+  measured 0.8355-0.8416 on every feature and entered the per-draw maximum, so **every feature
+  failed existence on this encoder, featured-ness included** (0.8365 under its own control's
+  0.8373) — an all-R3/R4 catalogue that reads like a scientific null and is nothing of the kind.
+  Four of the five controls break something and are chance-calibrated by construction; 3C-5 keeps
+  images, encoder and probe real and swaps in a different real label, so it measures nuisance
+  content, and came out **bit-identical** to the `snr` nuisance probe on all six features. It is
+  now a diagnostic: `nulls.existence_null_samples` (renamed) takes the max over the four
+  chance-calibrated controls. Spec corrected in `.tex` §3C + register item 8,
+  `probing-harness-design.md` §3C, `spec/gates.md`. **The spec PDF is stale** — no LaTeX toolchain
+  here; rebuild it from the corrected `.tex`.
+- [ ] (P0) **The representation encodes observing conditions more strongly than morphology, and
+  that promotes matched evaluation into Paper 1.** Nuisance panel on the frozen embedding:
+  magnitude 0.8733, size 0.8501, SNR 0.8373, redshift 0.7918, PSF 0.5813 — against featured-ness
+  at 0.8365 and every other morphology feature below 0.74. **Scope change:** 3D-ii specifies
+  matched evaluation as *targeted* — "fires only for flagged features", which is what bounded its
+  cost and let it be promoted from "Paper-2/if-feasible" to "Paper-1, targeted". On this evidence
+  it fires for **every** feature on **three or four** nuisances each, so it is not a targeted
+  contingency but a load-bearing component of Paper 1, and its cost is a headline-run cost rather
+  than a tail. `matching.py` moves from formality to critical path. Record it in the spec (3D-ii's
+  "targeted, bounded cost" claim is now measured to be false on this encoder) before the headline
+  run is budgeted.
 - [ ] (P1) **Training longer made the representation worse, and the budget is unexplained.** This
   run is Brief I's `sigreg_050` arm continued (verified: all three loss traces agree to 5.0e-7
   over 3,000 steps; every collapse reading identical at every shared step, step 0 included). One
@@ -455,9 +463,72 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   encode a per-feature untrained baseline spanning 0.5160-0.7908; and n=6 cannot locate a
   threshold. Candidates recorded in `artifacts/j_findings.md` — 0.7908 (the untrained ceiling) is
   the one whose meaning survives questioning. `effect_floor_freeze` stays `None`.
+- [ ] (P1) **`EmbeddingMatrix.index` is quadratic at every call site — a one-line fix worth
+  ~2.8 h of a 6 h ladder run.** It is a plain `@property` rebuilding a `{object_id: row}` dict on
+  every read (5.6 ms over 74,829 entries), and `probing.extract.feature_ids` reads it *inside a
+  comprehension's condition*, so it is rebuilt once per element. Measured: filtering 40,000 ids
+  costs 8.6 ms hoisted, 225 s not — a factor of 26,000. `build_feature_controls` does eight such
+  filters per feature (six `feature_embeddings` + two `feature_ids`), four over 40,000 ids and
+  four over 34,829, so ~1,680 s per feature; over J4's six features ~10,080 s of its 21,598 s
+  total. I had attributed that time to memory-compressor thrashing — the thrashing was real and
+  additional, this was underneath it. Fix: bind `index` once in `feature_ids`, or make it a
+  cached attribute on the frozen dataclass. Production code on the critical path of every ladder
+  run. **Recorded, not acted on** (Brief K3).
+- [ ] (P1) **`code_dirty` on the run stamp can be wrong about the code it describes.**
+  `RunStamp.create` shells out to `git status --porcelain` at `_make_stamp` time, which
+  `run_harness` reaches *after* `_prepare` — 72 minutes into the J3 run. An `artifacts/` file
+  edited at 21:30, three minutes after the run started, was recorded as dirtiness of the code the
+  run executed (stamped at 22:39). Two distinct failings: **timing** (capture at
+  `_make_stamp`, not at process start) and **scope** (`--porcelain` covers the whole tree,
+  including `artifacts/`, which is excluded from lint/CI and never imported by the package, so it
+  cannot change a number the run produces). A stamp that can be wrong about its own code is the
+  same class of defect as the three reproducibility holes already closed. Fix: capture
+  `(sha, dirty)` once at process start and pass it down, and narrow the status check to the
+  package + configs. **Recorded, not acted on** (Brief K3).
 - [ ] (P2) The 72-minute `_prepare` setup is unbudgeted and unmeasured elsewhere: two
   `DirectorySource` passes over 1.06 M rows, `resolve_corpora`, two cache scans, the sidecar write.
-  Worth knowing before costing any multi-arm sweep.
+  Worth knowing before costing any multi-arm sweep. **Related and confirmed, not a defect:** the
+  full-table build audit asked for in K3 found **no fourth site**. Every probe-path consumer
+  (`run_harness`'s post-train probe, `evaluate_probe`, `run_probing`) now goes through
+  `_probe_rows`. Two full-table builds remain, both bounded and deliberate: `_prepare`
+  (`harness.py:463-464`), which is the *producer* of the sidecars and so cannot read them, and is
+  explicitly `del`'d before training begins; and `_probe_rows`' own fallback, which fires only
+  when no sidecar exists and logs a warning when it does. `artifacts/f1_loader_bench.py:223` is a
+  deliberate benchmark of the old path.
+
+## Brief K — the correction and the trajectory `[no training run]`
+- [x] **K1 — 3C-5 removed from the existence bar (D19).** `nulls.five_null_samples` →
+  `existence_null_samples`, max over the four chance-calibrated controls. 3C-5 stays on
+  `FeatureControls`, stays in the nuisance panel, and is renamed `sky_noise_diagnostic` in
+  `ladder_summary.json` so the artefact cannot read it back as a bar. Spec corrected in three
+  places with the reasoning written out; D19 records that **every feature failed under the broken
+  bar, featured-ness included**. `artifacts/j5_floor_evidence.py` corrected too — it pooled 3C-5
+  into the floor's null ceiling, which moves from 0.8416 to **0.7908**.
+- [ ] **Rebuild `docs/galaxy-jepa-spec.pdf` from the corrected `.tex`.** No LaTeX toolchain in
+  this environment; the PDF is canonical and is now stale against its own source.
+- [x] **K2 — the trajectory probed, both replication checks exact.** Eight checkpoints on J4(A)'s
+  split and probe config (step 3,000 -> 0.9470 = I2; step 50,000 -> 0.9278 = J4(A), point and both
+  CI ends to four decimals). Full table in `artifacts/k_findings.md`.
+- [ ] (P1) **The degradation is monotonic from the earliest checkpoint, and the cosine decay's
+  temporal signature is falsified.** 0.9477 (step 1,500) -> 0.9278 (50,000), every step down, all
+  three framings agreeing. **91% of the loss happens by step 27,000, while the LR is still above
+  half of peak; the last 23,000 steps — the whole window in which the cosine collapses — cost
+  -0.0017.** The decay looks like what arrests the decline, not what causes it. Consistent with
+  SIGReg saturating (penalty 1.988 -> 1.080 against a measured isotropic floor ~1.065, erank
+  24.3 -> 57.6, cosine +0.226 -> +0.025, all saturating on the same schedule), but **not a
+  controlled separation**: every quantity is monotone in step, so rank correlations among them are
+  +/-1 by construction; n=8, one trajectory, one seed; and epochs (0.058 -> 1.94) are confounded
+  with both suspects. The AUC peak is at or before the earliest checkpoint and cannot be bounded
+  below. **Does not license checkpoint selection — 1C stands.** Candidates for an experiment that
+  would separate them are recorded in `k_findings.md`; none proposed for launch.
+- [ ] (P1) **Nuisance content falls FASTER than morphology — the re-allocation story is not what
+  happened.** Nothing climbs while morphology falls. Excess-over-chance retained, step 1,500 ->
+  50,000: morphology **-4.4%**, PSF -4.6% (near-noise base), redshift -8.7%, magnitude -10.9%,
+  SNR -11.7%, size -13.7%. Morphology is the best-preserved informative axis on the trajectory.
+  Mechanism candidate, not a finding: isotropisation strips the dominant low-dimensional
+  high-variance directions first, and observing conditions are exactly that kind of structure, so
+  SIGReg may be removing nuisance axes preferentially with morphology as collateral damage. One
+  trajectory, no control arm.
 
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so
