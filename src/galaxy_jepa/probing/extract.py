@@ -23,6 +23,7 @@ imports ``objectives`` — it consumes a frozen ``Encoder`` + the metadata rows.
 from __future__ import annotations
 
 import dataclasses
+import functools
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -132,9 +133,18 @@ class EmbeddingMatrix:
         if self.object_ids.shape[0] != self.x.shape[0]:
             raise ValueError("object_ids and x must have the same length")
 
-    @property
+    @functools.cached_property
     def index(self) -> dict[int, int]:
-        """``object_id`` → row index, for O(1) per-feature slicing."""
+        """``object_id`` → row index, for O(1) per-feature slicing. Built **once**.
+
+        CACHED, and that is the whole point. As a plain property this rebuilt a 74,829-entry
+        dict on every read — 5.6 ms — and :func:`feature_ids` reads it *inside a comprehension's
+        condition*, so it was rebuilt once per element: filtering 40,000 ids cost **225 s**
+        against 8.6 ms hoisted, a factor of 26,000, and about 2.8 h of one six-hour ladder run
+        (Brief K3-iv). Caching here rather than hoisting at the call site fixes every consumer,
+        including ones not yet written. ``cached_property`` writes straight into ``__dict__`` and
+        so works on this frozen dataclass; the cost is ~6 MB retained per matrix, deliberately.
+        """
         return {int(o): i for i, o in enumerate(self.object_ids)}
 
     def rows_for(self, ids: Sequence[int]) -> np.ndarray:
