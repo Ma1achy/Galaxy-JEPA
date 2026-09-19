@@ -267,7 +267,28 @@ def main() -> None:
 
     for i, target in enumerate(points, 1):
         if target <= done:
-            log.info("M2 segment %d/%d: already at step %d, skipping", i, len(points), done)
+            # Skipping the TRAINING is right; skipping its PROBE POINT is not. The stopping rule
+            # reads the curve, so a resume that quietly drops the first point would need four
+            # segments to do what three should, and would misreport the slope. The probe wrote
+            # its own file, so recover from that rather than re-extracting for 20 minutes.
+            prior = OUT / f"m{i}_trajectory.json"
+            if any(r["step"] == target for r in curve):
+                log.info("M2 segment %d/%d: done at step %d, probe already in the curve",
+                         i, len(points), target)
+            elif prior.exists():
+                rec = json.loads(prior.read_text())["checkpoints"][-1]
+                if rec["step"] == target:
+                    rec["epoch"] = target / per_epoch
+                    curve.append(rec)
+                    log.info("M2 segment %d/%d: done at step %d, probe recovered from %s "
+                             "(consensus %.4f)", i, len(points), target, prior.name, rec["auc"])
+                else:
+                    log.warning("M2 segment %d: %s is step %d, not %d — not using it",
+                                i, prior.name, rec["step"], target)
+            else:
+                log.warning("M2 segment %d/%d: done at step %d but NO probe on disk — the curve "
+                            "is short by one and the stopping rule needs a further point",
+                            i, len(points), target)
             continue
         delta = target - done
         gc.collect()
@@ -328,7 +349,7 @@ def main() -> None:
         if proc.returncode != 0:
             log.error("M2 probe at step %d failed:\n%s", done, proc.stderr[-2000:])
             break
-        rec = json.loads((OUT / f"k2_trajectory_{tag}.json").read_text())["checkpoints"][-1]
+        rec = json.loads((OUT / f"{tag}_trajectory.json").read_text())["checkpoints"][-1]
         rec["epoch"] = done / per_epoch
         rec["hours"] = (time.perf_counter() - t_start) / 3600
         curve.append(rec)
