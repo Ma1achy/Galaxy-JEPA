@@ -101,12 +101,27 @@ def _rng_state() -> dict[str, Any]:
     return state
 
 
+def _cpu_byte(t: Any) -> torch.Tensor:
+    """An RNG state as the CPU ``ByteTensor`` the generators demand.
+
+    ``restore`` loads the payload with ``map_location=device``, which relocates **every** tensor
+    in it — the RNG states included, because they are tensors like any other. ``set_rng_state``
+    then refuses them: *"RNG state must be a torch.ByteTensor"*. So a resume onto MPS or CUDA
+    died at the first restore while a CPU resume worked, which is why the tests never saw it and
+    Brief M's 60-step plumbing test found it in ninety seconds.
+
+    Coming back to CPU is not a fudge: an RNG state is host-side bookkeeping, and it was written
+    from the CPU generator. The device round trip is what was wrong, not the correction of it.
+    """
+    return t.detach().to(device="cpu", dtype=torch.uint8) if torch.is_tensor(t) else t
+
+
 def _set_rng_state(state: dict[str, Any]) -> None:
-    torch.set_rng_state(state["torch"])
+    torch.set_rng_state(_cpu_byte(state["torch"]))
     np.random.set_state(state["numpy"])
     random.setstate(state["python"])
     if "mps" in state and torch.backends.mps.is_available():
-        torch.mps.set_rng_state(state["mps"])
+        torch.mps.set_rng_state(_cpu_byte(state["mps"]))
 
 
 class TrainCheckpointer:

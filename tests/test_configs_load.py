@@ -166,6 +166,11 @@ class TestEffectFloorFreeze:
         )  # the shipped default is OPEN
 
 
+#: The budget Brief M displaces: `steps` and `checkpoint_every` are both determining, so moving
+#: the horizon moves the hash. Stripping this recovers D21's recipe chain.
+STOCK_BUDGET = {"steps": 50000, "checkpoint_every": 1500}
+
+
 def test_sigreg_is_adopted_and_changed_no_other_field():
     """D21: SIGReg is off again, and nothing outside its own block moved.
 
@@ -194,9 +199,13 @@ def test_sigreg_is_adopted_and_changed_no_other_field():
     assert dump["objective"]["sigreg_slices"] == 1024
 
     # `smoke` is put back to False alongside, because Brief J turned it on and it is a
-    # determining field too. The chain of strips is the point: each one names exactly what moved.
+    # determining field too, and so is the BUDGET, which Brief M moved from 50,000 steps to
+    # 253,270 (10 epochs). The chain of strips is the point: each one names exactly what moved,
+    # and a brief that changes the horizon adds a LINK rather than breaking the anchors.
     without = dict(dump, smoke=False)
-    without["objective"] = {k: v for k, v in dump["objective"].items() if k not in keys}
+    without["objective"] = {
+        k: v for k, v in {**dump["objective"], **STOCK_BUDGET}.items() if k not in keys
+    }
     assert config_hash(without)[:16] == "538bf997880a8767"  # the D17 hash, recorded in h5_findings
 
 
@@ -222,9 +231,11 @@ def test_the_medium_run_is_a_smoke_and_that_is_the_only_thing_that_moved():
         dump = HarnessConfig(**yaml.safe_load(fh)).determining_dump()
 
     assert dump["smoke"] is True
-    # The CURRENT recipe, under D21. Both moved when lambda went back to 0 -- by design, and the
-    # reason the pair is pinned: an artefact carrying `f561d7f5…` was written under D18's recipe
-    # and one carrying `7ecf5dce…` under D21's, so the two eras can never be confused for each
-    # other by reading a stamp. Brief J's 50,000-step run carries the former.
-    assert config_hash(dump)[:16] == "7ecf5dce5a1f60ba"  # what a run launched now would carry
-    assert config_hash(dict(dump, smoke=False))[:16] == "de87b8f9704b7e2d"  # D21's recipe hash
+    # Four links, each naming one thing that moved, because an artefact must be walkable back to
+    # the recipe it came from rather than guessed at. Brief J's 50,000-step run carries
+    # `f561d7f5…` (D18's recipe); a run launched now carries `04665991…`, which is D21 at Brief
+    # M's 10-epoch budget. The eras can never be confused by reading a stamp.
+    at_stock = dict(dump, objective={**dump["objective"], **STOCK_BUDGET})
+    assert config_hash(dump)[:16] == "046659910b5fd543"  # as shipped: D21 + M's budget + smoke
+    assert config_hash(at_stock)[:16] == "7ecf5dce5a1f60ba"  # minus the budget: D21 as shipped
+    assert config_hash(dict(at_stock, smoke=False))[:16] == "de87b8f9704b7e2d"  # D21's recipe

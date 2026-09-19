@@ -8,7 +8,9 @@
 paths:                        # WHERE it reads and writes. Not hashed into `config_hash`
   pretrain_dir: data/pretrain #   (RunConfig.NON_DETERMINING), so relocating a corpus onto
   probe_dir: data/probe           #   another disk is not a different experiment. Which galaxies
-  out_dir: runs/full          #   a run saw is RunStamp.data_snapshot's job, not a path's.
+  out_dir: runs/m             #   a run saw is RunStamp.data_snapshot's job, not a path's.
+#                             #   NOT runs/full — that is Brief J's 50,000-step run, and K2's
+#                             #   whole trajectory was probed from its checkpoints.
 
 runtime:                      # WHAT it ran on. This one IS hashed — MPS / CPU / CUDA differ
   device: null                #   numerically. null -> pick_device(); the RESOLVED value is
@@ -68,7 +70,13 @@ objective:                  # docs/masking.md; the JEPA recipe
   beta: 0.5                 # headline. 0.0 == standard I-JEPA (the control); sweep {0, 0.5, 1.0}
   petro_k: 2.5              # per-galaxy box half-width = k * R_petro, clamped
   global_box_frac: 0.4      # the fallback box when petroRad is missing/<=0
-  steps: 50000              # the interpretable full run (the pilot was 6k)
+  steps: 253270             # BRIEF M: 10 epochs. 810,491 train stamps // batch 32 = 25,327
+                            #   steps/epoch, x10. ~47.5 h at the measured 1.515 steps/s.
+                            #   `lr_final`'s cosine and the EMA ramp are both defined over this,
+                            #   so it IS the recipe and cannot be tuned mid-run: stopping early
+                            #   is allowed, extending is not. Every run before M was diagnostic —
+                            #   3,000 steps is 0.12 epochs, J's 50,000 was 1.97, the reference
+                            #   trains for 600.
   batch_size: 32            # measured: MPS is compute-bound here (runs/calib2.log)
   # D17 — the reference recipe adapted. I-JEPA peaks at 1e-3 AT BATCH 2048; sqrt-scaling to
   # batch 32 gives 1.25e-4, its relative warmup (15 of 600 epochs = 2.50%) gives 1,250 steps, and
@@ -115,8 +123,11 @@ objective:                  # docs/masking.md; the JEPA recipe
   sigreg_quad_points: 17  # trapezoidal knots over the integration domain
   sigreg_domain: 5.0      # [-5, 5]; table 1a shows the statistic is insensitive to both
   monitor_every: 100
-  checkpoint_every: 1500    # steps. At the measured 1.297 steps/s that is ~19 min of work at
-                            #   risk; 0 would gamble the whole job and is stamped as a forfeit.
+  checkpoint_every: 6331    # a quarter-epoch. 40 scheduled, and `keep` derives to 42 in the
+                            #   harness, so the whole trajectory survives — `keep=3` destroyed one
+                            #   mid-measurement once. ~15.2 GiB at 380.6 MB each, capping crash
+                            #   exposure at ~1.2 h over a two-day run. 0 would gamble the whole
+                            #   job and is stamped as a forfeit.
 
 # The pre-registered collapse kill criterion (G5). Recorded BEFORE the run, because a criterion
 # chosen after seeing the curve is not a criterion. Hashed into `config_hash` and enforced by

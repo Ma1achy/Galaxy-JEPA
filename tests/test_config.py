@@ -6,6 +6,8 @@ a round-trip of a nested tree; and the run-stamp / artefact-stamp writer.
 """
 
 import json
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -89,6 +91,38 @@ def test_code_sha_returns_sha_and_dirty_flag():
     sha, dirty = code_sha()
     assert isinstance(dirty, bool)
     assert sha == "nogit" or (len(sha) == 40 and all(c in "0123456789abcdef" for c in sha))
+
+
+@pytest.mark.invariant
+def test_code_sha_is_read_once_at_process_start_not_at_stamp_time():
+    """The stamp must describe the code that RAN, not the tree at the moment it was written.
+
+    ``harness._make_stamp`` is called after ``_prepare``, which can spend an hour baking the
+    cache, and Brief M's run spans two days. If dirtiness were sampled there, an edit made while
+    a run was underway would be recorded as though the run had executed it — and the artefact
+    would be quietly wrong about its own provenance, which is the one thing a stamp exists to
+    prevent.
+
+    So the reading is taken at import and cached. This pins both halves: a later call cannot
+    re-read the tree, and it cannot be fooled by dirtying it.
+    """
+    first = code_sha()
+
+    marker = Path(__file__).resolve().parent.parent / "__dirty_probe__.tmp"
+    marker.write_text("makes the working tree dirty\n")
+    try:
+        assert code_sha() == first, "code_sha re-read the tree after it was dirtied"
+        # and the raw reading really would have moved -- otherwise the check above proves nothing
+        raw = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(marker.parent),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        assert "__dirty_probe__" in raw, "the probe did not actually dirty the tree"
+    finally:
+        marker.unlink(missing_ok=True)
 
 
 def test_run_stamp_and_writer(tmp_path):

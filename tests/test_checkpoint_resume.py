@@ -263,3 +263,40 @@ def test_resuming_without_a_resumable_sampler_is_refused(pretraining_corpus, tmp
     )
     with pytest.raises(ValueError, match="worse than none"):
         train_jepa(_jepa(), plain, checkpointer=ck, sampler=None)
+
+
+@pytest.mark.invariant
+def test_rng_state_survives_a_map_location_that_relocated_it():
+    """A resume must restore the RNG whatever device the payload was mapped onto.
+
+    ``TrainCheckpointer.restore`` loads with ``map_location=device``, and that relocates **every**
+    tensor in the payload — the RNG states included, because they are tensors like any other.
+    ``torch.set_rng_state`` then refuses them outright: *"RNG state must be a torch.ByteTensor"*.
+
+    So resume was broken on MPS and CUDA while working perfectly on CPU, and
+    ``test_a_resumed_run_is_identical_to_an_uninterrupted_one`` above could never have caught it:
+    it maps to CPU, where the relocation is a no-op. Brief M's 60-step plumbing test found it in
+    ninety seconds, before a two-day run had spent 2.3 h reaching its first resume.
+
+    This pins the contract without needing an accelerator: whatever the state arrives as, the
+    generator gets back the CPU ``ByteTensor`` it demands, holding the same bytes.
+    """
+    import random
+
+    import numpy as np
+
+    from galaxy_jepa.callbacks.checkpoint import _cpu_byte, _set_rng_state
+
+    original = torch.get_rng_state()
+    # Stand in for what map_location does: same bytes, no longer a CPU ByteTensor.
+    relocated = original.to(torch.int32)
+    assert _cpu_byte(relocated).dtype == torch.uint8
+    assert _cpu_byte(relocated).device.type == "cpu"
+
+    torch.manual_seed(12345)  # move the generator away, so a no-op restore would be visible
+    assert not torch.equal(torch.get_rng_state(), original)
+
+    _set_rng_state(
+        {"torch": relocated, "numpy": np.random.get_state(), "python": random.getstate()}
+    )
+    assert torch.equal(torch.get_rng_state(), original), "the RNG was not actually restored"
