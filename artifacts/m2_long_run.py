@@ -232,21 +232,43 @@ def main() -> None:
             "batch_size": jcfg.batch_size,
             "sigreg_lambda": jcfg.sigreg_lambda,
             "brief": "M",
-            "probe_points": points,
+            # `probe_points` is deliberately NOT here. The checkpointer asserts this dict matches
+            # on resume, because the LR warmup and the EMA ramp are functions of it -- so putting
+            # the probe schedule in it made a run refuse to continue itself merely because we had
+            # changed our mind about WHEN TO LOOK. Observing a run is not part of its recipe, the
+            # same distinction `monitor_every` needed. Caught by the 60-step resume test.
         },
     )
     mon_ds = StampDataset(cache, {}, monitor_ids[:MONITOR_BATCH], scalars=scalars)
     mon_batch = _to_device(next(iter(DataLoader(mon_ds, batch_size=MONITOR_BATCH))), device)
 
+    # Pick up whatever is already on disk. A 46 h run WILL be interrupted -- Brief M's first
+    # attempt was stopped an hour in so the SSD could be unplugged -- and a driver that always
+    # starts segment 1 fresh throws that away. What matters is the newest checkpoint, not which
+    # segment the process thinks it is on.
+    written = sorted(int(f.stem.split("_")[1]) for f in (out / "checkpoints").glob("ckpt_*.pt"))
+    done = written[-1] if written else 0
+    if done:
+        log.warning("M2 resuming from step %d (%.2f ep) — %d checkpoint(s) on disk",
+                    done, done / per_epoch, len(written))
     losses: list[float] = []
     pred: list[float] = []
     sig: list[float] = []
     collapse: dict[str, list[float]] = {}
     curve: list[dict] = []
+    if (out / "traces.json").exists():
+        prior = json.loads((out / "traces.json").read_text())
+        losses, pred, sig = prior["losses"], prior["prediction_losses"], prior["sigreg_losses"]
+        collapse = prior["collapse_trace"]
+    if (OUT / "m_curve.json").exists():
+        curve = json.loads((OUT / "m_curve.json").read_text())["curve"]
+        curve = [r for r in curve if r["step"] <= done]  # never carry a probe of a lost step
     t_start = time.perf_counter()
-    done = 0
 
     for i, target in enumerate(points, 1):
+        if target <= done:
+            log.info("M2 segment %d/%d: already at step %d, skipping", i, len(points), done)
+            continue
         delta = target - done
         gc.collect()
         if device.startswith("mps"):
@@ -264,7 +286,10 @@ def main() -> None:
             checkpointer=checkpointer,
             sampler=sampler,
             collapse_floor=cfg.collapse_floor,
-            resume=i > 1,  # the first segment is a fresh run; the rest continue it
+            # Resume whenever anything is on disk -- NOT "whenever this is not segment 1". The
+            # two differ exactly when a run was interrupted inside segment 1, which is the case
+            # that costs the most to get wrong.
+            resume=done > 0,
             stop_after=delta,
         )
         secs = time.perf_counter() - t0
