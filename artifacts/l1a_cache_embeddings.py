@@ -60,6 +60,11 @@ BANK = REPO / "runs" / "l1_embeddings"
 
 #: K2's own consensus AUC per step, so a bad cache is caught at write time on the first
 #: checkpoint rather than an hour later. L1b re-checks all of them.
+#:
+#: **Only ever applied to `--tag full`** — the lambda=0.05 trajectory K2 measured. A different arm
+#: is a different encoder and MUST NOT reproduce these; checking it against them would abort a
+#: perfectly good pass, and passing would mean something had gone badly wrong.
+K2_TAG = "full"
 K2_CONSENSUS = {
     1500: 0.9477, 3000: 0.9470, 6000: 0.9448, 10500: 0.9412,
     18000: 0.9376, 27000: 0.9295, 37500: 0.9284, 50000: 0.9278,
@@ -137,7 +142,7 @@ def main() -> None:
         # reproduce K2's linear number the bank is wrong, and finding that out after eight
         # extractions rather than one is an hour of nothing. L1b re-checks every step.
         note = ""
-        if not checked_first and step in K2_CONSENSUS:
+        if not checked_first and args.tag == K2_TAG and step in K2_CONSENSUS:
             tr = _extremes(_featured(matrix, rows, train_ids, hp.label_col),
                            low=hp.extreme_low, high=hp.extreme_high)
             te = _extremes(_featured(matrix, rows, test_ids, hp.label_col),

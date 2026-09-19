@@ -933,3 +933,90 @@ must not be named for five; the count belonged in the name only while the count 
   `.tex` is the corrected source and the PDF needs a rebuild.
 - Test: `tests/test_probing_nulls.py::TestGroundedStatistics
   ::test_the_sky_noise_control_is_a_diagnostic_and_never_sets_the_bar`.
+
+## D20 — An ablation's horizon must reach the regime the decision will run in — *decided (measured; the lesson, not the recipe)*
+
+This entry is about **how a decision was made**, not about which λ is right; D21 carries that. It
+is written separately because the two are independent: the process lesson holds whatever the next
+measurement says, and burying it inside a recipe change would let it be forgotten the moment the
+recipe changes again.
+
+**The unconditional form.** D18 was decided on a **3,000-step** ablation and applied to a
+**50,000-step** run. At 3,000 steps neither arm had passed its peak. A 3,000-step ablation could
+not see the regime the decision would run in, and no amount of care *within* that horizon could
+have fixed it — the evidence was sound and the extrapolation was the gap. **An ablation's horizon
+must reach the regime the decision will run in.**
+
+**The D18-specific verdict, which Brief L's branch 1 supports.** L2 ran the λ=0 arm to 10,500
+steps — the comparison D18 never had, because λ=0 had never been run past 3,000. On
+`t01_consensus`, held-out, same split and protocol:
+
+| step | λ=0 | λ=0.05 | leader |
+|---|---|---|---|
+| 3,000 | 0.9358 | **0.9470** | λ=0.05, by 0.0112 — **D18's evidence** |
+| 6,000 | 0.9458 | 0.9448 | level, +0.0010, intervals overlapping |
+| 10,500 | **0.9554** | 0.9412 | λ=0, by 0.0142, intervals cleanly apart |
+
+**The crossover lies between 3,000 and 6,000 — immediately past the horizon D18 measured to.**
+D18 did not misread its data. Its data were right and stopped one regime short. That is the
+failure mode worth naming: not carelessness, but a horizon chosen for what it cost rather than for
+where the decision would land.
+
+**What follows in practice.** A recipe ablation is quoted with its horizon, and a recipe adopted
+for an N-step run is not licensed by evidence from a run much shorter than N. Where the full
+horizon is unaffordable, the ablation says so and the adoption is provisional **in writing**,
+rather than the shortfall living in the reader's head.
+
+**The same trap is live right now, and D21 says so rather than repeating it.** The λ=0 evidence
+reaches 10,500 steps; the headline run is 50,000. Adopting λ=0 for a 50,000-step run on
+10,500-step evidence is D18's error at a longer lever arm. D21 is therefore written as a
+provisional adoption with the missing measurement named.
+
+**Source.** `artifacts/l_findings.md` (L2); `artifacts/out/l1_mlp_ladder_l2.json`,
+`artifacts/out/l1_mlp_ladder_full.json`; the λ=0 arm at `runs/l2/d17`.
+
+## D21 — SIGReg is the cause of the probe decline; λ goes back to 0, provisionally — *decided (measured; reverses D18 at a longer horizon)*
+
+**The finding.** Brief L's L2 ran λ=0 to 10,500 steps against the λ=0.05 trajectory on the same
+split, probe config and seed, with only `sigreg_lambda` differing. **λ=0 rises monotonically,
++0.0361; λ=0.05 falls monotonically, −0.0065.** By 10,500 λ=0 reaches 0.9554, higher than λ=0.05
+reaches anywhere on its own 50,000-step trajectory (best 0.9477). The second feature agrees:
++0.0962 against +0.0426, with λ=0 ahead by 0.0355 at 10,500 and intervals apart.
+
+The decay, batch size, EMA schedule and recipe are held identical across the arms. **SIGReg is the
+cause of the decline**, not the cosine decay — which K2 had already falsified on timing — and not
+the recipe at large.
+
+**What L1 established alongside it**, and why it rules out the gentler reading: the information is
+not merely becoming less linearly accessible. An MLP probe declines *more* than the linear probe
+across the λ=0.05 trajectory (−0.0238 against −0.0199), and the nonlinear headroom collapses
++0.0081 → +0.0042. Effective rank rising 24.3 → 57.6 was **not** the same information spread
+thinner; information is leaving.
+
+**The decision: `sigreg_lambda: 0.05 → 0.0`.** This reverts D18. Of the three candidates —
+accumulate embeddings across steps to raise the statistic's effective sample; reduce λ; disable
+SIGReg — only the third is **supported by a measurement at the required horizon**. The first two
+are hypotheses about *why* SIGReg hurts, and adopting either would repeat the D18 pattern of
+choosing a recipe from reasoning rather than from a run long enough to test it.
+
+**Provisional, and what would settle it (D20).** The λ=0 evidence reaches 10,500 steps; the
+headline is 50,000. λ=0.05's decline was invisible at 3,000, so nothing here proves λ=0 has no turn
+of its own later, and its effective rank is still climbing at the last reading (8.1 → 18.6). **The
+measurement that would settle it is a λ=0 arm at the headline horizon**, and until it exists this
+adoption is provisional in writing rather than in someone's memory.
+
+**What this does not claim.** Not that SIGReg is wrong in general — LeJEPA's result stands in its
+own regime, at batch 2048 and eight views, against this project's batch 32 and one view. The
+live hypothesis remains that the Epps–Pulley statistic is badly estimated from 32 samples in 384
+dimensions, which is the risk I1 pre-registered. That hypothesis is now **worth testing with the
+accumulated-embedding estimator**, and it is a next experiment, not a next adoption.
+
+**A second measured difference, recorded because it affects how the ladder reads.** On 3 of 4 λ=0
+`t01` checkpoints the MLP's shuffled-label control clears the selectivity threshold at *every*
+width, so no admissible nonlinear reading exists; across all eight λ=0.05 checkpoints it never
+fired. λ=0 embeddings carry std ≈ 3.1–4.6 against λ=0.05's ≈ 0.9–1.0. The effect fades as λ=0
+trains — by 10,500 the ceiling no longer fires. **MLP readings are not comparable across the two
+arms**, and the ladder's R3 rung will behave differently under the reverted recipe.
+
+**Source.** `artifacts/l_findings.md` (L1, L2); `runs/l2/d17`;
+`artifacts/out/l1_mlp_ladder_{full,l2}.json`.

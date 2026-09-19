@@ -530,6 +530,93 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   SIGReg may be removing nuisance axes preferentially with morphology as collateral damage. One
   trajectory, no control arm.
 
+## Brief L — is it lost, is it SIGReg, what fixes it `[parked mid-brief]`
+- [x] **L0 — `EmbeddingMatrix.index` is cached (`functools.cached_property`).** Closes K3-iv: the
+  property rebuilt a 74,829-entry dict per read *inside a comprehension's condition*, so filtering
+  40,000 ids cost 225 s against 8.6 ms — a factor of **26,000**, about 2.8 h of one six-hour
+  ladder run. Pinned by three invariant tests in `tests/test_probing_extract.py`, one of them a
+  wall-clock bound the quadratic form cannot meet. `sigreg-ablation` pushed; the corrected 3C spec
+  and D19 are on origin.
+- [x] **L1a — eight checkpoints' embeddings banked.** 74,829 x 384 fp32 each, 882 MB, 1.71 h, on
+  the SSD at `runs/l1_embeddings/full`; step 1,500 re-probes to 0.9477, reproducing K2 exactly.
+  **Bank the embeddings.** K2 threw these away and this brief paid 1.7 h to re-make them; an
+  extraction pass costing ten minutes per checkpoint should write its output to disk.
+  `l1a_cache_embeddings.py` is idempotent, so a re-run is a no-op.
+- [x] **L1 — the information is not merely less linearly accessible; it is being destroyed, and
+  the nonlinear part goes faster.** MLP capacity sweep on all 8 banked checkpoints, both features,
+  1,121 s. **Branch three fired** — the pre-registered "MLP declines MORE, say so rather than force
+  a story". t01 linear **-0.0199**, MLP **-0.0238**. The nonlinear headroom collapses monotonically,
+  +0.0081 -> +0.0042 on t01 and +0.0254 -> +0.0112 on t02, and the best width falls 512 -> 128 ->
+  64: late representations have less structure left to exploit. **This kills the
+  isotropisation-hides-it hypothesis** that motivated L1 — erank 24.3 -> 57.6 was not the same
+  information spread thinner, or the MLP would have held. Both guards clean: probe-adequacy passes
+  (+0.0081 at the peak), and the **selectivity ceiling never fires at any checkpoint** (controls
+  0.4646-0.5333 against thresholds 0.5158-0.5496), so the FLAGGED predicate is not load-bearing
+  here. The two earliest checkpoints are capacity-limited, which makes the measured decline a
+  **lower bound** — conservative in the right direction.
+- [ ] (P1) **A single-probe reading of this trajectory can carry the wrong sign.** t02's linear
+  probe ends *higher* than it started (0.7261 -> 0.7320) while its MLP ends *lower* (-0.0083):
+  linear-only, t02 looks mildly improved; with the MLP it lost a third of its nonlinear headroom.
+  t02 also peaks at 6,000 rather than falling from the first checkpoint, so K2's "monotonic from
+  the earliest checkpoint" is a **t01 fact, not a property of the run**. Carry both into the
+  write-up.
+- [x] **L2 — BRANCH 1: SIGReg is the cause.** lambda=0 to 10,500 steps, no halt, 1.515 steps/s.
+  **lambda=0 rises monotonically (+0.0361); lambda=0.05 falls monotonically (-0.0065).** At 10,500
+  lambda=0 reaches **0.9554** against 0.9412 — higher than lambda=0.05 reaches anywhere on its own
+  50,000-step trajectory. `t02` agrees: +0.0962 against +0.0426. Only `sigreg_lambda` differed.
+  Continuity proved by measurement rather than by hash: step 3,000 probes to **0.9358**, exactly
+  D18's recorded lambda=0 figure to four decimals and both interval ends.
+- [x] **The crossover sits between 3,000 and 6,000 — immediately past D18's horizon.** At 3,000
+  lambda=0.05 leads 0.9470/0.9358 (D18's evidence, correct); at 6,000 they are level; at 10,500
+  lambda=0 leads with intervals apart. **D18 did not misread its data — it read data that stopped
+  one regime short of the one the decision would run in.** Recorded as **D20** in the
+  branch-independent form, with the D18-specific verdict added because branch 1 supports it.
+- [x] **L3 — `sigreg_lambda: 0.05 -> 0.0` (D21), reversing D18.** Of the three candidates, only
+  disabling SIGReg is supported by a measurement at the required horizon; accumulating embeddings
+  across steps and reducing lambda are hypotheses about *why* it hurts, and adopting either would
+  repeat D18's pattern. The soft rank floor is **active again** and the config says so. 338 tests,
+  ruff, mypy green; the two pinned config hashes moved to `7ecf5dce5a1f60ba` / `de87b8f9704b7e2d`
+  with the reasoning in the tests, and D17's stripped anchor `538bf997880a8767` is **unchanged**,
+  which is what proves nothing outside the SIGReg block moved.
+- [ ] (P0) **The adoption is PROVISIONAL and the missing measurement is named.** D21's evidence
+  reaches 10,500 steps; a headline run is 50,000. lambda=0.05's decline was invisible at 3,000, so
+  nothing proves lambda=0 has no turn of its own later, and its effective rank was still climbing
+  at the last reading (8.1 -> 18.6). **Run a lambda=0 arm at the headline horizon before the
+  headline.** Adopting for 50,000 on 10,500-step evidence is D18's error at a longer lever arm.
+- [ ] (P1) **Test the batch-32 estimator hypothesis, as an experiment and not an adoption.** I1
+  pre-registered the risk that the Epps-Pulley statistic is badly estimated from 32 samples in 384
+  dimensions. The principled fix is to accumulate embeddings across steps so the statistic sees an
+  effective sample far larger than the batch, without touching the batch. **Validate at >=10,000
+  steps against the lambda=0 arm before any adoption.** LeJEPA's own result stands in its regime —
+  batch 2048, eight views — and this is not evidence against it.
+- [ ] (P1) **lambda=0 embeddings are memorisable at every MLP width, early.** On 3 of 4 lambda=0
+  `t01` checkpoints the shuffled-label control clears the selectivity threshold at every width down
+  to 16, so **no admissible nonlinear reading exists**; across all eight lambda=0.05 checkpoints it
+  never fired once. std is 3.1-4.6 against 0.9-1.0. The effect fades as lambda=0 trains — by 10,500
+  the ceiling no longer fires. Consequences: **MLP readings are not comparable across the two
+  arms**, and the ladder's R3 rung will behave differently under the reverted recipe.
+- [ ] (P1) **A driver must not die on its own guardrail.** `l1b` crashed when
+  `mlp_best_sub_ceiling` came back `None` — the ceiling firing at the smallest width — because the
+  print assumed a number. A guardrail firing is an OUTCOME, not an error, and the run that dies on
+  it cannot report the thing it exists to catch. Fixed to report "no admissible MLP" as a result.
+- [ ] (P1) **Two contention facts, measured, worth keeping.** (i) A CPU sweep beside a *training*
+  loop costs **2.8x** (1.9 s/step against 0.68) because the loop's CPU dataloader feeds the GPU
+  every step; beside an *extraction* pass it costs 2%. The two profiles do not generalise to each
+  other, and the plan's claim that the MLP sweep could ride inside the training run was wrong.
+  **L1b runs before or after L2, never alongside.** (ii) Repeated extraction over the same 29.4 GB
+  of stamps speeds up as the page cache warms, 881 s -> 659 s; cost a multi-checkpoint probe on
+  the later figure.
+- [ ] (P1) **The machine is oversubscribed before any run starts.** Measured with every one of my
+  own processes exited: 0.08 GB free of 19.33 GB, **39.72 GB of logical memory in the
+  compressor**, 12.8 GB of swap. The arm degraded to 0.045 steps/s against 1.479 measured, with
+  RSS collapsed to 11 MB — paged out and stalled, not working. Killing it moved swap by 190 MB,
+  which is the proof it was never the consumer. L2 needs a quiet machine, and freeing it is not
+  something the run can do for itself.
+- [ ] **L3 — the fix, plus D20 (unconditional: an ablation's horizon must reach the regime the
+  decision will run in) and D21 (the fix, with the measurement that chose it).** Blocked on the
+  branch L2 names. Validate any fix at **>=10,000 steps before adoption** — D18's failure mode was
+  adoption on 3,000-step evidence, and the point of this brief is not to repeat it.
+
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so
   H tested the peak and the warmup; the decay rides on the reference recipe's authority and is the

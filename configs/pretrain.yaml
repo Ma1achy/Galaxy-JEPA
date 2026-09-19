@@ -18,7 +18,7 @@ seed: 0
 
 # Brief J. This run is for end-to-end correctness at 50,000 steps and for the one measurement that
 # closes the effect floor. It is NOT a results run, so it says so structurally rather than in a
-# comment. Being a determining field this CHANGES `config_hash` away from D18's b5acc6779df49070 —
+# comment. Being a determining field this CHANGES `config_hash` away from the recipe hash —
 # the invariant working, not a fault — and additionally stamps `smoke` into `escape_hatches_used`,
 # so the artefact says it in words as well as in the hash. THE CONSEQUENCE TO KNOW BEFORE LAUNCHING:
 # `TrainCheckpointer` records `config_hash` in every payload so a resume cannot silently continue a
@@ -85,13 +85,32 @@ objective:                  # docs/masking.md; the JEPA recipe
   pred_dim: 192
   pred_depth: 6
   pred_heads: 6
-  # D18 — SIGReg on (LeJEPA, arXiv:2511.08544 §4). A distribution-matching penalty pushing the
-  # PROBED embedding — pooled DEFAULT_LAYER, pre-norm — towards an isotropic Gaussian, via the
-  # Epps-Pulley statistic on random 1-D projections resampled every step. Measured, not adopted
-  # on the paper's authority: frozen-probe AUC 0.9470 [0.9435, 0.9506] against the lambda=0
-  # arm's 0.9358 [0.9315, 0.9402] on the same galaxies, intervals cleanly separated, at a
-  # throughput cost of 0.17%. See artifacts/i_findings.md.
-  sigreg_lambda: 0.05     # 0.0 disables it entirely (the penalty is never computed)
+  # D21 — SIGReg OFF, reversing D18. Read both entries together; the history is the point.
+  #
+  # D18 turned it on at the paper's lambda on a 3,000-step ablation: 0.9470 [0.9435, 0.9506]
+  # against the lambda=0 arm's 0.9358 [0.9315, 0.9402], intervals cleanly separated. That
+  # measurement was correct and it did not survive a longer horizon. Brief L ran lambda=0 to
+  # 10,500 steps — the comparison D18 never had, because lambda=0 had never been run past 3,000:
+  #
+  #     step      lambda=0    lambda=0.05
+  #     3,000     0.9358      0.9470       lambda=0.05 ahead -- D18's evidence
+  #     6,000     0.9458      0.9448       level, intervals overlapping
+  #    10,500     0.9554      0.9412       lambda=0 ahead by 0.0142, intervals apart
+  #
+  # lambda=0 rises monotonically (+0.0361); lambda=0.05 falls monotonically (-0.0065) and keeps
+  # falling to 0.9278 at 50,000. The CROSSOVER SITS BETWEEN 3,000 AND 6,000, immediately past the
+  # horizon D18 measured to. Only sigreg_lambda differed between the arms, so SIGReg is the cause
+  # of the decline -- not the cosine decay, whose timing K2 had already falsified.
+  #
+  # PROVISIONAL, and the missing measurement is named (D20): this evidence reaches 10,500 steps
+  # and a headline run is 50,000. lambda=0.05's decline was invisible at 3,000, so nothing proves
+  # lambda=0 has no turn of its own later. A lambda=0 arm at the headline horizon would settle it.
+  #
+  # NOT a claim that SIGReg is wrong in general: LeJEPA runs at batch 2048 and eight views against
+  # this project's 32 and one. The live hypothesis is that the Epps-Pulley statistic is badly
+  # estimated from 32 samples in 384 dimensions -- I1 pre-registered that risk. Testing it with an
+  # accumulated-embedding estimator is the next EXPERIMENT, not the next adoption.
+  sigreg_lambda: 0.0      # 0.0 disables it entirely (the penalty is never computed)
   sigreg_slices: 1024     # §6.1's recommendation; their algorithm 1 listing defaults to 256
   sigreg_quad_points: 17  # trapezoidal knots over the integration domain
   sigreg_domain: 5.0      # [-5, 5]; table 1a shows the statistic is insensitive to both
@@ -102,13 +121,16 @@ objective:                  # docs/masking.md; the JEPA recipe
 # The pre-registered collapse kill criterion (G5). Recorded BEFORE the run, because a criterion
 # chosen after seeing the curve is not a criterion. Hashed into `config_hash` and enforced by
 # `CollapseMonitor`; leaving it unset stamps `collapse_floor_open`.
-# NOTE (D18): with `sigreg_lambda > 0` the SOFT rank floor below does not apply — effective rank
-# is constraint-satisfied under SIGReg (measured 34.2 against the unregularised arm's 11.8,
-# monotone), so the criterion could never fire and a criterion that cannot fire is decoration.
-# `train_jepa` derives that from `sigreg_lambda`, which is hashed, and logs it. The hard floor and
-# the std floor still apply here, and the machinery is intact for D12's non-SIGReg arms.
+# NOTE (D21): the soft rank floor below is ACTIVE again, because `sigreg_lambda` is back to 0 and
+# `train_jepa` derives `soft_rank_floor = sigreg_lambda <= 0.0`. Under D18 it was inert — effective
+# rank was constraint-satisfied by the penalty, so the criterion could never fire. It can fire now.
+# Brief L's 10,500-step lambda=0 arm is the evidence that 2.5 is not set too high: effective rank
+# rose 8.1 -> 18.6 across the run, away from the floor, and it did not fire (`halted: false`). That
+# arm is also the first in the project to run past the grace period at all (0.10 x 50,000 = 5,000
+# steps), so before Brief L this floor had never been reachable. The hard floor and the std floor
+# apply throughout, as always.
 collapse_floor:
-  min_effective_rank: 2.5   # RE-DERIVED under D17; INERT under D18's sigreg_lambda > 0. The old
+  min_effective_rank: 2.5   # RE-DERIVED under D17; ACTIVE again under D21. The old
                             #   5.0 would have killed a WORKING run: H5's baseline sat below it
                             #   for 53 consecutive readings from step 125 and still reached AUC
                             #   0.9043. See `rationale`.

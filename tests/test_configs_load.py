@@ -167,7 +167,7 @@ class TestEffectFloorFreeze:
 
 
 def test_sigreg_is_adopted_and_changed_no_other_field():
-    """D18: SIGReg is on at the paper's lambda, and nothing else about the run moved.
+    """D21: SIGReg is off again, and nothing outside its own block moved.
 
     ``config_hash`` does move, and that is by design: ``determining_dump`` is a deliberate
     deny-list, so a new field is hashed and the failure mode is a spurious "different run"
@@ -183,9 +183,14 @@ def test_sigreg_is_adopted_and_changed_no_other_field():
 
     keys = {"sigreg_lambda", "sigreg_slices", "sigreg_quad_points", "sigreg_domain"}
     assert keys <= set(dump["objective"])
-    # 0.05 is LeJEPA section 6.1 verbatim. The tie against 0.00625 was broken on PROVENANCE,
-    # not performance: 0.9470 against 0.9471 is not a difference.
-    assert dump["objective"]["sigreg_lambda"] == 0.05
+    # D21 REVERSES D18: lambda is back to 0. D18 adopted LeJEPA section 6.1's 0.05 on a
+    # 3,000-step ablation; Brief L ran lambda=0 to 10,500 and the arms CROSS between 3,000 and
+    # 6,000 -- 0.9358 vs 0.9470 at 3,000, but 0.9554 vs 0.9412 at 10,500, intervals apart. The
+    # three remaining fields stay at their D18 values and are inert at lambda=0: they are read
+    # only inside `if self.config.sigreg_lambda > 0.0` (`objectives/jepa.py`). They are kept
+    # rather than deleted so the penalty can be switched back on for the accumulated-estimator
+    # experiment without moving anything else.
+    assert dump["objective"]["sigreg_lambda"] == 0.0
     assert dump["objective"]["sigreg_slices"] == 1024
 
     # `smoke` is put back to False alongside, because Brief J turned it on and it is a
@@ -202,8 +207,10 @@ def test_the_medium_run_is_a_smoke_and_that_is_the_only_thing_that_moved():
     run says structurally that it is not a result — J's own framing, since the effect floor is
     still a placeholder. And turning that on *changes* ``config_hash``, by design: so the number
     an artefact carries is neither D18's recipe hash nor an accident, and the only way to tell
-    which is to be able to walk back. Put ``smoke`` back to False and D18's ``b5acc…`` returns
-    exactly; the test above walks one step further back to D17's.
+    which is to be able to walk back. Put ``smoke`` back to False and D21's recipe hash returns
+    exactly; the test above walks one step further back to D17's, which is *unchanged by D21* --
+    stripping the four SIGReg keys removes ``sigreg_lambda`` whatever its value, so that anchor
+    holds across both the adoption and the reversal.
 
     The consequence this pins, in words: a resume refuses across a ``config_hash`` change
     (``TrainCheckpointer`` records it in every payload), so **this run's weights cannot be
@@ -215,5 +222,9 @@ def test_the_medium_run_is_a_smoke_and_that_is_the_only_thing_that_moved():
         dump = HarnessConfig(**yaml.safe_load(fh)).determining_dump()
 
     assert dump["smoke"] is True
-    assert config_hash(dump)[:16] == "f561d7f5039f23d8"  # what this run's artefacts will carry
-    assert config_hash(dict(dump, smoke=False))[:16] == "b5acc6779df49070"  # D18, unmoved
+    # The CURRENT recipe, under D21. Both moved when lambda went back to 0 -- by design, and the
+    # reason the pair is pinned: an artefact carrying `f561d7f5…` was written under D18's recipe
+    # and one carrying `7ecf5dce…` under D21's, so the two eras can never be confused for each
+    # other by reading a stamp. Brief J's 50,000-step run carries the former.
+    assert config_hash(dump)[:16] == "7ecf5dce5a1f60ba"  # what a run launched now would carry
+    assert config_hash(dict(dump, smoke=False))[:16] == "de87b8f9704b7e2d"  # D21's recipe hash
