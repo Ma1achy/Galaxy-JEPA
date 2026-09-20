@@ -6,7 +6,7 @@ So the question this answers is not "where does signal start" but "above what do
 being borderline", and it has to be argued against two measured distributions at once: how high
 chance can reach on these galaxies, and how the real features actually spread.
 
-Reads `artifacts/out/j4_spread_controls.json`. Computes; proposes; does not freeze.
+Reads `artifacts/out/<tag>_spread_controls.json` (J4's by default). Computes; proposes; does not freeze.
 `effect_floor_freeze` stays None — the value is a scientific call and carries `frozen_by`.
 
 Investigation code: terse, excluded from lint/CI.
@@ -16,6 +16,7 @@ Investigation code: terse, excluded from lint/CI.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -41,14 +42,32 @@ NULL_KEYS = (
 DIAGNOSTIC_KEYS = (("sky_noise_auc", "sky-noise label — DIAGNOSTIC, not pooled (D19)"),)
 
 
-def main() -> None:
-    path = OUT / "j4_spread_controls.json"
+@dataclasses.dataclass(frozen=True)
+class Source:
+    """Which battery's output to read. Defaults are Brief J5's, so running bare reproduces J5.
+
+    Parameterised, not forked, when Brief N2 arrived — and deliberately only the *input*: the
+    tables below are J5's evidence and stay exactly as J5 reported them. N2's additions (the
+    per-feature ceiling, the two swept forms, the seed overlay) live in `n2_floor_evidence.py`,
+    so neither brief's report is quietly rewritten by the other's needs.
+    """
+
+    label: str
+    tag: str
+
+
+J5 = Source(label="J5", tag="j4")
+
+
+def main(src: Source = J5) -> None:
+    lbl = src.label
+    path = OUT / f"{src.tag}_spread_controls.json"
     if not path.exists():
-        raise SystemExit(f"J5: {path} not found — run artifacts/j4_spread_controls.py first")
+        raise SystemExit(f"{lbl}: {path} not found — run the controls battery first")
     blob = json.loads(path.read_text())
     feats = blob["features"]
 
-    print(f"J5 source: {path.name}  checkpoint {blob['checkpoint']}  smoke={blob['smoke']}")
+    print(f"{lbl} source: {path.name}  checkpoint {blob['checkpoint']}  smoke={blob['smoke']}")
     print(f"           {blob['n_train']:,} train / {blob['n_test']:,} test, scheme "
           f"{blob['scheme']}, vote_count_min={blob['vote_count_min']:g}, C={blob['c']}")
     print()
@@ -124,7 +143,7 @@ def main() -> None:
     print(f"  median of the real spread                  {np.median(reals):.4f}")
     print(f"  the placeholder currently in probe.yaml    0.6500")
     print()
-    print("J5 PROPOSES ONLY. `effect_floor_freeze` stays None; the value is Malachy's call.")
+    print(f"{lbl} PROPOSES ONLY. `effect_floor_freeze` stays None; the value is Malachy's.")
 
 
 if __name__ == "__main__":

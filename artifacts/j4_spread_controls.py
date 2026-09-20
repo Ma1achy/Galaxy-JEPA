@@ -28,10 +28,12 @@ Investigation code: terse, excluded from lint/CI.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -57,13 +59,41 @@ OUT = REPO / "artifacts" / "out"
 #: rather than picked after seeing the numbers. `draws` is the null-characterisation budget: the
 #: two ends of the range get more, because they are what a floor is argued between.
 SPREAD: tuple[tuple[str, str, int], ...] = (
-    ("t01_smooth_or_features_a02_features_or_disk", "clean binary — the comparison point", 50),
+    ("t01_smooth_or_features_a02_features_or_disk", "clean binary — the comparison point", 200),
     ("t02_edgeon_a04_yes", "clean binary — strong visual signal", 50),
     ("t10_arms_winding_a28_tight", "graded axis (1/3) — ordered question", 50),
     ("t10_arms_winding_a29_medium", "graded axis (2/3)", 50),
     ("t10_arms_winding_a30_loose", "graded axis (3/3)", 50),
-    ("t09_bulge_shape_a26_boxy", "deep + confused — 89.8% of positives on <=2 votes", 50),
+    ("t09_bulge_shape_a26_boxy", "deep + confused — 89.8% of positives on <=2 votes", 200),
 )
+
+
+@dataclasses.dataclass(frozen=True)
+class Spec:
+    """What a caller of this battery declares. Defaults are Brief J's, so running bare reproduces J.
+
+    The second consumer arrived (Brief N, on M's settled encoder), so the driver is parameterised
+    rather than forked — the same move `j1_preflight` -> `m1_preflight` already made. J's record is
+    what this file documents; a new brief supplies its own `Spec` and leaves that record alone.
+    """
+
+    label: str
+    tag: str
+    #: The pooled-quantity lines belong to the floor-evidence phase, which has its own name.
+    floor_label: str = "J5"
+    checkpoint: str | None = None  # None -> <out_dir>/encoder.pt
+    spread: tuple[tuple[str, str, int], ...] = SPREAD
+    #: Extra seeds for the untrained-encoder control, measured ALONGSIDE the primary one and never
+    #: entering `FeatureControls`. The primary seed is always `cfg.seed`, so the bar, the
+    #: selectivity and everything comparable to J are unchanged in construction. Brief J measured
+    #: none: that single scalar per feature *is* the existence bar (the other three controls never
+    #: cleared 0.5552, so `existence_null_samples` collapses to it), and its variability under
+    #: reseeding was never measured. A floor built on one draw of a random network is a floor built
+    #: on a coin flip, so N1 measures the spread before N2 proposes anything on top of it.
+    extra_untrained_seeds: tuple[int, ...] = ()
+
+
+J = Spec(label="J4", tag="j4")
 
 
 def _capped_train(train_ids: list[int], max_train: int) -> list[int]:
@@ -79,31 +109,68 @@ def _release(device: str) -> None:
         torch.mps.empty_cache()
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--checkpoint", default=None, help="default: <out_dir>/encoder.pt")
-    ap.add_argument("--max-train", type=int, default=40_000, help="H5's cap; 0 for no cap")
-    ap.add_argument("--tag", default="j4")
-    args = ap.parse_args()
+@dataclasses.dataclass(frozen=True)
+class Setup:
+    """Everything a battery needs before it touches an encoder — one construction, one split."""
 
+    cfg: Any
+    pc: ProbingConfig
+    device: str
+    ckpt: Path
+    rows: dict
+    labels: Any
+    train_ids: list[int]
+    test_ids: list[int]
+    union: list[int]
+    ds: StampDataset
+
+
+def prepare(checkpoint: str | None, max_train: int, *, label: str, sources: int) -> Setup:
+    """The split, the labels and the dataset — **the one site**, so two briefs cannot diverge.
+
+    Extracted when Brief O1 arrived needing the *identical* train/test ids N1 probed: a matched
+    AUC is only comparable to its unmatched partner if both were read off the same galaxies, and
+    a second copy of this fifteen lines is a silent way to lose that. Second consumer, so an
+    abstraction — not before.
+    """
     cfg, cache = check(verbose=False)
     pc = ProbingConfig(**yaml.safe_load((REPO / "configs/probe.yaml").read_text()))
     if pc.headline:
-        raise SystemExit("J4: probe.yaml claims headline — the floor is open, this is not a result")
+        raise SystemExit(f"{label}: probe.yaml claims headline — this battery is not a result")
     device = cfg.runtime.resolved_device()
-    ckpt = Path(args.checkpoint) if args.checkpoint else Path(cfg.paths.out_dir) / "encoder.pt"
+    ckpt = Path(checkpoint) if checkpoint else Path(cfg.paths.out_dir) / "encoder.pt"
     OUT.mkdir(parents=True, exist_ok=True)
 
     rows, corpus_ids = _probe_rows(cache, cfg.paths.probe_dir)
     probe_ids = cache.present(sorted(corpus_ids))
     split = assign_three_way(probe_ids, seed=cfg.seed, ratios=cfg.ratios)
-    train_ids = _capped_train(sorted(split.train), args.max_train)
+    train_ids = _capped_train(sorted(split.train), max_train)
     test_ids = sorted(split.test)
     union = sorted({*train_ids, *test_ids})
-    print(f"J4 split: {len(train_ids):,} train (of {len(split.train):,}) + {len(test_ids):,} test "
-          f"= {len(union):,} stamps to embed x3 sources", file=sys.stderr)
+    print(f"{label} split: {len(train_ids):,} train (of {len(split.train):,}) + "
+          f"{len(test_ids):,} test = {len(union):,} stamps to embed x{sources} sources",
+          file=sys.stderr)
+    labels = build_label_provider(
+        rows,
+        scheme=get_scheme(pc.scheme_name),
+        vote_count_min=pc.vote_count_min,
+        consensus_gate=pc.consensus_gate,
+    )
+    return Setup(cfg, pc, device, ckpt, rows, labels,
+                 train_ids, test_ids, union, StampDataset(cache, rows, union))
 
-    ds = StampDataset(cache, rows, union)
+
+def main(spec: Spec = J) -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--checkpoint", default=spec.checkpoint, help="default: <out_dir>/encoder.pt")
+    ap.add_argument("--max-train", type=int, default=40_000, help="H5's cap; 0 for no cap")
+    ap.add_argument("--tag", default=spec.tag)
+    args = ap.parse_args()
+    lbl = spec.label
+
+    setup = prepare(args.checkpoint, args.max_train, label=lbl, sources=3)
+    cfg, pc, device, ckpt = setup.cfg, setup.pc, setup.device, setup.ckpt
+    rows, train_ids, test_ids, ds = setup.rows, setup.train_ids, setup.test_ids, setup.ds
     frozen = load_frozen_encoder(ckpt)  # eval() + requires_grad_(False); assert_frozen downstream
     t0 = time.perf_counter()
 
@@ -120,17 +187,12 @@ def main() -> None:
     _release(device)
     controls = ctl.ControlEmbeddings(real=real, untrained=untrained, noise=noise)
 
-    labels = build_label_provider(
-        rows,
-        scheme=get_scheme(pc.scheme_name),
-        vote_count_min=pc.vote_count_min,
-        consensus_gate=pc.consensus_gate,
-    )
+    labels = setup.labels
 
     records = []
-    for i, (feature, role, draws) in enumerate(SPREAD):
+    for i, (feature, role, draws) in enumerate(spec.spread):
         if feature not in labels.features:
-            raise SystemExit(f"J4: {feature!r} is not in scheme {pc.scheme_name!r}")
+            raise SystemExit(f"{lbl}: {feature!r} is not in scheme {pc.scheme_name!r}")
         tr = feature_embeddings(real, labels, feature, train_ids)
         te = feature_embeddings(real, labels, feature, test_ids)
         try:
@@ -181,12 +243,50 @@ def main() -> None:
               f"untrained {fc.untrained_encoder_auc:.4f}  noise {fc.noise_encoder_auc:.4f}",
               file=sys.stderr)
 
+    # --- the untrained-encoder control under reseeding ---------------------------------------
+    # `existence_null_samples` takes a per-draw max over the four chance-calibrated controls, but
+    # the two resamplable ones never cleared 0.5552 on J's encoder while the untrained singleton
+    # reached 0.7908 — so the null collapses to a point mass at that singleton and the existence
+    # test reduces, exactly, to `real_auc > untrained_encoder_auc`. One draw of a random ViT is
+    # therefore the whole bar. Measured here, never used here: the primary seed stays `cfg.seed`,
+    # these extra passes are recorded alongside it and enter no `FeatureControls` and no verdict.
+    if spec.extra_untrained_seeds:
+        seeds = (cfg.seed, *spec.extra_untrained_seeds)
+        by_feature: dict[str, dict[int, float]] = {
+            r["feature"]: {cfg.seed: r["untrained_encoder_auc"]} for r in records
+        }
+        for s_extra in spec.extra_untrained_seeds:
+            _release(device)
+            t_seed = time.perf_counter()
+            mat = ctl.untrained_encoder_matrix(frozen.config, ds, device=device, seed=s_extra)
+            for feature, _role, _draws in spec.spread:
+                tr_u = feature_embeddings(mat, labels, feature, train_ids)
+                te_u = feature_embeddings(mat, labels, feature, test_ids)
+                by_feature[feature][s_extra] = ctl._safe_auc(tr_u, te_u, c=pc.c)
+            del mat
+            _release(device)
+            print(f"  untrained seed {s_extra:<4d} {time.perf_counter() - t_seed:6.0f}s",
+                  file=sys.stderr)
+        for rec in records:
+            per_seed = by_feature[rec["feature"]]
+            # The primary seed must still be the primary: this is the assertion, not a comment.
+            assert per_seed[cfg.seed] == rec["untrained_encoder_auc"], rec["feature"]
+            vals = [per_seed[k] for k in seeds]
+            rec["untrained_encoder_aucs"] = {str(k): per_seed[k] for k in seeds}
+            rec["untrained_seed_min"] = float(min(vals))
+            rec["untrained_seed_median"] = float(np.median(vals))
+            rec["untrained_seed_max"] = float(max(vals))
+            rec["untrained_seed_range"] = float(max(vals) - min(vals))
+        (OUT / f"{args.tag}_spread_controls.partial.json").write_text(json.dumps(records, indent=2))
+
     path = OUT / f"{args.tag}_spread_controls.json"
     path.write_text(json.dumps({
         "checkpoint": str(ckpt), "device": device, "smoke": True,
         "n_train": len(train_ids), "n_test": len(test_ids), "max_train": args.max_train,
         "scheme": pc.scheme_name, "vote_count_min": pc.vote_count_min, "c": pc.c,
-        "seconds": time.perf_counter() - t0, "features": records,
+        "seconds": time.perf_counter() - t0,
+        "untrained_seeds": [cfg.seed, *spec.extra_untrained_seeds],
+        "features": records,
     }, indent=2))
     print(f"\nwrote {path}", file=sys.stderr)
 
@@ -194,11 +294,14 @@ def main() -> None:
     real_aucs = [r["auc"] for r in records if r["auc"] is not None]
     nulls = [r["shuffled_max"] for r in records] + [r["random_emb_max"] for r in records] \
         + [r["untrained_encoder_auc"] for r in records] + [r["noise_encoder_auc"] for r in records]
-    print(f"J5 real AUC spread     : {min(real_aucs):.4f} .. {max(real_aucs):.4f} "
+    print(f"{spec.floor_label} real AUC spread     : {min(real_aucs):.4f} .. {max(real_aucs):.4f} "
           f"(n={len(real_aucs)})")
-    print(f"J5 pooled null ceiling : {max(nulls):.4f} (max over every control on every feature)")
-    print(f"J5 gap                 : {min(real_aucs) - max(nulls):+.4f} at the weakest feature")
-    print("J5 the floor is NOT set here. effect_floor_freeze stays None; the value is Malachy's.")
+    print(f"{spec.floor_label} pooled null ceiling : {max(nulls):.4f} "
+          "(max over every control on every feature)")
+    print(f"{spec.floor_label} gap                 : {min(real_aucs) - max(nulls):+.4f} "
+          "at the weakest feature")
+    print(f"{spec.floor_label} the floor is NOT set here. effect_floor_freeze stays None; "
+          "the value is Malachy's.")
 
 
 if __name__ == "__main__":

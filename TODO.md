@@ -442,7 +442,8 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   contingency but a load-bearing component of Paper 1, and its cost is a headline-run cost rather
   than a tail. `matching.py` moves from formality to critical path. Record it in the spec (3D-ii's
   "targeted, bounded cost" claim is now measured to be false on this encoder) before the headline
-  run is budgeted.
+  run is budgeted. **RE-TESTED on M's encoder (Brief N1): still false, and worse — every nuisance
+  rose, PSF 0.5813 -> 0.8186. Featured-ness now beats SNR/redshift/PSF but not magnitude or size.**
 - [ ] (P1) **Training longer made the representation worse, and the budget is unexplained.** This
   run is Brief I's `sigreg_050` arm continued (verified: all three loss traces agree to 5.0e-7
   over 3,000 steps; every collapse reading identical at every shared step, step 0 included). One
@@ -457,12 +458,18 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   +0.0952, featured +0.0457, t10 loose +0.0453, tight +0.0267, t09 boxy +0.0176, t10 medium
   +0.0000. A random-init ViT-S reaches 0.7908 on featured-ness. The measured structure argues for
   a **margin over the untrained control** rather than an absolute `effect_floor`; that is a change
-  to a mechanism the spec records as settled, so it is raised, not made.
+  to a mechanism the spec records as settled, so it is raised, not made. **ANSWERED by Brief N2:
+  recommended AGAINST.** The bar is architecture-determined (M's untrained nulls are identical to
+  J's, to four decimals), a margin is a tightening of *existence* rather than a second gate, and it
+  reorders the catalogue by a random network's luck. See `artifacts/n_findings.md`.
 - [ ] (P1) **Effect floor: proposed NOT to freeze yet.** Its input population is empty while
   existence is blocked; the encoder is not the best on its own trajectory; an absolute AUC cannot
   encode a per-feature untrained baseline spanning 0.5160-0.7908; and n=6 cannot locate a
   threshold. Candidates recorded in `artifacts/j_findings.md` — 0.7908 (the untrained ceiling) is
   the one whose meaning survives questioning. `effect_floor_freeze` stays `None`.
+  **SUPERSEDED by Brief N2** — objections 1 and 2 are resolved (bar fixed, encoder settled), 3 is
+  answered against the margin form, 4 stands. Proposal: **form (a) absolute, 0.7267**, band
+  (0.6538, 0.7995]. Still not frozen.
 - [ ] (P1) **`EmbeddingMatrix.index` is quadratic at every call site — a one-line fix worth
   ~2.8 h of a 6 h ladder run.** It is a plain `@property` rebuilding a `{object_id: row}` dict on
   every read (5.6 ms over 74,829 entries), and `probing.extract.feature_ids` reads it *inside a
@@ -648,6 +655,66 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   continue itself because we had changed our mind about when to LOOK. The third cost a crash but no
   data: the probe's output filename was inverted. **Observing a run is not part of its recipe** --
   the same distinction `monitor_every` needed, got wrong in the other direction.
+
+## Brief N — the bar on a good encoder, and the floor's evidence `[no training run]`
+- [x] **N1 — the controls battery re-run on M's 4-epoch encoder.** Same split as J4 (40,000 /
+  34,829), same six features, declared before the numbers and unedited. All six improved:
+  featured-ness 0.8365 -> **0.8845**, edge-on 0.7320 -> **0.7995**, arms-loose 0.6098 -> **0.6538**,
+  arms-tight 0.5740 -> **0.5889**, bulge-boxy 0.5534 -> **0.5847**, arms-medium 0.5161 -> **0.5226**.
+  Gains are largest at the easy end. The graded axis still dips in the middle (0.5889 / 0.5226 /
+  0.6538) on a second independent encoder.
+- [x] **The existence bar is a property of the ARCHITECTURE, not the run.** The untrained-encoder
+  null came back identical to J's on all six features to four decimals, because
+  `untrained_encoder_matrix` never sees the trained checkpoint. J's bar and M's bar are the same
+  bar, so every margin gain is the encoder. Margins roughly doubled throughout.
+- [x] **D19's fix works on a good encoder.** The sky-noise diagnostic sits at 0.8662-0.8692 and
+  would, under the pre-K1 bar, still have failed featured-ness (0.8845) by a hair and everything
+  else comfortably. It is out of the bar; the bar is the untrained encoder. Still bit-identical to
+  `nuisance_aucs["snr"]`.
+- [ ] (P0) **The nuisance panel did NOT go away — it got worse.** magnitude 0.8733 -> **0.9033**,
+  size 0.8501 -> **0.9061**, SNR 0.8373 -> **0.8687**, redshift 0.7918 -> **0.8371**, PSF
+  **0.5813 -> 0.8186**. Training longer at lambda=0 made the representation encode observing
+  conditions *more* strongly, and faster than it improved morphology. Featured-ness (0.8845) now
+  beats SNR, redshift and PSF -- it beat none of them on J -- but **magnitude and size still beat
+  it**, and all five nuisances still beat all five other morphology features. **3D-ii's "targeted,
+  fires only for flagged features" remains measured FALSE**; matched evaluation stays load-bearing
+  for Paper 1 and `matching.py` stays on the critical path. Update the spec's scope note.
+- [x] **N2 — the effect floor: evidence and a proposal, not a freeze.** `effect_floor_freeze`
+  stays `None`; `configs/probe.yaml` untouched; `headline=True` still refused.
+- [ ] (P1) **The binding null's variability, measured for the first time — verdict MARGINAL.**
+  Three untrained seeds (0 primary, 1, 2). Per-feature range 0.0026 (featured) to **0.0209**
+  (boxy), median 0.0073 -- inside the pre-registered 0.010-0.030 band, so the rule fixed before the
+  numbers says **recommend the ABSOLUTE form**, which does not inherit the instability. No feature
+  is strictly seed-determined, but **t10-medium clears its own bar by 0.0006**: under seed 1 its
+  margin is +0.0006 rather than +0.0065, so its existence verdict is decided by which random
+  network was drawn. No floor fixes that feature.
+- [ ] (P1) **The margin form is recommended AGAINST, on four measured grounds.** (i) The per-feature
+  ceiling is exactly `sup(existence_null_samples)` -- verified against the production function over
+  200 cases -- so a margin is a *tightening of existence*, the one property 3B disclaims. (ii) It
+  reorders the catalogue by a random network's luck: boxy has a lower real AUC than tight (0.5847
+  vs 0.5889) but a higher margin (+0.0489 vs +0.0415), and at margin 0.10 it excludes
+  **featured-ness**, the strongest feature, while admitting edge-on. (iii) Its verdicts move with
+  the seed (flips at 0.05 and 0.09); form (a)'s cannot. (iv) `effect_floor` has five consumers and
+  a margin has no definition at `ladder.py:121`, `:161` or `:248`. **No D22 was drafted**, because
+  one is needed only if (b) is recommended.
+- [ ] (P1) **PROPOSED effect floor: form (a) absolute, value 0.7267** -- the midpoint of the widest
+  gap in the real spread and the point furthest from any flip (0.0729 either way). **The band
+  matters more than the point:** every value in **(0.6538, 0.7995]** gives the identical partition.
+  **Admits** featured-ness (0.8845) and edge-on (0.7995); **excludes** arms-loose (0.6538),
+  arms-tight (0.5889), bulge-boxy (0.5847), arms-medium (0.5226). All six would still pass
+  *existence* -- the floor separates clean from marginal among the real, which is 3B's job for it.
+  **J5's fourth objection is unresolved and travels with the value: n = 6 cannot locate a threshold
+  for a catalogue of 37.** The value is Malachy's.
+
+### Recorded by Brief N, not acted on
+- [ ] (P1) **The targeted compute case is BATCH SIZE, not a longer run.** M measured +0.0002
+  AUC/epoch at the plateau, so another 10x of compute buys about one interval width. **32 against
+  the reference's 2048 is the largest unexamined divergence in the recipe AND the standing
+  hypothesis for why SIGReg failed here** -- those are one experiment, not two. Log it as the
+  targeted compute case; a lambda=0 baseline at a real horizon now exists to test it against.
+- [ ] (P1) **M's limits, carried forward.** One seed, one trajectory, four probe points. The
+  plateau is *located* between 2 and 4 epochs, **not bounded**. A second seed at 4 epochs is the
+  cheapest thing that would put an interval on it rather than a point.
 
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so
