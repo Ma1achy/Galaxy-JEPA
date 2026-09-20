@@ -617,6 +617,38 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   branch L2 names. Validate any fix at **>=10,000 steps before adoption** — D18's failure mode was
   adoption on 3,000-step evidence, and the point of this brief is not to repeat it.
 
+## Brief M — the long lambda=0 baseline `[10 epochs, stopped early at 4]`
+- [x] **M — the returns flatten at 4 epochs, and the rule caught it.** 253,270-step budget
+  (810,491 train // 32 = 25,327/epoch), stopped at **101,308 (4.00 ep)** by the pre-registered
+  rule: dAUC **+0.0010 then +0.0005**, both under 0.002, not rising. **~28 h of budget returned.**
+  Consensus 0.9593 (0.5 ep) -> 0.9631 -> 0.9642 -> **0.9646** (4 ep). No halt; 19.3 h wall.
+- [ ] (P0) **A real lambda=0 comparator now exists**, at a horizon that means something. Everything
+  downstream is measured against it: the MAE/MoCo arms, the beta sweep, and the SIGReg re-test.
+  M at HALF an epoch (0.9593) already beats anything lambda=0.05 reached anywhere on its
+  50,000-step trajectory (best 0.9477, end 0.9278).
+- [ ] (P1) **Effective rank rose 22.2 -> 37.3 while AUC ROSE.** Under lambda=0.05 rank rose
+  24.3 -> 57.6 while AUC fell. Rank growth on its own is therefore not what costs morphology,
+  which is consistent with L1 (information leaving, not spread thinner) and removes a suspect.
+- [ ] (P1) **The 10,500-step provisional adoption in D21 is now covered to 4 epochs.** D21 named
+  the missing measurement: evidence reached 10,500 steps while a headline run is 50,000. M reaches
+  101,308 and lambda=0 rises throughout with no turn. The D20 caveat is answered for lambda=0 --
+  though still on one seed, one trajectory.
+- [ ] (P1) **No thermal drift over 19.3 h.** Throughput stepped down 5.5% between segment 1 and 2
+  (1.529 -> 1.459 steps/s) then held flat for 14.6 h -- a step, not an accumulation, so memory
+  pressure rather than heat. The machine ran ~34 GB of logical demand in 19 GB physical throughout.
+- [ ] (P1) **The rental case is WEAK on this evidence.** Final slope **+0.0002 AUC/epoch**; another
+  10x of compute buys ~+0.002 if the slope held, about one interval width, and a flattening curve's
+  slope does not hold. Where compute would plausibly pay instead, none acted on: **batch size** (32
+  against the reference's 2048, the largest unexamined divergence and the SIGReg hypothesis), a
+  second seed to put an interval on the plateau, then the SIGReg re-test.
+- [ ] (P1) **Three driver defects, all found by running rather than reading.** A 60-step plumbing
+  test caught two in ninety seconds -- resume broken on MPS/CUDA (`map_location` relocates the RNG
+  state and `set_rng_state` refuses it; the CPU-only resume test could never see it), and
+  `probe_points` wrongly placed in the checkpointer's `schedule`, which made a run refuse to
+  continue itself because we had changed our mind about when to LOOK. The third cost a crash but no
+  data: the probe's output filename was inverted. **Observing a run is not part of its recipe** --
+  the same distinction `monitor_every` needed, got wrong in the other direction.
+
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so
   H tested the peak and the warmup; the decay rides on the reference recipe's authority and is the
