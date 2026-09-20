@@ -264,7 +264,8 @@ def main(run: Run = M) -> None:
         preflight()  # raises on the first unchecked fact
 
     device = cfg.runtime.resolved_device()
-    jcfg = cfg.to_jepa_config().model_copy(update={"seed": train_seed})
+    # JepaConfig is a dataclass, not a pydantic model — replace(), not model_copy()
+    jcfg = dataclasses.replace(cfg.to_jepa_config(), seed=train_seed)
     out.mkdir(parents=True, exist_ok=True)
     scalars = cache.scalars
     ds = StampDataset(cache, {}, train_ids, scalars=scalars)

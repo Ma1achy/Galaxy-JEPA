@@ -208,6 +208,16 @@ def main(expect: Expect = J) -> None:
     print(f"{lb} budget is fixed     : lr_final's cosine and the EMA ramp are both defined over "
           f"steps={obj.steps}, so moving it changes the recipe. Stopping early is allowed; extending is not")
 
+    # 10. the training path has been shown to memorise a batch, for THIS recipe.
+    #
+    # Brief O3. A check that can be skipped silently is not a check, so the gate is required here
+    # rather than left as a script someone remembers to run: no long job starts without a passing
+    # record keyed on the recipe hash. Imported lazily — o3 pulls in the objective and the masker,
+    # which a pre-flight has no other reason to build.
+    from o3_overfit_gate import assert_gate_passed  # noqa: PLC0415
+
+    assert_gate_passed(cfg, label=lb)
+
     print(f"\n{lb} PASS — every fact checked, nothing assumed")
 
 

@@ -202,6 +202,23 @@ one out is a "did you control for seeing?" gap):
   critical path, and the headline run must be budgeted with it in. Physically unsurprising —
   morphology genuinely correlates with depth, size and brightness, which is 3D's own premise —
   but the magnitude was not anticipated and the machinery's sizing was.
+- **CONFIRMED TWICE, AND NOW RUN — Briefs N and O1.** The panel on M's 4-epoch encoder is worse,
+  not better: magnitude 0.9033, size 0.9061, SNR 0.8687, redshift 0.8371, PSF 0.8186, against
+  featured-ness at 0.8845 and every other morphology feature below 0.66. PSF moved 0.5813 → 0.8186
+  between J and M, so the recipe fix improved the confounds *faster* than it improved morphology.
+  The trigger is not a contingency on this representation; it is the normal case.
+  **O1 then ran matched evaluation across six features × five single nuisances × one joint
+  magnitude×size match** (`artifacts/o1_matched.py`, M's checkpoint, 40,000 train / 34,829 test):
+  ~1,100 s of embedding extraction and ~320 s of matching and fitting, so the standing cost is
+  **~24 min on top of a headline run**, not a tail and not prohibitive. Budget it in; do not
+  gate it behind a trigger. Two consequences for the machinery:
+  - Survivor counts must be reported. `MatchedVerdict` carries only `matched_auc` and `survived`,
+    and `matched_auc` returns 0.5 on a degenerate set — indistinguishable from "all confound"
+    unless the count travels with it. O1's driver calls `stratified_match` itself for this reason.
+  - The floor cannot serve as the survival bar. Production passes
+    `survive_threshold=config.effect_floor` (0.7267 since D22); four of O1's six features sit below
+    that *unmatched*, so a floor-based read is vacuous for two thirds of the spread. If a later
+    brief wires matching into the ladder, this interaction needs deciding, not inheriting.
 
 **Why every branch is defensible:** "no nuisance competitive → clean" (strong); "nuisance
 competitive → matched → survived" (arguably *more* convincing — found a plausible confound

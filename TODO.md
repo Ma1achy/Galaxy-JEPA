@@ -716,6 +716,36 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   plateau is *located* between 2 and 4 epochs, **not bounded**. A second seed at 4 epochs is the
   cheapest thing that would put an interval on it rather than a point.
 
+## Brief O — the floor frozen, the confound answered `[no training run for O0/O1]`
+- [x] (P0) **D22 — the effect floor is frozen at 0.7267**, form (a), absolute, chosen by structure:
+  every value in (0.6538, 0.7995] gives an identical partition of the six probed features, and
+  0.7267 is that band's centre. Spec register item 4 is closed. See `configs/probe.yaml`.
+- [x] (P0) **O1 — matched evaluation run on M's 4-epoch encoder.** Six features x five single
+  nuisances x one joint magnitude-x-size match. 30 of 36 SURVIVES, 6 COLLAPSES (all of them
+  t10-medium), no PARTIAL, no UNRESOLVED. The joint match survives wherever the singles do.
+- [ ] (P0) **DEFECT — `ladder._nuisance_clearance` does not apply `labels.nuisance_valid`.**
+  `ladder.py:157-159` passes `labels.nuisance_value(worst, present_*)` straight into
+  `match.matched_evaluation`, while `controls.build_feature_controls` (`controls.py:304-313`)
+  filters the same vectors through `nuisance_valid` first. So the production matched re-probe
+  builds `size` strata over `petrorad_suspect` rows — rows the flag exists to exclude, and which
+  are systematically bright, nearby and featured, i.e. exactly the confound direction being
+  matched away. **Measured consequence:** O1's driver applies the filter and drops 213-336 flagged
+  test rows per feature from each size-matched set (336 on t01, 334 on t02, 242 on each t10 arm,
+  213 on t09); production keeps them. Not fixed here, because `ladder.py` is on the verdict path
+  and a change there belongs in its own brief with its own before/after.
+- [ ] (P1) **The effect floor cannot be the matched-survival bar.** `ladder.py:121` passes
+  `survive_threshold=config.effect_floor`; four of O1's six features sit below 0.7267 *unmatched*
+  and would fail by arithmetic whatever matching did. O1 therefore used a margin-over-own-null
+  read instead. Whichever a later brief adopts, this must be decided rather than inherited.
+- [ ] (P1) **Split variance is owed, and O2 deliberately excludes it.** An honest interval on a
+  published AUC should cover which galaxies landed in the test set, not only which training draw
+  was made. O2 holds the splits fixed so it can answer its own narrow question; the split-varying
+  arm is a separate measurement, logged now so it is not rediscovered at write-up.
+- [ ] (P1) **O2's driver deviates from the production path.** `run_harness` moves every seed
+  together; O2's driver splits `config_seed` from `train_seed` on purpose. The deviation is
+  confined to which seed reaches `seed_init` / `ResumableShuffle` / the masker, but it is a real
+  caveat on transferring O2's interval to a production run.
+
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so
   H tested the peak and the warmup; the decay rides on the reference recipe's authority and is the
@@ -725,6 +755,13 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   non-reproduction in this regime, not as evidence against the paper: their rho is across runs
   over a hyperparameter sweep on ImageNet at eight views; ours is within one 3,000-step run at one
   view. The 1C label-blind checkpoint rule stands unchanged.
+- [ ] **RESTATE the SIGReg collapse claim — Brief O3 gives it a reference point.** An *untrained*
+  encoder on this architecture already has mean-cosine **+0.988**. So J's +0.984 under SIGReg is
+  approximately the untrained value, not a collapse the regulariser induced: the representation
+  barely moved off its initialisation. Report it that way — a failure to learn, which is more
+  specific and more damning than "collapsed". The signature of genuine learning, measured at O3's
+  overfit floor, is mean-cosine **+0.413** at effective rank **19.7** and std **1.56** (from 0.109);
+  effective rank dips to 9.4 mid-run and recovers, so the dip is a transient and not the signal.
 - [ ] **The lambda-robustness result is a positive replication** worth reporting: an 8x difference
   in weight gave indistinguishable AUC (0.9470 vs 0.9471) on a corpus, architecture and objective
   the paper did not test.
