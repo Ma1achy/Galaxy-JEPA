@@ -1020,3 +1020,72 @@ arms**, and the ladder's R3 rung will behave differently under the reverted reci
 
 **Source.** `artifacts/l_findings.md` (L1, L2); `runs/l2/d17`;
 `artifacts/out/l1_mlp_ladder_{full,l2}.json`.
+
+## D22 — The effect floor is frozen at 0.7267, absolute — *decided (measured; closes the last of the five statistical gates)*
+
+**What was open.** The floor separates *clean* from *marginal* among effects that have already
+passed existence. D-series and spec 3B fixed its mechanism; the **number** was a scientific call,
+and J5 declined to make it on four objections. Two are now closed: the bar was wrong (3C-5 was in
+it; D19 removed it) and the encoder was wrong (J's was measurably worse than step 3,000 of its own
+trajectory). Brief M produced a settled encoder and Brief N re-ran the battery on it.
+
+**The decision: `effect_floor = 0.7267`, form (a), absolute.** Frozen in `configs/probe.yaml` with
+an `EffectFloorFreeze` carrying its provenance, exactly as the normalisation statistic, the vote
+floor and the collapse floor are frozen. `headline=True` is now loadable; `effect_floor_open` no
+longer stamps onto artefacts.
+
+**Chosen by structure, not by which features it admits.** Every value in **(0.6538, 0.7995]** gives
+an *identical* partition of the six probed features — a band 0.146 wide, bounded below by
+arms-loose and above by edge-on. 0.7267 is its centre, the point furthest from any feature's flip
+(0.0729 either way). The old placeholder 0.6500 sat 0.0038 from a flip and the pooled null ceiling
+0.7908 sat 0.0087 from one: both are coincidences rather than thresholds. It admits featured-ness
+(0.8845) and edge-on (0.7995); it excludes arms-loose (0.6538), arms-tight (0.5889), bulge-boxy
+(0.5847) and arms-medium (0.5226). **All six clear their own binding null**, so all six still pass
+*existence* — the floor is doing the job 3B gives it and no other.
+
+**The margin form was measured and rejected.** J5's third objection pointed at it: an absolute AUC
+cannot encode a null that varies per feature, and on J's encoder the binding null spanned 0.275.
+Four grounds against, the first decisive:
+
+1. A feature's null ceiling is **exactly** the supremum of `existence_null_samples` — verified
+   against the production function over 200 random cases. So a margin floor is a **tightening of
+   existence**, not a second gate. That is the one property 3B disclaims when it grounds the floor
+   as acceptable *"because it no longer does the existence work"*.
+2. It reorders the catalogue by a random network's luck. Bulge-boxy has a *lower* real AUC than
+   arms-tight (0.5847 vs 0.5889) but a *higher* margin (+0.0489 vs +0.0415); at margin 0.10 it
+   excludes **featured-ness**, the strongest feature in the catalogue, while admitting edge-on.
+3. Its verdicts move with the untrained seed (the admitted set flips at margin 0.05 and 0.09). An
+   absolute floor cannot move with the seed, because it never reads the null.
+4. `effect_floor` has five consumers; `ladder.py:121`, `:161` and `:248` have no defined "the
+   feature's own binding null" to take a margin over.
+
+**A definition this makes explicit rather than leaving implicit: the existence bar is
+architecture-determined.** `controls.untrained_encoder_matrix` never sees the trained checkpoint, so
+the bar is a property of *(architecture, seed, galaxies)* alone — M's untrained nulls came back
+identical to J's to four decimals on all six features. The untrained singleton dominates every
+resampled draw (0.5160 against 0.5143 at the narrowest), so `existence_null_samples` has zero
+variance and **the existence test reduces exactly to `real_auc > untrained_encoder_auc`**.
+
+**Two limitations travel with the value and are to be reported, not hidden.**
+
+* **J5's fourth objection is unresolved.** n = 6 cannot locate a threshold for a catalogue of 37,
+  and the widest gap is a fact about which six features were chosen. The band argument softens it —
+  any point inside (0.6538, 0.7995] costs nothing *here* — but does not remove it.
+* **t10 arms-medium's verdict is seed-dependent**: its margin over the binding null is +0.0065 at
+  untrained seed 0 and +0.0006 at seed 1. No floor fixes that. It is honest evidence that some
+  features sit below what this apparatus resolves.
+
+**What this does not license.** No rung verdicts. The nuisance panel on M's encoder has every
+nuisance beating five of the six morphology features, and magnitude (0.9033) and size (0.9061)
+beating even featured-ness — so matched evaluation must be read before any ladder is published. A
+floor is not a licence to run the ladder; it is one of the preconditions for doing so.
+
+**Also recorded:** the floor cannot serve as the matched-evaluation survival bar. Production passes
+`survive_threshold=config.effect_floor`, and four of the six features sit below 0.7267 *unmatched* —
+they would fail a floor-based gate by arithmetic whatever matching did. Brief O1 therefore reads
+matched evaluation against each feature's own unmatched margin instead. If matched evaluation is
+ever wired into the ladder, that interaction needs deciding, not inheriting.
+
+**Source.** `artifacts/n_findings.md`; `artifacts/out/n1_spread_controls.json` (M's 4-epoch
+encoder, three untrained seeds), `artifacts/out/n2_floor_evidence.txt`; drivers
+`artifacts/n1_controls.py`, `artifacts/n2_floor_evidence.py`.

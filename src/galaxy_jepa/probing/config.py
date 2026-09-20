@@ -154,9 +154,12 @@ class ProbingConfig(RunConfig):
     # (``nulls.assert_null_resolution`` enforces that rather than letting the catalogue come back
     # silently empty). Raising it costs one logistic fit per draw per feature.
     n_null_draws: int = 50
-    # OPEN (spec register item 4): the mechanism is grounded, the *number* is a scientific call
-    # still to be made. Until `effect_floor_freeze` is filled in this value is a placeholder,
-    # and `headline=True` is refused — see `assert_effect_floor_frozen`.
+    # Spec register item 4 — the *number* is a scientific call, and the window for making it has
+    # now been used: `configs/probe.yaml` carries a freeze at **0.7267** (Brief O0, from N1/N2 on
+    # M's 4-epoch encoder). The shipped code default below deliberately stays OPEN, because a
+    # pre-registered call belongs in the config a run actually loads, not in a library constant
+    # that a caller could inherit without ever declaring it. So constructing this class bare still
+    # refuses `headline=True`; loading the shipped YAML does not.
     effect_floor: float = 0.65
     effect_floor_freeze: EffectFloorFreeze | None = None
 

@@ -67,25 +67,36 @@ def check(verbose: bool = True) -> tuple[HarnessConfig, TensorCache]:
         f"{cache.index.normalisation_hash[:12]}… n={cache.index.n:,} "
         f"{cache.index.shape} {cache.index.dtype}")
 
-    # 4. the probing gates are still shut: the effect floor is open, so no headline
+    # 4. BOTH pre-registration freezes are in place and each still bites.
+    #
+    # This check was written while the effect floor was open, and asserted the opposite: that
+    # `headline=True` was REFUSED. Brief O0 froze the floor at 0.7267, so that refusal is gone and
+    # the old assertion would fail on a correct config — a guardrail outliving the state it
+    # guarded. Inverted rather than deleted: what matters now is that each freeze is present, that
+    # the live value equals the stamped one, and that REMOVING either freeze still refuses. A gate
+    # that stops biting once its neighbour is satisfied is not a gate.
     probe_cfg = _load("probe.yaml")
     from galaxy_jepa.probing.config import ProbingConfig
 
     pc = ProbingConfig(**probe_cfg)
     if pc.vote_count_freeze is None:
         raise SystemExit("F0: probe.yaml carries no vote-count freeze")
-    if pc.headline:
-        raise SystemExit("F0: probe.yaml claims headline while the effect floor is open")
-    try:
-        ProbingConfig(**{**probe_cfg, "headline": True})
-    except Exception as exc:  # pydantic ValidationError
-        first = str(exc).splitlines()
-        msg = next((ln.strip() for ln in first if "effect" in ln.lower()), first[-1].strip())
-        say(f"F0 headline refused    : {msg[:88]}")
-    else:
-        raise SystemExit("F0: headline=True was ACCEPTED with the effect floor open")
+    if pc.effect_floor_freeze is None:
+        raise SystemExit("F0: probe.yaml carries no effect-floor freeze (O0 should have set it)")
+    if pc.effect_floor_freeze.value != pc.effect_floor:
+        raise SystemExit("F0: the live effect floor is not the stamped one")
+    for drop in ("effect_floor_freeze", "vote_count_freeze"):
+        try:
+            ProbingConfig(**{**probe_cfg, "headline": True, "smoke": False, drop: None})
+        except Exception:  # pydantic ValidationError — the gate bit, which is the point
+            pass
+        else:
+            raise SystemExit(f"F0: headline=True was ACCEPTED with {drop} removed")
     say(f"F0 vote floor frozen   : value={pc.vote_count_freeze.value:g} "
         f"sweep={list(pc.vote_count_freeze.sweep)} min={pc.vote_count_min:g}")
+    say(f"F0 effect floor frozen : value={pc.effect_floor_freeze.value:g} "
+        f"frozen {pc.effect_floor_freeze.frozen_at} by {pc.effect_floor_freeze.frozen_by}; "
+        f"both gates shut, headline is now loadable")
     return cfg, cache
 
 

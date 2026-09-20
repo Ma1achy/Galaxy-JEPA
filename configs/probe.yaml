@@ -69,7 +69,56 @@ n_null_draws: 50            # sets the test's RESOLUTION: min attainable p = 1/(
                             # Scheme 1 (BY family 37) needs >= 3109, or nothing can pass —
                             # `nulls.assert_null_resolution` refuses rather than returning an
                             # empty catalogue that reads like a scientific null.
-effect_floor: 0.65          # OPEN (spec register 4): mechanism settled, VALUE is -M's call
+# FROZEN (Brief O0) — spec register item 4 is closed. The value is a scientific judgement, and
+# its one honest window was the medium local run; that window has now been used. Both lines move
+# together or `_freezes_agree_with_the_live_values` refuses the config at load, which is the point.
+effect_floor: 0.7267
+effect_floor_freeze:
+  value: 0.7267
+  derived_from: >-
+    Brief N1/N2 on runs/m/encoder.pt (M's 4-epoch checkpoint, step 101,308, lambda=0 under D21,
+    D17 schedule, stamped v2:61330a0012234374). Six Scheme-1 features spanning the difficulty
+    range, declared in j4_spread_controls.SPREAD before any number existed and re-used unedited:
+    40,000 train / 34,829 test, vote_count_min=1, C=1.0. Real AUCs 0.5226 (t10 arms medium),
+    0.5847 (t09 bulge boxy), 0.5889 (t10 arms tight), 0.6538 (t10 arms loose), 0.7995 (t02
+    edge-on), 0.8845 (t01 featured-or-disk). Evidence in artifacts/n_findings.md and
+    artifacts/out/{n1_spread_controls.json,n2_floor_evidence.txt}.
+  frozen_at: '2026-09-20'
+  frozen_by: 'malachy'
+  rationale: >-
+    CHOSEN BY STRUCTURE, NOT BY WHICH FEATURES IT ADMITS. Every value in (0.6538, 0.7995] gives an
+    IDENTICAL partition of the six probed features -- a band 0.146 wide, bounded below by arms-loose
+    and above by edge-on. 0.7267 is that band's centre and the point furthest from any feature's
+    flip (0.0729 either way). For contrast the old placeholder 0.6500 sat 0.0038 from a flip and the
+    pooled null ceiling 0.7908 sat 0.0087 from one: both are coincidences rather than thresholds.
+    It admits featured-ness (0.8845) and edge-on (0.7995); it excludes arms-loose (0.6538),
+    arms-tight (0.5889), bulge-boxy (0.5847) and arms-medium (0.5226). All six clear their own
+    binding null, so all six would still pass EXISTENCE -- the floor separates clean from marginal
+    among the real, which is 3B's job for it.
+    THE MARGIN FORM WAS MEASURED AND REJECTED, on four grounds. The decisive one: a feature's null
+    ceiling is EXACTLY the supremum of `existence_null_samples` (verified against the production
+    function over 200 random cases), so a margin floor is a TIGHTENING OF EXISTENCE rather than a
+    second gate -- the one property 3B disclaims when it grounds the floor as acceptable "because it
+    no longer does the existence work". The others: it reorders the catalogue by a random network's
+    luck (bulge-boxy has a lower real AUC than arms-tight, 0.5847 vs 0.5889, but a higher margin,
+    +0.0489 vs +0.0415; at margin 0.10 it excludes featured-ness, the strongest feature, while
+    admitting edge-on); its verdicts move with the untrained seed (flips at margin 0.05 and 0.09)
+    whereas an absolute floor never reads the null at all; and `effect_floor` has five consumers, of
+    which ladder.py:121, :161 and :248 have no defined "the feature's own binding null" to take a
+    margin over.
+    THE EXISTENCE BAR IS ARCHITECTURE-DETERMINED, stated here as the bar's definition rather than
+    left implicit: `controls.untrained_encoder_matrix` never sees the trained checkpoint, so the bar
+    is a property of (architecture, seed, galaxies) alone -- M's untrained nulls came back identical
+    to J's to four decimals on all six features. The untrained singleton dominates every resampled
+    draw (0.5160 vs 0.5143 at the narrowest), so `existence_null_samples` has zero variance and the
+    existence test reduces exactly to `real_auc > untrained_encoder_auc`.
+    TWO LIMITATIONS TRAVEL WITH THIS VALUE AND ARE TO BE REPORTED, NOT HIDDEN. (1) J5's fourth
+    objection is unresolved: n = 6 cannot locate a threshold for a catalogue of 37, and the widest
+    gap is a fact about which six features were chosen. The band argument softens that -- any point
+    inside (0.6538, 0.7995] costs nothing here -- but it does not remove it. (2) t10 arms-medium's
+    verdict is SEED-DEPENDENT: its margin over the binding null is +0.0065 at untrained seed 0 and
+    +0.0006 at seed 1. No floor fixes that. It is honest evidence that some features sit below what
+    this apparatus resolves.
 
 # --- multiplicity (decision 3) ---------------------------------------------------------
 multiplicity: benjamini_yekutieli   # correlated tests; FDR is the right target

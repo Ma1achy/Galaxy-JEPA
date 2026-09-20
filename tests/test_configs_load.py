@@ -71,14 +71,53 @@ def test_the_shipped_vote_floor_is_frozen_at_the_defined_minimum():
     assert "SUPERSEDED" in freeze.rationale and "TRAINED ON THE LABELS" in freeze.rationale
 
 
-def test_the_headline_gate_now_turns_only_on_the_effect_floor():
-    """The vote-floor gate is closed; the effect floor is the one still open."""
+def test_the_shipped_effect_floor_is_frozen_and_chosen_by_structure():
+    """Brief O0. The floor was the last of the five statistical gates left open; it is now shut.
+
+    The value is a *judgement*, so the record has to carry enough for a reader to disagree with it
+    on the evidence rather than on faith: which encoder it was read off, what it admits and
+    excludes, that the competing form was measured and rejected, and — the part most easily lost —
+    the two limitations that survive the freeze.
+    """
+    with open("configs/probe.yaml") as fh:
+        config = ProbingConfig(**yaml.safe_load(fh))
+    freeze = config.effect_floor_freeze
+    assert freeze is not None, "a bare effect_floor would read as an oversight, not a decision"
+    assert freeze.value == config.effect_floor == 0.7267
+    assert "runs/m/encoder.pt" in freeze.derived_from  # the encoder it was read off, named
+    # chosen by the band's structure, not by which features it lands on
+    assert "(0.6538, 0.7995]" in freeze.rationale
+    # the rejected alternative is recorded with its decisive reason, not merely asserted
+    assert "TIGHTENING OF EXISTENCE" in freeze.rationale
+    # and the limitations travel with the value
+    assert "n = 6 cannot locate a threshold" in freeze.rationale
+    assert "SEED-DEPENDENT" in freeze.rationale
+
+
+def test_the_frozen_floor_unlocks_the_headline_and_the_vote_gate_still_bites():
+    """Both pre-registration gates are shut, so `headline=True` is now a loadable claim.
+
+    The inverse of what this test asserted while the floor was open. Removing either freeze must
+    still refuse — a gate that stops biting once its neighbour is satisfied is not a gate.
+    """
     with open("configs/probe.yaml") as fh:
         raw = yaml.safe_load(fh)
+    headline = ProbingConfig(**{**raw, "headline": True, "smoke": False})
+    assert headline.headline is True
+    assert headline.effect_floor_freeze is not None
+
     with pytest.raises(ValueError, match="effect floor is still OPEN"):
-        ProbingConfig(**{**raw, "headline": True})
+        ProbingConfig(**{**raw, "headline": True, "smoke": False, "effect_floor_freeze": None})
     with pytest.raises(ValueError, match="vote floor is still OPEN"):
-        ProbingConfig(**{**raw, "headline": True, "vote_count_freeze": None})
+        ProbingConfig(**{**raw, "headline": True, "smoke": False, "vote_count_freeze": None})
+
+
+def test_a_shipped_floor_that_contradicts_its_record_is_refused():
+    """The live value and the stamped value are the same number or the config does not load."""
+    with open("configs/probe.yaml") as fh:
+        raw = yaml.safe_load(fh)
+    with pytest.raises(ValueError, match="contradicts its freeze record"):
+        ProbingConfig(**{**raw, "effect_floor": 0.70})
 
 
 def test_a_headline_threshold_outside_its_own_sweep_is_refused():

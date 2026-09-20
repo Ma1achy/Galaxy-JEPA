@@ -40,6 +40,7 @@ Investigation code: terse, excluded from lint/CI.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import gc
 import json
 import logging
@@ -77,10 +78,36 @@ OUT = REPO / "artifacts" / "out"
 PROBE = Path(__file__).resolve().parent / "k2_trajectory_probe.py"
 
 
-def _schedule(steps_per_epoch: int, total: int) -> list[int]:
+@dataclasses.dataclass(frozen=True)
+class Run:
+    """What a caller of this driver declares. Defaults are Brief M's, so running bare reproduces M.
+
+    Parameterised when Brief O2 arrived: a second seed on M's plateau is the same recipe, the same
+    budget and the same probe machinery, differing only in which seed reaches the weights and in
+    stopping at 4 epochs because that is where M's rule fired. A fork would have been a second copy
+    of the stopping rule and the resume logic — the two things here most expensive to get wrong.
+    """
+
+    label: str
+    tag: str
+    probe_epochs: tuple[float, ...] = PROBE_EPOCHS
+    #: `None` -> `cfg.seed`, which is also what every SPLIT uses. O2 sets this and leaves the
+    #: splits alone, so its probe points land on the identical held-out galaxies as M's. The two
+    #: seeds are then genuinely different numbers and the artefact must record BOTH — see `main`.
+    train_seed: int | None = None
+    out_dir: str | None = None  # `None` -> cfg.paths.out_dir
+
+    @property
+    def expect_dir(self) -> str | None:
+        return Path(self.out_dir).name if self.out_dir else None
+
+
+M = Run(label="M2", tag="m")
+
+
+def _schedule(steps_per_epoch: int, total: int, epochs: tuple[float, ...]) -> list[int]:
     """Absolute step for each probe point, clipped to the budget and de-duplicated."""
-    pts = sorted({min(total, round(e * steps_per_epoch)) for e in PROBE_EPOCHS})
-    return pts
+    return sorted({min(total, round(e * steps_per_epoch)) for e in epochs})
 
 
 def _merge(into: list[float], new: list[float]) -> list[float]:
@@ -127,7 +154,8 @@ def _read_rule(curve: list[dict]) -> tuple[bool, str]:
     return False, f"still improving — {detail}"
 
 
-def main() -> None:
+def main(run: Run = M) -> None:
+    L = run.label
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", action="store_true",
                     help="print the budget and schedule, run nothing")
@@ -152,19 +180,30 @@ def main() -> None:
         stream=sys.stderr,
         force=True,
     )
-    log = logging.getLogger("m2")
+    log = logging.getLogger(run.tag)
 
     cfg, cache = check(verbose=False)
     obj = cfg.objective
+    # TWO seeds, and the record must never collapse them into one. `cfg.seed` is hashed into
+    # `config_hash` and drives BOTH splits (`split_pretrain`, `assign_three_way`); `train_seed`
+    # drives the weight init, the data order and the masker. For Brief M they are the same number
+    # and nothing is at stake. For O2 they differ deliberately — the splits stay put so the probe
+    # lands on the identical held-out galaxies — and at that point a stamp carrying only one of
+    # them asserts a determinism the run does not have. That is the defect class already closed
+    # three times here (per-run normalisation refits, `config_hash` not determining the pipeline,
+    # the seed not reaching the weight init). It is not reopened at the record layer.
+    cfg_seed = cfg.seed
+    train_seed = cfg.seed if run.train_seed is None else run.train_seed
+    split_seed = cfg_seed  # named, because "the seed" is now ambiguous and silence would hide it
     if not cfg.smoke:
-        raise SystemExit("M2: smoke is False — this run is not a result and must say so")
+        raise SystemExit(f"{L}: smoke is False — this run is not a result and must say so")
     if obj.sigreg_lambda != 0.0:
-        raise SystemExit(f"M2: sigreg_lambda is {obj.sigreg_lambda}; D21 runs the baseline at 0")
+        raise SystemExit(f"{L}: sigreg_lambda is {obj.sigreg_lambda}; D21 runs the baseline at 0")
 
     train_ids, monitor_ids, _ = _split_ids(cfg)
     per_epoch = len(train_ids) // obj.batch_size
     total = obj.steps
-    points = _schedule(per_epoch, total)
+    points = _schedule(per_epoch, total, run.probe_epochs)
     if args.test:
         # Deliberately a DIFFERENT recipe -- `steps` is determining, so this hashes apart and can
         # never be mistaken for the real run. It exists to prove the machinery, not to measure.
@@ -174,26 +213,43 @@ def main() -> None:
         points = [int(x) for x in args.test_points.split(",")]
         total = points[-1]
         args.no_probe, args.skip_preflight = True, True
-        log.warning("M2 --test: 60 steps to runs/m_test. PLUMBING ONLY, not a measurement.")
+        log.warning(f"{L} --test: 60 steps to runs/m_test. PLUMBING ONLY, not a measurement.")
     if total % per_epoch:
         log.warning("budget is %.4f epochs, not a whole number", total / per_epoch)
 
+    if run.out_dir:
+        cfg = cfg.model_copy(update={"paths": cfg.paths.model_copy(
+            update={"out_dir": run.out_dir})})
     out = Path(cfg.paths.out_dir)
+    # A misdirected out_dir is the one way two runs sharing a config_hash could cross. O2 and M
+    # hash IDENTICALLY (same recipe; only a seed the config does not carry differs), so the
+    # checkpointer's hash guard cannot tell them apart and the directory is the only separator.
+    if run.expect_dir and out.name != run.expect_dir:
+        raise SystemExit(f"{L}: out_dir is {out} but this run must write to {run.expect_dir!r}")
     scheduled = total // obj.checkpoint_every
     # `keep` must cover the scheduled checkpoints AND the one each segment lands where it stops,
     # or the earliest would be pruned — which is exactly how `keep=3` destroyed a trajectory
     # mid-measurement once. The harness derives `scheduled + 2`, which is short by one per segment.
     keep = scheduled + len(points) + 2
 
-    print(f"\nM2 budget      : {total:,} steps = {total / per_epoch:.2f} epochs "
+    print(f"\n{L} budget      : {total:,} steps = {total / per_epoch:.2f} epochs "
           f"({len(train_ids):,} train // batch {obj.batch_size} = {per_epoch:,}/epoch)")
-    print(f"M2 wall-clock  : ~{total / 1.515 / 3600:.1f} h at 1.515 steps/s (Brief L, this path)")
-    print(f"M2 out_dir     : {out}")
-    print(f"M2 checkpoints : every {obj.checkpoint_every:,} -> {scheduled} scheduled + "
+    # The RECIPE's budget is `total` and never moves — the LR and EMA schedules are defined over
+    # it. The wall-clock that matters is to the LAST PROBE POINT, which is where this invocation
+    # actually stops; quoting the recipe's 46 h for a run that halts at 4 epochs would overstate
+    # the cost by 2.4x and is the sort of number that gets planned around.
+    print(f"{L} wall-clock  : ~{points[-1] / 1.515 / 3600:.1f} h to the last probe point "
+          f"(step {points[-1]:,}); the recipe's full {total / 1.515 / 3600:.1f} h is not run "
+          f"unless the schedule reaches it")
+    print(f"{L} out_dir     : {out}")
+    print(f"{L} seeds       : train={train_seed} (weights, data order, masker)  "
+          f"split={split_seed} (pretrain/monitor AND the probe three-way)"
+          f"{'  — SAME, as M ran it' if train_seed == split_seed else '  — DELIBERATELY DIFFERENT'}")
+    print(f"{L} checkpoints : every {obj.checkpoint_every:,} -> {scheduled} scheduled + "
           f"{len(points)} segment-end, keep={keep} ({keep * 381 / 1024:.1f} GiB)")
-    print(f"M2 stopping    : ΔAUC < {FLAT_DELTA} across two consecutive intervals, "
+    print(f"{L} stopping    : ΔAUC < {FLAT_DELTA} across two consecutive intervals, "
           f"not still rising within them")
-    print("M2 segments    :")
+    print(f"{L} segments    :")
     prev = 0
     for i, s in enumerate(points, 1):
         print(f"   {i}. +{s - prev:>7,} -> step {s:>7,}  ({s / per_epoch:>5.2f} ep, "
@@ -208,13 +264,14 @@ def main() -> None:
         preflight()  # raises on the first unchecked fact
 
     device = cfg.runtime.resolved_device()
-    jcfg = cfg.to_jepa_config()
+    jcfg = cfg.to_jepa_config().model_copy(update={"seed": train_seed})
     out.mkdir(parents=True, exist_ok=True)
     scalars = cache.scalars
     ds = StampDataset(cache, {}, train_ids, scalars=scalars)
-    sampler = ResumableShuffle(len(ds), seed=cfg.seed)
+    sampler = ResumableShuffle(len(ds), seed=train_seed)
     loader = DataLoader(ds, batch_size=jcfg.batch_size, sampler=sampler, drop_last=True)
-    jepa = build_objective(jcfg, seed_init(cfg.seed, cache.index.height, cfg.model.model_kwargs()))
+    jepa = build_objective(jcfg, seed_init(train_seed, cache.index.height,
+                                          cfg.model.model_kwargs()))
     ch = config_hash(cfg.determining_dump())
     checkpointer = TrainCheckpointer(
         out / "checkpoints",
@@ -249,7 +306,7 @@ def main() -> None:
     written = sorted(int(f.stem.split("_")[1]) for f in (out / "checkpoints").glob("ckpt_*.pt"))
     done = written[-1] if written else 0
     if done:
-        log.warning("M2 resuming from step %d (%.2f ep) — %d checkpoint(s) on disk",
+        log.warning(f"{L} resuming from step %d (%.2f ep) — %d checkpoint(s) on disk",
                     done, done / per_epoch, len(written))
     losses: list[float] = []
     pred: list[float] = []
@@ -260,8 +317,8 @@ def main() -> None:
         prior = json.loads((out / "traces.json").read_text())
         losses, pred, sig = prior["losses"], prior["prediction_losses"], prior["sigreg_losses"]
         collapse = prior["collapse_trace"]
-    if (OUT / "m_curve.json").exists():
-        curve = json.loads((OUT / "m_curve.json").read_text())["curve"]
+    if (OUT / f"{run.tag}_curve.json").exists():
+        curve = json.loads((OUT / f"{run.tag}_curve.json").read_text())["curve"]
         curve = [r for r in curve if r["step"] <= done]  # never carry a probe of a lost step
     t_start = time.perf_counter()
 
@@ -271,22 +328,22 @@ def main() -> None:
             # reads the curve, so a resume that quietly drops the first point would need four
             # segments to do what three should, and would misreport the slope. The probe wrote
             # its own file, so recover from that rather than re-extracting for 20 minutes.
-            prior = OUT / f"m{i}_trajectory.json"
+            prior = OUT / f"{run.tag}{i}_trajectory.json"
             if any(r["step"] == target for r in curve):
-                log.info("M2 segment %d/%d: done at step %d, probe already in the curve",
+                log.info(f"{L} segment %d/%d: done at step %d, probe already in the curve",
                          i, len(points), target)
             elif prior.exists():
                 rec = json.loads(prior.read_text())["checkpoints"][-1]
                 if rec["step"] == target:
                     rec["epoch"] = target / per_epoch
                     curve.append(rec)
-                    log.info("M2 segment %d/%d: done at step %d, probe recovered from %s "
+                    log.info(f"{L} segment %d/%d: done at step %d, probe recovered from %s "
                              "(consensus %.4f)", i, len(points), target, prior.name, rec["auc"])
                 else:
-                    log.warning("M2 segment %d: %s is step %d, not %d — not using it",
+                    log.warning(f"{L} segment %d: %s is step %d, not %d — not using it",
                                 i, prior.name, rec["step"], target)
             else:
-                log.warning("M2 segment %d/%d: done at step %d but NO probe on disk — the curve "
+                log.warning(f"{L} segment %d/%d: done at step %d but NO probe on disk — the curve "
                             "is short by one and the stopping rule needs a further point",
                             i, len(points), target)
             continue
@@ -294,7 +351,7 @@ def main() -> None:
         gc.collect()
         if device.startswith("mps"):
             torch.mps.empty_cache()  # H2: release the retained pool before the loop
-        log.info("M2 segment %d/%d: +%d steps -> %d (%.2f ep)",
+        log.info(f"{L} segment %d/%d: +%d steps -> %d (%.2f ep)",
                  i, len(points), delta, target, target / per_epoch)
         t0 = time.perf_counter()
         result = train_jepa(
@@ -329,54 +386,56 @@ def main() -> None:
             "collapse_trace": collapse, "losses": losses,
             "prediction_losses": pred, "sigreg_losses": sig,
         }))
-        log.info("M2 segment %d done: step %d, %.2f h, %.4f steps/s%s",
+        log.info(f"{L} segment %d done: step %d, %.2f h, %.4f steps/s%s",
                  i, done, secs / 3600, delta / secs, "  HALTED" if result.halted else "")
         if result.halted:
-            log.error("M2 halted at step %d — the collapse monitor fired. Stopping.", done)
+            log.error(f"{L} halted at step %d — the collapse monitor fired. Stopping.", done)
             break
         if done != target:
-            log.warning("M2 landed at %d, not %d", done, target)
+            log.warning(f"{L} landed at %d, not %d", done, target)
 
         # --- probe, with the machine to itself -------------------------------------------
         if args.no_probe:
-            log.info("M2 segment %d: probe skipped (--no-probe)", i)
+            log.info(f"{L} segment %d: probe skipped (--no-probe)", i)
             continue
-        tag = f"m{i}"
+        tag = f"{run.tag}{i}"
         proc = subprocess.run(
             [sys.executable, str(PROBE), "--run", str(out), "--steps", str(done), "--tag", tag],
             cwd=str(REPO), capture_output=True, text=True,
         )
         if proc.returncode != 0:
-            log.error("M2 probe at step %d failed:\n%s", done, proc.stderr[-2000:])
+            log.error(f"{L} probe at step %d failed:\n%s", done, proc.stderr[-2000:])
             break
         rec = json.loads((OUT / f"{tag}_trajectory.json").read_text())["checkpoints"][-1]
         rec["epoch"] = done / per_epoch
         rec["hours"] = (time.perf_counter() - t_start) / 3600
         curve.append(rec)
-        log.info("M2 PROBE step %d (%.2f ep): consensus %.4f [%.4f, %.4f]  all %.4f  amb %.4f",
+        log.info(f"{L} PROBE step %d (%.2f ep): consensus %.4f [%.4f, %.4f]  all %.4f  amb %.4f",
                  done, rec["epoch"], rec["auc"], rec["auc_lo"], rec["auc_hi"],
                  rec["auc_all"], rec["auc_ambiguous"])
 
         stop, why = _read_rule(curve)
-        log.info("M2 stopping rule: %s", why)
-        (OUT / "m_curve.json").write_text(json.dumps({
+        log.info(f"{L} stopping rule: %s", why)
+        (OUT / f"{run.tag}_curve.json").write_text(json.dumps({
             "budget_steps": total, "steps_per_epoch": per_epoch, "probe_points": points,
             "flat_delta": FLAT_DELTA, "smoke": True, "config_hash": f"v2:{ch}",
+            # both, always, and never merged into a single "seed" key
+            "train_seed": train_seed, "split_seed": split_seed, "config_seed": cfg_seed,
             "stopped_early": stop, "stop_reason": why, "curve": curve,
         }, indent=2))
         if stop:
-            log.info("M2 STOPPING EARLY at %d of %d steps (%.2f of %.2f epochs) — %s",
+            log.info(f"{L} STOPPING EARLY at %d of %d steps (%.2f of %.2f epochs) — %s",
                      done, total, done / per_epoch, total / per_epoch, why)
             break
 
     wall = (time.perf_counter() - t_start) / 3600
     first, last = (curve[0], curve[-1]) if curve else ({}, {})
-    log.info("M2 finished: %d steps, %.2f h. AUC %.4f -> %.4f over %.2f epochs",
+    log.info(f"{L} finished: %d steps, %.2f h. AUC %.4f -> %.4f over %.2f epochs",
              done, wall, first.get("auc", float("nan")), last.get("auc", float("nan")),
              last.get("epoch", 0.0))
     if len(curve) >= 2:
         slope = (curve[-1]["auc"] - curve[-2]["auc"]) / (curve[-1]["epoch"] - curve[-2]["epoch"])
-        log.info("M2 final slope: %+.4f AUC/epoch — the number a rental case is argued from",
+        log.info(f"{L} final slope: %+.4f AUC/epoch — the number a rental case is argued from",
                  slope)
 
 
