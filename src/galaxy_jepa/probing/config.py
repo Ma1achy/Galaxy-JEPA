@@ -163,6 +163,23 @@ class ProbingConfig(RunConfig):
     effect_floor: float = 0.65
     effect_floor_freeze: EffectFloorFreeze | None = None
 
+    # --- how existence is computed (D23) ------------------------------------------------
+    # `empirical` is the original add-one estimator over `nulls.existence_null_samples`. It is a
+    # POINT MASS in practice — the untrained singleton floors every draw — so its p-value can only
+    # return 1/(n+1) or 1.0, and BY has nothing calibrated to act on. `untrained_z` compares the
+    # real AUC against the untrained bar measured over K seeds, with the bar's seed spread and the
+    # real AUC's bootstrap SE both in the denominator. Continuous, so BY applies normally, and the
+    # 3,109-draw floor (a property of the add-one estimator, not of existence) does not arise.
+    # The library default stays `empirical` so the switch has to be declared by a config a run
+    # actually loads, exactly as the effect floor is.
+    existence_method: Literal["empirical", "untrained_z"] = "empirical"
+    # K, for `untrained_z`. `nulls.assert_untrained_bank_resolution` refuses below `nulls.K_MIN`,
+    # because this K is what the sd in every z-denominator is estimated from.
+    n_untrained_seeds: int = 30
+    # Where the K-seed bank lives. Keyed on (model_config, split, seed) by the builder, so a bank
+    # built against a different architecture must refuse rather than be silently reused.
+    untrained_bank_path: str | None = None
+
     # --- multiplicity correction (2B) — GROUNDED, decision (3) -------------------------
     # Benjamini–Yekutieli, chosen knowingly over BH: the existence tests are correlated *by
     # construction* (bulge levels partition one variable; features co-occur), so an

@@ -38,6 +38,7 @@ __all__ = [
     "extract_embeddings",
     "probe_auc",
     "probe_auc_ci",
+    "probe_auc_ci_se",
     "probe_direction",
     "ConceptDirection",
     "ProbeResult",
@@ -118,7 +119,7 @@ def probe_auc(
     return float(roc_auc_score(test.y, scores))
 
 
-def probe_auc_ci(
+def probe_auc_ci_se(
     train: Embeddings,
     test: Embeddings,
     *,
@@ -126,12 +127,18 @@ def probe_auc_ci(
     max_iter: int = DEFAULT_MAX_ITER,
     n_boot: int = 2000,
     seed: int = 0,
-) -> tuple[float, float, float]:
-    """Return ``(auc, lo, hi)`` — the point AUC plus a bootstrap 95% CI on the test set.
+) -> tuple[float, float, float, float]:
+    """Return ``(auc, lo, hi, se)`` — the point AUC, a bootstrap 95% CI, and the bootstrap SE.
 
-    The probe is fit **once** on ``train``; the CI comes from resampling the scored ``test``
-    set with replacement (degenerate single-class resamples are skipped), so the interval
+    The probe is fit **once** on ``train``; the interval comes from resampling the scored
+    ``test`` set with replacement (degenerate single-class resamples are skipped), so it
     reflects the finite test size — the honest way to state ``n_test`` ≈ a few hundred.
+
+    The **standard error** is the second consumer, and it arrived with Brief P's existence
+    test (D23): the ``untrained_z`` construction puts the real AUC's sampling uncertainty on
+    one side of the comparison and the untrained bar's seed spread on the other, so it needs a
+    scale, not an interval. Taken as the bootstrap SD rather than derived from the percentiles,
+    because ``(hi - lo) / (2 * 1.96)`` assumes a symmetry the AUC does not have near the ceiling.
     """
     _require_two_classes(train, test)
     from sklearn.metrics import roc_auc_score
@@ -149,9 +156,29 @@ def probe_auc_ci(
         if len(np.unique(y[bi])) < 2:  # skip a resample that lost a class
             continue
         boots.append(float(roc_auc_score(y[bi], scores[bi])))
-    if not boots:  # pathological tiny test set — no informative interval
-        return auc, auc, auc
+    if len(boots) < 2:  # pathological tiny test set — no informative interval or scale
+        return auc, auc, auc, 0.0
     lo, hi = (float(v) for v in np.percentile(boots, [2.5, 97.5]))
+    return auc, lo, hi, float(np.std(boots, ddof=1))
+
+
+def probe_auc_ci(
+    train: Embeddings,
+    test: Embeddings,
+    *,
+    c: float = 1.0,
+    max_iter: int = DEFAULT_MAX_ITER,
+    n_boot: int = 2000,
+    seed: int = 0,
+) -> tuple[float, float, float]:
+    """Return ``(auc, lo, hi)`` — the point AUC plus a bootstrap 95% CI on the test set.
+
+    The interval-only view of :func:`probe_auc_ci_se`, kept because it is what every existing
+    caller wants and a four-tuple would churn them all for a value they do not use.
+    """
+    auc, lo, hi, _se = probe_auc_ci_se(
+        train, test, c=c, max_iter=max_iter, n_boot=n_boot, seed=seed
+    )
     return auc, lo, hi
 
 

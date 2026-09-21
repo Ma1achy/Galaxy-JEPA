@@ -11,6 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from galaxy_jepa.probing import nulls as nz
 from galaxy_jepa.probing.nulls import existence_pvalue, family_significant
 
 pytestmark = pytest.mark.invariant
@@ -335,3 +336,94 @@ class TestNullBudget:
         one = ProbingConfig(scheme_name="full_tree", n_null_draws=4000, vote_count_min=21)
         two = ProbingConfig(scheme_name="reduced", n_null_draws=4000, vote_count_min=21)
         assert one.n_null_draws == two.n_null_draws == 4000
+
+
+# --- D23: the untrained-z existence construction -------------------------------------------
+#
+# `existence_null_samples` is a point mass (the untrained singleton floors every draw), so the
+# add-one p-value returns only 1/(n+1) or 1.0 and BY has nothing calibrated to act on. These pin
+# the replacement, and in particular that removing the 3,109-draw requirement did not remove a
+# resolution requirement — it moved it onto K.
+
+
+def _bar(mean: float, sd: float, k: int = 30, seed: int = 0) -> np.ndarray:
+    """A synthetic untrained bank with a known mean and spread."""
+    draws = np.random.default_rng(seed).standard_normal(k)
+    draws = (draws - draws.mean()) / draws.std(ddof=1)  # exact mean/sd, so assertions are tight
+    return mean + sd * draws
+
+
+def test_the_z_pvalue_is_continuous_where_the_add_one_estimator_was_not():
+    """The whole point: a p-value BY's rank-1 bar (3.216e-4 at family 37) can actually reach."""
+    bar = _bar(0.5359, 0.010)
+    strong = nz.untrained_z_pvalue(0.8845, 0.0019, bar)
+    assert strong < nz.family_bar(0.05, "benjamini_yekutieli", 37)
+    # the add-one estimator at the shipped 50 draws cannot get below 1/51, whatever the signal
+    assert nz.attainable_min_pvalue(50) > nz.family_bar(0.05, "benjamini_yekutieli", 37)
+
+
+def test_a_feature_at_its_bar_does_not_clear():
+    bar = _bar(0.5359, 0.010)
+    assert nz.untrained_z_pvalue(0.5359, 0.004, bar) == pytest.approx(0.5, abs=0.02)
+
+
+def test_a_feature_below_its_bar_is_uninformative():
+    bar = _bar(0.5359, 0.010)
+    assert nz.untrained_z_pvalue(0.5000, 0.004, bar) > 0.9
+
+
+def test_the_p_value_is_monotone_in_the_real_auc():
+    bar = _bar(0.55, 0.010)
+    ps = [nz.untrained_z_pvalue(a, 0.004, bar) for a in (0.56, 0.60, 0.65, 0.70)]
+    assert ps == sorted(ps, reverse=True)
+
+
+def test_a_wider_bar_makes_the_same_margin_less_significant():
+    """The bar's seed spread is in the denominator — that is the point of the construction."""
+    tight = nz.untrained_z_pvalue(0.60, 0.004, _bar(0.55, 0.002))
+    wide = nz.untrained_z_pvalue(0.60, 0.004, _bar(0.55, 0.030))
+    assert tight < wide
+
+
+def test_a_wider_real_interval_makes_the_same_margin_less_significant():
+    bar = _bar(0.55, 0.010)
+    assert nz.untrained_z_pvalue(0.60, 0.002, bar) < nz.untrained_z_pvalue(0.60, 0.040, bar)
+
+
+def test_student_t_is_used_not_the_normal():
+    """df = K-1, so the tail must be heavier than the normal's at the same z."""
+    from scipy.stats import norm
+
+    bar = _bar(0.55, 0.010, k=30)
+    # z = 3.5 exactly: margin 0.035 against sd 0.010 and se 0
+    p = nz.untrained_z_pvalue(0.55 + 3.5 * 0.010, 0.0, bar)
+    assert p > float(norm.sf(3.5))
+
+
+def test_the_bank_resolution_gate_still_bites():
+    """Removing the 3,109-draw floor moved the requirement onto K; it did not delete it."""
+    with pytest.raises(ValueError, match="untrained bank too small"):
+        nz.assert_untrained_bank_resolution(3)
+    assert nz.assert_untrained_bank_resolution(nz.K_MIN) is None
+
+
+def test_the_empirical_resolution_gate_still_bites_under_its_own_method():
+    """The old gate must not stop biting just because a new method exists beside it."""
+    with pytest.raises(ValueError, match="null resolution too coarse"):
+        nz.assert_null_resolution(50, alpha=0.05, method="benjamini_yekutieli", n_tests=37)
+
+
+def test_a_bank_too_small_to_estimate_spread_raises_rather_than_guessing():
+    with pytest.raises(ValueError, match="at least 2 untrained seeds"):
+        nz.untrained_z_pvalue(0.9, 0.01, np.array([0.55]))
+
+
+def test_a_scaleless_comparison_raises_rather_than_returning_zero():
+    """Both uncertainties zero is a broken measurement, not a p-value of 0."""
+    with pytest.raises(ValueError, match="no scale"):
+        nz.untrained_z_pvalue(0.9, 0.0, np.array([0.55, 0.55, 0.55]))
+
+
+def test_the_verdict_records_which_construction_made_it():
+    assert nz.ExistenceVerdict("f", 0.9, 0.01, True, True).method == nz.EXISTENCE_EMPIRICAL
+    assert nz.ExistenceVerdict("f", 0.9, 0.01, True, True, method=nz.EXISTENCE_UNTRAINED_Z).method

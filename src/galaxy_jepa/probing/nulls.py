@@ -18,7 +18,8 @@ computed it.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
+import math
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 
@@ -192,6 +193,87 @@ def required_null_draws(*, alpha: float, method: str, n_tests: int) -> int:
 BUDGET_FAMILY_SIZE: int = 37
 
 
+#: The two existence constructions. ``empirical`` is the original add-one estimator over the
+#: chance-calibrated null; ``untrained_z`` is D23's two-sided construction.
+EXISTENCE_EMPIRICAL: str = "empirical"
+EXISTENCE_UNTRAINED_Z: str = "untrained_z"
+
+#: Below this many untrained seeds the bar's own spread is too noisy to stand in the denominator
+#: of the z-statistic. The relative standard error of an sd estimate is ``1/sqrt(2(K-1))`` — 16%
+#: at K=20, 13% at K=30. Brief P runs at K=30; 20 is the refusal point, not the target.
+K_MIN: int = 20
+
+
+def untrained_z_pvalue(
+    real_auc: float, se_real: float, untrained_aucs: Sequence[float] | np.ndarray
+) -> float:
+    """One-sided p that ``real_auc`` is no better than its untrained bar — D23.
+
+    ``existence_null_samples`` is a **point mass**: the untrained singleton floors every draw
+    (see that function), so the add-one p-value can only return ``1/(n+1)`` or ``1.0`` and the
+    Benjamini–Yekutieli correction has nothing calibrated to act on. A 37-feature catalogue
+    without working multiplicity control is the exact failure BY was chosen to prevent.
+
+    The construction puts an uncertainty on **both** sides and compares them::
+
+        z = (AUC_real - mean(C)) / sqrt( sd(C)^2 + se_real^2 )
+
+    where ``C`` is the untrained-encoder bar measured across K seeds (it has real spread — Brief
+    N2 measured per-feature ranges 0.0026–0.0209 over three seeds) and ``se_real`` is the
+    bootstrap SE of the real AUC. Continuous in ``real_auc``, so BY applies normally and the
+    3,109-draw resolution floor — which is a property of the *add-one estimator*, not of
+    existence — does not arise.
+
+    **Student t, not normal, with df = K-1.** The sd in the denominator is *estimated* from K
+    samples, and BY's rank-1 bar at family 37 is 3.216e-4 — a ~3.4σ statement. At df=29 the t
+    quantile there is 3.70 against the normal's 3.41, so the normal would be optimistic in
+    exactly the tail the correction cares about. The conservative direction is the right one for
+    a gate.
+
+    The price is a distributional assumption where the empirical estimator had none. That is
+    recorded in D23 and tested per feature rather than asserted.
+    """
+    bar = np.asarray(untrained_aucs, dtype=np.float64)
+    k = int(bar.size)
+    if k < 2:
+        raise ValueError(
+            f"untrained_z needs at least 2 untrained seeds to estimate the bar's spread, got {k}"
+        )
+    mean_bar = float(bar.mean())
+    sd_bar = float(bar.std(ddof=1))
+    se = max(float(se_real), 0.0)
+    denom = math.sqrt(sd_bar**2 + se**2)
+    if denom <= 0.0:
+        # Both the bar and the real AUC would have to be exactly noiseless. That is not a
+        # finding about the feature, it is a broken measurement, so it raises (architecture.md
+        # "fail loudly, never silently default") rather than returning a p of 0 or 1.
+        raise ValueError(
+            f"untrained_z has no scale: sd(bar)={sd_bar} and se_real={se} are both zero, so no "
+            f"test statistic can be formed. Check the untrained bank and the bootstrap."
+        )
+    from scipy.stats import t as student_t
+
+    return float(student_t.sf((float(real_auc) - mean_bar) / denom, df=k - 1))
+
+
+def assert_untrained_bank_resolution(k: int, *, k_min: int = K_MIN) -> None:
+    """Raise if the untrained bank is too small for its spread to be trusted.
+
+    The sibling of :func:`assert_null_resolution`, and it exists for the same reason. Switching
+    to ``untrained_z`` removes the 3,109-draw requirement, and a gate that simply stops biting
+    once its neighbour is satisfied is not a gate — so the resolution requirement moves rather
+    than disappearing. Here it lands on K, because K is what the denominator's ``sd(C)`` is
+    estimated from.
+    """
+    if k < k_min:
+        raise ValueError(
+            f"untrained bank too small: {k} seeds give a bar whose standard deviation has a "
+            f"relative standard error of {1 / math.sqrt(2 * max(k - 1, 1)):.0%}, and that sd is "
+            f"the denominator of every existence z-statistic. Build at least {k_min} seeds "
+            f"(`uv run python artifacts/p1_untrained_bank.py`)."
+        )
+
+
 def assert_null_resolution(n_null: int, *, alpha: float, method: str, n_tests: int) -> None:
     """Raise if the null is too coarse for any feature to clear the corrected bar.
 
@@ -230,6 +312,9 @@ class ExistenceVerdict:
     pvalue: float
     exceeds_null: bool
     clean: bool
+    #: Which construction produced ``pvalue`` — the two are not interchangeable and an artefact
+    #: read back later must not have to guess which one it carries.
+    method: str = EXISTENCE_EMPIRICAL
 
 
 def existence_verdicts(
@@ -239,6 +324,9 @@ def existence_verdicts(
     method: str = "benjamini_yekutieli",
     effect_floor: float = 0.65,
     n_tests: int | None = None,
+    existence_method: str = EXISTENCE_EMPIRICAL,
+    untrained_bank: Mapping[str, Sequence[float] | np.ndarray] | None = None,
+    real_se: Mapping[str, float] | None = None,
 ) -> dict[str, ExistenceVerdict]:
     """The full existence layer: p-values → family correction → effect floor.
 
@@ -250,10 +338,34 @@ def existence_verdicts(
     only separates clean from marginal *among the real*. The floor cannot rescue a
     non-significant feature, and significance cannot excuse a trivial effect size.
     """
-    pvals = existence_pvalues(controls)
-    if controls:
-        n_null = min(existence_null_samples(fc).size for fc in controls.values())
-        assert_null_resolution(n_null, alpha=alpha, method=method, n_tests=n_tests or len(pvals))
+    if existence_method == EXISTENCE_UNTRAINED_Z:
+        if untrained_bank is None or real_se is None:
+            raise ValueError(
+                "existence_method='untrained_z' needs both `untrained_bank` (per-feature "
+                "untrained AUCs across K seeds) and `real_se` (per-feature bootstrap SE). "
+                "Build the bank with artifacts/p1_untrained_bank.py."
+            )
+        missing = sorted(set(controls) - set(untrained_bank))
+        if missing:
+            raise ValueError(f"untrained bank is missing {len(missing)} feature(s): {missing[:5]}")
+        if controls:
+            assert_untrained_bank_resolution(
+                min(len(np.asarray(untrained_bank[f])) for f in controls)
+            )
+        pvals = {
+            feat: untrained_z_pvalue(fc.real_auc, real_se[feat], untrained_bank[feat])
+            for feat, fc in controls.items()
+        }
+    elif existence_method == EXISTENCE_EMPIRICAL:
+        pvals = existence_pvalues(controls)
+        if controls:
+            n_null = min(existence_null_samples(fc).size for fc in controls.values())
+            assert_null_resolution(
+                n_null, alpha=alpha, method=method, n_tests=n_tests or len(pvals)
+            )
+    else:
+        raise ValueError(f"unknown existence_method {existence_method!r}")
+
     significant = family_significant(pvals, alpha=alpha, method=method, n_tests=n_tests)
     return {
         feat: ExistenceVerdict(
@@ -262,6 +374,7 @@ def existence_verdicts(
             pvalue=pvals[feat],
             exceeds_null=significant[feat],
             clean=significant[feat] and fc.real_auc >= effect_floor,
+            method=existence_method,
         )
         for feat, fc in controls.items()
     }

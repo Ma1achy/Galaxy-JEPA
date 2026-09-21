@@ -24,8 +24,10 @@ dependencies = [
 # Populated in later phases; declared here so the layout is visible.
 data = ["astropy>=6", "astroquery", "galaxy-datasets", "matplotlib>=3.8", "pillow"]
 # The frozen-probe read-out + gut-check figures (probing/, eval/): sklearn for the
-# L2-logistic probe + ROC-AUC, umap-learn for the embedding scatter.
-eval = ["scikit-learn>=1.3", "umap-learn>=0.5", "matplotlib>=3.8"]
+# L2-logistic probe + ROC-AUC, umap-learn for the embedding scatter. scipy is named
+# EXPLICITLY rather than inherited through sklearn: since D23 it carries the Student-t
+# tail behind the existence gate, and a load-bearing path should not rest on a transitive.
+eval = ["scikit-learn>=1.3", "scipy>=1.11", "umap-learn>=0.5", "matplotlib>=3.8"]
 dev = ["pytest>=8", "ruff>=0.6", "pre-commit>=3.8", "hypothesis>=6", "mypy>=1.10"]
 
 [build-system]
