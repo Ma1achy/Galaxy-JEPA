@@ -299,6 +299,73 @@ def assert_null_resolution(n_null: int, *, alpha: float, method: str, n_tests: i
         )
 
 
+#: The margin over its own bar that a feature must be able to RESOLVE before an R4 can be read as
+#: "the encoder cannot see this" rather than "this bucket is too small to tell". A **declared**
+#: reference, not a derived one — the same posture as O1's 0.5 retention figure. 0.05 sits just
+#: above t09-boxy's measured margin (+0.0489), the thinnest real signal the six-feature spread
+#: found, so a bucket that cannot resolve 0.05 could not have found the weakest thing yet seen.
+UNDERPOWERED_MARGIN: float = 0.05
+
+
+def resolvable_margin(
+    se_real: float,
+    *,
+    sd_bar: float = 0.0,
+    alpha: float = 0.05,
+    method: str = "benjamini_yekutieli",
+    n_tests: int = 37,
+    power: float = 0.80,
+    df: int | None = None,
+) -> float:
+    """The smallest margin over its own bar this feature could show as significant.
+
+    A deep per-bucket feature can fail existence because the encoder cannot read it, or because
+    the bucket has 1,198 positives and **no** effect of a plausible size would have cleared a
+    family-corrected bar there. Those are different findings and the ladder must not print the
+    same rung for both: an underpowered R4 that reads as a scientific null is exactly the failure
+    this exists to prevent.
+
+        margin = (t_threshold + t_power) * sqrt( sd_bar^2 + se_real^2 )
+
+    The scale is the **same denominator the test uses**, so the answer is in the units the verdict
+    was decided in.
+
+    Stated as a **margin over the bar**, not as an absolute AUC compared to the effect floor. The
+    absolute form misfires: where a feature's untrained bar already exceeds the floor — t01's is
+    0.7908 against a floor of 0.7267 — ``MDE > floor`` holds by arithmetic however large the
+    sample, so the best-powered feature in the catalogue would be labelled underpowered. The
+    binding constraint there is the bar, not the floor, and the margin form says so.
+
+    ``t_threshold`` is taken at BY's **most lenient** rank (rank m, ``alpha / H_m``), not its
+    strictest. The claim is "this bucket could not have demonstrated a direction *even if one
+    existed*", so it must hold under the most favourable bar the feature could face; declaring
+    underpowered off the rank-1 bar would condemn features that merely ranked badly.
+    """
+    scale = math.sqrt(max(float(sd_bar), 0.0) ** 2 + max(float(se_real), 0.0) ** 2)
+    if scale <= 0.0:
+        return 0.0
+    if method == "benjamini_yekutieli":
+        h_m = float(np.sum(1.0 / np.arange(1, max(int(n_tests), 1) + 1)))
+        threshold = alpha / h_m  # rank-m: the most lenient position in the family
+    else:
+        threshold = alpha / max(int(n_tests), 1)
+
+    if df is not None and df > 0:
+        from scipy.stats import t as student_t
+
+        q_thr, q_pow = float(student_t.isf(threshold, df=df)), float(student_t.ppf(power, df=df))
+    else:
+        from scipy.stats import norm
+
+        q_thr, q_pow = float(norm.isf(threshold)), float(norm.ppf(power))
+    return (q_thr + q_pow) * scale
+
+
+def is_underpowered(margin: float, *, reference: float = UNDERPOWERED_MARGIN) -> bool:
+    """Whether an R4 on this feature means "cannot resolve at this N", not "absent"."""
+    return margin > reference
+
+
 @dataclasses.dataclass(frozen=True)
 class ExistenceVerdict:
     """Per-feature existence outcome after the family-wise correction.
