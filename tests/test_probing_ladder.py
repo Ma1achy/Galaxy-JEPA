@@ -114,6 +114,16 @@ def _config() -> ProbingConfig:
     )
 
 
+def _controls_and_ids(seed: int = 1):
+    """The three embedding sources and the id list — built once, sliced per feature."""
+    dataset, encoder = _Corpus(), _SignalEncoder()
+    real = extract_matrix(encoder, dataset)
+    untrained = ctl.untrained_encoder_matrix(_MODEL_CONFIG, dataset)
+    noise = ctl.noise_through_encoder_matrix(encoder, dataset, seed=seed)
+    controls = ctl.ControlEmbeddings(real=real, untrained=untrained, noise=noise)
+    return controls, [int(o) for o in real.object_ids]
+
+
 def _run(out_dir) -> object:
     return run_probing(
         _SignalEncoder(),
@@ -230,3 +240,78 @@ def test_two_identical_invocations_produce_identical_verdicts(tmp_path):
     assert stamp_a["config_hash"] == stamp_b["config_hash"]
     assert stamp_a["data_snapshot"] == stamp_b["data_snapshot"]
     assert first.rung_table() == second.rung_table()
+
+
+# --- D23: the untrained-z existence path, end to end ----------------------------------------
+#
+# Every other ladder test runs the `empirical` default, so the construction the 37-feature
+# catalogue will actually use had no end-to-end cover: the bank loader, the dispatch, the SE
+# threading and the power annotation were each unit-tested and never exercised together.
+
+
+def _bank_file(tmp_path, features, *, k=25, mean=0.5, sd=0.01, seed=0):
+    rng = np.random.default_rng(seed)
+    rec = {
+        "model_key": "test",
+        "split_key": "test",
+        "seeds": {
+            str(s): {f: float(mean + sd * rng.standard_normal()) for f in features}
+            for s in range(k)
+        },
+    }
+    path = tmp_path / "bank.json"
+    path.write_text(json.dumps(rec))
+    return path
+
+
+def _z_config(bank_path) -> ProbingConfig:
+    cfg = _config()
+    return cfg.model_copy(
+        update={
+            "existence_method": "untrained_z",
+            "untrained_bank_path": str(bank_path),
+            "n_untrained_seeds": 25,
+            "n_boot": 200,  # the fixture is tiny; 2000 resamples buys nothing here
+        }
+    )
+
+
+@pytest.mark.integration
+def test_the_untrained_z_path_runs_and_separates_signal_from_absence(tmp_path):
+    labels = _labels()
+    cfg = _z_config(_bank_file(tmp_path, labels.features))
+    controls, ids = _controls_and_ids()
+    result = run_ladder(
+        controls, labels, ids[:120], ids[120:], config=cfg, sky_label_col="snr"
+    )
+    assert {v.method for v in result.existence.values()} == {"untrained_z"}
+    # a p-value the empirical estimator could not have produced at this draw count
+    assert all(0.0 <= e.pvalue <= 1.0 for e in result.existence.values())
+    # power travels with every rung, passing or failing
+    for v in result.verdicts.values():
+        assert v.n_test > 0 and v.resolvable_margin > 0.0
+
+
+@pytest.mark.integration
+def test_a_missing_bank_raises_rather_than_falling_back_to_the_point_mass(tmp_path):
+    """Silently reverting would produce a catalogue computed by a test the config forbade."""
+    cfg = _z_config(tmp_path / "does_not_exist.json")
+    controls, ids = _controls_and_ids()
+    with pytest.raises(FileNotFoundError):
+        run_ladder(controls, _labels(), ids[:120], ids[120:], config=cfg, sky_label_col="snr")
+
+
+@pytest.mark.integration
+def test_an_uneven_bank_is_refused(tmp_path):
+    """Different-sized denominators across features is not a catalogue, it is a bug."""
+    labels = _labels()
+    path = _bank_file(tmp_path, labels.features)
+    rec = json.loads(path.read_text())
+    rec["seeds"]["0"].pop(labels.features[0])  # one feature short on one seed
+    path.write_text(json.dumps(rec))
+    controls, ids = _controls_and_ids()
+    with pytest.raises(ValueError, match="covers"):
+        run_ladder(
+            controls, _labels(), ids[:120], ids[120:], config=_z_config(path),
+            sky_label_col="snr",
+        )
