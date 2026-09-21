@@ -807,13 +807,20 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   non-reproduction in this regime, not as evidence against the paper: their rho is across runs
   over a hyperparameter sweep on ImageNet at eight views; ours is within one 3,000-step run at one
   view. The 1C label-blind checkpoint rule stands unchanged.
-- [ ] **RESTATE the SIGReg collapse claim — Brief O3 gives it a reference point.** An *untrained*
-  encoder on this architecture already has mean-cosine **+0.988**. So J's +0.984 under SIGReg is
-  approximately the untrained value, not a collapse the regulariser induced: the representation
-  barely moved off its initialisation. Report it that way — a failure to learn, which is more
-  specific and more damning than "collapsed". The signature of genuine learning, measured at O3's
-  overfit floor, is mean-cosine **+0.413** at effective rank **19.7** and std **1.56** (from 0.109);
-  effective rank dips to 9.4 mid-run and recovers, so the dip is a transient and not the signal.
+- [ ] **RECALIBRATE every mean-cosine figure on record — Brief O3 gives the origin.** An *untrained*
+  encoder on this architecture already sits at mean-cosine **+0.988**. **High cosine is the untrained
+  DEFAULT, and learning means moving off it** — so every cosine figure must be read against +0.988,
+  not against 0. A run at +0.6 has moved a long way; a run at +0.95 has barely moved.
+  **Applies to H5's baseline, NOT to J.** H5's baseline (pre-D17: lambda=0, LR 1e-3, warmup 100, no
+  SIGReg) ended at +0.984 — it never learned to spread its embeddings at all, rather than collapsing
+  into a shared component from a spread state. **That reinforces D17; it says nothing about SIGReg.**
+  J under SIGReg ended at **+0.0250** (`j_findings.md:204`) — SIGReg forces isotropy, the opposite
+  failure. An earlier version of this entry attributed +0.984 to J and was wrong.
+  The signature of genuine learning, measured at O3's overfit floor, is mean-cosine **+0.413** at
+  effective rank **19.7** and std **1.56** (from 0.109); effective rank dips to 9.4 mid-run and
+  recovers, so the dip is a transient and not the signal. **Caveat:** O3's effective rank is measured
+  on a batch of 32 and erank is bounded by sample count, so cosine is comparable across runs and
+  effective rank is not.
 - [ ] **The lambda-robustness result is a positive replication** worth reporting: an 8x difference
   in weight gave indistinguishable AUC (0.9470 vs 0.9471) on a corpus, architecture and objective
   the paper did not test.

@@ -272,10 +272,31 @@ loss to be low, while the *embeddings across galaxies* spread apart.
 Three things follow, and one of them corrects a reading made earlier in this brief.
 
 **(a) Mean cosine at initialisation is +0.988.** An untrained encoder already maps every galaxy to
-nearly the same direction. This reframes the SIGReg diagnosis directly: **J's +0.984 under SIGReg
-is not a collapse the regulariser caused — it is approximately the untrained value, i.e. the
-representation barely moved off its initialisation.** That is a different and more specific failure
-than "SIGReg collapsed the representation", and it should be reported as the former.
+nearly the same direction.
+
+**CORRECTED (Q0).** An earlier draft of this section attributed the +0.984 figure to J under SIGReg.
+That is the wrong run. **J ended at mean-cosine +0.0250** (min +0.0225 @ 38,600 —
+`artifacts/j_findings.md:204`); SIGReg forces *isotropy*, which is the opposite failure. The +0.984
+is **H5's baseline arm** — the pre-D17 recipe, λ=0, LR 1e-3, warmup 100, no SIGReg — against the
+proposal's +0.286 (`artifacts/h5_findings.md:27,49`).
+
+**The corrected reading, which is about D17 and not about SIGReg.** The untrained encoder sits at
++0.988 and H5's baseline ended at +0.984. So the old high-LR recipe **never learned to spread its
+embeddings at all** — it did not collapse into a shared component from a spread state, it simply
+never left the one it was initialised with. **That reinforces D17's adoption; it says nothing about
+SIGReg.**
+
+**The recalibration is the part that generalises: high cosine is the untrained default, and learning
+means moving off it.** Every mean-cosine figure on record must be read against **+0.988**, not
+against 0. A run at +0.6 has moved a long way; a run at +0.95 has barely moved. H5's cosine column
+was read correctly at the time (it separated the arms 3.4× more sharply than any other diagnostic)
+but its *magnitude* was being read against the wrong origin.
+
+**One caveat, found while verifying this.** H5's baseline also ended at effective rank **7.91**
+against O3's initialisation **19.8** — so rank *did* fall from initialisation even though cosine did
+not move. But O3's figure is measured on a batch of 32 and H5's on the monitor slice, and effective
+rank is bounded above by the sample count. **Cosine is comparable across the two; effective rank is
+not.** The baseline was inert on the cosine axis specifically, not on every axis.
 
 **(b) Genuine learning ends at high rank and low cosine, not low rank.** Effective rank dips to
 9.37 around step 400 and then recovers monotonically to 19.72, while cosine falls the whole way.
