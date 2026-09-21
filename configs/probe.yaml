@@ -65,10 +65,34 @@ n_boot: 2000
 
 # --- existence + effect floor (decisions 1 and 2) — two gates, both must pass -----------
 alpha: 0.05
-n_null_draws: 50            # sets the test's RESOLUTION: min attainable p = 1/(n+1).
-                            # Scheme 1 (BY family 37) needs >= 3109, or nothing can pass —
-                            # `nulls.assert_null_resolution` refuses rather than returning an
-                            # empty catalogue that reads like a scientific null.
+n_null_draws: 50            # the shuffled / random-embedding control draws. Under
+                            # `existence_method: empirical` this also sets the test's RESOLUTION
+                            # (min attainable p = 1/(n+1)), and Scheme 1's BY family of 37 needs
+                            # >= 3109 or nothing can pass — `nulls.assert_null_resolution`
+                            # refuses rather than returning an empty catalogue that reads like a
+                            # scientific null. Under `untrained_z` (below) the p-value is
+                            # parametric and has no resolution floor, so these 50 draws are what
+                            # they always should have been: reported controls and the MLP
+                            # selectivity ceiling, not the existence test's denominator.
+
+# --- how existence is computed (D23) ----------------------------------------------------
+# `existence_null_samples` is a POINT MASS: the untrained singleton floors every draw, so the
+# add-one p-value returns only 1/(n+1) or 1.0 and Benjamini-Yekutieli has nothing to order. A
+# 37-feature catalogue without working multiplicity control is the exact failure BY was chosen to
+# prevent. `untrained_z` compares the real AUC to the untrained bar measured across K seeds, with
+# the bar's seed spread AND the real AUC's bootstrap SE in the denominator, on a Student t with
+# df = K-1. See D23 for the argument and for what is given up (a normality assumption, tested and
+# reported per feature rather than asserted).
+existence_method: untrained_z
+n_untrained_seeds: 30       # K. `nulls.assert_untrained_bank_resolution` refuses below K_MIN=20,
+                            # because K is what every z-denominator's sd is estimated from.
+untrained_bank_path: artifacts/out/p1_untrained_bank.json
+
+# DEFERRED (Brief P): the uncertainty geometry is the high-beta headline and carries an open
+# decision of its own — a vote-count floor or weighting LOCAL to the uncertainty test and the
+# consensus-extreme split. 50/50 on 60 votes is genuinely ambiguous; 2/2 on 4 may be merely
+# undersampled. Gated off rather than deleted.
+uncertainty_geometry: false
 # FROZEN (Brief O0) — spec register item 4 is closed. The value is a scientific judgement, and
 # its one honest window was the medium local run; that window has now been used. Both lines move
 # together or `_freezes_agree_with_the_live_values` refuses the config at load, which is the point.

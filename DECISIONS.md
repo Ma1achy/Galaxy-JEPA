@@ -1089,3 +1089,67 @@ ever wired into the ladder, that interaction needs deciding, not inheriting.
 **Source.** `artifacts/n_findings.md`; `artifacts/out/n1_spread_controls.json` (M's 4-epoch
 encoder, three untrained seeds), `artifacts/out/n2_floor_evidence.txt`; drivers
 `artifacts/n1_controls.py`, `artifacts/n2_floor_evidence.py`.
+
+---
+
+## D23 — Existence is tested against the untrained bar across K seeds, not a point-mass null — *decided (Brief P; changes how a pre-registered gate computes existence)*
+
+**What was wrong.** `nulls.existence_null_samples` combines four chance-calibrated controls by a
+per-draw elementwise maximum, and two of the four are per-feature *constants* that floor every
+draw. Brief N measured the consequence on all six probed features: the untrained-encoder singleton
+exceeds the shuffled and random-embedding maxima every time, narrowest gap 0.5160 against 0.5143.
+So the null is a **point mass**, `existence_pvalue` can only return `1/(n+1)` or `1.0`, and
+existence reduces exactly to `real_auc > untrained_encoder_auc`.
+
+That is survivable for a six-feature spread and **not** survivable for Scheme 1. Benjamini–Yekutieli
+over a 37-test family needs a p-value it can order and threshold; a two-valued one gives it nothing
+to act on. A 37-feature catalogue without working multiplicity control is precisely the failure BY
+was chosen (D-series decision 3) to prevent: near-bar features clearing by chance.
+
+**Why an empirical seed null does not fix it.** The obvious repair — build the null from untrained
+AUCs across many seeds — hits the *same wall*. BY's rank-1 threshold at family 37 is
+`0.05 / (37 · H₃₇)` = **3.216 × 10⁻⁴**, so an add-one estimator needs **≥3,109 draws**
+(`nulls.required_null_draws`, pinned in the tests). At ~576 s per untrained extraction that is
+≈41,000 GPU-hours. The 3,109 figure is a property of the **add-one estimator**, not of existence.
+
+**The decision.** Existence under `existence_method: untrained_z` is
+
+```
+H0_f :  AUC_f <= C_f
+z = (AUC_real − mean(C)) / sqrt( sd(C)² + se_real² ) ,   p = t.sf(z, df = K−1)
+```
+
+where `C` is the untrained-encoder bar measured across **K = 30** seeds and `se_real` is the
+bootstrap SE of the real AUC. Continuous in `AUC_real`, so BY applies normally and no resolution
+floor arises.
+
+**Both uncertainties enter, and that is the point.** The bar is *not* a constant: Brief N2 measured
+per-feature ranges of 0.0026–0.0209 across three seeds (median 0.0073). Treating it as known would
+call features significant on a margin narrower than the bar's own seed-to-seed movement.
+
+**Student t with df = K−1, not the normal.** The denominator's `sd` is estimated from K samples, and
+BY's rank-1 bar is a ~3.4σ statement. At df = 29 the t quantile there is 3.70 against the normal's
+3.41 — the normal would be optimistic in exactly the tail the correction cares about, and the
+conservative direction is the right one for a gate.
+
+**What is given up.** A distributional assumption, where the add-one estimator had none. This is the
+weakest joint in the construction and is not hidden: normality is **tested and reported per feature**
+(Shapiro–Wilk and QQ data at K = 30), and where the untrained tail is non-normal that is stated as a
+limitation on those features' p-values.
+
+**The resolution requirement moved; it did not disappear.**
+`nulls.assert_untrained_bank_resolution` refuses a bank below `K_MIN = 20`, because K is what every
+z-denominator's `sd` is estimated from (the relative SE of an sd estimate is `1/√(2(K−1))` — 16% at
+K=20, 13% at K=30). `assert_null_resolution` is untouched and still raises under its own method.
+A gate that stops biting once its neighbour is satisfied is not a gate; both are pinned by tests.
+
+**Scope.** The library default stays `empirical`, so the switch must be declared by a config a run
+actually loads — the same posture as the effect floor. The untrained bar never touches a trained
+checkpoint (`controls.untrained_encoder_matrix` builds from the model constructor record and a
+seed), so the bank is a property of (architecture, seed, galaxies) and is **reusable across
+encoders**: M's untrained nulls matched J's to four decimals.
+
+**Checked against real margins before adoption** (bank sd 0.010, K = 30): t01 featured-or-disk
+p = 1×10⁻²⁷; t09 bulge-boxy p = 8.7×10⁻⁵, clearing BY's rank-1 bar by a factor of 3.7; t10
+arms-medium p = 0.90 — failing independently, in agreement with its seed-dependent existence and its
+collapse under all six of O1's matched evaluations.
