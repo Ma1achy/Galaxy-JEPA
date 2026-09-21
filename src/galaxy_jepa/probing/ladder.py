@@ -138,31 +138,59 @@ def _nuisance_clearance(
     *,
     config: ProbingConfig,
 ) -> tuple[bool, match.MatchedVerdict | None]:
-    """Nuisance gate (3D-ii): clear iff no nuisance competitive, or a competitive one survives
-    matched evaluation (the nuisance held constant within the matched set)."""
+    """Nuisance gate (3D-ii): clear iff no nuisance is competitive, or the worst one survives
+    matched evaluation (the nuisance held constant within the matched set).
+
+    **Matching now runs unconditionally.** 3D-ii specified it as *targeted* — fires only for
+    flagged features, bounded cost. That has been measured false twice: on J's encoder and on M's,
+    every nuisance beat every morphology feature but featured-ness, so the trigger fires for every
+    feature on three or four nuisances each. Brief O1 then measured the standing cost at ~24 min on
+    top of a headline run. A gate whose trigger always fires is not a trigger, and running it
+    conditionally only hides which features were never tested. So the verdict is computed for every
+    feature and the *competitiveness* is recorded alongside rather than deciding whether to look.
+
+    **The `nuisance_valid` filter is applied here.** It was not, and that was a defect:
+    `controls.build_feature_controls` filters the same vectors through it before measuring the
+    nuisance panel, so the panel and the matched re-probe were being taken over different rows. The
+    unfiltered ones are `petrorad_suspect` — systematically bright, nearby and featured, i.e.
+    exactly the confound direction being matched away. Strata built over them are strata built over
+    651-px "galaxies".
+    """
     competitive = [
         n
         for n, auc in fc.nuisance_aucs.items()
         if match.nuisance_competitive(fc.real_auc, auc, margin=config.nuisance_competitive_margin)
     ]
-    if not competitive:
+    # The worst nuisance whether or not it cleared the competitive margin: with nothing
+    # competitive there is still a strongest one, and matching against it is the honest check.
+    if not fc.nuisance_aucs:
         return True, None
-    # re-test on the most competitive nuisance, matched
-    worst = max(competitive, key=lambda n: fc.nuisance_aucs[n])
-    train = feature_embeddings(controls.real, labels, feature, train_ids)
-    test = feature_embeddings(controls.real, labels, feature, test_ids)
+    worst = max(fc.nuisance_aucs, key=lambda n: fc.nuisance_aucs[n])
+
     present_tr = feature_ids(controls.real, labels, feature, train_ids)
     present_te = feature_ids(controls.real, labels, feature, test_ids)
+    keep_tr = labels.nuisance_valid(worst, present_tr)
+    keep_te = labels.nuisance_valid(worst, present_te)
+    ids_tr = [o for o, k in zip(present_tr, keep_tr, strict=True) if k]
+    ids_te = [o for o, k in zip(present_te, keep_te, strict=True) if k]
+
+    full_tr = feature_embeddings(controls.real, labels, feature, train_ids)
+    full_te = feature_embeddings(controls.real, labels, feature, test_ids)
+    train = Embeddings(full_tr.x[keep_tr], full_tr.y[keep_tr], full_tr.fraction[keep_tr])
+    test = Embeddings(full_te.x[keep_te], full_te.y[keep_te], full_te.fraction[keep_te])
+
     verdict = match.matched_evaluation(
         train,
         test,
-        labels.nuisance_value(worst, present_tr),
-        labels.nuisance_value(worst, present_te),
+        labels.nuisance_value(worst, ids_tr),
+        labels.nuisance_value(worst, ids_te),
         survive_threshold=config.effect_floor,
         c=config.c,
         seed=config.seed,
     )
-    return verdict.survived, verdict
+    # Nothing competitive is still a clearance — the matched verdict is then a measurement carried
+    # for the record, not a gate that can fail the feature.
+    return (True if not competitive else verdict.survived), verdict
 
 
 def _passing_rung(

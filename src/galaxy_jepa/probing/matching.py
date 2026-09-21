@@ -84,24 +84,65 @@ def matched_auc(
     c: float = 1.0,
     seed: int = 0,
 ) -> float:
-    """Re-probe the feature within the matched (nuisance-balanced) train/test subsets."""
+    """Re-probe the feature within the matched (nuisance-balanced) train/test subsets.
+
+    Returns 0.5 on a degenerate match. Callers that need to tell that 0.5 apart from a real
+    collapse want :func:`matched_evaluation`, whose verdict carries the survivor counts.
+    """
+    auc, _tr, _te, _degenerate = _matched_auc_with_counts(
+        train, test, match_train, match_test, n_strata=n_strata, c=c, seed=seed
+    )
+    return auc
+
+
+def _matched_auc_with_counts(
+    train: Embeddings,
+    test: Embeddings,
+    match_train: np.ndarray,
+    match_test: np.ndarray,
+    *,
+    n_strata: int = 5,
+    c: float = 1.0,
+    seed: int = 0,
+) -> tuple[float, int, int, bool]:
+    """``(auc, n_matched_train, n_matched_test, degenerate)`` — the counts the 0.5 needs."""
     tr = stratified_match(match_train, train.y, n_strata=n_strata, seed=seed)
     te = stratified_match(match_test, test.y, n_strata=n_strata, seed=seed + 1)
     if tr.size == 0 or te.size == 0:
-        return 0.5
+        return 0.5, int(tr.size), int(te.size), True
     train_m = Embeddings(train.x[tr], train.y[tr], train.fraction[tr])
     test_m = Embeddings(test.x[te], test.y[te], test.fraction[te])
     if len(np.unique(train_m.y)) < 2 or len(np.unique(test_m.y)) < 2:
-        return 0.5
-    return probe_auc(train_m, test_m, c=c)
+        return 0.5, int(tr.size), int(te.size), True
+    return probe_auc(train_m, test_m, c=c), int(tr.size), int(te.size), False
 
 
 @dataclasses.dataclass(frozen=True)
 class MatchedVerdict:
-    """The outcome of a matched evaluation: did the signal survive holding the confound fixed?"""
+    """The outcome of a matched evaluation: did the signal survive holding the confound fixed?
+
+    **The survivor counts are not decoration.** :func:`matched_auc` returns exactly 0.5 when the
+    matched set is empty or single-class, which is indistinguishable from "the signal was entirely
+    confound" unless the count travels with the number. Brief O1 had to bypass
+    :func:`matched_evaluation` altogether and call :func:`stratified_match` itself to report them;
+    the second consumer is the full 37-feature ladder, so they live here now.
+
+    ``degenerate`` says plainly which 0.5 this is: a statement about the SAMPLE, never folded into
+    a statement about the signal.
+    """
 
     matched_auc: float
     survived: bool
+    n_matched_train: int = 0
+    n_matched_test: int = 0
+    n_train: int = 0
+    n_test: int = 0
+    degenerate: bool = False
+
+    @property
+    def share_test(self) -> float:
+        """Fraction of the unmatched test set that survived matching."""
+        return self.n_matched_test / self.n_test if self.n_test else 0.0
 
 
 def matched_evaluation(
@@ -120,5 +161,15 @@ def matched_evaluation(
     ``survive_threshold`` is the bar the matched AUC must still clear (the caller passes the
     effect floor); below it the apparent direction was the confound — itself a real finding.
     """
-    auc = matched_auc(train, test, match_train, match_test, n_strata=n_strata, c=c, seed=seed)
-    return MatchedVerdict(matched_auc=auc, survived=auc >= survive_threshold)
+    auc, tr_n, te_n, degenerate = _matched_auc_with_counts(
+        train, test, match_train, match_test, n_strata=n_strata, c=c, seed=seed
+    )
+    return MatchedVerdict(
+        matched_auc=auc,
+        survived=auc >= survive_threshold,
+        n_matched_train=tr_n,
+        n_matched_test=te_n,
+        n_train=int(len(train.y)),
+        n_test=int(len(test.y)),
+        degenerate=degenerate,
+    )
