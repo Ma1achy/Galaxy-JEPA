@@ -60,6 +60,7 @@ from m1_preflight import main as preflight  # noqa: E402
 
 from galaxy_jepa.callbacks.checkpoint import TrainCheckpointer  # noqa: E402
 from galaxy_jepa.core.config import config_hash  # noqa: E402
+from galaxy_jepa.core.stopping import FLAT_DELTA, read_curve  # noqa: E402
 from galaxy_jepa.data.dataset import ResumableShuffle, StampDataset  # noqa: E402
 from galaxy_jepa.harness import build_objective, seed_init  # noqa: E402
 from galaxy_jepa.objectives.jepa import _to_device, learning_rate, train_jepa  # noqa: E402
@@ -70,9 +71,6 @@ MONITOR_BATCH = 64
 #: a turn would be missed, sparse late because a plateau does not need resolution.
 PROBE_EPOCHS = (0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0)
 
-#: M4, stated before the numbers. Stop when consensus AUC improves by less than this across two
-#: CONSECUTIVE probe intervals, and the trend is not still rising within intervals.
-FLAT_DELTA = 0.002
 
 OUT = REPO / "artifacts" / "out"
 PROBE = Path(__file__).resolve().parent / "k2_trajectory_probe.py"
@@ -127,31 +125,14 @@ def _merge(into: list[float], new: list[float]) -> list[float]:
 
 
 def _read_rule(curve: list[dict]) -> tuple[bool, str]:
-    """M4's stopping rule, applied to the consensus AUC. Returns (stop, why).
+    """M4's stopping rule. Thin wrapper over `core.stopping.read_curve`.
 
-    The rule as briefed is a raw ΔAUC per probe interval. The intervals are UNEQUAL by design
-    (0.5, 1, 2, 4, 6, 8, 10 epochs), so a raw delta favours stopping late, when intervals are
-    widest — a 2-epoch gap has four times the room to improve that a 0.5-epoch gap has. The slope
-    per epoch is therefore reported alongside, and if the two disagree the run CONTINUES: the rule
-    may stop the run early, it may never extend it.
+    The rule moved into the package when O2 exposed the signed-comparison defect: a decline read
+    as FLAT. It decides when to end a 46-hour job and names the finding, so it belongs where the
+    suite can reach it rather than in a driver excluded from CI.
     """
-    if len(curve) < 3:
-        return False, f"{len(curve)} probe point(s) — the rule needs 3"
-    (a, b, c) = curve[-3:]
-    d1, d2 = b["auc"] - a["auc"], c["auc"] - b["auc"]
-    s1 = d1 / (b["epoch"] - a["epoch"])
-    s2 = d2 / (c["epoch"] - b["epoch"])
-    flat = d1 < FLAT_DELTA and d2 < FLAT_DELTA
-    rising = d2 > d1  # still accelerating within intervals — not a plateau
-    detail = (
-        f"ΔAUC {d1:+.4f} then {d2:+.4f} (rule: both < {FLAT_DELTA}); "
-        f"slope/epoch {s1:+.4f} then {s2:+.4f}"
-    )
-    if flat and not rising:
-        return True, f"FLAT — {detail}"
-    if flat and rising:
-        return False, f"flat by ΔAUC but still rising within intervals, so continuing — {detail}"
-    return False, f"still improving — {detail}"
+    v = read_curve(curve, flat_delta=FLAT_DELTA)
+    return v.stop, v.reason
 
 
 def main(run: Run = M) -> None:
@@ -247,8 +228,8 @@ def main(run: Run = M) -> None:
           f"{'  — SAME, as M ran it' if train_seed == split_seed else '  — DELIBERATELY DIFFERENT'}")
     print(f"{L} checkpoints : every {obj.checkpoint_every:,} -> {scheduled} scheduled + "
           f"{len(points)} segment-end, keep={keep} ({keep * 381 / 1024:.1f} GiB)")
-    print(f"{L} stopping    : ΔAUC < {FLAT_DELTA} across two consecutive intervals, "
-          f"not still rising within them")
+    print(f"{L} stopping    : |ΔAUC| < {FLAT_DELTA} on both intervals = FLAT; latest interval "
+          f"below -{FLAT_DELTA} = DECLINING. Both stop; they are different findings")
     print(f"{L} segments    :")
     prev = 0
     for i, s in enumerate(points, 1):

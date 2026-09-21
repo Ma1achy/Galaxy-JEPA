@@ -745,13 +745,18 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   together; O2's driver splits `config_seed` from `train_seed` on purpose. The deviation is
   confined to which seed reaches `seed_init` / `ResumableShuffle` / the masker, but it is a real
   caveat on transferring O2's interval to a production run.
-- [ ] (P0) **DEFECT — the stopping rule labels a DECLINING curve `FLAT`.**
+- [x] (P0) **FIXED — the stopping rule labelled a DECLINING curve `FLAT`.**
   `m2_long_run._stopping_rule` uses `flat = d1 < FLAT_DELTA and d2 < FLAT_DELTA`, a **signed**
   comparison, so `-0.0069 < 0.002` passes. O2's curve fell from 0.9678 at 2 epochs to 0.9609 at 4
   and was reported as `FLAT`. Stopping was the right action; the label was the opposite of what
   happened. Needs `abs(d) < FLAT_DELTA` plus a separate DECLINING branch, since "stop, it has
   plateaued" and "stop, it is getting worse" mean different things to a rental case. M's own
   verdict is unaffected (+0.0010 then +0.0005, genuinely flat).
+  **DONE (P1):** rule moved to `src/galaxy_jepa/core/stopping.py` with three branches
+  (RISING / FLAT / DECLINING) plus UNSETTLED and INSUFFICIENT; symmetric band; DECLINING checked
+  first; `stop` carried separately from `label`. `m2_long_run._read_rule` is a thin wrapper.
+  O2's record relabelled in place with the original kept in `stop_reason_original`.
+  `tests/test_core_stopping.py`, 10 invariants, both directions.
 - [ ] (P1) **M's 4-epoch AUC needs its range attached, and "plateau" needs qualifying.** Across two
   training draws with splits held fixed the 4-epoch consensus AUC spans **[0.9609, 0.9646]**,
   range 0.0037. The stopping *location* reproduced (both stopped at 4 epochs); the *shape* did not
@@ -762,6 +767,36 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   lower at the fourth; splits fixed, recipe identical, only the training draw differs. Sharper than
   the D18 Q2 non-reproduction because it is within-recipe. **Loss curves must not be presented as
   representation-quality curves**, in either direction.
+- [ ] **"Settled" was overclaimed.** Past ~2 epochs the recipe's behaviour is draw-dependent:
+  the stopping *location* reproduces, the *direction* does not. Say that, rather than describing
+  the recipe as settled.
+
+## Brief P4 — the schedule tension `[logged and proposed, NOT run]`
+- [ ] (P1) **Early stopping and a full-budget cosine are structurally in tension, and it now
+  blocks a clean reading of the plateau.** The cosine is defined over 10 epochs; both runs stopped
+  at 4, where LR is ~65% of peak (~90% at 2 epochs, where O2 peaked). **The annealing tail — the
+  reason cosine decay exists at all — never ran**, and O2's decline happens at high LR. So
+  "flattens at 4 epochs" is really **"flattens before annealing"**. This is D17's untested third
+  (see the write-up note below), no longer merely untested but actively confounding.
+- [ ] (P1) **Candidate fixes — PROPOSED, NOT ADOPTED.**
+  - **(a) Budget-matched cosine.** Set `steps` to the intended stopping horizon so the full decay
+    runs inside it. Simple, and it makes the schedule honest about the budget. Cost: it re-couples
+    budget and schedule, so changing the stopping horizon changes the recipe — the same rigidity
+    `j1_preflight` already warns about ("budget is fixed").
+  - **(b) Warmup-stable-decay (WSD).** Constant LR through a long stable phase, then a short
+    cooldown branched from ANY stable-phase checkpoint. **Literature checked before proposing, as
+    instructed:** WSD originates with MiniCPM and is now standard in LLM pretraining; the
+    checkpoint-branching property is the documented reason it exists — one stable-phase checkpoint
+    can be branched into multiple decay experiments without restarting, and a stable checkpoint
+    plus a fixed-length decay is reported to match full-length cosine baselines. Typical shape:
+    0.5-2% warmup, 80-90% stable, 10-20% decay. This decouples the stop decision from the
+    schedule, which is exactly the tension above. NOT adopted — it is a change to D17, which
+    needs its own D-series entry and its own argument.
+- [ ] (P2) **Cheapest diagnostic, when the time comes — NOT NOW, and NOT before P2's matched
+  work is finished.** Branch a short LR cooldown off M's and O2's 4-epoch checkpoints and probe
+  both. If annealing lifts O2 back, the decline was a high-LR artefact and the tail matters.
+  **Frame it as schedule diagnosis, never as headline-encoder selection** — picking whichever
+  branch scores best is 1C by another route.
 
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so

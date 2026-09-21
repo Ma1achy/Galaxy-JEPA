@@ -376,14 +376,15 @@ reproduce (D18 Q2), and it is sharper than the original. **Prediction-loss curve
 as representation-quality curves anywhere in the write-up.** 1C already forbids selecting
 checkpoints on AUC; this says loss is not a safe proxy for it either, in either direction.
 
-### A defect the run exposed in the stopping rule
+### A defect the run exposed in the stopping rule — now fixed
 
-`m2_long_run._stopping_rule` computes `flat = d1 < FLAT_DELTA and d2 < FLAT_DELTA` — a **signed**
-comparison. `−0.0069 < 0.002` is true, so **a declining curve is labelled `FLAT`**. O2 stopped for
-the right reason (there was no point continuing) under a label that says the opposite of what
-happened. M's own verdict is unaffected — its deltas were +0.0010 and +0.0005, genuinely flat — but
-the rule cannot distinguish a plateau from a decline, and every future run inherits that. Logged as
-a defect; not fixed inside the brief that found it.
+`m2_long_run._read_rule` computed `flat = d1 < FLAT_DELTA and d2 < FLAT_DELTA` — a **signed**
+comparison. `−0.0069 < 0.002` is true, so **a declining curve was labelled `FLAT`**. O2 stopped for
+the right reason (there was no point continuing) under a label saying the opposite of what happened.
+
+The ambiguity originated in Brief M's own wording — *"improves by less than ~0.002"*, which a
+decline technically satisfies. M's outcome list separated "turns over" from "flattens"; the rule
+text did not. Fixed in P1 below.
 
 ### Limitations that travel with O2
 
@@ -393,3 +394,96 @@ a defect; not fixed inside the brief that found it.
   transferring O2's range to a production run.
 - **Two draws, one split.** Split variance is excluded on purpose and is still owed. An honest
   interval on a published AUC needs a split-varying arm as well as a seed-varying one.
+
+---
+
+## P1 — the stopping rule, as three named outcomes
+
+The rule moved from `artifacts/m2_long_run.py` into **`src/galaxy_jepa/core/stopping.py`**. It
+decides when to end a 46-hour job and names the finding; that is not something to leave in a driver
+excluded from lint and CI. `m2_long_run._read_rule` is now a thin wrapper, so there is one rule
+rather than two.
+
+**Three branches, plus two continue-states:**
+
+| label | condition | action |
+|---|---|---|
+| `DECLINING` | latest interval below **−**`FLAT_DELTA` | **stop** |
+| `FLAT` | **\|Δ\|** below `FLAT_DELTA` on **both** intervals | **stop** |
+| `RISING` | latest interval above **+**`FLAT_DELTA` | continue |
+| `UNSETTLED` | neither settled nor turned over; or inside the band but still accelerating | continue |
+| `INSUFFICIENT` | fewer than three probe points | continue |
+
+`DECLINING` is checked **first** — a decline is a decline whatever the earlier interval did. The
+band is now symmetric, so a wobble smaller than the threshold reads as `FLAT` and a real turn does
+not. `stop` (the action) is carried separately from `label` (the finding), because `FLAT` and
+`DECLINING` both stop a run and **argue different compute cases**: one says the returns have gone,
+the other says something about the schedule.
+
+**Both real curves replayed through the fix:**
+
+| run | before | after | stop |
+|---|---|---|---|
+| M | `FLAT — ΔAUC +0.0010 then +0.0005` | `FLAT` *(unchanged)* | True |
+| O2 | `FLAT — ΔAUC +0.0015 then −0.0069` | **`DECLINING`** | True *(unchanged)* |
+
+O2's record (`artifacts/out/o2_curve.json`) is relabelled in place, with `stop_label: DECLINING`,
+the original text preserved in `stop_reason_original`, and a `relabelled` note stating that **the
+stop decision was correct and only the label was wrong**. M's verdict needed no change.
+
+**Tests** — `tests/test_core_stopping.py`, ten invariants, both directions. The load-bearing one is
+`test_a_declining_curve_is_never_labelled_flat`, pinned on O2's actual numbers; alongside it,
+that a decline still *stops* (relabelling must not turn the stop off), that M's genuinely flat
+curve is still `FLAT`, that a decline inside the band is noise rather than a turn, and that the
+rule may stop a run early but never extend one.
+
+---
+
+## P4 — the schedule tension (logged and proposed, NOT run)
+
+**Early stopping and a full-budget cosine are structurally in tension.** The cosine is defined over
+10 epochs. Both runs stopped at 4, where the LR is **~65% of peak** — and O2 peaked at 2 epochs,
+where it is **~90% of peak**. The annealing tail, which is the entire reason cosine decay exists,
+**never ran in either run**. O2's decline happens at high LR.
+
+So the sentence "the returns flatten at 4 epochs" is more honestly **"the returns flatten before
+annealing"**. This is D17's untested third — previously carried as a write-up limitation on the
+authority of the reference recipe — and it is no longer merely untested. It actively blocks a clean
+reading of the plateau, because the shape being read may be an artefact of stopping where the LR is
+still high.
+
+### Candidate fixes — proposed, not adopted
+
+**(a) Budget-matched cosine.** Set `steps` to the intended stopping horizon so the full decay runs
+inside it. Simple and honest about the budget. Cost: it re-couples budget and schedule, so moving
+the stopping horizon changes the recipe — the rigidity `j1_preflight` already warns about
+("budget is fixed: lr_final's cosine and the EMA ramp are both defined over steps, so moving it
+changes the recipe").
+
+**(b) Warmup-stable-decay.** Constant LR through a long stable phase, then a short cooldown that
+can be branched from **any** stable-phase checkpoint. Checked against the literature before
+proposing rather than adopted on description: WSD originates with MiniCPM and is now standard in
+LLM pretraining, and the checkpoint-branching property is the documented reason it exists — one
+stable-phase checkpoint branches into multiple decay experiments without restarting, and a stable
+checkpoint plus a fixed-length decay is reported to match full-length cosine baselines. Typical
+shape is 0.5–2% warmup, 80–90% stable, 10–20% decay.
+
+That decoupling of the stop decision from the schedule is *exactly* this tension. It is still **not
+adopted**: it is a change to D17 and needs its own D-series entry and its own argument, not a
+substitution justified by convenience.
+
+### The cheapest diagnostic — not now
+
+Branch a short LR cooldown off M's and O2's 4-epoch checkpoints and probe both. If annealing lifts
+O2 back, the decline was a high-LR artefact and the tail matters. **Framed as schedule diagnosis,
+never as headline-encoder selection** — choosing whichever branch scores best would be 1C by
+another route, the same trap as substituting O2's 2-epoch checkpoint for M's 4-epoch one.
+
+### Recorded, not acted on
+
+- **Prediction loss cannot be read as representation quality, in either direction.** O2's loss is
+  higher than M's at all four probe points while its AUC is higher at three and lower at one. Same
+  recipe, same splits, only the draw differs. This is a **reportable result, not a footnote** — and
+  the strongest justification the 1C label-blind checkpoint rule has had.
+- **"Settled" was overclaimed.** Past ~2 epochs the recipe's behaviour is draw-dependent: the
+  stopping *location* reproduces, the *direction* does not.
