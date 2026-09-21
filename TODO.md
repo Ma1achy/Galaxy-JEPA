@@ -745,6 +745,23 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   together; O2's driver splits `config_seed` from `train_seed` on purpose. The deviation is
   confined to which seed reaches `seed_init` / `ResumableShuffle` / the masker, but it is a real
   caveat on transferring O2's interval to a production run.
+- [ ] (P0) **DEFECT — the stopping rule labels a DECLINING curve `FLAT`.**
+  `m2_long_run._stopping_rule` uses `flat = d1 < FLAT_DELTA and d2 < FLAT_DELTA`, a **signed**
+  comparison, so `-0.0069 < 0.002` passes. O2's curve fell from 0.9678 at 2 epochs to 0.9609 at 4
+  and was reported as `FLAT`. Stopping was the right action; the label was the opposite of what
+  happened. Needs `abs(d) < FLAT_DELTA` plus a separate DECLINING branch, since "stop, it has
+  plateaued" and "stop, it is getting worse" mean different things to a rental case. M's own
+  verdict is unaffected (+0.0010 then +0.0005, genuinely flat).
+- [ ] (P1) **M's 4-epoch AUC needs its range attached, and "plateau" needs qualifying.** Across two
+  training draws with splits held fixed the 4-epoch consensus AUC spans **[0.9609, 0.9646]**,
+  range 0.0037. The stopping *location* reproduced (both stopped at 4 epochs); the *shape* did not
+  (M flattens, O2 turns over, and O2's 2 -> 4 decline has disjoint CIs). Report M's 0.9646 with the
+  range, and do not use "plateau" unqualified for a recipe whose second draw declined.
+- [ ] (P1) **Prediction loss does not track probe quality — measured within one recipe.** O2's
+  prediction loss is higher than M's at all four probe points while its AUC is higher at three and
+  lower at the fourth; splits fixed, recipe identical, only the training draw differs. Sharper than
+  the D18 Q2 non-reproduction because it is within-recipe. **Loss curves must not be presented as
+  representation-quality curves**, in either direction.
 
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so

@@ -319,6 +319,77 @@ have found it.
 
 ## O2 — a second training seed on the plateau
 
-*Built (`artifacts/o2_second_seed.py`), not launched — the machine is occupied by O1 and O3.
-Reported when it lands, and its interval will be labelled for exactly what it is: training-draw
-variance with the splits held fixed, not an interval on the headline AUC.*
+**The question, narrowly:** is the plateau a property of the recipe, or of one training draw?
+Training seed 1; `config_seed`/`split_seed` held at 0, so both splits and the probe three-way are
+M's exactly. `config_hash` = `v2:61330a0012234374`, identical to M's, and `n_test` = 21,974 at every
+probe point, byte-identical to M's. The curve JSON records `train_seed: 1`, `split_seed: 0`,
+`config_seed: 0` as three separate fields — the stamp does not assert a determinism it lacks.
+9.88 h to step 101,308 at 1.42 steps/s.
+
+### The two curves
+
+| epoch | M | O2 | diff | M pred-loss | O2 pred-loss |
+|---|---|---|---|---|---|
+| 0.5 | 0.9593 [.9562,.9624] | 0.9626 [.9596,.9654] | **+0.0033** | 0.2856 | 0.2870 |
+| 1.0 | 0.9631 [.9600,.9662] | 0.9663 [.9634,.9691] | **+0.0032** | 0.1898 | 0.2142 |
+| 2.0 | 0.9642 [.9613,.9671] | 0.9678 [.9650,.9704] | **+0.0036** | 0.1357 | 0.1629 |
+| 4.0 | 0.9646 [.9619,.9675] | **0.9609** [.9580,.9639] | **−0.0038** | 0.1097 | 0.1167 |
+
+### The plateau does not reproduce as a plateau
+
+M rises monotonically and flattens: +0.0038, +0.0011, +0.0004. **O2 peaks at 2 epochs and then
+falls**: +0.0037, +0.0015, **−0.0069**. The offset that held at +0.0033/+0.0032/+0.0036 across the
+first three points **reverses sign at the fourth**. Reading the first three points as a parallel
+replication was wrong, and the fourth point is the one the brief was commissioned to get.
+
+**O2's own decline is resolved, on the same galaxies.** 0.9678 [0.9650, 0.9704] at 2 epochs against
+0.9609 [0.9580, 0.9639] at 4: the intervals are **disjoint**. This is not a draw wobbling inside its
+own noise — one of two training draws of this recipe genuinely got worse between 2 and 4 epochs.
+
+**M versus O2 at 4 epochs is *not* resolved.** [0.9619, 0.9675] against [0.9580, 0.9639] overlap on
+[0.9619, 0.9639]. So the correct statement is not "O2 is worse than M"; it is that the two draws are
+not separable at the point where M's headline number is taken.
+
+### What this does to the claims
+
+- **The interval, for exactly what it is.** Across two training draws with the splits held fixed,
+  the 4-epoch consensus AUC spans **[0.9609, 0.9646]**, a range of **0.0037**. This is
+  training-draw variance only. It is **not** an interval on the headline AUC: it excludes split
+  variance entirely, by design, and n = 2 gives a range, not a variance.
+- **"The returns flatten at 4 epochs" survives; "the plateau is a property of the recipe" does
+  not.** Both runs stop at 4 epochs under the same pre-registered rule, so the *location* is
+  reproducible. The *shape* is not: one flattens, one turns over. M's 0.9646 should be reported
+  with the range above attached, and the word "plateau" should not be used unqualified for a
+  recipe that produced a decline on its second draw.
+- **O1 is unaffected in what it claims.** The matched battery asks whether signal survives
+  confound-matching *on the encoder it was given*, and M's 4-epoch encoder is what it is. What
+  changes is the weight that can be put on M's AUC as a recipe-level number, not on O1's verdicts.
+
+### Prediction loss does not track probe quality — now measured within one recipe
+
+O2's prediction loss is **higher than M's at all four points**, while its AUC is higher at three of
+them and lower at the fourth. At 0.5–2 epochs loss and AUC disagree in direction; at 4 they agree.
+Splits fixed, recipe identical, only the training draw differs.
+
+This is a within-recipe, splits-fixed instance of what the SIGReg loss-selection claim failed to
+reproduce (D18 Q2), and it is sharper than the original. **Prediction-loss curves must not be read
+as representation-quality curves anywhere in the write-up.** 1C already forbids selecting
+checkpoints on AUC; this says loss is not a safe proxy for it either, in either direction.
+
+### A defect the run exposed in the stopping rule
+
+`m2_long_run._stopping_rule` computes `flat = d1 < FLAT_DELTA and d2 < FLAT_DELTA` — a **signed**
+comparison. `−0.0069 < 0.002` is true, so **a declining curve is labelled `FLAT`**. O2 stopped for
+the right reason (there was no point continuing) under a label that says the opposite of what
+happened. M's own verdict is unaffected — its deltas were +0.0010 and +0.0005, genuinely flat — but
+the rule cannot distinguish a plateau from a decline, and every future run inherits that. Logged as
+a defect; not fixed inside the brief that found it.
+
+### Limitations that travel with O2
+
+- **The driver deviates from the production path.** `run_harness` moves every seed together; this
+  driver deliberately splits `config_seed` from `train_seed`. The deviation is confined to which
+  seed reaches `seed_init` / `ResumableShuffle` / the masker, but it is a real caveat on
+  transferring O2's range to a production run.
+- **Two draws, one split.** Split variance is excluded on purpose and is still owed. An honest
+  interval on a published AUC needs a split-varying arm as well as a seed-varying one.
