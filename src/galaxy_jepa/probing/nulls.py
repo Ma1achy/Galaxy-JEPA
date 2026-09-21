@@ -256,6 +256,69 @@ def untrained_z_pvalue(
     return float(student_t.sf((float(real_auc) - mean_bar) / denom, df=k - 1))
 
 
+#: Below this Shapiro-Wilk p, the untrained bar's distribution is not adequately described as
+#: normal and the z-construction's tail is doing work the data does not support. A **declared**
+#: threshold; the consequence is a label on the p-value, never a silent adjustment to it.
+NORMALITY_ALPHA: float = 0.05
+
+
+@dataclasses.dataclass(frozen=True)
+class NormalityCheck:
+    """Whether a feature's untrained bar supports the tail its p-value is read from."""
+
+    feature: str
+    shapiro_p: float
+    normal: bool
+    skew: float
+    kurtosis: float
+    k: int
+
+    @property
+    def caveat(self) -> str:
+        """The sentence that must travel with a non-normal feature's p-value."""
+        if self.normal:
+            return ""
+        return (
+            f"{self.feature}: the untrained bar fails Shapiro-Wilk (p={self.shapiro_p:.4f}, "
+            f"skew {self.skew:+.2f}, excess kurtosis {self.kurtosis:+.2f}, K={self.k}). Its "
+            f"existence p-value is MODEL-BASED in a region the data cannot validate: BY's bar "
+            f"lives ~3.4 standard deviations out and {self.k} samples do not describe that tail."
+        )
+
+
+def normality_report(
+    untrained_bank: Mapping[str, Sequence[float] | np.ndarray], *, alpha: float = NORMALITY_ALPHA
+) -> dict[str, NormalityCheck]:
+    """Per-feature Shapiro-Wilk on the untrained bar, plus the shape moments.
+
+    D23 buys BY a usable p-value at the price of a distributional assumption, and that assumption
+    is the weakest joint in the construction. It is therefore **tested and reported per feature**,
+    whatever the answer — a failure does not invalidate the run, it attaches a caveat to the
+    features it applies to. Reported even when everything passes, because "we checked" is only
+    worth something if the check could have failed visibly.
+    """
+    from scipy.stats import kurtosis as _kurtosis
+    from scipy.stats import shapiro
+    from scipy.stats import skew as _skew
+
+    out: dict[str, NormalityCheck] = {}
+    for feature, values in untrained_bank.items():
+        arr = np.asarray(values, dtype=np.float64)
+        if arr.size < 3 or float(arr.std(ddof=1)) == 0.0:
+            out[feature] = NormalityCheck(feature, float("nan"), False, 0.0, 0.0, int(arr.size))
+            continue
+        res = shapiro(arr)
+        out[feature] = NormalityCheck(
+            feature=feature,
+            shapiro_p=float(res.pvalue),
+            normal=bool(res.pvalue >= alpha),
+            skew=float(_skew(arr)),
+            kurtosis=float(_kurtosis(arr)),
+            k=int(arr.size),
+        )
+    return out
+
+
 def assert_untrained_bank_resolution(k: int, *, k_min: int = K_MIN) -> None:
     """Raise if the untrained bank is too small for its spread to be trusted.
 

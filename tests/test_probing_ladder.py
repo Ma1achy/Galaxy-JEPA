@@ -281,9 +281,7 @@ def test_the_untrained_z_path_runs_and_separates_signal_from_absence(tmp_path):
     labels = _labels()
     cfg = _z_config(_bank_file(tmp_path, labels.features))
     controls, ids = _controls_and_ids()
-    result = run_ladder(
-        controls, labels, ids[:120], ids[120:], config=cfg, sky_label_col="snr"
-    )
+    result = run_ladder(controls, labels, ids[:120], ids[120:], config=cfg, sky_label_col="snr")
     assert {v.method for v in result.existence.values()} == {"untrained_z"}
     # a p-value the empirical estimator could not have produced at this draw count
     assert all(0.0 <= e.pvalue <= 1.0 for e in result.existence.values())
@@ -312,6 +310,10 @@ def test_an_uneven_bank_is_refused(tmp_path):
     controls, ids = _controls_and_ids()
     with pytest.raises(ValueError, match="covers"):
         run_ladder(
-            controls, _labels(), ids[:120], ids[120:], config=_z_config(path),
+            controls,
+            _labels(),
+            ids[:120],
+            ids[120:],
+            config=_z_config(path),
             sky_label_col="snr",
         )

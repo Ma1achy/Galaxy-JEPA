@@ -40,6 +40,8 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from j4_spread_controls import OUT, _release, prepare  # noqa: E402
 
@@ -162,6 +164,19 @@ def main() -> None:
     for c in changed:
         print(f"    {c['feature']:<48s} {c['full']} -> {c['conditional']}", file=sys.stderr)
 
+    # D23's price, paid in the open: the normality the z-tail rests on, per feature.
+    checks = nz.normality_report(bank)
+    failed = [c for c in checks.values() if not c.normal]
+    out["normality"] = {
+        f: {"shapiro_p": c.shapiro_p, "normal": c.normal, "skew": c.skew,
+            "kurtosis": c.kurtosis, "k": c.k, "caveat": c.caveat}
+        for f, c in checks.items()
+    }
+    print(f"\nP2 normality  : {len(checks) - len(failed)}/{len(checks)} features' untrained bar "
+          f"is adequately normal (Shapiro-Wilk, alpha={nz.NORMALITY_ALPHA})", file=sys.stderr)
+    for c in failed:
+        print(f"    MODEL-BASED p-value: {c.caveat}", file=sys.stderr)
+
     geo = results["full"].entanglement
     if geo is not None:
         out["entanglement"] = {
@@ -176,6 +191,31 @@ def main() -> None:
             "cosine": [[float(v) for v in row] for row in geo.cosine],
         }
         out["pair_verdicts"] = [dataclasses.asdict(pv) for pv in results["full"].pair_verdicts]
+
+        # Figure 3's real comparison: the SAME galaxies' human vote structure, not v1's matrix.
+        # v1's was computed on the PyPI galaxy-datasets release rather than this pull, so
+        # overlaying it would mix dataset and representation and neither could be read off.
+        human, overlap = ent.human_vote_correlation(labels, geo.names, setup.union)
+        agree = ent.compare_to_human_structure(geo.names, geo.cosine, human)
+        out["human_structure"] = {
+            "spearman_vs_embedding": agree.spearman,
+            "n_pairs": agree.n_pairs,
+            "largest_disagreements": agree.largest_disagreements,
+            "correlation": [[None if not np.isfinite(v) else float(v) for v in row]
+                            for row in human],
+            "n_overlap": [[int(v) for v in row] for row in overlap],
+        }
+        print(f"P2 vs humans  : Spearman {agree.spearman:+.3f} over {agree.n_pairs} pairs "
+              f"(same corpus; v1's Figs 18-19 are a continuity reference only)", file=sys.stderr)
+        for a, b, c, h, d in agree.largest_disagreements[:5]:
+            lean = "encoder closer" if d > 0 else "votes closer"
+            print(f"    {a[:26]:<26s} x {b[:26]:<26s} cos {c:+.3f} vs votes {h:+.3f} "
+                  f"({lean})", file=sys.stderr)
+
+        # D13 stage 2, only meaningful once stage 1 has called a pair world_correlation.
+        hart = ent.bar_winding_alignment(geo.names, geo.cosine)
+        out["bar_winding"] = dataclasses.asdict(hart)
+        print(f"P2 D13 stage2 : {hart.verdict} — {hart.reason}", file=sys.stderr)
         print(f"P2 entangle   : erank {geo.gram_effective_rank:.2f} of "
               f"{geo.embedding_effective_rank:.2f} (span {geo.span_ratio:.3f}), "
               f"MP significant {geo.mp.significant}", file=sys.stderr)

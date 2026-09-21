@@ -482,9 +482,25 @@ per feature.
 2-arms $= +0.56$). Consistent with real astrophysical co-occurrence \emph{or} with artefact
 (clearly-featured galaxies get confident yes-votes downstream). This is the method's
 \textbf{hard case}, not a settled control: if the encoder shows bar+arms entangled, the
-entanglement might be \emph{correct} (physics), not a representation limit. Adjudicated by
-invariance to angle \emph{and} depth plus the astrophysical literature. Cannot be decided until
-the measurement exists.
+entanglement might be \emph{correct} (physics), not a representation limit.
+
+\textbf{Adjudicated in two sequential stages.} This document and \texttt{DECISIONS.md} named
+different adjudicators, which read as a contradiction. They are consecutive, not competing, and
+stage two is meaningless without stage one. \textbf{Stage 1 --- representational, or real in the
+data?} The eigen-triangulation's causal cross-check: conditional recoverability under matching
+(\texttt{entanglement.adjudicate\_pair}). If the bar direction vanishes when winding is held
+constant, the association lives in the world rather than in the representation. \textbf{Stage 2
+--- given a real correlation, astrophysics or labelling artefact?} Invariance to angle \emph{and}
+depth plus the astrophysical literature, run only on a pair stage~1 returned
+\texttt{world\_correlation} for.
+
+Stage~2 now carries a \emph{directional} anchor rather than a judgement call: Hart et al.\ measure
+spiral arms in strongly barred galaxies as roughly $4$--$6^\circ$ \textbf{looser} than in unbarred
+ones. So the bar direction leaning towards loose winding specifically (loose $>$ medium $>$ tight)
+reads as tracking physics; sitting equally close to \emph{every} spiral answer reads as
+confident-classification bleed, which is the artefact the hard case warns about --- a galaxy
+confidently called barred is a galaxy confidently called everything
+(\texttt{entanglement.bar\_winding\_alignment}).
 \end{deferredbox}
 
 \subsection{Why the confused questions are kept, not reduced away}

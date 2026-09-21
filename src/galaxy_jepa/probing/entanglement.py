@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import torch
@@ -367,4 +368,187 @@ def adjudicate_pair(
         disagree,
         survived_matching,
         "the measures do not converge; reported rather than averaged",
+    )
+
+
+def human_vote_correlation(
+    labels: Any, features: Sequence[str], ids: Sequence[int], *, min_overlap: int = 200
+) -> tuple[np.ndarray, np.ndarray]:
+    """``(correlation, n_overlap)`` between the **human vote fractions** of every feature pair.
+
+    The same-corpus counterpart to the embedding cosine matrix, and the reason Figure 3 does not
+    need v1's Figs 18-19. v1's confusion matrix was computed on the PyPI ``galaxy-datasets``
+    release, not this pull — the same mismatch that stopped the 21-vote threshold transferring —
+    so laying it against an embedding matrix built here would mix **two** differences at once,
+    dataset and representation, and neither could be read off the result.
+
+    Computed on the galaxies already in hand, the comparison is clean: same objects, same votes,
+    only the representation differs. v1's figure then serves as a *continuity reference*, for
+    which the three prose constants are enough.
+
+    **Pairwise-complete, not listwise.** Each answer has its own eligible population (a question
+    is only asked of galaxies that reached it), so a pair's correlation is computed over the
+    intersection of the two eligible sets. ``n_overlap`` carries that count per pair, because a
+    correlation over 200 galaxies and one over 60,000 are not the same measurement, and a matrix
+    that hides the difference invites reading the thin cells as hard as the thick ones. Pairs
+    below ``min_overlap`` return NaN rather than a number nobody should use.
+    """
+    fractions: dict[str, dict[int, float]] = {}
+    for f in features:
+        eligible = labels.eligible(f, ids)
+        vals = labels.vote_fraction(f, eligible)
+        fractions[f] = {
+            int(o): float(v) for o, v in zip(eligible, vals, strict=True) if np.isfinite(v)
+        }
+
+    k = len(features)
+    corr = np.full((k, k), np.nan, dtype=np.float64)
+    overlap = np.zeros((k, k), dtype=np.int64)
+    for i, a in enumerate(features):
+        corr[i, i], overlap[i, i] = 1.0, len(fractions[a])
+        for j in range(i + 1, k):
+            b = features[j]
+            shared = sorted(fractions[a].keys() & fractions[b].keys())
+            overlap[i, j] = overlap[j, i] = len(shared)
+            if len(shared) < min_overlap:
+                continue
+            va = np.array([fractions[a][o] for o in shared])
+            vb = np.array([fractions[b][o] for o in shared])
+            if va.std() == 0 or vb.std() == 0:  # a constant column has no correlation
+                continue
+            corr[i, j] = corr[j, i] = float(np.corrcoef(va, vb)[0, 1])
+    return corr, overlap
+
+
+@dataclasses.dataclass(frozen=True)
+class MatrixAgreement:
+    """How the embedding-recovered structure compares to the human vote structure."""
+
+    spearman: float
+    n_pairs: int
+    #: ``(a, b, cosine, human_corr, delta)`` — the pairs where the two disagree most, signed.
+    largest_disagreements: list[tuple[str, str, float, float, float]]
+
+
+def compare_to_human_structure(
+    names: Sequence[str],
+    cosine: np.ndarray,
+    human_corr: np.ndarray,
+    *,
+    top: int = 8,
+) -> MatrixAgreement:
+    """Rank-correlate the embedding cosine matrix against the human vote-correlation matrix.
+
+    Spearman rather than Pearson: the two matrices are not on a common scale (a cosine between
+    unit directions and a correlation between vote fractions measure different things), so what
+    transfers is the **ordering** of which pairs are close, not the magnitudes.
+
+    The disagreements are the point, not the agreement. A pair the encoder places together that
+    the votes do not is a candidate representational entanglement; a pair the votes place
+    together that the encoder separates is the encoder doing better than the labels.
+    """
+    from scipy.stats import spearmanr
+
+    rows: list[tuple[str, str, float, float, float]] = []
+    xs: list[float] = []
+    ys: list[float] = []
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            h = human_corr[i, j]
+            if not np.isfinite(h):
+                continue
+            c = float(cosine[i, j])
+            xs.append(c)
+            ys.append(float(h))
+            rows.append((names[i], names[j], c, float(h), c - float(h)))
+    if len(xs) < 3:
+        return MatrixAgreement(float("nan"), len(xs), [])
+    rho = float(spearmanr(xs, ys).statistic)
+    rows.sort(key=lambda r: -abs(r[4]))
+    return MatrixAgreement(rho, len(xs), rows[:top])
+
+
+#: D13 confound-3's directional anchor. Hart et al. measured spiral arms in strongly barred
+#: galaxies as roughly 4-6 degrees LOOSER than in unbarred ones. That makes the bar+arms hard case
+#: a *directional* prediction rather than a judgement call: if the encoder's bar direction is
+#: tracking physics it should lean towards loose winding specifically, and if it is tracking
+#: confident classification it should lean towards every spiral answer about equally.
+BAR_FEATURE = "t03_bar_a06_bar"
+WINDING_ORDER = (
+    "t10_arms_winding_a28_tight",
+    "t10_arms_winding_a29_medium",
+    "t10_arms_winding_a30_loose",
+)
+
+PHYSICS = "physics_consistent"
+BLEED = "uniform_bleed"
+CONTRARY = "contrary_to_literature"
+UNAVAILABLE = "unavailable"
+
+
+@dataclasses.dataclass(frozen=True)
+class BarWindingAlignment:
+    """The Hart-anchored read on D13's hard case: is bar+arms physics, or classification bleed?"""
+
+    verdict: str
+    cosines: dict[str, float]
+    spread: float
+    reason: str
+
+
+def bar_winding_alignment(
+    names: Sequence[str], cosine: np.ndarray, *, separation: float = 0.05
+) -> BarWindingAlignment:
+    """Does the bar direction lean towards LOOSE winding, or towards all winding equally?
+
+    Stage two of D13's adjudication, and only meaningful after stage one (the 2A conditional
+    cross-check) has said the bar+arms association is a real correlation in the data rather than
+    a representational artefact. This stage asks what *kind* of real correlation it is.
+
+    * loose > medium > tight, by at least ``separation`` end to end → ``physics_consistent``:
+      the ordering Hart et al. predict, so the direction is tracking a property of the galaxies.
+    * all three within ``separation`` → ``uniform_bleed``: the bar direction is equally close to
+      every spiral answer, which is the confident-classification bleed the hard case warns about
+      — a galaxy confidently called barred is a galaxy confidently called everything.
+    * ordered the other way → ``contrary_to_literature``, reported as-is rather than explained.
+
+    ``separation`` is a **declared** threshold, not a derived one.
+    """
+    index = {n: i for i, n in enumerate(names)}
+    if BAR_FEATURE not in index or not all(w in index for w in WINDING_ORDER):
+        return BarWindingAlignment(
+            UNAVAILABLE,
+            {},
+            0.0,
+            "the bar or a winding answer did not reach the entanglement set (existence-passing "
+            "features only), so the hard case cannot be read on this run",
+        )
+    cos = {w: float(cosine[index[BAR_FEATURE], index[w]]) for w in WINDING_ORDER}
+    tight, medium, loose = (cos[w] for w in WINDING_ORDER)
+    spread = max(cos.values()) - min(cos.values())
+
+    if spread < separation:
+        return BarWindingAlignment(
+            BLEED,
+            cos,
+            spread,
+            f"the bar direction sits within {spread:.3f} of all three winding answers; Hart "
+            f"predicts a lean towards loose, and equal alignment is the classification bleed "
+            f"D13's hard case warns about",
+        )
+    if loose > medium > tight:
+        return BarWindingAlignment(
+            PHYSICS,
+            cos,
+            spread,
+            f"loose {loose:.3f} > medium {medium:.3f} > tight {tight:.3f}, spread {spread:.3f} — "
+            f"the ordering Hart et al. predict for barred galaxies, so the association is "
+            f"tracking a property of the galaxies rather than of the labelling",
+        )
+    return BarWindingAlignment(
+        CONTRARY,
+        cos,
+        spread,
+        f"tight {tight:.3f} / medium {medium:.3f} / loose {loose:.3f} — separated but not in the "
+        f"predicted order; reported as measured rather than explained",
     )

@@ -62,8 +62,7 @@ def read_curve(curve: list[dict], *, flat_delta: float = FLAT_DELTA) -> Stopping
     s1 = d1 / (b["epoch"] - a["epoch"])
     s2 = d2 / (c["epoch"] - b["epoch"])
     detail = (
-        f"ΔAUC {d1:+.4f} then {d2:+.4f} (band ±{flat_delta}); "
-        f"slope/epoch {s1:+.4f} then {s2:+.4f}"
+        f"ΔAUC {d1:+.4f} then {d2:+.4f} (band ±{flat_delta}); slope/epoch {s1:+.4f} then {s2:+.4f}"
     )
 
     # Order matters: a decline is a decline whatever the earlier interval did.

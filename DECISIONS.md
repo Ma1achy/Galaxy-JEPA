@@ -390,8 +390,32 @@ confusion splits three ways, each with a distinct fingerprint across the
    semantic does not.
 3. **Genuine co-occurrence vs artefactual correlation** *(HYPOTHESIS — unconfirmed)* — bar +
    spiral structure (v1: Bar × 2-arms = +0.56). The method's hard case: entanglement here may be
-   **correct physics**, not a representation limit. Adjudicated by the eigen-triangulation's
-   causal cross-check (conditional-recoverability under matching).
+   **correct physics**, not a representation limit.
+
+   **Adjudicated in TWO SEQUENTIAL STAGES.** `DECISIONS.md` and `galaxy-jepa-spec.tex` previously
+   named different adjudicators for this confound, which read as a contradiction. They are not
+   competing; they are consecutive, and the order matters because stage two is meaningless
+   without stage one:
+
+   * **Stage 1 — is the association representational, or real in the data?** The
+     eigen-triangulation's causal cross-check: conditional recoverability under matching
+     (`entanglement.adjudicate_pair`). If the bar direction vanishes when winding is held
+     constant, the association lives in the world, not in the representation.
+   * **Stage 2 — given a real correlation, is it astrophysics or a labelling artefact?**
+     Invariance to angle and depth, plus the literature. This stage only runs on a pair stage 1
+     returned `world_correlation` for.
+
+   **Stage 2 now has a directional anchor rather than a judgement call.** Hart et al. measured
+   spiral arms in strongly barred galaxies as roughly **4–6° looser** than in unbarred ones. That
+   converts "check the literature" into a prediction the encoder can be held to
+   (`entanglement.bar_winding_alignment`):
+
+   * the bar direction leaning towards **loose** winding specifically, in the order
+     loose > medium > tight → **tracking physics**;
+   * the bar direction sitting equally close to **every** spiral answer → **confident-
+     classification bleed**, which is precisely what the hard case warns about: a galaxy
+     confidently called barred is a galaxy confidently called everything.
+   * separated but in the contrary order → reported as measured, not explained.
 
 **Inclination proxy = axis ratio (b/a)** — an *independent photometric* measurement (SDSS
 pipeline, from the pixels), so conditioning on it to study *vote*-confusion is **not circular**
