@@ -26,6 +26,7 @@ from galaxy_jepa.core.encoder import Encoder, assert_frozen
 from galaxy_jepa.data.manifest import manifest_hash
 from galaxy_jepa.data.orchestrate import assign_three_way
 from galaxy_jepa.probing import controls as ctl
+from galaxy_jepa.probing import entanglement as ent_mod
 from galaxy_jepa.probing import uncertainty as unc
 from galaxy_jepa.probing.config import ProbingConfig
 from galaxy_jepa.probing.extract import LabelProvider, extract_matrix
@@ -301,6 +302,49 @@ def _write_summary(
         "scheme": scheme,
         "by_family_size": family_size,
         "population_comparison": comparison or {},
+        # The entanglement geometry survived a run only as a PNG, so every number behind Figure 3
+        # — the cosine matrix that is the bridge to v1's Figs 18-19, the spectrum, the MP verdict,
+        # the loadings that localise which features collapsed together — was lost the moment the
+        # process exited. A figure is not a record.
+        "entanglement": (
+            None
+            if ladder.entanglement is None
+            else {
+                "names": list(ladder.entanglement.names),
+                "cosine": [[float(v) for v in row] for row in ladder.entanglement.cosine],
+                "gram_eigenvalues": [float(v) for v in ladder.entanglement.gram_eigenvalues],
+                "gram_effective_rank": float(ladder.entanglement.gram_effective_rank),
+                "embedding_effective_rank": float(ladder.entanglement.embedding_effective_rank),
+                "span_ratio": float(ladder.entanglement.span_ratio),
+                "mp": {
+                    "top_eigenvalue": float(ladder.entanglement.mp.top_eigenvalue),
+                    "mp_edge": float(ladder.entanglement.mp.mp_edge),
+                    "significant": bool(ladder.entanglement.mp.significant),
+                },
+                "cav_disagreement": dict(ladder.entanglement.cav_disagreement),
+                "top_component_loadings": (
+                    ent_mod.component_loadings(
+                        ladder.entanglement.names, ladder.entanglement.gram_eigenvectors
+                    )
+                    if ladder.entanglement.gram_eigenvectors.size
+                    else []
+                ),
+                "entangled_pairs": [list(p) for p in ladder.entanglement.entangled_pairs],
+            }
+        ),
+        "pair_verdicts": [
+            {
+                "a": pv.a,
+                "b": pv.b,
+                "verdict": pv.verdict,
+                "cosine": pv.cosine,
+                "mp_significant": pv.mp_significant,
+                "cav_disagree": pv.cav_disagree,
+                "survived_matching": pv.survived_matching,
+                "reason": pv.reason,
+            }
+            for pv in ladder.pair_verdicts
+        ],
     }
     path = out / "ladder_summary.json"
     path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")

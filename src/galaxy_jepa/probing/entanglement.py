@@ -29,7 +29,7 @@ Cross-checks (each covers an eigen blind spot):
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 import torch
@@ -77,6 +77,35 @@ def gram_eigenspectrum(w: np.ndarray) -> tuple[np.ndarray, float]:
     svals = torch.linalg.svdvals(torch.as_tensor(w, dtype=torch.float64))
     eigenvalues = (svals**2).numpy()
     return eigenvalues, effective_rank(svals)
+
+
+def gram_eigenvectors(w: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """``(eigenvalues, eigenvectors)`` of ``WWᵀ``, descending — spine item 3, the localiser.
+
+    The eigen*values* say "I named k concepts but they span only k_eff dimensions"; they cannot
+    say **which** concepts collapsed together. The eigen*vectors* can: a component loading on
+    both bar and bulge is the design's own worked example. Columns of the returned matrix are the
+    eigenvectors, so ``vectors[:, j]`` is component ``j``'s loading over ``names``.
+    """
+    gram = torch.as_tensor(w, dtype=torch.float64)
+    gram = gram @ gram.T
+    evals, evecs = torch.linalg.eigh(gram)  # ascending, orthonormal
+    order = torch.argsort(evals, descending=True)
+    return evals[order].numpy(), evecs[:, order].numpy()
+
+
+def component_loadings(
+    names: Sequence[str], vectors: np.ndarray, *, component: int = 0, top: int = 4
+) -> list[tuple[str, float]]:
+    """The features loading most strongly on one component — ``(name, signed loading)``.
+
+    Sorted by |loading|, so a component shared by two concepts reads off directly. The sign is
+    kept: two features loading with *opposite* sign on a shared axis is a different statement
+    from two loading together.
+    """
+    col = np.asarray(vectors)[:, component]
+    order = np.argsort(-np.abs(col))[:top]
+    return [(names[i], float(col[i])) for i in order]
 
 
 def embedding_covariance_spectrum(x: np.ndarray) -> tuple[np.ndarray, float]:
@@ -185,6 +214,27 @@ class EntanglementGeometry:
     embedding_effective_rank: float
     mp: MPVerdict
     entangled_pairs: list[tuple[str, str]]
+    #: Columns are eigenvectors of ``WWᵀ``, descending — ``gram_eigenvectors[:, j]`` is
+    #: component ``j``'s loading over ``names``. The measure that localises *which* features
+    #: collapse together, as opposed to merely *that* they do.
+    gram_eigenvectors: np.ndarray = dataclasses.field(default_factory=lambda: np.empty((0, 0)))
+    #: ``1 − |cos|`` between each feature's logistic and CAV directions. Genuinely independent of
+    #: the Gram: a different *definition* of the concept axis, not a different statistic on the
+    #: same one.
+    cav_disagreement: Mapping[str, float] = dataclasses.field(default_factory=dict)
+
+    @property
+    def span_ratio(self) -> float:
+        """Concept span : total embedding dimensionality — "k concepts occupy 7 of ~40 dims".
+
+        The eigen spine's fourth item. Without it the concept effective rank has no scale: 7 is
+        crowded in a 40-dimensional representation and roomy in a 700-dimensional one.
+        """
+        return (
+            self.gram_effective_rank / self.embedding_effective_rank
+            if self.embedding_effective_rank
+            else 0.0
+        )
 
 
 def entanglement_geometry(
@@ -193,11 +243,13 @@ def entanglement_geometry(
     *,
     mp_method: str = "upper_edge",
     pair_quantile: float = 0.90,
+    cav_disagreement: Mapping[str, float] | None = None,
 ) -> EntanglementGeometry:
     """Assemble the global entanglement geometry over the existence-passing features."""
     names, w = stack_directions(directions)
     cos = w @ w.T
     gram_ev, gram_er = gram_eigenspectrum(w)
+    _ev, gram_vecs = gram_eigenvectors(w)
     emb_ev, emb_er = embedding_covariance_spectrum(embedding_x)
     mp = mp_significant(gram_ev, n_directions=len(names), n_dims=w.shape[1], method=mp_method)
     pairs = most_entangled_pairs(names, cos, quantile=pair_quantile)
@@ -210,4 +262,109 @@ def entanglement_geometry(
         embedding_effective_rank=emb_er,
         mp=mp,
         entangled_pairs=pairs,
+        gram_eigenvectors=gram_vecs,
+        cav_disagreement=dict(cav_disagreement or {}),
+    )
+
+
+#: The 2A verdicts. Fixed as a closed set before any result, because "many measures" is a licence
+#: to triangulate and never a licence to pick per feature.
+REPRESENTATIONAL = "representational_entanglement"
+WORLD_CORRELATION = "world_correlation"
+CLEAN = "clean"
+INCONCLUSIVE = "inconclusive"
+
+
+@dataclasses.dataclass(frozen=True)
+class PairVerdict:
+    """One flagged pair's adjudication, with the four inputs that produced it kept visible."""
+
+    a: str
+    b: str
+    verdict: str
+    cosine: float
+    mp_significant: bool
+    cav_disagree: bool
+    survived_matching: bool | None
+    reason: str
+
+
+def adjudicate_pair(
+    a: str,
+    b: str,
+    *,
+    cosine: float,
+    mp_significant: bool,
+    cav_disagreement: Mapping[str, float],
+    survived_matching: bool | None,
+    cosine_floor: float = 0.30,
+    cav_floor: float = 0.10,
+) -> PairVerdict:
+    """The **one** pre-registered function from (eigen, cosine, CAV, conditional) to a verdict.
+
+    Design 2A, `docs/probing-harness-design.md:294-309`. The discipline it enforces is that the
+    mapping is fixed *before* results: several measures with non-overlapping blind spots are a
+    way to triangulate, and a licence to choose a different rule per feature would make the whole
+    apparatus unfalsifiable.
+
+    * **eigen entangled + cosine shows it + logistic/CAV disagree + survives matching** →
+      ``representational_entanglement``. Four methods agreeing is the unassailable branch.
+    * **eigen entangled but the conditional test vanishes under matching** →
+      ``world_correlation``. The concepts co-occur in the sky, not in the representation. This is
+      D13's bar+arms hard case and it is a *clean finding*, not a failure.
+    * **eigen clean + CAV agrees + cosine low** → ``clean``, converging on R1.
+    * anything else → ``inconclusive``, reported as such. Disagreements are **interpreted, not
+      averaged**: a verdict that splits the difference between two measures with different blind
+      spots is a number with no referent.
+
+    ``survived_matching=None`` means the conditional cross-check was not run for this pair, which
+    can never be read as either survival or collapse.
+    """
+    disagree = max(cav_disagreement.get(a, 0.0), cav_disagreement.get(b, 0.0)) >= cav_floor
+    high_cos = abs(cosine) >= cosine_floor
+
+    if mp_significant and survived_matching is True and high_cos and disagree:
+        return PairVerdict(
+            a,
+            b,
+            REPRESENTATIONAL,
+            cosine,
+            mp_significant,
+            disagree,
+            survived_matching,
+            "eigen entangled, cosine shows it, logistic/CAV disagree, and the "
+            "direction survives matching on the partner — four methods agree",
+        )
+    if mp_significant and survived_matching is False:
+        return PairVerdict(
+            a,
+            b,
+            WORLD_CORRELATION,
+            cosine,
+            mp_significant,
+            disagree,
+            survived_matching,
+            "eigen entangled but the direction vanishes when the partner is held "
+            "constant — co-occurrence in the sky, not in the representation",
+        )
+    if not mp_significant and not disagree and not high_cos:
+        return PairVerdict(
+            a,
+            b,
+            CLEAN,
+            cosine,
+            mp_significant,
+            disagree,
+            survived_matching,
+            "spectrum within the MP null, logistic and CAV agree, cosine low",
+        )
+    return PairVerdict(
+        a,
+        b,
+        INCONCLUSIVE,
+        cosine,
+        mp_significant,
+        disagree,
+        survived_matching,
+        "the measures do not converge; reported rather than averaged",
     )

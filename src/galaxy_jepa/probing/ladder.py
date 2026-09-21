@@ -82,6 +82,9 @@ class LadderResult:
     entanglement: ent.EntanglementGeometry | None
     feature_controls: dict[str, ctl.FeatureControls]
     directions: dict[str, ConceptDirection]
+    #: The 2A pair adjudications behind every entangled flag, kept so a reader can see WHY a
+    #: feature was marked — which of the four measures agreed, and which did not.
+    pair_verdicts: list[ent.PairVerdict] = dataclasses.field(default_factory=list)
 
 
 def _load_untrained_bank(
@@ -155,16 +158,25 @@ def _entangled_map(
     test_ids: Sequence[int],
     *,
     config: ProbingConfig,
-) -> dict[str, bool]:
-    """Per-feature entangled (R2) flag, with the surgical conditional cross-check (2A).
+) -> tuple[dict[str, bool], list[ent.PairVerdict]]:
+    """Per-feature entangled (R2) flag + the pair adjudications that produced it (2A).
 
-    A flagged pair is *representational* entanglement only if the signal **survives** matching
-    on the partner feature; if it vanishes under matching it was *world-correlation*
-    (astrophysics) — itself a clean finding, so the feature is not marked entangled by it.
+    **The MP null is now a gate input.** The spec requires the R1/R2 verdict to clear the
+    eigen-quantification *and*, for flagged pairs, the conditional test to attribute the
+    entanglement representationally. `mp.significant` was computed and then never consulted, so
+    the flag turned on the matched cross-check alone — half the evidence the design specifies.
+    The decision now goes through `ent.adjudicate_pair`, the one pre-registered mapping from
+    (eigen, cosine, CAV, conditional) to a verdict.
+
+    A pair is entangled only on ``representational_entanglement``. ``world_correlation`` — the
+    direction vanishing when the partner is held constant — is a *clean finding* about the sky,
+    not a mark against the feature, and D13's bar+arms case is exactly that shape.
     """
     entangled: dict[str, bool] = {}
+    pair_verdicts: list[ent.PairVerdict] = []
     if geometry is None:
-        return entangled
+        return entangled, pair_verdicts
+    index = {name: i for i, name in enumerate(geometry.names)}
     for a, b in geometry.entangled_pairs:
         # match feature A's probe on feature B's vote fraction (hold the world correlation fixed)
         a_train = feature_embeddings(controls.real, labels, a, train_ids)
@@ -172,7 +184,7 @@ def _entangled_map(
         # feature A's eligible ids — the partner's fractions must line up with A's rows
         b_train = labels.vote_fraction(b, feature_ids(controls.real, labels, a, train_ids))
         b_test = labels.vote_fraction(b, feature_ids(controls.real, labels, a, test_ids))
-        verdict = match.matched_evaluation(
+        matched = match.matched_evaluation(
             a_train,
             a_test,
             b_train,
@@ -181,10 +193,22 @@ def _entangled_map(
             c=config.c,
             seed=config.seed,
         )
-        if verdict.survived:  # representational entanglement — both partners are entangled
+        # A degenerate match is a statement about the SAMPLE: it can neither confirm survival nor
+        # attribute the entanglement to the world, so the conditional leg is recorded as unrun.
+        survived = None if matched.degenerate else matched.survived
+        pv = ent.adjudicate_pair(
+            a,
+            b,
+            cosine=float(geometry.cosine[index[a], index[b]]),
+            mp_significant=bool(geometry.mp.significant),
+            cav_disagreement=geometry.cav_disagreement,
+            survived_matching=survived,
+        )
+        pair_verdicts.append(pv)
+        if pv.verdict == ent.REPRESENTATIONAL:
             entangled[a] = True
             entangled[b] = True
-    return entangled
+    return entangled, pair_verdicts
 
 
 def _nuisance_clearance(
@@ -449,13 +473,26 @@ def run_ladder(
     passing = [f for f in features if existence[f].exceeds_null and f in directions]
     geometry: ent.EntanglementGeometry | None = None
     if len(passing) >= 2:
+        # The logistic-vs-CAV cross-check. It has existed in `entanglement.py` since 2A was
+        # built and was never called from the ladder, so the verdict logic had only the eigen
+        # half of its evidence. It is genuinely independent of the Gram: a different
+        # *definition* of the concept axis, not a different statistic on the same one.
+        cav_disagreement: dict[str, float] = {}
+        for f in passing:
+            tr = feature_embeddings(controls.real, labels, f, train_ids)
+            if len(np.unique(tr.y)) < 2:
+                continue
+            cav_disagreement[f] = ent.logistic_cav_disagreement(
+                directions[f].w_unit, ent.cav_direction(tr)
+            )
         geometry = ent.entanglement_geometry(
             [directions[f] for f in passing],
             controls.real.x,
             mp_method=config.mp_method,
             pair_quantile=config.entangled_pair_quantile,
+            cav_disagreement=cav_disagreement,
         )
-    entangled = _entangled_map(
+    entangled, pair_verdicts = _entangled_map(
         geometry, directions, controls, labels, train_ids, test_ids, config=config
     )
 
@@ -511,4 +548,5 @@ def run_ladder(
         entanglement=geometry,
         feature_controls=feature_controls,
         directions=directions,
+        pair_verdicts=pair_verdicts,
     )
