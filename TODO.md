@@ -798,6 +798,34 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   **Frame it as schedule diagnosis, never as headline-encoder selection** — picking whichever
   branch scores best is 1C by another route.
 
+## Brief P — the full ladder `[in progress]`
+- [x] (P0) **Q0 — the +0.984 cosine attribution corrected.** It was H5's baseline arm, not J under
+  SIGReg (J ended at +0.0250; SIGReg forces isotropy). Recalibration recorded: high cosine is the
+  UNTRAINED DEFAULT (+0.988) and learning means moving off it.
+- [x] (P0) **Q1 / D23 — existence moves to the untrained-z construction.** The point-mass null gave
+  BY nothing to act on. K=30 untrained seeds, Student t at df=K-1, both uncertainties in the
+  denominator. `assert_untrained_bank_resolution` refuses below K_MIN=20; the empirical gate still
+  bites under its own method. Declared in `configs/probe.yaml`.
+- [x] (P0) **Power travels with every rung.** `resolvable_margin` per feature, stated as a margin
+  over the feature's own bar. An underpowered R4 means "cannot resolve at this N", never "absent".
+- [x] (P0) **Q3 — 2A's three gaps closed**: eigenvectors (localisation), the logistic-vs-CAV
+  cross-check wired into the ladder, and the pre-registered `adjudicate_pair` verdict function.
+  The MP null is now a gate input; the geometry is serialised rather than surviving as a PNG.
+- [ ] (P0) **Q2 — run the 37-feature ladder.** Blocked on the untrained bank (~5 h, resumable).
+- [ ] (P1) **Report the normality check.** D23 buys BY a usable p-value at the price of a
+  distributional assumption; Shapiro-Wilk + QQ per feature at K=30, reported whatever it says.
+  This is the weakest joint in the construction and must not be quietly omitted.
+- [ ] (P1) **v1's Figs 18-19 are not vendored.** Only three prose constants exist in-repo (edge-on
+  x cigar +0.83, bar x 2-arms +0.56, 3<->4 arms 0.16). A real overlay needs data pulled from
+  `/Users/malachy/Documents/Galaxy-Zoo-Classifier` — **user action**.
+- [ ] (P1) **D13's adjudicator is named differently in two places.** `DECISIONS.md:391-394` says the
+  2A conditional cross-check; `spec.tex:477-487` says angle/depth invariance plus the literature.
+  Flagged rather than silently resolved.
+- [ ] (P2) **R3 is nearly unreachable for deep buckets.** `ladder.py` uses `effect_floor` as the MLP
+  decode threshold, and features reach that branch BECAUSE they failed existence. A 0.7267 bar on a
+  bucket near 0.55 is unreachable by arithmetic. Reported as a limitation; changing it is a
+  mechanism change needing its own D-entry.
+
 ## Carried into the write-up — limitations, not tasks `[write-up]`
 - [ ] **D17's cosine decay is adopted but untested.** At 3,000 steps the LR is 99.7% of peak, so
   H tested the peak and the warmup; the decay rides on the reference recipe's authority and is the
