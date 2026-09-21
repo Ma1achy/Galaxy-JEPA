@@ -142,7 +142,7 @@ def run_probing(
     # Phase 6: uncertainty geometry on the R1/R2 features only (4B) — gated on recoverability.
     uncertainty: dict[str, unc.UncertaintyGeometry] = {}
     for feature, verdict in ladder.verdicts.items():
-        if verdict.rung in ("R1", "R2"):
+        if config.uncertainty_geometry and verdict.rung in ("R1", "R2"):
             uncertainty[feature] = unc.uncertainty_geometry(
                 real,
                 labels,
@@ -240,11 +240,38 @@ def _write_summary(
                 "mechanism": v.mechanism,
                 "metrics": v.metrics,
                 "gate_tree": v.gate_tree.render(),
+                # Power travels WITH the rung, never in a separate table: an R4 read without its
+                # bucket size is the failure the annotation exists to prevent.
+                "n_train": v.n_train,
+                "positives_train": v.positives_train,
+                "n_test": v.n_test,
+                "positives_test": v.positives_test,
+                "real_se": v.real_se,
+                "resolvable_margin": v.resolvable_margin,
+                "underpowered": v.underpowered,
+                "matched": (
+                    None
+                    if v.matched is None
+                    else {
+                        "matched_auc": v.matched.matched_auc,
+                        "survived": v.matched.survived,
+                        "n_matched_train": v.matched.n_matched_train,
+                        "n_matched_test": v.matched.n_matched_test,
+                        "share_test": v.matched.share_test,
+                        "degenerate": v.matched.degenerate,
+                    }
+                ),
             }
             for f, v in ladder.verdicts.items()
         },
         "existence": {
-            f: {"real_auc": e.real_auc, "pvalue": e.pvalue, "exceeds_null": e.exceeds_null}
+            f: {
+                "real_auc": e.real_auc,
+                "pvalue": e.pvalue,
+                "exceeds_null": e.exceeds_null,
+                "clean": e.clean,
+                "method": e.method,
+            }
             for f, e in ladder.existence.items()
         },
         # Which control set the bar. Without this the verdict is unreadable: "p = 1.0" says the

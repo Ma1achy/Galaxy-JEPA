@@ -22,7 +22,9 @@ pre-registered audit trail) and a named ``mechanism``.
 from __future__ import annotations
 
 import dataclasses
+import json
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 import numpy as np
 
@@ -36,7 +38,12 @@ from galaxy_jepa.probing import nulls as nulls_mod
 from galaxy_jepa.probing.config import ProbingConfig
 from galaxy_jepa.probing.extract import LabelProvider, feature_embeddings, feature_ids
 from galaxy_jepa.probing.gates import EXISTENCE_METRIC_FLOOR, build_gates
-from galaxy_jepa.probing.logistic import ConceptDirection, Embeddings, probe_auc, probe_direction
+from galaxy_jepa.probing.logistic import (
+    ConceptDirection,
+    Embeddings,
+    probe_auc_ci_se,
+    probe_direction,
+)
 
 __all__ = ["RungVerdict", "LadderResult", "run_ladder"]
 
@@ -54,6 +61,16 @@ class RungVerdict:
     matched: match.MatchedVerdict | None = None
     sweep: list[mlp_mod.SweepRow] | None = None
     ceiling: int | None = None
+    #: Power, per bucket. An R4 on 160 positives and an R4 on 9,019 are different findings, and
+    #: nothing downstream could tell them apart without these. ``underpowered`` means the rung
+    #: reads "cannot resolve at this N", NEVER "absent".
+    n_train: int = 0
+    positives_train: int = 0
+    n_test: int = 0
+    positives_test: int = 0
+    real_se: float = 0.0
+    resolvable_margin: float = 0.0
+    underpowered: bool = False
 
 
 @dataclasses.dataclass
@@ -67,6 +84,41 @@ class LadderResult:
     directions: dict[str, ConceptDirection]
 
 
+def _load_untrained_bank(
+    config: ProbingConfig, features: Sequence[str]
+) -> dict[str, np.ndarray] | None:
+    """The K-seed untrained bar for D23's existence test, or ``None`` under the empirical method.
+
+    Raises rather than falling back. A missing bank under ``existence_method='untrained_z'`` is a
+    configuration error, and silently reverting to the point-mass estimator would produce a
+    plausible-looking catalogue computed by a test the config said not to use.
+    """
+    if config.existence_method != nulls_mod.EXISTENCE_UNTRAINED_Z:
+        return None
+    if not config.untrained_bank_path:
+        raise ValueError(
+            "existence_method='untrained_z' needs ProbingConfig.untrained_bank_path. "
+            "Build it with `uv run python artifacts/p1_untrained_bank.py`."
+        )
+    path = Path(config.untrained_bank_path)
+    if not path.exists():
+        raise FileNotFoundError(f"untrained bank not found at {path}")
+    rec = json.loads(path.read_text())
+    seeds = rec.get("seeds", {})
+    if not seeds:
+        raise ValueError(f"untrained bank at {path} is empty")
+    bank: dict[str, np.ndarray] = {}
+    for feature in features:
+        vals = [s[feature] for s in seeds.values() if feature in s]
+        if len(vals) != len(seeds):
+            raise ValueError(
+                f"untrained bank at {path} covers {len(vals)} of {len(seeds)} seeds for "
+                f"{feature!r} — an uneven bank would give features different-sized denominators"
+            )
+        bank[feature] = np.asarray(vals, dtype=np.float64)
+    return bank
+
+
 def _linear_probe(
     feature: str,
     controls: ctl.ControlEmbeddings,
@@ -75,16 +127,23 @@ def _linear_probe(
     test_ids: Sequence[int],
     *,
     c: float,
-) -> tuple[float, ConceptDirection | None, Embeddings, Embeddings]:
-    """Stage-1 canonical linear probe: ROC-AUC + the concept direction (None if single-class)."""
+    seed: int = 0,
+    n_boot: int = 2000,
+) -> tuple[float, float, ConceptDirection | None, Embeddings, Embeddings]:
+    """Stage-1 canonical linear probe: ROC-AUC, its bootstrap SE, and the concept direction.
+
+    The SE arrived with D23: the ``untrained_z`` existence test needs the real AUC's sampling
+    uncertainty on one side of the comparison, and the power rule needs it again to say what
+    margin a bucket could have resolved. ``direction`` is ``None`` on a single-class split.
+    """
     train = feature_embeddings(controls.real, labels, feature, train_ids)
     test = feature_embeddings(controls.real, labels, feature, test_ids)
     try:
-        auc = probe_auc(train, test, c=c)
+        auc, _lo, _hi, se = probe_auc_ci_se(train, test, c=c, seed=seed, n_boot=n_boot)
         direction = probe_direction(train, name=feature, c=c)
     except ValueError:  # a single-class train split — not linearly fittable
-        return 0.5, None, train, test
-    return auc, direction, train, test
+        return 0.5, 0.0, None, train, test
+    return auc, se, direction, train, test
 
 
 def _entangled_map(
@@ -334,12 +393,30 @@ def run_ladder(
     # Phase 1: per-feature linear probe + direction + the 3C battery.
     directions: dict[str, ConceptDirection] = {}
     real_aucs: dict[str, float] = {}
+    real_ses: dict[str, float] = {}
+    counts: dict[str, tuple[int, int, int, int]] = {}
     feature_controls: dict[str, ctl.FeatureControls] = {}
     for i, feature in enumerate(features):
-        auc, direction, _, _ = _linear_probe(
-            feature, controls, labels, train_ids, test_ids, c=config.c
+        auc, se, direction, tr_emb, te_emb = _linear_probe(
+            feature,
+            controls,
+            labels,
+            train_ids,
+            test_ids,
+            c=config.c,
+            seed=config.seed,
+            n_boot=config.n_boot,
         )
         real_aucs[feature] = auc
+        real_ses[feature] = se
+        # N and positives per bucket, because an R4 on 160 positives and an R4 on 9,019 are
+        # different findings and nothing downstream could tell them apart otherwise.
+        counts[feature] = (
+            int(len(tr_emb.y)),
+            int(tr_emb.y.sum()),
+            int(len(te_emb.y)),
+            int(te_emb.y.sum()),
+        )
         if direction is not None:
             directions[feature] = direction
         feature_controls[feature] = ctl.build_feature_controls(
@@ -356,12 +433,16 @@ def run_ladder(
         )
 
     # Phase 2: family-corrected existence verdict (3B/2B) — the gate input.
+    bank = _load_untrained_bank(config, features)
     existence = nulls_mod.existence_verdicts(
         feature_controls,
         alpha=config.alpha,
         method=config.multiplicity,
         effect_floor=config.effect_floor,
         n_tests=n_tests,
+        existence_method=config.existence_method,
+        untrained_bank=bank,
+        real_se=real_ses if bank is not None else None,
     )
 
     # Phase 3: global entanglement geometry over the existence-passing directions (2A).
@@ -399,6 +480,30 @@ def run_ladder(
             verdicts[feature] = _failing_rung(
                 feature, fc, controls, labels, train_ids, test_ids, cleared, config=config
             )
+
+        # Power annotation, attached to every verdict rather than only the failures: a feature
+        # that passed is entitled to say how thin a margin it could have resolved, and a reader
+        # comparing R1s across buckets needs it as much as a reader of an R4.
+        n_tr, pos_tr, n_te, pos_te = counts[feature]
+        sd_bar = float(np.std(bank[feature], ddof=1)) if bank is not None else 0.0
+        margin = nulls_mod.resolvable_margin(
+            real_ses[feature],
+            sd_bar=sd_bar,
+            alpha=config.alpha,
+            method=config.multiplicity,
+            n_tests=n_tests,
+            df=(len(bank[feature]) - 1) if bank is not None else None,
+        )
+        verdicts[feature] = dataclasses.replace(
+            verdicts[feature],
+            n_train=n_tr,
+            positives_train=pos_tr,
+            n_test=n_te,
+            positives_test=pos_te,
+            real_se=real_ses[feature],
+            resolvable_margin=margin,
+            underpowered=nulls_mod.is_underpowered(margin),
+        )
 
     return LadderResult(
         verdicts=verdicts,

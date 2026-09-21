@@ -173,6 +173,12 @@ class ProbingConfig(RunConfig):
     # The library default stays `empirical` so the switch has to be declared by a config a run
     # actually loads, exactly as the effect floor is.
     existence_method: Literal["empirical", "untrained_z"] = "empirical"
+    # Phase 6 of `run_probing`. DEFERRED by Brief P: the uncertainty geometry is the high-beta
+    # headline and carries an open decision of its own — a vote-count floor or weighting LOCAL to
+    # the uncertainty test and the consensus-extreme split (50/50 on 60 votes is genuinely
+    # ambiguous; 2/2 on 4 may be merely undersampled). Gated rather than deleted, and it costs
+    # `n_perm` permutations per R1/R2 feature when on.
+    uncertainty_geometry: bool = True
     # K, for `untrained_z`. `nulls.assert_untrained_bank_resolution` refuses below `nulls.K_MIN`,
     # because this K is what the sd in every z-denominator is estimated from.
     n_untrained_seeds: int = 30
