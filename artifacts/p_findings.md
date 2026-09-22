@@ -24,6 +24,12 @@ both populations, power travelling with every verdict.
 
 ---
 
+Figures: `assets/ladder_catalogue.png` (§a, §b), `assets/ladder_power.png` (§c, §d),
+`assets/concept_structure.png` (§e, §f, §g). All three regenerate from the records above via
+`uv run python artifacts/readme_figures.py`.
+
+---
+
 ## (a) The headline finding: almost everything exists, almost nothing is clean
 
 | rung | full | conditional |
@@ -115,7 +121,12 @@ bar of 0.7247 and would read as a finding. Twenty-eight positives in 34,829 give
 resolvable margin of 0.2243 — nothing this bucket could have shown would have survived BY. Its R4
 means **cannot resolve at this N**, and must never be read as a scientific null.
 
-The margin orders exactly by bucket size, which is what a power measure should do.
+**The margin orders by the size of the *rarer* class, not by the bucket.** Plotting it against
+positives alone gives Spearman −0.71 and a misleading upturn at the high end; against
+`min(positives, negatives)` it is −0.91 and monotone. The majority-class answers are the reason:
+`t02_edgeon_no` has 29,641 positives but only 4,710 negatives, and it is the 4,710 that bind. An
+earlier draft of this document said "orders exactly by bucket size" — that was wrong, and the
+figure is what caught it.
 
 ---
 

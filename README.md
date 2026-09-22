@@ -12,7 +12,7 @@ This is **v2 of my undergraduate dissertation** &mdash; a direct follow-on from 
 
 A [JEPA](https://arxiv.org/abs/2301.08243) (Joint-Embedding Predictive Architecture) is trained **self-supervised** on hundreds of thousands of galaxy images: mask out patches, and have the model predict the *representation* of the hidden region from the visible context &mdash; never the pixels, and never a human label. To predict a masked galaxy region well, the model has to build an internal representation of what galaxies actually look like &mdash; their shapes, structures and features. The encoder is then **frozen**, and the Galaxy Zoo labels are brought in only as a *read-out key*, relocating the label noise out of representation-learning and into a measurement stage where it can be quantified and controlled rather than baked into the weights.
 
-> **Status &mdash; research in progress.** The premise is proven at pilot scale (see [The First Result](#the-first-result)). Since then the data layer has been built out to the full corpus &mdash; **826,968 galaxies pulled at native fidelity and pre-baked** &mdash; and the training loop, the frozen-probing harness and the controls battery are all standing. The learning-rate schedule was found to be driving the representation's effective rank down, and has been [resolved by measurement](#before-the-full-run) &mdash; a scaled recipe lifts frozen-probe AUC from 0.904 to 0.936 on identical held-out galaxies. The full-scale run has not been launched yet. This README is a tour of the project as it stands.
+> **Status &mdash; research in progress.** The premise was proven at pilot scale (see [The First Result](#the-first-result)), the schedule problem was [resolved by measurement](#before-the-full-run), and the full-scale run has since happened: **826,968 galaxies**, stopped at 4 epochs by a pre-registered rule, **frozen-probe AUC 0.9646**. All 37 Galaxy Zoo answers have now been put through the ladder &mdash; [the catalogue](#the-catalogue) is the result, and it is not the result the design expected. What remains is the uncertainty geometry (deliberately deferred, it has an open decision of its own) and the MAE / contrastive baselines.
 
 # **The Problem**
 
@@ -150,6 +150,64 @@ It also falsified this project's own pre-registered kill criterion. The old coll
 
 This is what most of the engineering in this repository is for: making that kind of question cheap to ask, hard to fudge, and impossible to quietly get wrong.
 
+# **The Catalogue**
+
+---
+
+The full-scale run went out at 826,968 galaxies with the schedule the last section settled, and stopped itself at **4 epochs** &mdash; 101,308 of a budgeted 253,270 steps &mdash; when the pre-registered rule saw the AUC gains flatten (+0.0010, then +0.0005). Roughly 28 hours of budget handed back by a rule written before launch. The frozen encoder reads the smooth/featured split at **AUC 0.9646** on 34,829 held-out galaxies, with a range of [0.9609, 0.9646] across two independent training draws with the splits held fixed.
+
+Then the actual experiment: every one of the **37 Galaxy Zoo answers** put through the nameability ladder on that frozen encoder, with matched evaluation on every feature, and each one measured not against chance but against **its own untrained-encoder bar** &mdash; the AUC an identical architecture with random weights achieves on that same question, averaged over 30 seeds.
+
+<p align="center">
+  <img src="assets/ladder_catalogue.png" width="980" alt="All 37 Galaxy Zoo answers on the nameability ladder" />
+</p>
+
+<p align="center">
+  <em>Left: every answer as a segment from its untrained bar (grey tick) to the achieved AUC (filled), with the AUC after matching on nuisance variables as a hollow ring. The segment <strong>is</strong> the effect; the distance from zero is not. Right: why the answers that aren't clean aren't clean.</em>
+</p>
+
+**The headline is not the one the design expected.** Thirty-three of thirty-seven answers clear their own untrained bar &mdash; the representation contains the tree. But exactly **one** is a clean, independent direction. Everything else that exists is entangled with other concepts or loses its effect when a nuisance variable is held fixed. The standing question was *"is a human concept a direction in the representation?"*, and the catalogue's answer is: it is a direction &mdash; almost never an independent one.
+
+**And the nuisance is nearly always the same one.** Nineteen of the thirty-seven lose their effect when *apparent size* is matched: bar and no-bar, every "odd feature" answer but one, both winding endpoints, four of six arm-count answers. That is a coherent story rather than a defect &mdash; Galaxy Zoo classifications are made on images, and how large a galaxy appears sets how much of its structure a volunteer can see. A representation trained to predict image content finds that axis first. But it means most concept directions in this encoder are not *about* the concept in the way the framing needs.
+
+Notice also the first thing the left panel shows, before any verdict: the grey ticks are nowhere near 0.5. An **untrained** ViT reads the smooth-or-featured split at AUC 0.79 with random weights, purely from image statistics. Measuring "existence" against chance would have credited the encoder for that. Measuring it against the architecture's own untrained bar does not.
+
+## What the corpus can and cannot resolve
+
+A verdict of "not recoverable" is only a scientific claim if the measurement could have found the thing. So every rung carries a **resolvable margin** &mdash; the smallest effect over that feature's own bar that this many galaxies could have demonstrated &mdash; and where the margin is too wide, the verdict reads *"cannot resolve at this N"*, never *"absent"*.
+
+<p align="center">
+  <img src="assets/ladder_power.png" width="980" alt="Resolvable margin against the rarer class, and the rungs that moved between populations" />
+</p>
+
+<p align="center">
+  <em>Left: power is set by whichever class is scarce, not by the headline bucket size. Right: every answer whose rung changed when the population was restricted to majority-route galaxies, with the held-out positives that survived the restriction.</em>
+</p>
+
+The case this rule exists for is `star or artifact`. Its AUC of 0.774 sits *above* its untrained bar of 0.725 and would read as a finding &mdash; but on **28 positives in 34,829 galaxies**, nothing it could have produced would have survived multiplicity correction. It is reported as unresolvable, not as a result.
+
+The right panel is the other half of the same lesson. The experiment runs both populations &mdash; all galaxies that reached a question, and only those whose parent question reached a majority. The second was expected to say *where* a signal lives. On this corpus it mostly says how few galaxies survive a majority gate: `lens or arc` goes from 2,004 held-out positives to **five**. Where a rung improves, it improves as the sample collapses. That is why the headline verdicts are read from the full population, which is gated only by a frozen parameter.
+
+## Does the geometry look like human judgement?
+
+The encoder never saw a vote. So the concept directions it produced can be laid against the structure of human voting on **the same galaxies** &mdash; same objects, same votes, only the representation differs.
+
+<p align="center">
+  <img src="assets/concept_structure.png" width="980" alt="Encoder concept cosines against human vote correlations on the same galaxies" />
+</p>
+
+<p align="center">
+  <em>The encoder's concept geometry (left), the humans' vote structure on the same galaxies (centre), and the two laid against each other (right). Inset: D13's hard case.</em>
+</p>
+
+**Spearman +0.643 over 528 answer pairs.** The structure a label-free encoder builds substantially tracks the structure of human voting, without ever having been shown a vote. The disagreements are the interesting part &mdash; pairs the encoder ties that the voters separate are candidates for the size axis above; pairs the encoder separates that the voters tie may be the encoder doing better than the labels, since vote correlation carries the volunteers' own confusions.
+
+The inset is a specific, falsifiable prediction. Bars and spiral arms co-occur, and the worry is that a representation merely learns "confidently classified galaxy" and reads every morphological answer off that one axis. But Hart et al. measured that arms in strongly barred galaxies are roughly **4&ndash;6&deg; looser** than in unbarred ones. So a bar direction tracking *physics* should lean towards loose winding specifically; one tracking classification confidence should lean towards every spiral answer about equally. It leans: **+0.042 to loose, &minus;0.239 to tight** &mdash; not merely closer to loose, but anti-aligned with tight. Hart's ordering, recovered from images alone.
+
+As a continuity check, two of the three correlations quoted from v1 come back at the same sign and comparable magnitude through a different dataset and a different representation: edge-on &times; cigar-shaped +0.83 &rarr; **+0.957**, bar &times; 2-arms +0.56 &rarr; **+0.419**.
+
+The full write-up, including the limitations that travel with every verdict, is in [`artifacts/p_findings.md`](artifacts/p_findings.md).
+
 # **The Data Layer**
 
 ---
@@ -181,7 +239,7 @@ The codebase is built around a few structural commitments, several inherited as 
 
 The full experimental design of the probing stage is architected and largely built: the nameability ladder, a controls battery that gates every rung verdict (selectivity, negative controls, a nuisance battery), the uncertainty-geometry measurement, and MAE / contrastive baselines run through the same ladder to separate *intrinsic to the images* from *artefact of the objective*.
 
-The immediate path is: **settle the schedule** (a two-arm run that ends by probing both frozen checkpoints, not by comparing effective ranks) &rarr; the full-scale pretraining run &rarr; the per-feature ladder, the uncertainty geometry, and the comparison back to v1.
+The schedule is settled, the full-scale run is done and [the catalogue](#the-catalogue) is in. What remains: the **uncertainty geometry** &mdash; the high-beta result, deliberately held back because it carries an open decision of its own about how to treat a 50/50 split on 60 votes against a 2/2 split on four &mdash; and the **MAE / contrastive baselines**, without which the catalogue is what *one* objective can say and no more. The one-clean-direction finding in particular needs a baseline to interpret: whether it is a fact about JEPA or a fact about galaxy images is exactly the question a second objective answers.
 
 # **Dependencies**
 

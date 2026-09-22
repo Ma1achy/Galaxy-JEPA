@@ -50,7 +50,11 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - run: uv sync --extra dev
+      # `eval` as well as `dev`: the gate covers the probing read-out (sklearn) and, since
+      # D23, the existence gate's Student-t tail (scipy). Those are unit tests of package
+      # maths, not integration — making the gate green by skipping them would hollow out the
+      # merge-blocking check. The `data` extra stays out: nothing unmarked needs a FITS corpus.
+      - run: uv sync --extra dev --extra eval
       # Default (unmarked) selection = unit + invariant. Must stay ~2 min.
       - run: uv run pytest -m "not integration and not e2e and not gpu" --durations=10
 

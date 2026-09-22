@@ -5,6 +5,7 @@ Every figure here is computed from something on disk that a run produced:
   * the pilot collapse trace     <- runs/pilot.log, the 6,000-step pilot's own log lines
   * the pilot UMAP               <- runs/slice/explorer/, the frozen pilot's embeddings
   * the schedule dose-response   <- artifacts/out/h2_arms.jsonl, Brief H's six arms
+  * the three Brief P panels     <- artifacts/out/p2_ladder.json + p1_untrained_bank.json
 
 Run: uv run python artifacts/readme_figures.py
 """
@@ -428,6 +429,290 @@ def resolving_run() -> None:
     print(f"wrote resolving_run.png  baseline {aucs[0]:.4f} / proposal {aucs[1]:.4f}")
 
 
+# ---------------------------------------------------------------------------- Brief P: the ladder
+
+LADDER = ROOT / "artifacts" / "out" / "p2_ladder.json"
+BANK = ROOT / "artifacts" / "out" / "p1_untrained_bank.json"
+
+#: One colour per rung, used across all three Brief P panels so a reader learns it once.
+RUNG_COLOUR = {"R1": GOOD, "R2": ACCENT, "R3": "#c9a227", "R4": "#b3352b"}
+
+
+ALIASES = {
+    "smooth or features": "root", "arms number": "arms", "arms winding": "winding",
+    "bulge prominence": "bulge", "edgeon": "edge-on",
+    # t06 asks "anything odd?" and t08 asks "odd HOW?" — both would shorten to "odd", and the
+    # t06 answers are a bare yes/no, so it is the one that must keep its question.
+    "odd": "anything odd", "odd feature": "odd",
+}
+#: tasks whose answer alone is unambiguous, so the label need not repeat the question
+BARE = {"bar", "spiral", "odd feature", "rounded"}
+
+
+def _short(name: str) -> str:
+    """`t03_bar_a06_bar` -> `bar`, `t11_arms_number_a36_more_than_4` -> `arms: more than 4`."""
+    m = re.match(r"t\d+_(.+?)_a\d+_(.+)$", name)
+    if m is None:
+        return name
+    raw = m.group(1).replace("_", " ")
+    answer = m.group(2).replace("_", " ")
+    return answer if raw in BARE else f"{ALIASES.get(raw, raw)}: {answer}"
+
+
+def _ladder() -> dict:
+    return json.loads(LADDER.read_text())
+
+
+def p_catalogue() -> None:
+    """The headline: 37 answers, each against its own untrained bar and its matched AUC."""
+    d = _ladder()
+    bank = json.loads(BANK.read_text())["seeds"]
+    bars = {
+        f: float(np.mean([bank[s][f] for s in bank]))
+        for f in next(iter(bank.values()))
+    }
+    rows = sorted(d["full"], key=lambda r: r["auc"])
+
+    fig, (ax, axm) = plt.subplots(
+        1, 2, figsize=(13.2, 9.0), gridspec_kw={"width_ratios": [2.5, 1]}
+    )
+    ys = np.arange(len(rows))
+
+    for y, r in zip(ys, rows, strict=True):
+        bar, auc = bars[r["feature"]], r["auc"]
+        colour = RUNG_COLOUR[r["rung"]]
+        # the segment from the untrained bar to the real AUC IS the effect; nothing else is
+        ax.plot([bar, auc], [y, y], lw=2.2, color=colour, zorder=2,
+                alpha=0.35 if r["underpowered"] else 1.0)
+        ax.scatter([bar], [y], marker="|", s=110, color=MUTED, zorder=3, lw=1.6)
+        ax.scatter([auc], [y], s=46, color=colour, zorder=4, edgecolors="none")
+        if r["matched_auc"] is not None:
+            ax.scatter([r["matched_auc"]], [y], s=34, facecolors="white",
+                       edgecolors=colour, lw=1.4, zorder=5)
+        if r["underpowered"]:
+            ax.text(1.005, y, "underpowered", fontsize=7.2, color=MUTED, va="center")
+
+    ax.axvline(d["effect_floor"], color=WARM, ls="--", lw=1.1, zorder=1)
+    ax.text(d["effect_floor"] + 0.004, -1.6, "effect floor 0.7267 (frozen)",
+            color=WARM, fontsize=8.5, va="bottom")
+    ax.set_yticks(ys)
+    ax.set_yticklabels([_short(r["feature"]) for r in rows], fontsize=8.4)
+    ax.set_xlim(0.45, 1.0)
+    ax.set_ylim(-2.4, len(rows) - 0.4)
+    ax.set_xlabel("AUC on 34,829 held-out galaxies")
+    ax.set_title(
+        "Every Scheme 1 answer, measured from its own untrained bar\n"
+        "grey tick = untrained-encoder bar   ·   filled = AUC   ·   hollow = after matching",
+        fontsize=11, pad=10,
+    )
+    ax.grid(axis="x", lw=0.6)
+    ax.set_axisbelow(True)
+    handles = [
+        plt.Line2D([], [], color=RUNG_COLOUR[k], lw=2.4, label=lab)
+        for k, lab in (("R1", "R1 — clean direction"), ("R2", "R2 — present, not clean"),
+                       ("R4", "R4 — not recoverable"))
+    ]
+    ax.legend(handles=handles, frameon=False, fontsize=9, loc="lower right")
+
+    # right: what the rung composition is, and how the mechanism changes with the population
+    mech_order = ["clean linear direction", "entangled linear", "confounded by size",
+                  "confounded by magnitude", "confounded by redshift", "not recoverable"]
+    SHORT_MECH = {"clean linear direction": "clean", "entangled linear": "entangled",
+                  "confounded by size": "size", "confounded by magnitude": "magnitude",
+                  "confounded by redshift": "redshift", "not recoverable": "not\nrecoverable"}
+    mech_colour = {"clean linear direction": GOOD, "entangled linear": ACCENT,
+                   "confounded by size": "#b3352b", "confounded by magnitude": "#d9863d",
+                   "confounded by redshift": "#c9a227", "not recoverable": MUTED}
+
+    def bucket(m: str) -> str:
+        for k in mech_order:
+            if m.startswith(k):
+                return k
+        return "not recoverable"
+
+    for i, pop in enumerate(("full", "conditional")):
+        counts: dict[str, int] = {}
+        for r in d[pop]:
+            k = bucket(r["mechanism"])
+            counts[k] = counts.get(k, 0) + 1
+        bottom = 0
+        for k in mech_order:
+            n = counts.get(k, 0)
+            if not n:
+                continue
+            axm.bar(i, n, bottom=bottom, width=0.62, color=mech_colour[k], edgecolor="white", linewidth=0.8)
+            if n >= 2:
+                axm.text(i, bottom + n / 2, f"{SHORT_MECH[k]}\n{n}", ha="center", va="center",
+                         fontsize=8.5, color="white")
+            bottom += n
+    axm.set_xticks([0, 1])
+    axm.set_xticklabels(["full\n(verdict)", "conditional\n(reported)"], fontsize=9)
+    axm.set_ylabel("answers")
+    axm.set_title("Why an answer is not clean\nsize dominates — until the population changes",
+                  fontsize=11, pad=10)
+    axm.grid(axis="y", lw=0.6)
+    axm.set_axisbelow(True)
+
+    fig.suptitle(
+        "Brief P — the catalogue. M's 4-epoch encoder, 37 answers, matched evaluation on every one.",
+        fontsize=12.5, y=0.995,
+    )
+    fig.tight_layout()
+    fig.savefig(ASSETS / "ladder_catalogue.png")
+    plt.close(fig)
+    n1 = sum(1 for r in d["full"] if r["rung"] == "R1")
+    print(f"wrote ladder_catalogue.png  R1={n1}/37")
+
+
+def p_power() -> None:
+    """What this corpus can and cannot resolve, and where the population comparison collapses."""
+    d = _ladder()
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(12.8, 4.8))
+
+    # x is the RARER class, not the positives. Power is set by whichever side is scarce, and
+    # plotting positives alone makes the majority-class answers (edge-on: no, 29,641 positives
+    # against 4,710 negatives) look better powered than they are — the trend goes from
+    # Spearman -0.71 to -0.91 once the axis is the quantity that actually binds.
+    def minority(r: dict) -> int:
+        return min(r["positives_test"], r["n_test"] - r["positives_test"])
+
+    for r in d["full"]:
+        ax.scatter(minority(r), r["resolvable_margin"], s=52, color=RUNG_COLOUR[r["rung"]],
+                   zorder=3, edgecolors="none", alpha=0.9)
+    ax.axhline(0.05, color=WARM, ls="--", lw=1.1)
+    ax.text(0.03, 0.052, "underpowered above this line (margin > 0.05)", color=WARM,
+            fontsize=8.5, va="bottom", ha="left", transform=ax.get_yaxis_transform())
+    # the five underpowered points sit close together; stagger the labels rather than stack them
+    for k, r in enumerate(sorted((r for r in d["full"] if r["underpowered"]),
+                                 key=lambda r: -r["resolvable_margin"])):
+        ax.annotate(_short(r["feature"]), (minority(r), r["resolvable_margin"]),
+                    textcoords="offset points", xytext=(12, (4, 4, 20, 8, -8)[k % 5]),
+                    fontsize=8, color=INK,
+                    arrowprops=dict(arrowstyle="-", color=GRID, lw=0.8, shrinkA=0, shrinkB=3))
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("held-out galaxies in the RARER class  (log)")
+    ax.set_ylabel("resolvable margin over the feature's own bar  (log)")
+    ax.set_title("Power is set by the rarer class, not the bucket\nSpearman -0.91",
+                 fontsize=11, pad=8)
+    ax.grid(lw=0.6)
+    ax.set_axisbelow(True)
+
+    changes = sorted(d["population_changes"], key=lambda c: c["positives_cond"])
+    ys = np.arange(len(changes))
+    for y, c in zip(ys, changes, strict=True):
+        ax2.plot([c["positives_full"], max(c["positives_cond"], 1)], [y, y],
+                 lw=2.0, color=MUTED, zorder=2)
+        ax2.scatter([c["positives_full"]], [y], s=42, color=ACCENT, zorder=3, edgecolors="none")
+        ax2.scatter([max(c["positives_cond"], 1)], [y], s=42, color="#b3352b", zorder=3,
+                    edgecolors="none")
+        ax2.annotate(f"{c['full']}→{c['conditional']}", (1.0, y), fontsize=7.6, color=MUTED,
+                     xycoords=ax2.get_yaxis_transform("grid"), textcoords="offset points",
+                     xytext=(6, 0), va="center", ha="left")
+    ax2.set_yticks(ys)
+    ax2.set_yticklabels([_short(c["feature"]) for c in changes], fontsize=8.2)
+    ax2.set_xscale("log")
+    ax2.set_xlim(0.6, 2.4e5)
+    ax2.set_xlabel("held-out positives  (log) — blue: full, red: conditional")
+    ax2.set_title("Every rung that moved, and why\nthe consensus gate takes the galaxies with it",
+                  fontsize=11, pad=8)
+    ax2.grid(axis="x", lw=0.6)
+    ax2.set_axisbelow(True)
+
+    fig.tight_layout()
+    fig.savefig(ASSETS / "ladder_power.png")
+    plt.close(fig)
+    print("wrote ladder_power.png")
+
+
+def p_structure() -> None:
+    """The encoder's concept geometry against the same galaxies' human vote structure."""
+    d = _ladder()
+    names = d["entanglement"]["names"]
+    cos = np.array(d["entanglement"]["cosine"], dtype=float)
+    # the vote matrix was computed over the entanglement set itself, so the two are aligned
+    human = np.array(
+        [[np.nan if v is None else v for v in row] for row in d["human_structure"]["correlation"]],
+        dtype=float,
+    )
+    assert human.shape == cos.shape, (human.shape, cos.shape)
+
+    fig = plt.figure(figsize=(14.6, 5.6))
+    # column 3 is an empty spacer: the colourbar would otherwise sit on the scatter's y labels
+    gs = fig.add_gridspec(1, 5, width_ratios=[1, 1, 0.035, 0.18, 1.05], wspace=0.34)
+    kw = dict(vmin=-1, vmax=1, cmap="RdBu_r", interpolation="nearest")
+    labels = [_short(n) for n in names]
+
+    for k, (m, title) in enumerate((
+        (cos, "encoder — cosine between\nconcept directions"),
+        (human, "humans — correlation between\nvote fractions, same galaxies"),
+    )):
+        a = fig.add_subplot(gs[0, k])
+        im = a.imshow(m, **kw)
+        a.set_xticks(range(len(labels)))
+        a.set_yticks(range(len(labels)))
+        a.set_xticklabels(labels, rotation=90, fontsize=5.4)
+        # the second matrix repeats the first's ordering, so its row labels are noise
+        a.set_yticklabels(labels if k == 0 else [], fontsize=5.4)
+        a.set_title(title, fontsize=10, pad=8)
+        for s in a.spines.values():
+            s.set_visible(False)
+        if k == 1:
+            cax = fig.add_subplot(gs[0, 2])
+            fig.colorbar(im, cax=cax).outline.set_visible(False)
+            cax.tick_params(labelsize=8)
+
+    a3 = fig.add_subplot(gs[0, 4])
+    xs, ys = [], []
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            if np.isfinite(human[i, j]):
+                xs.append(human[i, j])
+                ys.append(cos[i, j])
+    a3.scatter(xs, ys, s=22, color=ACCENT, alpha=0.55, edgecolors="none", zorder=3)
+    a3.axhline(0, color=GRID, lw=1.0)
+    a3.axvline(0, color=GRID, lw=1.0)
+    rho = d["human_structure"]["spearman_vs_embedding"]
+    a3.set_xlabel("human vote correlation")
+    a3.set_ylabel("encoder cosine")
+    a3.set_title(
+        f"Spearman {rho:+.3f} over {d['human_structure']['n_pairs']} pairs\n"
+        f"same galaxies, same votes — only the representation differs",
+        fontsize=10.5, pad=8,
+    )
+    a3.grid(lw=0.6)
+    a3.set_axisbelow(True)
+
+    # D13's hard case, inset: Hart predicts the bar leans towards LOOSE winding specifically
+    h = d["bar_winding"]
+    if h["cosines"]:
+        # top-left of the scatter is empty (no pair is both vote-anticorrelated and
+        # cosine-aligned), so the inset costs no data
+        ins = a3.inset_axes([0.13, 0.58, 0.36, 0.27], facecolor="white")
+        for s in ins.spines.values():
+            s.set_color(GRID)
+        order = [w for w in ("t10_arms_winding_a28_tight", "t10_arms_winding_a29_medium",
+                             "t10_arms_winding_a30_loose") if w in h["cosines"]]
+        vals = [h["cosines"][w] for w in order]
+        ins.bar(range(len(order)), vals, width=0.6,
+                color=[GOOD if v == max(vals) else MUTED for v in vals])
+        ins.set_xticks(range(len(order)))
+        ins.set_xticklabels([w.split("_")[-1] for w in order], fontsize=7)
+        ins.axhline(0, color=GRID, lw=0.9)
+        ins.set_title("D13's hard case: bar's cosine to winding\n"
+                      "Hart predicts a lean to LOOSE", fontsize=7.2, pad=3)
+        ins.tick_params(labelsize=6.5)
+        ins.grid(False)
+
+    fig.suptitle(
+        "Brief P — the encoder's concept geometry against human voting on the same 230k galaxies.",
+        fontsize=12.5, y=1.0,
+    )
+    fig.savefig(ASSETS / "concept_structure.png", bbox_inches="tight")
+    plt.close(fig)
+    print(f"wrote concept_structure.png  spearman {rho:+.3f}")
+
+
 if __name__ == "__main__":
     ASSETS.mkdir(exist_ok=True)
     pilot_collapse()
@@ -435,3 +720,6 @@ if __name__ == "__main__":
     schedule_dose_response()
     vote_decisiveness()
     resolving_run()
+    p_catalogue()
+    p_power()
+    p_structure()

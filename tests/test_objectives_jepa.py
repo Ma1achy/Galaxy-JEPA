@@ -272,8 +272,14 @@ class TestTheMpsPoolRelease:
         for after in ("loss.backward()", "opt.step()", "jepa.ema_update("):
             assert source.index(after) < release, f"the release must come after {after}"
 
+    @pytest.mark.integration
     def test_a_cpu_run_is_untouched_by_it(self, pretraining_corpus, tmp_path):
-        """The guard means a CPU run executes exactly the pre-change loop."""
+        """The guard means a CPU run executes exactly the pre-change loop.
+
+        Integration, like every other `pretraining_corpus` consumer here: it materialises a FITS
+        fixture corpus (the `data` extra) and runs real training steps. It was unmarked, so the
+        fast gate — which installs `dev` only — tried to build the corpus without astropy.
+        """
         loader = _loader(pretraining_corpus, tmp_path)
         jepa = Jepa(
             VisionTransformer(img_size=64, patch_size=16, embed_dim=32, depth=2, heads=2),
