@@ -152,7 +152,14 @@ def main() -> None:
     out: dict[str, object] = {"headline": HEADLINE, "checkpoint": str(setup.ckpt),
                               "n_train": len(train_ids), "n_test": len(test_ids),
                               "existence_method": pc.existence_method, "K": k,
-                              "effect_floor": pc.effect_floor, "smoke": True}
+                              "effect_floor": pc.effect_floor,
+                              # NOT a smoke: probe.yaml carries smoke=false and no escape hatch,
+                              # so every grounded default is at full strength. But this drives
+                              # run_ladder directly, so it is an artifacts-level record without a
+                              # RunStamp — real evidence, not a stamped package artefact.
+                              "smoke": bool(pc.smoke),
+                              "escape_hatches": list(pc.escape_hatches),
+                              "stamped": False}
 
     results = {}
     for population in ("full", "conditional"):
