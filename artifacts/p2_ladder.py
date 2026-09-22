@@ -60,6 +60,28 @@ RECORD = OUT / "p2_ladder.json"
 HEADLINE = "M 4-epoch consensus AUC 0.9646; range across two training draws [0.9609, 0.9646]"
 
 
+def _narrow(labels, keep: list[str]):
+    """A sibling provider over the same rows carrying only ``keep``.
+
+    `LabelProvider` is a plain class, not a dataclass, so it must be rebuilt rather than
+    `replace`d. Every field travels: a dry run that silently reverted the vote floor or the
+    population would not be measuring the cost of the real thing.
+    """
+    from galaxy_jepa.probing.extract import LabelProvider
+
+    return LabelProvider(
+        labels.rows,
+        feature_cols={f: labels.feature_cols[f] for f in keep},
+        nuisance_cols=labels.nuisance_cols,
+        nuisance_flag_cols=labels.nuisance_flag_cols,
+        threshold=labels.threshold,
+        scheme=labels.scheme,
+        population=labels.population,
+        vote_count_min=labels.vote_count_min,
+        consensus_gate=labels.consensus_gate,
+    )
+
+
 def _rung_row(f: str, v) -> dict:
     return {
         "feature": f,
@@ -111,7 +133,7 @@ def main() -> None:
         return
 
     if args.features:
-        labels = dataclasses.replace(labels, features=list(labels.features)[: args.features])
+        labels = _narrow(labels, list(labels.features)[: args.features])
         print(f"P2 DRY RUN    : {len(labels.features)} features", file=sys.stderr)
 
     frozen = load_frozen_encoder(setup.ckpt)

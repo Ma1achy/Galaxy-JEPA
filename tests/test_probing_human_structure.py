@@ -118,6 +118,30 @@ class TestBarWindingAlignment:
         v = ent.bar_winding_alignment(names, np.eye(2))
         assert v.verdict == ent.UNAVAILABLE
 
+    def test_medium_may_be_absent_the_prediction_is_about_the_endpoints(self) -> None:
+        """Medium is the least separable answer and the likeliest to fail existence."""
+        names = [ent.BAR_FEATURE, ent.WINDING_ORDER[0], ent.WINDING_ORDER[2]]
+        cos = np.eye(3)
+        cos[0, 1] = cos[1, 0] = 0.20
+        cos[0, 2] = cos[2, 0] = 0.55
+        v = ent.bar_winding_alignment(names, cos)
+        assert v.verdict == ent.PHYSICS
+        assert "tight-to-loose axis only" in v.reason
+        assert set(v.cosines) == {ent.WINDING_ORDER[0], ent.WINDING_ORDER[2]}
+
+    def test_a_missing_endpoint_is_still_unavailable(self) -> None:
+        names = [ent.BAR_FEATURE, ent.WINDING_ORDER[0], ent.WINDING_ORDER[1]]
+        v = ent.bar_winding_alignment(names, np.eye(3))
+        assert v.verdict == ent.UNAVAILABLE
+        assert ent.WINDING_ORDER[2] in v.reason
+
+    def test_medium_out_of_order_breaks_the_physics_read(self) -> None:
+        names = [ent.BAR_FEATURE, *ent.WINDING_ORDER]
+        cos = np.eye(4)
+        for j, c in ((1, 0.20), (2, 0.60), (3, 0.40)):  # medium above loose
+            cos[0, j] = cos[j, 0] = c
+        assert ent.bar_winding_alignment(names, cos).verdict == ent.CONTRARY
+
 
 class TestNormalityReport:
     def test_a_normal_bank_passes_and_carries_no_caveat_weight(self) -> None:

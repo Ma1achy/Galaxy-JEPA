@@ -505,50 +505,70 @@ def bar_winding_alignment(
     cross-check) has said the bar+arms association is a real correlation in the data rather than
     a representational artefact. This stage asks what *kind* of real correlation it is.
 
-    * loose > medium > tight, by at least ``separation`` end to end → ``physics_consistent``:
-      the ordering Hart et al. predict, so the direction is tracking a property of the galaxies.
-    * all three within ``separation`` → ``uniform_bleed``: the bar direction is equally close to
-      every spiral answer, which is the confident-classification bleed the hard case warns about
-      — a galaxy confidently called barred is a galaxy confidently called everything.
+    * loose above tight (and medium between them, when medium is present), by at least
+      ``separation`` end to end → ``physics_consistent``: the ordering Hart et al. predict, so
+      the direction is tracking a property of the galaxies.
+    * all within ``separation`` → ``uniform_bleed``: the bar direction is equally close to every
+      spiral answer, which is the confident-classification bleed the hard case warns about — a
+      galaxy confidently called barred is a galaxy confidently called everything.
     * ordered the other way → ``contrary_to_literature``, reported as-is rather than explained.
+
+    **Medium winding is not required.** Hart's prediction is a statement about the tight-to-loose
+    axis, and the middle answer is the one most likely to fail existence — it is the least
+    separable of the three, and did fail in Brief P. Refusing the whole test because the *middle*
+    point is missing would discard a reading the two endpoints fully support. When medium is
+    absent the verdict is reached on tight-versus-loose alone and the reason says so; when it is
+    present it must sit between them for ``physics_consistent``.
 
     ``separation`` is a **declared** threshold, not a derived one.
     """
     index = {n: i for i, n in enumerate(names)}
-    if BAR_FEATURE not in index or not all(w in index for w in WINDING_ORDER):
+    tight_n, medium_n, loose_n = WINDING_ORDER
+    missing = [n for n in (BAR_FEATURE, tight_n, loose_n) if n not in index]
+    if missing:
         return BarWindingAlignment(
             UNAVAILABLE,
             {},
             0.0,
-            "the bar or a winding answer did not reach the entanglement set (existence-passing "
-            "features only), so the hard case cannot be read on this run",
+            f"the hard case needs the bar and both winding endpoints; {', '.join(missing)} did "
+            f"not reach the entanglement set (existence-passing features only), so it cannot be "
+            f"read on this run",
         )
-    cos = {w: float(cosine[index[BAR_FEATURE], index[w]]) for w in WINDING_ORDER}
-    tight, medium, loose = (cos[w] for w in WINDING_ORDER)
+    present = [w for w in WINDING_ORDER if w in index]
+    cos = {w: float(cosine[index[BAR_FEATURE], index[w]]) for w in present}
+    tight, loose = cos[tight_n], cos[loose_n]
+    medium = cos.get(medium_n)
     spread = max(cos.values()) - min(cos.values())
+    note = (
+        ""
+        if medium is not None
+        else " (medium winding failed existence, so this reads the tight-to-loose axis only)"
+    )
 
     if spread < separation:
         return BarWindingAlignment(
             BLEED,
             cos,
             spread,
-            f"the bar direction sits within {spread:.3f} of all three winding answers; Hart "
+            f"the bar direction sits within {spread:.3f} of every winding answer available; Hart "
             f"predicts a lean towards loose, and equal alignment is the classification bleed "
-            f"D13's hard case warns about",
+            f"D13's hard case warns about{note}",
         )
-    if loose > medium > tight:
+    if loose > tight and (medium is None or loose > medium > tight):
+        middle = "" if medium is None else f"medium {medium:.3f} > "
         return BarWindingAlignment(
             PHYSICS,
             cos,
             spread,
-            f"loose {loose:.3f} > medium {medium:.3f} > tight {tight:.3f}, spread {spread:.3f} — "
-            f"the ordering Hart et al. predict for barred galaxies, so the association is "
-            f"tracking a property of the galaxies rather than of the labelling",
+            f"loose {loose:.3f} > {middle}tight {tight:.3f}, spread {spread:.3f} — the ordering "
+            f"Hart et al. predict for barred galaxies, so the association is tracking a property "
+            f"of the galaxies rather than of the labelling{note}",
         )
+    middle = "" if medium is None else f"medium {medium:.3f} / "
     return BarWindingAlignment(
         CONTRARY,
         cos,
         spread,
-        f"tight {tight:.3f} / medium {medium:.3f} / loose {loose:.3f} — separated but not in the "
-        f"predicted order; reported as measured rather than explained",
+        f"tight {tight:.3f} / {middle}loose {loose:.3f} — separated but not in the predicted "
+        f"order; reported as measured rather than explained{note}",
     )
