@@ -141,8 +141,9 @@ that brief conditions on anything, it should be those. It should also pre-regist
     expected. Two more follow from the same rule: `t04 spiral` and `t04 no spiral`
     (conditional; both fail existence there) SURVIVES → UNRESOLVED. I predicted these in D24 before
     the rerun.
-  - **Rung counts: full unchanged; conditional R1 1 → 2.** `t08 odd: other` becomes a clean linear
-    direction. It had been "confounded by magnitude" only by the floor arithmetic; it retains 110% of
+  - **Rung counts: full unchanged; conditional R1 1 → 2.** `t08 odd: other` became
+    R1 here. **Superseded by D25 (Brief T1):** it is R2, entangled with `merger`, and T2 found
+    its direction is not one coherent category (`t_findings.md`). It had been "confounded by magnitude" only by the floor arithmetic; it retains 110% of
     its margin, is not entangled, and is not underpowered. I named it as a candidate before the rerun
     and report it as D24's consequence. It is a rung change, and this brief intended none.
   - P's 22 "confounded" (full) are now **12 entangled, 8 below the effect floor, 2 unresolved**.

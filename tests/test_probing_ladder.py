@@ -373,3 +373,115 @@ def test_retention_is_judged_only_where_the_margin_is_established(tmp_path):
             assert m.retention.verdict == "UNRESOLVED"
         assert m.survived == (m.retention.verdict == "SURVIVES")
     assert not any("did not survive matching" in v.mechanism for v in result.verdicts.values())
+
+
+# D25: the effect floor is an absolute clean-vs-marginal threshold, and nothing relative reads it.
+# Five consumers were audited; these pin the two that were relative (2A's conditional leg and the
+# MLP decode) so a sixth cannot quietly return.
+
+
+def _stub_geometry(a: str, b: str):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        names=[a, b],
+        cosine=np.array([[1.0, 0.9], [0.9, 1.0]]),
+        mp=SimpleNamespace(significant=True),
+        cav_disagreement={a: 0.5, b: 0.5},
+        entangled_pairs=[(a, b)],
+    )
+
+
+def _pair(cfg: ProbingConfig, *, a_auc: float, established: bool = True):
+    from galaxy_jepa.probing import ladder as ladder_mod
+
+    labels = _labels()
+    controls, ids = _controls_and_ids()
+    a, b = labels.features
+    bars = {
+        f: ladder_mod._untrained_bar(controls, labels, f, ids[:120], ids[120:], config=cfg)
+        for f in (a, b)
+    }
+    return ladder_mod._entangled_map(
+        _stub_geometry(a, b),
+        {},
+        controls,
+        labels,
+        ids[:120],
+        ids[120:],
+        real_aucs={a: a_auc, b: 0.9},
+        bars=bars,
+        established={a: established, b: True},
+        config=cfg,
+    )
+
+
+@pytest.mark.integration
+def test_the_conditional_leg_judges_retention_and_never_reads_the_effect_floor():
+    """Brief P called nine pairs world-correlation because A sat below 0.7267 before matching."""
+    low, high = (_config().model_copy(update={"effect_floor": f}) for f in (0.51, 0.99))
+    _, (pv_low,) = _pair(low, a_auc=0.6)
+    _, (pv_high,) = _pair(high, a_auc=0.6)
+    assert pv_low.retention in {"SURVIVES", "PARTIAL", "COLLAPSES", "UNRESOLVED"}
+    assert (pv_low.retention, pv_low.survived_matching, pv_low.verdict) == (
+        pv_high.retention,
+        pv_high.survived_matching,
+        pv_high.verdict,
+    )
+    expected = {"SURVIVES": True, "COLLAPSES": False}.get(pv_low.retention)
+    assert pv_low.survived_matching is expected, "PARTIAL/UNRESOLVED must not attribute the pair"
+
+
+@pytest.mark.integration
+def test_a_pair_whose_margin_is_not_established_is_refused():
+    """Only existence-passing directions reach 2A; a pair without one is a wiring error."""
+    with pytest.raises(ValueError, match="D25"):
+        _pair(_config(), a_auc=0.6, established=False)
+
+
+@pytest.mark.integration
+def test_moving_the_effect_floor_moves_nothing_but_clean(tmp_path):
+    """Every matched verdict and every failing rung is invariant to the floor; only R1/R2 moves."""
+    labels = _labels()
+    controls, ids = _controls_and_ids()
+    bank = _bank_file(tmp_path, labels.features)
+    runs = [
+        run_ladder(
+            controls,
+            labels,
+            ids[:120],
+            ids[120:],
+            config=_z_config(bank).model_copy(update={"effect_floor": f}),
+            sky_label_col="snr",
+        )
+        for f in (0.51, 0.99)
+    ]
+    for f in labels.features:
+        lo, hi = (r.verdicts[f] for r in runs)
+        assert (lo.matched is None) == (hi.matched is None)
+        if lo.matched is not None:
+            assert lo.matched.retention == hi.matched.retention
+        if lo.rung in {"R3", "R4"} or hi.rung in {"R3", "R4"}:
+            assert lo.rung == hi.rung and lo.mechanism == hi.mechanism
+    assert [(p.a, p.b, p.retention) for p in runs[0].pair_verdicts] == [
+        (p.a, p.b, p.retention) for p in runs[1].pair_verdicts
+    ]
+
+
+@pytest.mark.integration
+def test_the_mlp_rung_is_not_assigned_without_an_untrained_mlp_bar(tmp_path):
+    """No R3 on a stand-in bar: the failing verdict says the MLP decode is unadjudicated."""
+    labels = _labels()
+    controls, ids = _controls_and_ids()
+    result = run_ladder(
+        controls,
+        labels,
+        ids[:120],
+        ids[120:],
+        config=_z_config(_bank_file(tmp_path, labels.features)),
+        sky_label_col="snr",
+    )
+    failing = [v for f, v in result.verdicts.items() if not result.existence[f].exceeds_null]
+    assert failing
+    for v in failing:
+        assert v.rung == "R4" and "unadjudicated" in v.mechanism and v.sweep

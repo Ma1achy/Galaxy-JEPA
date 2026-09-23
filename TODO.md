@@ -393,12 +393,15 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   the covariance factor saves ~13%, not orders). Scheme 1 × 2 ladders: **30 h at n=3,109**,
   **290 h at n=30,000**. 30k is not affordable locally; the trade needs to be made explicitly.
 
-- [ ] (P1) **The effect floor still tests something relative in two places (D24, flagged).**
-  (i) The entanglement leg (`ladder._entangled_map`) judges A's probe matched on B's vote fraction
-  as *matched AUC ≥ floor* — a third instance of D24's defect; it feeds `adjudicate_pair`, so fixing
-  it can change rungs and needs its own before/after. (ii) The MLP decode threshold
-  (`rung_from_sweep(..., decode_threshold=effect_floor)`) asks an existence-failing feature to clear
-  0.7267, which is why R3 = 0 is unreadable (Brief P §a).
+- [x] (P1) **The effect floor still tests something relative in two places — closed by D25
+  (Brief T1).** Every consumer is audited and classified in D25; the two relative ones are fixed.
+  (i) The entanglement leg now judges D24 retention (A matched on B's vote fraction); (ii) the MLP
+  decode no longer reads the floor, and R3 is not assigned until (iii) below exists.
+- [ ] (P2) **Untrained-MLP bar for the MLP rung (D25).** R3 ⇔ the MLP clears D23's existence test
+  against an untrained-MLP bar at K ≥ 20 (`nulls.K_MIN`), width chosen on an inner split, BY across
+  the answers reaching the rung; nuisance clearance by the MLP's own retention. Costed at ≈ 7–8 h
+  (`artifacts/t_findings.md` §T1). Until then every existence-failing answer reads R4 *MLP decode
+  unadjudicated*.
 
 ## Epic G — Baselines as controls `[baseline]` — *same probe ladder, all SDSS-trained*
 - [ ] (P1) `[baseline]` **MAE** — reproduce the Wu & Walmsley recipe on our SDSS corpus. *(D12)*

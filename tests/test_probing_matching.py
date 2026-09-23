@@ -5,8 +5,9 @@ This module had **no test file** until Brief O1, and it is now on Paper 1's crit
 evaluation is what answers "you are not detecting spiral arms, you are detecting that nearby bright
 well-resolved galaxies look different". A module carrying that claim needs its edges pinned.
 
-What was uncovered before: `matched_auc`, `matched_evaluation` and `MatchedVerdict` entirely, the
-0.5 degenerate fallback, the `survive_threshold` boundary, and the train/test seed asymmetry. The
+What was uncovered before: `matched_auc` and `MatchedVerdict` entirely, the 0.5 degenerate
+fallback, and the train/test seed asymmetry. (`matched_evaluation` and its `survive_threshold` are
+gone: D25 moved the last matched leg onto retention, so nothing judges survival by a threshold.) The
 one existing balance test (`test_probing_cascade_units.py`) is guarded by `if kept.size:` and so
 cannot fail on an empty result — the ungated version is here.
 """
@@ -16,9 +17,7 @@ import pytest
 
 from galaxy_jepa.probing.logistic import Embeddings
 from galaxy_jepa.probing.matching import (
-    MatchedVerdict,
     matched_auc,
-    matched_evaluation,
     stratified_match,
 )
 
@@ -95,22 +94,6 @@ def test_a_degenerate_match_returns_chance_rather_than_raising():
     nuisance = y.astype(float)
     assert stratified_match(nuisance, y, n_strata=2, seed=0).size == 0
     assert matched_auc(_emb(x, y), _emb(x, y), nuisance, nuisance, n_strata=2, seed=0) == 0.5
-
-
-@pytest.mark.invariant
-def test_the_survive_threshold_is_inclusive_at_its_own_boundary():
-    """`survived` is `matched_auc >= survive_threshold` — a point estimate, exactly on the line."""
-    train, test, m_tr, m_te = _separable()
-    auc = matched_auc(train, test, m_tr, m_te, n_strata=5, seed=0)
-
-    at = matched_evaluation(train, test, m_tr, m_te, survive_threshold=auc, n_strata=5, seed=0)
-    above = matched_evaluation(
-        train, test, m_tr, m_te, survive_threshold=auc + 1e-9, n_strata=5, seed=0
-    )
-    assert isinstance(at, MatchedVerdict)
-    assert at.matched_auc == pytest.approx(auc)
-    assert at.survived is True, "the threshold is >=, so the boundary itself must survive"
-    assert above.survived is False
 
 
 @pytest.mark.invariant

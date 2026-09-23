@@ -28,7 +28,6 @@ __all__ = [
     "stratified_match",
     "matched_auc",
     "MatchedVerdict",
-    "matched_evaluation",
     "matched_indices",
     "RETAIN_FRACTION",
     "MIN_MATCHED_TEST",
@@ -97,7 +96,8 @@ def matched_auc(
     """Re-probe the feature within the matched (nuisance-balanced) train/test subsets.
 
     Returns 0.5 on a degenerate match. Callers that need to tell that 0.5 apart from a real
-    collapse want :func:`matched_evaluation`, whose verdict carries the survivor counts.
+    collapse take the rows from :func:`matched_indices` and carry the survivor counts themselves,
+    as the ladder's retention judgement does.
     """
     auc, _tr, _te, _degenerate = _matched_auc_with_counts(
         train, test, match_train, match_test, n_strata=n_strata, c=c, seed=seed
@@ -133,7 +133,7 @@ class MatchedVerdict:
     **The survivor counts are not decoration.** :func:`matched_auc` returns exactly 0.5 when the
     matched set is empty or single-class, which is indistinguishable from "the signal was entirely
     confound" unless the count travels with the number. Brief O1 had to bypass
-    :func:`matched_evaluation` altogether and call :func:`stratified_match` itself to report them;
+    ``matched_evaluation`` (since removed) and call :func:`stratified_match` itself to report them;
     the second consumer is the full 37-feature ladder, so they live here now.
 
     ``degenerate`` says plainly which 0.5 this is: a statement about the SAMPLE, never folded into
@@ -147,8 +147,8 @@ class MatchedVerdict:
     n_train: int = 0
     n_test: int = 0
     degenerate: bool = False
-    #: The retention judgement (D24) and what it was computed from; ``None`` on the entanglement
-    #: leg, which still judges survival against a threshold (flagged, not changed — see D24).
+    #: The retention judgement (D24) and what it was computed from. Both matched legs — nuisance
+    #: clearance and 2A's conditional test — judge survival by it (D25); nothing tests a threshold.
     retention: RetentionVerdict | None = None
     matched_auc_lo: float | None = None
     bar_unmatched: float | None = None  # C, mean over ``k_bar`` untrained draws
@@ -162,36 +162,6 @@ class MatchedVerdict:
         return self.n_matched_test / self.n_test if self.n_test else 0.0
 
 
-def matched_evaluation(
-    train: Embeddings,
-    test: Embeddings,
-    match_train: np.ndarray,
-    match_test: np.ndarray,
-    *,
-    survive_threshold: float,
-    n_strata: int = 5,
-    c: float = 1.0,
-    seed: int = 0,
-) -> MatchedVerdict:
-    """Matched re-probe → survive (signal real, not the confound) or confounded.
-
-    ``survive_threshold`` is the bar the matched AUC must still clear (the caller passes the
-    effect floor); below it the apparent direction was the confound — itself a real finding.
-    """
-    auc, tr_n, te_n, degenerate = _matched_auc_with_counts(
-        train, test, match_train, match_test, n_strata=n_strata, c=c, seed=seed
-    )
-    return MatchedVerdict(
-        matched_auc=auc,
-        survived=auc >= survive_threshold,
-        n_matched_train=tr_n,
-        n_matched_test=te_n,
-        n_train=int(len(train.y)),
-        n_test=int(len(test.y)),
-        degenerate=degenerate,
-    )
-
-
 def matched_indices(
     match_train: np.ndarray,
     y_train: np.ndarray,
@@ -201,7 +171,7 @@ def matched_indices(
     n_strata: int = 5,
     seed: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The matched train and test rows — the selection :func:`matched_evaluation` probes on.
+    """The matched train and test rows — the selection every matched re-probe runs on.
 
     Depends only on the nuisance values, the labels and the seed, never on the embeddings. That is
     what lets a second matrix (the untrained encoder, whose bar is re-measured on the matched rows)

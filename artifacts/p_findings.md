@@ -206,6 +206,12 @@ rather than a representational artefact. All six world-correlation pairs do. It 
 geometric necessity and labelling it world-correlation rather than entanglement is the verdict
 function working.
 
+> **Correction (Brief T1, D25).** This was the effect floor again. The conditional leg judged "A
+> survives matching on B" as *matched AUC ≥ 0.7267*. Under D24's retention rule, `edge-on yes/no ×
+> cigar-shaped` both SURVIVE: edge-on stays decodable with cigar-shaped held fixed. Full-population
+> world correlation goes from 18 pairs to **0** (48 representational, 5 inconclusive). The
+> "geometric necessity" reading is withdrawn. `artifacts/t_findings.md` §T1.
+
 **Both of v1's readable constants reproduced.** v1's Figs 18–19 survive only as three prose
 numbers, measured on the PyPI `galaxy-datasets` release. Against this pull and this encoder:
 
@@ -344,3 +350,6 @@ was inflated by estimating a standard deviation from three points.
    an open decision of its own about a vote floor local to the uncertainty test.
 6. **Stage 1 licenses stage 2.** The Hart reading in §(f) is only meaningful because the
    bar+winding association survived as a world-correlation candidate. Reported in that order.
+   *(Flag, Brief T1: `bar × tight` and `bar × loose` (cosines −0.24, +0.04) never cleared the 0.30
+   pair floor, so stage 1 never adjudicated them. `bar_winding_alignment` ran unconditionally. The
+   premise of this item needs checking before §(f) is cited.)*

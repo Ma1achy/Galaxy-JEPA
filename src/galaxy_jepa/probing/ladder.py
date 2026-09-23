@@ -22,8 +22,9 @@ pre-registered audit trail) and a named ``mechanism``.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -162,6 +163,9 @@ def _entangled_map(
     train_ids: Sequence[int],
     test_ids: Sequence[int],
     *,
+    real_aucs: Mapping[str, float],
+    bars: Mapping[str, float],
+    established: Mapping[str, bool],
     config: ProbingConfig,
 ) -> tuple[dict[str, bool], list[ent.PairVerdict]]:
     """Per-feature entangled (R2) flag + the pair adjudications that produced it (2A).
@@ -173,6 +177,14 @@ def _entangled_map(
     The decision now goes through `ent.adjudicate_pair`, the one pre-registered mapping from
     (eigen, cosine, CAV, conditional) to a verdict.
 
+    **The conditional leg judges retention, not the effect floor (D25).** It asked whether A's
+    matched AUC still reached 0.7267, so every pair whose A sat below the floor unmatched was called
+    world-correlation by arithmetic — nine of Brief P's eighteen. It now applies D24's rule to A
+    matched on B's vote fraction: SURVIVES → survived; COLLAPSES → vanished; PARTIAL and
+    UNRESOLVED → the leg did not attribute (``None``, which ``adjudicate_pair`` never reads as
+    either). Only existence-passing directions reach a pair, so A's margin is established by
+    construction; that is asserted rather than assumed.
+
     A pair is entangled only on ``representational_entanglement``. ``world_correlation`` — the
     direction vanishing when the partner is held constant — is a *clean finding* about the sky,
     not a mark against the feature, and D13's bar+arms case is exactly that shape.
@@ -183,24 +195,25 @@ def _entangled_map(
         return entangled, pair_verdicts
     index = {name: i for i, name in enumerate(geometry.names)}
     for a, b in geometry.entangled_pairs:
-        # match feature A's probe on feature B's vote fraction (hold the world correlation fixed)
-        a_train = feature_embeddings(controls.real, labels, a, train_ids)
-        a_test = feature_embeddings(controls.real, labels, a, test_ids)
-        # feature A's eligible ids — the partner's fractions must line up with A's rows
-        b_train = labels.vote_fraction(b, feature_ids(controls.real, labels, a, train_ids))
-        b_test = labels.vote_fraction(b, feature_ids(controls.real, labels, a, test_ids))
-        matched = match.matched_evaluation(
-            a_train,
-            a_test,
-            b_train,
-            b_test,
-            survive_threshold=config.effect_floor,
-            c=config.c,
-            seed=config.seed,
+        if not established.get(a, False):
+            raise ValueError(f"2A pair ({a}, {b}): {a} has no established margin to retain (D25)")
+        # match feature A's probe on feature B's vote fraction (hold the world correlation fixed);
+        # B's fractions are taken on A's eligible rows so they line up with A's embeddings
+        matched = _retained(
+            functools.partial(
+                _feature_rows, labels=labels, feature=a, train_ids=train_ids, test_ids=test_ids
+            ),
+            np.asarray(labels.vote_fraction(b, feature_ids(controls.real, labels, a, train_ids))),
+            np.asarray(labels.vote_fraction(b, feature_ids(controls.real, labels, a, test_ids))),
+            controls,
+            a=real_aucs[a],
+            bar=bars[a],
+            n_test=len(feature_ids(controls.real, labels, a, test_ids)),
+            margin_established=True,
+            config=config,
         )
-        # A degenerate match is a statement about the SAMPLE: it can neither confirm survival nor
-        # attribute the entanglement to the world, so the conditional leg is recorded as unrun.
-        survived = None if matched.degenerate else matched.survived
+        state = matched.retention.verdict if matched.retention is not None else match.UNRESOLVED
+        survived = {match.SURVIVES: True, match.COLLAPSES: False}.get(state)
         pv = ent.adjudicate_pair(
             a,
             b,
@@ -208,6 +221,14 @@ def _entangled_map(
             mp_significant=bool(geometry.mp.significant),
             cav_disagreement=geometry.cav_disagreement,
             survived_matching=survived,
+        )
+        pv = dataclasses.replace(
+            pv,
+            retention=state,
+            retained=matched.retention.retained if matched.retention is not None else None,
+            matched_auc=None if matched.degenerate else matched.matched_auc,
+            bar_matched=matched.bar_matched,
+            n_matched_test=matched.n_matched_test,
         )
         pair_verdicts.append(pv)
         if pv.verdict == ent.REPRESENTATIONAL:
@@ -280,6 +301,115 @@ def matched_rows(
     )
 
 
+def _feature_rows(
+    matrix: EmbeddingMatrix,
+    *,
+    labels: LabelProvider,
+    feature: str,
+    train_ids: Sequence[int],
+    test_ids: Sequence[int],
+) -> tuple[Embeddings, Embeddings]:
+    """``matrix``'s train and test rows for ``feature`` — all eligible rows, nothing masked."""
+    return (
+        feature_embeddings(matrix, labels, feature, train_ids),
+        feature_embeddings(matrix, labels, feature, test_ids),
+    )
+
+
+def _untrained_bar(
+    controls: ctl.ControlEmbeddings,
+    labels: LabelProvider,
+    feature: str,
+    train_ids: Sequence[int],
+    test_ids: Sequence[int],
+    *,
+    config: ProbingConfig,
+) -> float:
+    """``C``: the feature's untrained-encoder AUC on its full rows, the mean over the D24 draws.
+
+    Both matched legs judge retention against it, so it is computed once per feature and shared.
+    """
+    seeds = controls.untrained_seeds
+    if len(seeds) != match.RETENTION_SEEDS:
+        raise ValueError(
+            f"matched survival needs {match.RETENTION_SEEDS} untrained draws for C and C_m (D24), "
+            f"got {len(seeds)}: pass ControlEmbeddings(untrained_extra=...)"
+        )
+    return float(
+        np.mean(
+            [
+                ctl._safe_auc(
+                    feature_embeddings(u, labels, feature, train_ids),
+                    feature_embeddings(u, labels, feature, test_ids),
+                    c=config.c,
+                )
+                for u in seeds
+            ]
+        )
+    )
+
+
+def _retained(
+    rows_of: Callable[[EmbeddingMatrix], tuple[Embeddings, Embeddings]],
+    values_train: np.ndarray,
+    values_test: np.ndarray,
+    controls: ctl.ControlEmbeddings,
+    *,
+    a: float,
+    bar: float,
+    n_test: int,
+    margin_established: bool,
+    config: ProbingConfig,
+) -> match.MatchedVerdict:
+    """D24's retention judgement, shared by both matched legs (nuisance clearance and 2A).
+
+    ``rows_of`` gives any co-indexed matrix's rows for the question being matched, so the real
+    re-probe and every untrained draw's ``C_m`` are scored on exactly the rows stratification kept
+    — which depend only on ``values_*``, the labels and the seed. ``survived`` is SURVIVES and
+    nothing else; where the unmatched margin is not established the verdict is UNRESOLVED.
+    """
+    train, test = rows_of(controls.real)
+    i_tr, i_te = match.matched_indices(
+        values_train, train.y, values_test, test.y, n_strata=5, seed=config.seed
+    )
+
+    def sub(e: Embeddings, i: np.ndarray) -> Embeddings:
+        return Embeddings(e.x[i], e.y[i], e.fraction[i])
+
+    mtr, mte = sub(train, i_tr), sub(test, i_te)
+    degenerate = mte.y.size == 0 or len(np.unique(mtr.y)) < 2 or len(np.unique(mte.y)) < 2
+    m = m_lo = bar_m = None
+    if not degenerate:
+        m, m_lo, _, _ = probe_auc_ci_se(
+            mtr, mte, c=config.c, n_boot=config.n_boot, seed=config.seed
+        )
+        bar_m_draws = []
+        for u in controls.untrained_seeds:
+            utr, ute = rows_of(u)
+            bar_m_draws.append(ctl._safe_auc(sub(utr, i_tr), sub(ute, i_te), c=config.c))
+        bar_m = float(np.mean(bar_m_draws))
+    retention = match.retention_verdict(
+        a, bar, m, m_lo, bar_m, n_matched_test=int(mte.y.size), n_test=n_test
+    )
+    if not margin_established and retention.verdict != match.UNRESOLVED:
+        retention = dataclasses.replace(retention, verdict=match.UNRESOLVED)
+    return match.MatchedVerdict(
+        matched_auc=0.5 if m is None else m,
+        survived=retention.verdict == match.SURVIVES,
+        n_matched_train=int(mtr.y.size),
+        n_matched_test=int(mte.y.size),
+        n_train=int(train.y.size),
+        n_test=int(test.y.size),
+        degenerate=degenerate,
+        retention=retention,
+        matched_auc_lo=m_lo,
+        bar_unmatched=bar,
+        bar_matched=bar_m,
+        k_bar=len(controls.untrained_seeds),
+        margin_established=margin_established,
+    )
+
+
 def _nuisance_clearance(
     feature: str,
     fc: ctl.FeatureControls,
@@ -290,6 +420,7 @@ def _nuisance_clearance(
     *,
     margin_established: bool,
     config: ProbingConfig,
+    bar: float | None = None,
 ) -> tuple[bool, match.MatchedVerdict | None]:
     """Nuisance gate (3D-ii): clear iff no nuisance is competitive, or the worst one's effect is
     RETAINED under matched evaluation (the nuisance held constant within the matched set).
@@ -320,67 +451,21 @@ def _nuisance_clearance(
     ]
     if not fc.nuisance_aucs:
         return True, None
-    seeds = controls.untrained_seeds
-    if len(seeds) != match.RETENTION_SEEDS:
-        raise ValueError(
-            f"matched survival needs {match.RETENTION_SEEDS} untrained draws for C and C_m (D24), "
-            f"got {len(seeds)}: pass ControlEmbeddings(untrained_extra=...)"
-        )
     rows = matched_rows(fc.nuisance_aucs, controls.real, labels, feature, train_ids, test_ids)
-    train, test = rows.embeddings(controls.real, labels, feature, train_ids, test_ids)
-    i_tr, i_te = match.matched_indices(
-        rows.values_train, train.y, rows.values_test, test.y, n_strata=5, seed=config.seed
-    )
-
-    def sub(e: Embeddings, i: np.ndarray) -> Embeddings:
-        return Embeddings(e.x[i], e.y[i], e.fraction[i])
-
-    mtr, mte = sub(train, i_tr), sub(test, i_te)
-    degenerate = mte.y.size == 0 or len(np.unique(mtr.y)) < 2 or len(np.unique(mte.y)) < 2
-    n_test = len(feature_ids(controls.real, labels, feature, test_ids))
-    bar = float(
-        np.mean(
-            [
-                ctl._safe_auc(
-                    feature_embeddings(u, labels, feature, train_ids),
-                    feature_embeddings(u, labels, feature, test_ids),
-                    c=config.c,
-                )
-                for u in seeds
-            ]
-        )
-    )
-    m = m_lo = bar_m = None
-    if not degenerate:
-        m, m_lo, _, _ = probe_auc_ci_se(
-            mtr, mte, c=config.c, n_boot=config.n_boot, seed=config.seed
-        )
-        bar_m_draws = []
-        for u in seeds:
-            utr, ute = rows.embeddings(u, labels, feature, train_ids, test_ids)
-            bar_m_draws.append(ctl._safe_auc(sub(utr, i_tr), sub(ute, i_te), c=config.c))
-        bar_m = float(np.mean(bar_m_draws))
-    retention = match.retention_verdict(
-        fc.real_auc, bar, m, m_lo, bar_m, n_matched_test=int(mte.y.size), n_test=n_test
-    )
-    if not margin_established and retention.verdict != match.UNRESOLVED:
-        retention = dataclasses.replace(retention, verdict=match.UNRESOLVED)
-    survived = retention.verdict == match.SURVIVES
-    verdict = match.MatchedVerdict(
-        matched_auc=0.5 if m is None else m,
-        survived=survived,
-        n_matched_train=int(mtr.y.size),
-        n_matched_test=int(mte.y.size),
-        n_train=int(train.y.size),
-        n_test=int(test.y.size),
-        degenerate=degenerate,
-        retention=retention,
-        matched_auc_lo=m_lo,
-        bar_unmatched=bar,
-        bar_matched=bar_m,
-        k_bar=len(seeds),
+    verdict = _retained(
+        lambda m: rows.embeddings(m, labels, feature, train_ids, test_ids),
+        rows.values_train,
+        rows.values_test,
+        controls,
+        a=fc.real_auc,
+        bar=_untrained_bar(controls, labels, feature, train_ids, test_ids, config=config)
+        if bar is None
+        else bar,
+        n_test=len(feature_ids(controls.real, labels, feature, test_ids)),
         margin_established=margin_established,
+        config=config,
     )
+    survived = verdict.survived
     # Nothing competitive is still a clearance — the matched verdict is then a measurement carried
     # for the record, not a gate that can fail the feature.
     return (True if not competitive else survived), verdict
@@ -486,27 +571,30 @@ def _failing_rung(
     # configured quantile of the shuffled-label null (the linear control), floored at 0.5.
     null_threshold = max(0.5, float(np.quantile(fc.shuffled_nulls, config.ceiling_null_quantile)))
     ceiling = mlp_mod.selectivity_ceiling(sweep, null_threshold=null_threshold)
-    rung = mlp_mod.rung_from_sweep(sweep, ceiling, decode_threshold=config.effect_floor)
-    if rung == "R3" and not nuisance_cleared:
-        rung = "R4"  # cannot rescue a feature by capacity while a nuisance is competitive
-    decodes = 1.0 if rung == "R3" else 0.0
+    # "The MLP decodes it" is NOT adjudicated (D25). It was `MLP AUC >= effect floor`: an absolute
+    # clean-vs-marginal threshold testing a relative question, which a feature that failed linear
+    # existence could almost never clear whatever the MLP added. The replacement is an existence-
+    # style test against an untrained-MLP bar, and that bar needs K >= nulls.K_MIN untrained MLP
+    # fits per feature that do not exist yet — so the rung is not assigned on a stand-in. The
+    # sweep and ceiling stay on the record for when the bar arrives.
+    rung = "R4"
     metrics = {
         "auc": fc.real_auc,
         "exceeds_null": 0.0,
-        "mlp_decodes_below_ceiling": decodes,
+        "mlp_decode_adjudicated": 0.0,
         "nuisance_cleared": 1.0 if nuisance_cleared else 0.0,
         "ceiling_width": float(ceiling) if ceiling is not None else float("nan"),
     }
     tree = gate_all(
-        mlp_mod_gate("mlp_decodes_below_ceiling"),
+        mlp_mod_gate("mlp_decode_adjudicated"),
         mlp_mod_gate("nuisance_cleared"),
     ).evaluate(metrics)
-    if rung == "R3":
-        mechanism = "recoverable nonlinearly (MLP below the selectivity ceiling)"
-    else:
-        # the resolution ablation (2E) is a cross-run diff of two encoders — out of a single
-        # ladder run; this verdict is R4 *pending* that check (surfaced in the plan).
-        mechanism = "not recoverable by linear or MLP (pending 8×8 resolution ablation)"
+    # the resolution ablation (2E) is a cross-run diff of two encoders — out of a single ladder
+    # run; this verdict is R4 *pending* that check (surfaced in the plan) and the MLP bar.
+    mechanism = (
+        "not recoverable linearly; MLP decode unadjudicated (no untrained-MLP bar, D25; "
+        "pending 8×8 resolution ablation)"
+    )
     return RungVerdict(
         feature=feature,
         rung=rung,
@@ -623,8 +711,21 @@ def run_ladder(
             pair_quantile=config.entangled_pair_quantile,
             cav_disagreement=cav_disagreement,
         )
+    # C for every feature, once: both matched legs judge retention against it (D24, D25).
+    bars = {
+        f: _untrained_bar(controls, labels, f, train_ids, test_ids, config=config) for f in features
+    }
     entangled, pair_verdicts = _entangled_map(
-        geometry, directions, controls, labels, train_ids, test_ids, config=config
+        geometry,
+        directions,
+        controls,
+        labels,
+        train_ids,
+        test_ids,
+        real_aucs=real_aucs,
+        bars=bars,
+        established={f: existence[f].exceeds_null for f in features},
+        config=config,
     )
 
     # Phases 4 & 5: per-feature rung.
@@ -640,6 +741,7 @@ def run_ladder(
             test_ids,
             margin_established=existence[feature].exceeds_null,
             config=config,
+            bar=bars[feature],
         )
         if existence[feature].exceeds_null and feature in directions:
             verdicts[feature] = _passing_rung(

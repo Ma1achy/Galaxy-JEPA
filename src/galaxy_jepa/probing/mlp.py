@@ -277,7 +277,10 @@ def rung_from_sweep(
 ) -> str:
     """R3 iff the feature decodes below the ceiling; else R4 (design 2D verdict logic).
 
-    "Decodes" = real-label AUC ≥ ``decode_threshold``. Widths at or above the ceiling are
+    "Decodes" = real-label AUC ≥ ``decode_threshold``. That bar must come from an existence-style
+    test against an **untrained-MLP** bar — never the effect floor, which is an absolute
+    clean-vs-marginal threshold and cannot say whether an MLP recovers anything (D25). The ladder
+    does not call this until that bar exists. Widths at or above the ceiling are
     invalid (the controls decode there too), so a feature that only crosses the bar there is
     R4 — the capacity trap closed by construction.
     """

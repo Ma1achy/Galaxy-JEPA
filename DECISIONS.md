@@ -1308,7 +1308,7 @@ would have relabelled twenty of them with a second wrong reason. `_passing_rung`
 - **The MLP decode threshold** (`rung_from_sweep(..., decode_threshold=effect_floor)`) asks a
   feature that failed existence to clear 0.7267. That is why R3 = 0 is unreadable (Brief P §a).
 
-Both are logged in `TODO.md`.
+Both are logged in `TODO.md`. **→ Both fixed in D25 (Brief T1).**
 
 **Verification** (`artifacts/s2_verify.py` → `artifacts/out/s2_ladder.json`). The production ladder
 is re-run on P2's union and split, both populations, and compared row by row with R0 and P2.
@@ -1335,7 +1335,8 @@ is re-run on P2's union and split, both populations, and compared row by row wit
   `_failing_rung` now attaches it.
 - **Rung counts: full unchanged** (R1 1, R2 32, R4 4). **Conditional: one change, R1 1 → 2.**
   `t08 odd: other` (AUC 0.7346, 467 of 3,483 test positives, resolvable margin 0.041, not
-  underpowered) is now a **clean linear direction**. It was one of the two candidates named above.
+  underpowered) became R1 here. **Superseded by D25:** it is R2, entangled with `merger`
+  (Brief T1), and its direction is not one coherent category (Brief T2). It was one of the two candidates named above.
   It retains 110% of its margin under magnitude matching, is not entangled, and is selective.
   Its old "confounded by magnitude" label was the floor arithmetic. The other candidate, full
   `bulge: dominant`, is **entangled**, so it stays R2.
@@ -1344,3 +1345,95 @@ is re-run on P2's union and split, both populations, and compared row by row wit
   label order had been hiding the first group. The conditional population keeps one genuine
   confound: `t10 winding: medium`, which passes existence there and COLLAPSES under magnitude
   matching.
+
+## D25 — Every consumer of the effect floor, classified; the two relative ones fixed — *decided (Brief T1; changes how 2A attributes a pair and how the MLP rung is assigned)*
+
+**The rule (D24's principle, now enforced everywhere).** The effect floor (D22, 0.7267) is an
+**absolute clean-vs-marginal threshold** for an effect already shown to be real. It must never test
+anything **relative**: a margin, a retention, a change, or whether a second probe recovers what the
+first did not.
+
+**The audit.** Every consumer, `file:line` at this commit. This is the whole list: N2 counted five
+comparisons in 2026-09; these are the same five, and there is no sixth.
+
+*Consumers that test something:*
+
+| # | site | what it compares | class | action |
+|---|---|---|---|---|
+| 1 | `nulls.py:506` `existence_verdicts` | `clean = significant ∧ AUC ≥ floor` | **ABSOLUTE**, the legitimate one (R1's clean) | kept |
+| 2 | `gates.py:62` `build_gates` | the same `AUC ≥ floor`, in the rendered gate tree | **ABSOLUTE** (see note) | kept; name flagged |
+| 3 | `ladder.py` `_nuisance_clearance` | was `matched AUC ≥ floor` | **RELATIVE** | fixed by D24 |
+| 4 | `ladder.py:202` `_entangled_map` (2A conditional leg) | was `A's matched AUC ≥ floor` | **RELATIVE** | **fixed here** |
+| 5 | `ladder.py` `_failing_rung` (MLP decode) | was `MLP AUC ≥ floor` for an existence-failing answer | **RELATIVE** | **fixed here** |
+
+Note on #2: the gate is named `existence` in the tree, but it holds the clean bar. The name misleads
+a reader of the tree; the comparison is legitimate.
+
+*Bookkeeping, not tests:*
+- `config.py:163–164`: the value and its freeze.
+- `config.py:238`: freeze consistency.
+- `config.py:278/283`: a headline run requires the freeze.
+- `run.py:203`: stamps `effect_floor_open`.
+- `ladder.py:684`: passes the floor to #1.
+
+*Not a consumer:* `matching.nuisance_competitive` compares against its own flagged margin
+(`nuisance_competitive_margin`, 0.0), never the floor.
+
+*Artefacts (outside lint and CI):*
+- `r_nonlinear.py:206/247`: *A < floor*, descriptive, absolute.
+- `readme_figures.py:495–534`: draws the floor and buckets P's labels by the *unmatched* AUC,
+  absolute. Its "matched < floor" bucket names P's defect and goes when the figure is regenerated.
+- `p2_ladder.py:119/158`: print and record.
+- `f0_preconditions.py:84–98`: freeze checks.
+- Docstrings and prints only: `j4`, `j5`, `n2`, `m2`, `o1`.
+
+`matching.matched_evaluation` and its `survive_threshold` are **removed**: after this entry nothing
+judges survival by a threshold. Invariant tests pin it: moving the floor from 0.51 to 0.99 changes no
+retention, no pair verdict and no failing rung (`tests/test_probing_ladder.py`, D25 block).
+
+**Fix #4: 2A's conditional leg judges retention.** A is matched on B's vote fraction, and D24's rule
+applies unchanged: K = 3 untrained draws for C and C_m, with C shared with nuisance clearance through
+one helper (`ladder._retained`).
+- SURVIVES → survived.
+- COLLAPSES → vanished (world correlation).
+- PARTIAL or UNRESOLVED → the leg did not attribute (`survived_matching=None`, so *inconclusive*,
+  which marks nothing).
+- The margin floor holds by construction, because only existence-passing directions reach a pair;
+  the ladder asserts it rather than assuming it.
+- The pair verdict now carries its retention state, the retained fraction, M, C_m and the matched
+  count.
+
+**Fix #5: the MLP decode is not adjudicated.** "The MLP decodes it" should mean the MLP clears an
+existence-style test against an untrained-MLP bar. That bar needs K ≥ 20 untrained MLP fits per
+answer (`nulls.K_MIN`); R has K = 3. So the rung is not assigned on a stand-in:
+- Every existence-failing answer reads R4, *not recoverable linearly; MLP decode unadjudicated*.
+- The sweep and ceiling stay on the record.
+
+**The construction for #5 (TODO, P2; not run).**
+- D23's `z = (MLP − mean_K MLP_untrained)/√(sd_K² + se²)`, Student-t with df K − 1, K ≥ 20.
+- Width chosen on an inner split, as in R1.
+- BY across the answers that reach the rung.
+- Nuisance clearance by the MLP's own retention.
+- ≈ 7–8 h.
+- **It cannot change any current rung.** All 12 existence-failing answers have every nuisance
+  competitive, so their clearance is UNRESOLVED (D24) and R3 is impossible whatever the decode says.
+  The full-population K = 3 bound agrees: the largest MLP z is ≈ 2.3.
+
+**Verification, pre-registered** (`artifacts/t_findings.md` §T1, hash `aff39c7d`, before the
+rerun):
+- **Every predicted rung change held.**
+  - Full: unchanged, {R1 1, R2 32, R4 4}.
+  - Conditional: {R1 2, R2 27, R4 8} → **{R1 1, R2 28, R4 8}**. `t08 odd: other` goes R1 → R2,
+    because `other × merger` SURVIVES (1.09) and so the pair is representational.
+  - `no bulge` stays R1 (its pair is UNRESOLVED at 272 matched).
+  - Nuisance clearance reproduces S2 exactly.
+- **Unpredicted:** world correlation collapses from 18 → 0 pairs (full) and 18 → 1 (conditional).
+  Every old world-correlation verdict was a matched AUC under the floor. P's "`edge-on ×
+  cigar-shaped` is a geometric necessity, correctly labelled world correlation" is withdrawn.
+  Separately, `smooth × features` and `odd yes × no` SURVIVE although A is matched on a
+  near-complement. I had predicted COLLAPSES or UNRESOLVED for those.
+
+**Standing consequence.** With retention on both legs, entanglement is the common state:
+48 of 53 full pairs are representational. Entanglement is now the finding it was designed to be,
+not the absence of a floor crossing. That makes the uncertainty-geometry and D13 stage-2 briefs
+the place where "entangled with what, and why" gets answered.

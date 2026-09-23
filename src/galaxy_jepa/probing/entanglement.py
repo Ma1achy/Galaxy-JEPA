@@ -288,6 +288,13 @@ class PairVerdict:
     cav_disagree: bool
     survived_matching: bool | None
     reason: str
+    #: The conditional leg's D24 retention state and what it was read from (D25); ``None`` on a
+    #: verdict built outside the ladder. PARTIAL and UNRESOLVED arrive as survived_matching=None.
+    retention: str | None = None
+    retained: float | None = None
+    matched_auc: float | None = None
+    bar_matched: float | None = None
+    n_matched_test: int = 0
 
 
 def adjudicate_pair(
@@ -318,8 +325,9 @@ def adjudicate_pair(
       averaged**: a verdict that splits the difference between two measures with different blind
       spots is a number with no referent.
 
-    ``survived_matching=None`` means the conditional cross-check was not run for this pair, which
-    can never be read as either survival or collapse.
+    ``survived_matching=None`` means the conditional cross-check did not attribute the pair — not
+    run, or (D25) its retention was PARTIAL or UNRESOLVED — which can never be read as either
+    survival or collapse.
     """
     disagree = max(cav_disagreement.get(a, 0.0), cav_disagreement.get(b, 0.0)) >= cav_floor
     high_cos = abs(cosine) >= cosine_floor
