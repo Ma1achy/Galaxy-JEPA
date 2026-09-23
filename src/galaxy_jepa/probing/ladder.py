@@ -36,7 +36,12 @@ from galaxy_jepa.probing import matching as match
 from galaxy_jepa.probing import mlp as mlp_mod
 from galaxy_jepa.probing import nulls as nulls_mod
 from galaxy_jepa.probing.config import ProbingConfig
-from galaxy_jepa.probing.extract import LabelProvider, feature_embeddings, feature_ids
+from galaxy_jepa.probing.extract import (
+    EmbeddingMatrix,
+    LabelProvider,
+    feature_embeddings,
+    feature_ids,
+)
 from galaxy_jepa.probing.gates import EXISTENCE_METRIC_FLOOR, build_gates
 from galaxy_jepa.probing.logistic import (
     ConceptDirection,
@@ -211,6 +216,70 @@ def _entangled_map(
     return entangled, pair_verdicts
 
 
+@dataclasses.dataclass(frozen=True)
+class MatchedRows:
+    """The rows a feature's matched re-probe runs over, before stratification.
+
+    The feature's eligible rows, minus those whose ``nuisance`` measurement is unusable, plus that
+    nuisance's values. Stratification (:func:`matching.matched_indices`) then depends only on these
+    values, the labels and a seed — never on an embedding — so any matrix co-indexed with the real
+    one can be scored on exactly the same galaxies. That is what the untrained bar re-measured on
+    the matched rows (O1's ``C_m``) and the matched MLP both need.
+    """
+
+    nuisance: str
+    keep_train: np.ndarray
+    keep_test: np.ndarray
+    values_train: np.ndarray
+    values_test: np.ndarray
+
+    def embeddings(
+        self,
+        matrix: EmbeddingMatrix,
+        labels: LabelProvider,
+        feature: str,
+        train_ids: Sequence[int],
+        test_ids: Sequence[int],
+    ) -> tuple[Embeddings, Embeddings]:
+        """``matrix``'s rows for this feature, restricted to the usable-nuisance rows."""
+        full_tr = feature_embeddings(matrix, labels, feature, train_ids)
+        full_te = feature_embeddings(matrix, labels, feature, test_ids)
+        kt, ke = self.keep_train, self.keep_test
+        return (
+            Embeddings(full_tr.x[kt], full_tr.y[kt], full_tr.fraction[kt]),
+            Embeddings(full_te.x[ke], full_te.y[ke], full_te.fraction[ke]),
+        )
+
+
+def matched_rows(
+    nuisance_aucs: Mapping[str, float],
+    real: EmbeddingMatrix,
+    labels: LabelProvider,
+    feature: str,
+    train_ids: Sequence[int],
+    test_ids: Sequence[int],
+) -> MatchedRows:
+    """The worst nuisance and the rows it can be matched over.
+
+    The worst nuisance whether or not it cleared the competitive margin: with nothing competitive
+    there is still a strongest one, and matching against it is the honest check.
+    """
+    worst = max(nuisance_aucs, key=lambda n: nuisance_aucs[n])
+    present_tr = feature_ids(real, labels, feature, train_ids)
+    present_te = feature_ids(real, labels, feature, test_ids)
+    keep_tr = np.asarray(labels.nuisance_valid(worst, present_tr), dtype=bool)
+    keep_te = np.asarray(labels.nuisance_valid(worst, present_te), dtype=bool)
+    ids_tr = [o for o, k in zip(present_tr, keep_tr, strict=True) if k]
+    ids_te = [o for o, k in zip(present_te, keep_te, strict=True) if k]
+    return MatchedRows(
+        nuisance=worst,
+        keep_train=keep_tr,
+        keep_test=keep_te,
+        values_train=labels.nuisance_value(worst, ids_tr),
+        values_test=labels.nuisance_value(worst, ids_te),
+    )
+
+
 def _nuisance_clearance(
     feature: str,
     fc: ctl.FeatureControls,
@@ -244,29 +313,16 @@ def _nuisance_clearance(
         for n, auc in fc.nuisance_aucs.items()
         if match.nuisance_competitive(fc.real_auc, auc, margin=config.nuisance_competitive_margin)
     ]
-    # The worst nuisance whether or not it cleared the competitive margin: with nothing
-    # competitive there is still a strongest one, and matching against it is the honest check.
     if not fc.nuisance_aucs:
         return True, None
-    worst = max(fc.nuisance_aucs, key=lambda n: fc.nuisance_aucs[n])
-
-    present_tr = feature_ids(controls.real, labels, feature, train_ids)
-    present_te = feature_ids(controls.real, labels, feature, test_ids)
-    keep_tr = labels.nuisance_valid(worst, present_tr)
-    keep_te = labels.nuisance_valid(worst, present_te)
-    ids_tr = [o for o, k in zip(present_tr, keep_tr, strict=True) if k]
-    ids_te = [o for o, k in zip(present_te, keep_te, strict=True) if k]
-
-    full_tr = feature_embeddings(controls.real, labels, feature, train_ids)
-    full_te = feature_embeddings(controls.real, labels, feature, test_ids)
-    train = Embeddings(full_tr.x[keep_tr], full_tr.y[keep_tr], full_tr.fraction[keep_tr])
-    test = Embeddings(full_te.x[keep_te], full_te.y[keep_te], full_te.fraction[keep_te])
+    rows = matched_rows(fc.nuisance_aucs, controls.real, labels, feature, train_ids, test_ids)
+    train, test = rows.embeddings(controls.real, labels, feature, train_ids, test_ids)
 
     verdict = match.matched_evaluation(
         train,
         test,
-        labels.nuisance_value(worst, ids_tr),
-        labels.nuisance_value(worst, ids_te),
+        rows.values_train,
+        rows.values_test,
         survive_threshold=config.effect_floor,
         c=config.c,
         seed=config.seed,

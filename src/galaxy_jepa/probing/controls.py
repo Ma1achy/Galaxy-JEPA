@@ -55,6 +55,9 @@ __all__ = [
     "random_embedding_nulls",
     "sky_noise_label_auc",
     "selectivity",
+    "cluster_assignment",
+    "cluster_control_labels",
+    "nuisance_panel",
     "untrained_encoder_matrix",
     "noise_through_encoder_matrix",
     "ControlEmbeddings",
@@ -132,6 +135,97 @@ def sky_noise_label_auc(
 def selectivity(real_auc: float, shuffled_nulls: np.ndarray) -> float:
     """Hewitt–Liang selectivity: real-label AUC − the shuffled-label control AUC (the mean)."""
     return float(real_auc - float(np.mean(shuffled_nulls)))
+
+
+def cluster_assignment(
+    x_train: np.ndarray, x_all: np.ndarray, *, n_clusters: int, seed: int = 0
+) -> np.ndarray:
+    """k-means fitted on ``x_train`` ONLY, then every row of ``x_all`` given its nearest centroid.
+
+    The control task is only honest if the partition is learned without the held-out galaxies: a
+    clustering that saw test embeddings would shape itself around them. Taking the train matrix as
+    its own argument makes that structural rather than a convention the caller has to keep.
+    Standardised with the train statistics, as the probes are.
+    """
+    from sklearn.cluster import KMeans
+
+    mean = x_train.mean(axis=0)
+    std = x_train.std(axis=0) + 1e-8
+    km = KMeans(n_clusters=n_clusters, n_init=1, max_iter=100, random_state=seed)
+    km.fit((x_train - mean) / std)
+    return np.asarray(km.predict((x_all - mean) / std), dtype=np.int64)
+
+
+def cluster_control_labels(
+    cluster_of: np.ndarray, *, base_rate: float, seed: int = 0
+) -> np.ndarray:
+    """A Hewitt–Liang **control task** for galaxies: random labels that recur across the split.
+
+    The permuted-label control cannot see an over-expressive probe here. Hewitt and Liang's
+    control works because word *types* recur between train and test, so a probe that memorises
+    type→label transfers to held-out data. Galaxies do not recur, so permuted train labels carry
+    nothing about held-out galaxies and that control sits at ~0.5 at any capacity — whether or not
+    the probe memorised its training set.
+
+    Clusters restore the recurrence. ``cluster_of`` assigns every galaxy (train and test alike) to a
+    cluster fitted on **train embeddings only**; each cluster is labelled at random, so the label is
+    an arbitrary function of where a galaxy sits and carries no morphology. A probe that decodes it
+    on held-out galaxies is showing expressivity, not concept structure — which is what selectivity
+    is meant to subtract.
+
+    Clusters are switched on in a random order until the positives reach ``base_rate`` of the
+    galaxies given, so the control has the real task's class balance and its AUC is comparable.
+    """
+    cluster_of = np.asarray(cluster_of, dtype=np.int64)
+    if not 0.0 < base_rate < 1.0:
+        raise ValueError(f"base_rate must be in (0, 1), got {base_rate}")
+    rng = np.random.default_rng(seed)
+    ids, counts = np.unique(cluster_of, return_counts=True)
+    order = rng.permutation(len(ids))
+    target = base_rate * cluster_of.size
+    positive: list[int] = []
+    running = 0
+    for k in order:
+        if running >= target:
+            break
+        positive.append(int(ids[k]))
+        running += int(counts[k])
+    return np.isin(cluster_of, positive).astype(np.int64)
+
+
+def nuisance_panel(
+    real_train: Embeddings,
+    real_test: Embeddings,
+    labels: LabelProvider,
+    eligible_train: Sequence[int],
+    eligible_test: Sequence[int],
+    *,
+    c: float = 1.0,
+) -> dict[str, float]:
+    """How well the embedding decodes each nuisance (median split), over the feature's own rows.
+
+    Lifted out of :func:`build_feature_controls` so the matched re-probe can find the same "worst"
+    nuisance without re-drawing the shuffled and random-embedding nulls — the expensive part of
+    the battery and irrelevant to which nuisance is strongest.
+    """
+    out: dict[str, float] = {}
+    for name in labels.nuisances:
+        # A nuisance whose own measurement can fail drops the failures from *its* probe only
+        # (the size nuisance and the deblending tail — `extract.NUISANCE_FLAG_COLS`). The rows
+        # stay in the feature probe and in every other nuisance; the median split is then drawn
+        # over usable radii rather than over 651-px "galaxies".
+        keep_tr = labels.nuisance_valid(name, eligible_train)
+        keep_te = labels.nuisance_valid(name, eligible_test)
+        ids_tr = [o for o, k in zip(eligible_train, keep_tr, strict=True) if k]
+        ids_te = [o for o, k in zip(eligible_test, keep_te, strict=True) if k]
+        nz_train = Embeddings(
+            real_train.x[keep_tr], labels.nuisance_label(name, ids_tr), real_train.fraction[keep_tr]
+        )
+        nz_test = Embeddings(
+            real_test.x[keep_te], labels.nuisance_label(name, ids_te), real_test.fraction[keep_te]
+        )
+        out[name] = _safe_auc(nz_train, nz_test, c=c)
+    return out
 
 
 # --- control embedding sources (per-encoder, built once) ----------------------------------
@@ -295,23 +389,7 @@ def build_feature_controls(
     sky_test = _binary_column(labels, sky_label_col, eligible_te)
     sky_auc = sky_noise_label_auc(real_train, real_test, sky_train, sky_test, c=c)
 
-    nuisance_aucs: dict[str, float] = {}
-    for name in labels.nuisances:
-        # A nuisance whose own measurement can fail drops the failures from *its* probe only
-        # (the size nuisance and the deblending tail — `extract.NUISANCE_FLAG_COLS`). The rows
-        # stay in the feature probe and in every other nuisance; the median split is then drawn
-        # over usable radii rather than over 651-px "galaxies".
-        keep_tr = labels.nuisance_valid(name, eligible_tr)
-        keep_te = labels.nuisance_valid(name, eligible_te)
-        ids_tr = [o for o, k in zip(eligible_tr, keep_tr, strict=True) if k]
-        ids_te = [o for o, k in zip(eligible_te, keep_te, strict=True) if k]
-        nz_train = Embeddings(
-            real_train.x[keep_tr], labels.nuisance_label(name, ids_tr), real_train.fraction[keep_tr]
-        )
-        nz_test = Embeddings(
-            real_test.x[keep_te], labels.nuisance_label(name, ids_te), real_test.fraction[keep_te]
-        )
-        nuisance_aucs[name] = _safe_auc(nz_train, nz_test, c=c)
+    nuisance_aucs = nuisance_panel(real_train, real_test, labels, eligible_tr, eligible_te, c=c)
 
     return FeatureControls(
         feature=feature,

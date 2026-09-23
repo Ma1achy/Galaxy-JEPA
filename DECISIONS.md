@@ -337,6 +337,17 @@ uncertainty geometry — see the open item in `TODO.md`.
   run); **E(2)-equivariant ViT as a later ablation** (it reshapes encoder
   geometry, so establish the vanilla-ViT ladder before baking in symmetry).
 
+> **Spec/code divergence — recorded 2026-09-22 (Brief R).** This decision was never implemented.
+> Pretraining applies **no rotation or reflection augmentation**: every run on the probe ladder —
+> J, the D18/D21 λ arms, M — learned from stamps in their native orientation. Nothing here reverses
+> D10; the gap is recorded so it is not mistaken for a choice.
+>
+> *Consequence.* Position angle is free to be encoded, and it is a nuisance for morphology: nothing
+> about a spiral's arms depends on which way the stamp was cut. Brief R3 measures how much of it M
+> carries (circle strength and ridge R² for (cos 2θ, sin 2θ), M against three untrained seeds), which
+> sizes the nuisance and says what implementing D10 would remove. Whether to implement it before the
+> headline run is a decision for its own brief, not an inheritance from this one.
+
 ---
 
 ## D11 — Resolution / patch-size ablation — *decided (scratchpad): 8×8 as Rung-4 control*

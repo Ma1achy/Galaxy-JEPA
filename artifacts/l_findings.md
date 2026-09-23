@@ -151,7 +151,8 @@ an instrument failure, not a result.
 0.4646–0.5333 against thresholds of 0.5158–0.5496. The whole swept range is valid, so the
 **ceiling-sensitivity check has nothing to move and the FLAGGED `selectivity_ceiling` predicate is
 not load-bearing on this result.** No MLP anywhere on this trajectory holds up by memorising:
-200 full-batch steps cannot, and the control measures that it did not.
+200 full-batch steps cannot, and the control measures that it did not. *(Corrected — see
+[the note at the end](#correction-brief-r-the-shuffled-label-control-cannot-see-memorisation): the control cannot measure memorisation.)*
 
 ### The reading — branch three fired, the one with no story attached
 
@@ -416,7 +417,8 @@ On **3 of 4** λ=0 t01 checkpoints there is **no admissible MLP at all**: the sh
 clears the selectivity threshold at *every* width down to 16, so no capacity in the sweep is
 selective. Across all **eight** λ=0.05 checkpoints, on both features, the ceiling never fired once.
 
-The λ=0 representation is memorisable at every capacity offered, and the λ=0.05 one is not. Its
+The λ=0 representation is memorisable at every capacity offered, and the λ=0.05 one is not. *(Corrected — see the note at the end: what fired is not a
+memorisation measurement.)* Its
 embeddings carry std ≈ 3.1–4.6 against λ=0.05's ≈ 0.9–1.0, and an unnormalised, larger-magnitude
 embedding is easier to overfit at fixed weight decay. Two consequences, and the second is a
 warning:
@@ -542,3 +544,32 @@ uv run python artifacts/l1b_mlp_ladder.py --tag l2
 **Free memory before L2.** The arm needs a machine that is not already 39.72 GB into its
 compressor. Quitting Docker Desktop, the Claude desktop app and any spare CLI sessions is what
 that means in practice; none of them are mine to stop.
+
+---
+
+## Correction (Brief R): the shuffled-label control cannot see memorisation
+
+*Added 2026-09-22.* Both the ladder (`ladder.py`, `ctrl_train`/`ctrl_test`) and L1b train the
+control MLP on **permuted train labels** and score it against the **real test labels**. A galaxy
+does not recur between train and test, so a memorised permutation of the train labels carries no
+information about any held-out galaxy: whatever the MLP memorised, its test AUC against real labels
+sits near 0.5 in expectation, at any capacity. The Hewitt–Liang control works for word types
+because the same type recurs across splits; galaxies do not.
+
+What this changes above:
+
+* "**the control measures that it did not**" (memorise) is unsupported. The control is blind to
+  memorisation, so the ceiling never firing on the λ=0.05 arm says nothing either way. L1's
+  headline is untouched — it never rested on the ceiling.
+* "**The λ=0 representation is memorisable**" is unsupported as stated. What fired is a
+  permuted-label MLP's scores ranking the *real* test labels better than the linear shuffled null's
+  quantile — a chance alignment of an arbitrary function with a strongly decodable axis, whose
+  spread the linear null need not match. That λ=0's larger-magnitude embeddings (std ≈ 3–5) widen it
+  is plausible and unmeasured. The comparability caveat for the λ=0 MLP column stands; the reason
+  given for it does not.
+
+Brief R measures memorisation directly (the permuted control's **train** AUC) and adds a
+**cluster control task**: k-means on train embeddings, random labels per cluster, so the control
+labels *do* recur across splits and an over-expressive probe can be caught decoding them.
+See `artifacts/r_findings.md`.
+

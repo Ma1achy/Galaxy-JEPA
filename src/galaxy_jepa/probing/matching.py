@@ -29,6 +29,16 @@ __all__ = [
     "matched_auc",
     "MatchedVerdict",
     "matched_evaluation",
+    "matched_indices",
+    "RETAIN_FRACTION",
+    "MIN_MATCHED_TEST",
+    "MIN_MATCHED_SHARE",
+    "SURVIVES",
+    "PARTIAL",
+    "COLLAPSES",
+    "UNRESOLVED",
+    "RetentionVerdict",
+    "retention_verdict",
 ]
 
 
@@ -106,8 +116,7 @@ def _matched_auc_with_counts(
     seed: int = 0,
 ) -> tuple[float, int, int, bool]:
     """``(auc, n_matched_train, n_matched_test, degenerate)`` — the counts the 0.5 needs."""
-    tr = stratified_match(match_train, train.y, n_strata=n_strata, seed=seed)
-    te = stratified_match(match_test, test.y, n_strata=n_strata, seed=seed + 1)
+    tr, te = matched_indices(match_train, train.y, match_test, test.y, n_strata=n_strata, seed=seed)
     if tr.size == 0 or te.size == 0:
         return 0.5, int(tr.size), int(te.size), True
     train_m = Embeddings(train.x[tr], train.y[tr], train.fraction[tr])
@@ -173,3 +182,88 @@ def matched_evaluation(
         n_test=int(len(test.y)),
         degenerate=degenerate,
     )
+
+
+def matched_indices(
+    match_train: np.ndarray,
+    y_train: np.ndarray,
+    match_test: np.ndarray,
+    y_test: np.ndarray,
+    *,
+    n_strata: int = 5,
+    seed: int = 0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """The matched train and test rows — the selection :func:`matched_evaluation` probes on.
+
+    Depends only on the nuisance values, the labels and the seed, never on the embeddings. That is
+    what lets a second matrix (the untrained encoder, whose bar is re-measured on the matched rows)
+    or a second probe (the MLP) be scored on **exactly** the rows the linear re-probe used: the
+    comparison is then between two probes on one question rather than two questions.
+    """
+    tr = stratified_match(match_train, y_train, n_strata=n_strata, seed=seed)
+    te = stratified_match(match_test, y_test, n_strata=n_strata, seed=seed + 1)
+    return tr, te
+
+
+#: O1's pre-registered retention rule, fixed before any number existed and moved here unchanged so
+#: every consumer judges survival the same way. ``A`` is the unmatched AUC and ``C`` its
+#: untrained-encoder bar; ``M`` is the matched AUC and ``C_m`` the bar **re-measured on the same
+#: matched rows**, so the comparison is like-for-like. The 0.5 is a declared choice, not derived.
+#:
+#: Why this and not the effect floor: the ladder judged "survived matching" as *matched AUC ≥
+#: 0.7267*, and a feature already below 0.7267 unmatched fails that whatever matching does. In
+#: Brief P that was 18 of the 19 features labelled "confounded by size" — matching moved them by a
+#: median of 0.027. Retention asks the question matching is for: how much of the effect is left.
+RETAIN_FRACTION: float = 0.5
+MIN_MATCHED_TEST: int = 500
+MIN_MATCHED_SHARE: float = 0.10
+
+SURVIVES = "SURVIVES"
+PARTIAL = "PARTIAL"
+COLLAPSES = "COLLAPSES"
+UNRESOLVED = "UNRESOLVED"
+
+
+@dataclasses.dataclass(frozen=True)
+class RetentionVerdict:
+    """Four states, and UNRESOLVED is a statement about the SAMPLE — never folded into COLLAPSES."""
+
+    verdict: str
+    retained: float | None
+    unmatched_margin: float
+    matched_margin: float | None
+
+
+def retention_verdict(
+    a: float,
+    c: float,
+    m: float | None,
+    m_lo: float | None,
+    c_m: float | None,
+    *,
+    n_matched_test: int,
+    n_test: int,
+) -> RetentionVerdict:
+    """O1's rule::
+
+    SURVIVES  : (M − C_m) ≥ 0.5·(A − C)  AND  M's CI lower bound > C_m
+    COLLAPSES : (M − C_m) ≤ 0            OR  M's CI contains C_m
+    PARTIAL   : between the two — real, but substantially confounded
+    UNRESOLVED: < 500 matched test galaxies, or < 10% of the unmatched test set surviving
+    """
+    unmatched = a - c
+    if (
+        m is None
+        or m_lo is None
+        or c_m is None
+        or n_matched_test < MIN_MATCHED_TEST
+        or n_matched_test < MIN_MATCHED_SHARE * n_test
+    ):
+        return RetentionVerdict(UNRESOLVED, None, unmatched, None)
+    matched = m - c_m
+    retained = matched / unmatched if unmatched > 0 else 0.0
+    if matched <= 0 or m_lo <= c_m:
+        return RetentionVerdict(COLLAPSES, retained, unmatched, matched)
+    if matched >= RETAIN_FRACTION * unmatched:
+        return RetentionVerdict(SURVIVES, retained, unmatched, matched)
+    return RetentionVerdict(PARTIAL, retained, unmatched, matched)

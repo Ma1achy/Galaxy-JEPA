@@ -42,7 +42,8 @@ Figures: `assets/ladder_catalogue.png` (§a, §b), `assets/ladder_power.png` (§
 
 One feature of thirty-seven is a clean linear direction: **`t08_odd_feature_a22_irregular`**, AUC
 0.7462, surviving matching at 0.7428 on 29% of the test set. Everything else that exists is
-entangled or confounded.
+entangled or confounded. *(Corrected in §b: "confounded" was the gate's arithmetic. 21 of those 22
+sit below the effect floor unmatched, and none loses its effect under matching.)*
 
 This is not a negative result about the encoder. Thirty-three of thirty-seven answers clear their
 own untrained bar — the representation *contains* the tree. What it does not contain is thirty-seven
@@ -57,44 +58,50 @@ decodable". Changing it is a mechanism change needing its own D-entry; reported 
 
 ---
 
-## (b) The mechanism: apparent size, doing more work than everything else combined
+## (b) The mechanism — corrected by Brief R0: the effect floor, not apparent size
 
-Matched evaluation ran on **every** feature, unconditionally — 3D-ii's "targeted" scope had been
-measured false twice, and at six features this would have looked like a minority effect.
+> **Correction (2026-09-22, Brief R0 — `artifacts/r_findings.md`, `artifacts/out/r_r0.json`).**
+> This section originally read *"apparent size, doing more work than everything else combined:
+> nineteen of thirty-seven answers lose their effect when apparent size is matched."* That was an
+> artefact of the gate, and my error in writing it up: D22 and O1 had both recorded the arithmetic.
 
-| mechanism (full population) | n |
-|---|---|
-| confounded by **size** (did not survive matching) | **19** |
-| entangled linear (present, not orthogonal) | 10 |
-| not recoverable by linear or MLP | 4 |
-| confounded by magnitude | 3 |
-| **clean linear direction** | **1** |
+The ladder judges "survived matching" as *matched AUC ≥ the effect floor* (`ladder.py`,
+`survive_threshold=config.effect_floor`). **21 of the 22** answers labelled "confounded" had an
+*unmatched* AUC already below 0.7267, so they failed that test whatever matching did. Matching moved
+their AUC by a median of **0.021**.
 
-Nineteen of thirty-seven answers lose their effect when apparent size is matched. Bar and no-bar,
-every `t08` odd-feature answer but one, both winding endpoints, four of six arm-number answers.
-The encoder has learned a strong size axis and reads much of the morphology tree along it.
+Re-judged under **O1's pre-registered retention rule** — does the margin over the untrained bar
+survive, measured on the same matched rows with the untrained bar re-measured there (three seeds)?
+Full population:
 
-That is a coherent story rather than a defect: GZ2 classifications are made on images, and a
-galaxy's apparent size sets how much of its structure is visible to a human voter. A representation
-trained to predict image content will find that axis first. But it means most concept directions in
-this encoder are not *about* the concept in the sense the framing needs.
+| P's mechanism | n | R0: SURVIVES | UNRESOLVED | PARTIAL | COLLAPSES |
+|---|---|---|---|---|---|
+| confounded by size | 19 | **17** | 2 | 0 | 0 |
+| confounded by magnitude | 3 | **3** | 0 | 0 | 0 |
+| entangled linear | 10 | 10 | 0 | 0 | 0 |
+| not recoverable | 4 | 0 | 3 | 0 | 1 |
+| clean linear direction | 1 | 1 | 0 | 0 | 0 |
 
-**The size confound is not invariant to the population.** Under the conditional gate the
-composition changes completely:
+**None of the 22 “confounded” answers loses its effect when matched on size, magnitude or
+redshift.** The median margin retained is 1.00. The one collapse is `t10 arms winding: medium` (AUC 0.523 unmatched — barely off
+chance, and the feature D23 found a single untrained seed could decide). The UNRESOLVED are matched
+sets too thin to judge (`star_or_artifact`: 52 matched test galaxies).
 
-| mechanism | full | conditional |
-|---|---|---|
-| confounded by size | 19 | **2** |
-| confounded by magnitude | 3 | **12** |
-| entangled linear | 10 | 12 |
-| confounded by redshift | 0 | 2 |
-| not recoverable | 4 | 8 |
+**What this changes, and what it does not.** The rung table in §a stands: R1 separately requires
+AUC ≥ 0.7267 (`existence.clean`), so the 21 below-floor answers could not have been R1 on effect
+size alone. What was wrong is the *reason* given. The mechanism label checks nuisance clearance
+before entanglement, so an answer below the floor is labelled "confounded" before anything else is
+asked. The accurate reading is **present, but below the effect floor**. Whether these answers are
+also entangled is hidden by that label order; P2's record does not keep the metric.
 
-Conditioning removes the size confound and replaces it with magnitude. Read carefully: the
-conditional population is a *brighter, larger, better-resolved* subsample — the galaxies whose
-parent question reached majority — so size stops varying enough to confound and brightness starts.
-Neither column is the "true" mechanism. Both are statements about the population they were measured
-on, which is the D14 point.
+The "size axis" story in the first draft — Galaxy Zoo votes depend on how large a galaxy appears —
+may still be true of the representation. This catalogue does not show it. The
+population comparison that followed ("conditioning replaces size with magnitude") compared the same
+artefact across two populations and is withdrawn with it. Under retention the conditional
+population reads 26 SURVIVES / 10 UNRESOLVED / 1 COLLAPSES (`t10 medium` again).
+
+The ladder's `survive_threshold` is a defect on the verdict path, flagged in `TODO.md` and owed a
+D-entry. Production is unchanged, since this brief changes no rung.
 
 ---
 

@@ -514,26 +514,30 @@ def p_catalogue() -> None:
     ]
     ax.legend(handles=handles, frameon=False, fontsize=9, loc="lower right")
 
-    # right: what the rung composition is, and how the mechanism changes with the population
-    mech_order = ["clean linear direction", "entangled linear", "confounded by size",
-                  "confounded by magnitude", "confounded by redshift", "not recoverable"]
-    SHORT_MECH = {"clean linear direction": "clean", "entangled linear": "entangled",
-                  "confounded by size": "size", "confounded by magnitude": "magnitude",
-                  "confounded by redshift": "redshift", "not recoverable": "not\nrecoverable"}
-    mech_colour = {"clean linear direction": GOOD, "entangled linear": ACCENT,
-                   "confounded by size": "#b3352b", "confounded by magnitude": "#d9863d",
-                   "confounded by redshift": "#c9a227", "not recoverable": MUTED}
+    # right: why an answer is not clean — P's labels, re-read through Brief R0. P called 22 answers
+    # "confounded" because the ladder judged matching against the effect floor; 21 were below it
+    # before matching. Under O1's retention rule none collapses, so the honest bucket is the floor.
+    floor = float(d["effect_floor"])
+    mech_order = ["clean", "entangled", "below floor", "matched below floor", "not recoverable"]
+    SHORT_MECH = {"clean": "clean", "entangled": "entangled", "below floor": "below\nfloor",
+                  "matched below floor": "matched\n< floor", "not recoverable": "not\nrecoverable"}
+    mech_colour = {"clean": GOOD, "entangled": ACCENT, "below floor": "#d9863d",
+                   "matched below floor": "#b3352b", "not recoverable": MUTED}
 
-    def bucket(m: str) -> str:
-        for k in mech_order:
-            if m.startswith(k):
-                return k
+    def bucket(r: dict) -> str:
+        m = r["mechanism"]
+        if m.startswith("clean"):
+            return "clean"
+        if m.startswith("entangled"):
+            return "entangled"
+        if m.startswith("confounded"):
+            return "below floor" if r["auc"] < floor else "matched below floor"
         return "not recoverable"
 
     for i, pop in enumerate(("full", "conditional")):
         counts: dict[str, int] = {}
         for r in d[pop]:
-            k = bucket(r["mechanism"])
+            k = bucket(r)
             counts[k] = counts.get(k, 0) + 1
         bottom = 0
         for k in mech_order:
@@ -548,8 +552,11 @@ def p_catalogue() -> None:
     axm.set_xticks([0, 1])
     axm.set_xticklabels(["full\n(verdict)", "conditional\n(reported)"], fontsize=9)
     axm.set_ylabel("answers")
-    axm.set_title("Why an answer is not clean\nsize dominates — until the population changes",
+    axm.set_title("Why an answer is not clean\nbelow the effect floor — not confounded (R0)",
                   fontsize=11, pad=10)
+    axm.text(0.5, -0.13, "O1's retention rule: none of P's 22 'confounded' (full)\n"
+             "loses its effect under matching",
+             transform=axm.transAxes, ha="center", fontsize=8, color=MUTED)
     axm.grid(axis="y", lw=0.6)
     axm.set_axisbelow(True)
 

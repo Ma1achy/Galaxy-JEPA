@@ -39,6 +39,9 @@ __all__ = [
     "probe_auc",
     "probe_auc_ci",
     "probe_auc_ci_se",
+    "probe_scores",
+    "weighted_auc",
+    "paired_auc_bootstrap",
     "probe_direction",
     "ConceptDirection",
     "ProbeResult",
@@ -117,6 +120,101 @@ def probe_auc(
     scaler, clf = _fit(train, c=c, max_iter=max_iter)
     scores = clf.predict_proba(scaler.transform(test.x))[:, 1]
     return float(roc_auc_score(test.y, scores))
+
+
+def probe_scores(
+    train: Embeddings, test: Embeddings, *, c: float = 1.0, max_iter: int = DEFAULT_MAX_ITER
+) -> np.ndarray:
+    """The fitted probe's positive-class probability on every ``test`` row.
+
+    What a *paired* comparison needs: two probes are only compared fairly when their scores are
+    resampled together, galaxy by galaxy, rather than each AUC carrying its own interval.
+    """
+    _require_two_classes(train, test)
+    scaler, clf = _fit(train, c=c, max_iter=max_iter)
+    return np.asarray(clf.predict_proba(scaler.transform(test.x))[:, 1], dtype=np.float64)
+
+
+class _SortedScores:
+    """One score vector sorted once, so every bootstrap draw's AUC is O(n) rather than O(n log n).
+
+    A bootstrap resample is a vector of multinomial counts over the fixed test galaxies, and the
+    scores do not change between draws — so the sort, and the grouping of tied scores, can be done
+    once and each draw reduced to weighted sums.
+    """
+
+    def __init__(self, y: np.ndarray, scores: np.ndarray) -> None:
+        order = np.argsort(scores, kind="mergesort")
+        self.order = order
+        self.pos = np.asarray(y, dtype=np.float64)[order]
+        _, self.group = np.unique(np.asarray(scores)[order], return_inverse=True)
+        self.n_groups = int(self.group.max()) + 1 if self.group.size else 0
+
+    def auc(self, w: np.ndarray) -> float:
+        """Mann–Whitney AUC with each galaxy weighted ``w``; ties score one half."""
+        ws = w[self.order]
+        wp = ws * self.pos
+        wn = ws - wp
+        gp = np.bincount(self.group, weights=wp, minlength=self.n_groups)
+        gn = np.bincount(self.group, weights=wn, minlength=self.n_groups)
+        tp, tn = gp.sum(), gn.sum()
+        if tp == 0 or tn == 0:
+            return float("nan")
+        below = np.cumsum(gn) - gn
+        return float((gp * (below + 0.5 * gn)).sum() / (tp * tn))
+
+
+def weighted_auc(y: np.ndarray, scores: np.ndarray, w: np.ndarray | None = None) -> float:
+    """ROC-AUC with per-sample weights (all ones reproduces the unweighted AUC exactly)."""
+    y = np.asarray(y)
+    return _SortedScores(y, scores).auc(np.ones(len(y)) if w is None else np.asarray(w, float))
+
+
+def paired_auc_bootstrap(
+    labels: list[np.ndarray],
+    scores: list[np.ndarray],
+    weights: list[float],
+    *,
+    n_boot: int = 2000,
+    seed: int = 0,
+) -> tuple[float, float, float]:
+    """``(point, lo, hi)`` of a linear contrast of AUCs, all measured on the SAME test galaxies.
+
+    Every draw resamples the galaxies once and re-scores every AUC in the contrast on that one
+    resample, so shared test-set luck cancels rather than inflating the interval. That is what
+    makes a headroom of +0.004 readable against per-AUC standard errors of 0.002::
+
+        headroom            labels=[y, y]          scores=[mlp, lin]            weights=[1, -1]
+        selective headroom  labels=[y, y, yc, yc]  scores=[mlp, lin, mlp_c, lin_c]
+                                                   weights=[1, -1, -1, 1]
+
+    ``labels`` may differ between terms (a control task relabels the same galaxies) but every
+    vector must be over the same galaxies in the same order. A draw that leaves any term with a
+    single class is skipped.
+    """
+    n = len(labels[0])
+    if not (len(labels) == len(scores) == len(weights)):
+        raise ValueError("labels, scores and weights must have one entry per AUC term")
+    if any(len(v) != n for v in (*labels, *scores)):
+        raise ValueError("every term must be over the same galaxies — a paired contrast is not")
+    terms = [
+        _SortedScores(np.asarray(y), np.asarray(s)) for y, s in zip(labels, scores, strict=True)
+    ]
+    wts = np.asarray(weights, dtype=np.float64)
+    ones = np.ones(n)
+    point = float(sum(wt * tm.auc(ones) for wt, tm in zip(wts, terms, strict=True)))
+    rng = np.random.default_rng(seed)
+    draws: list[float] = []
+    for _ in range(n_boot):
+        w = np.bincount(rng.integers(0, n, n), minlength=n).astype(np.float64)
+        aucs = [tm.auc(w) for tm in terms]
+        if any(np.isnan(a) for a in aucs):
+            continue
+        draws.append(float(np.dot(wts, aucs)))
+    if len(draws) < 2:
+        return point, point, point
+    lo, hi = (float(v) for v in np.percentile(draws, [2.5, 97.5]))
+    return point, lo, hi
 
 
 def probe_auc_ci_se(

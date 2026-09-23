@@ -48,6 +48,9 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   refused). Sweep **{1, 5, 11, 21, 37}** pre-registered as a robustness claim, not a selection
   step. *(D8 superseded)*
 - [ ] (P1) **Vote count is not merely noise for the uncertainty geometry — decide a LOCAL floor.**
+  **Measured in Brief R2 (2026-09-22):** 11 of R2's 20 curved paths are a mixture of vote-reach
+  groups; each group is straight, and only the mixture bends (edge-on 0.30 → 0.02 on the well-voted
+  half). Conditional questions reach a median of 5–8 volunteers. `artifacts/r_findings.md` §R2.
   Separate sub-system, deliberately untouched by the corpus-wide decision above. A galaxy at
   50/50 on 60 votes is *genuinely ambiguous* — people looked and disagreed — while 2/2 on 4 votes
   may be obvious and merely undersampled; likewise `v = 1.0` on 3 votes is a weak
@@ -84,6 +87,8 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   whose seeded subsample moved when the corpus grew 10k → 827k. Refitting refused, no escape
   hatch. Stability: 0.0% of 200 disjoint halves breach the 1% tolerance. *(D16)*
 - [ ] (P1) Rotation/reflection augmentation pipeline (symmetry, augmentation-first). *(D10)*
+  **Divergence, recorded under D10 (2026-09-22):** decided, never built — every checkpoint on the
+  probe ladder, M included, trained without it. Brief R3 sizes the orientation nuisance this leaves.
 - [x] (P0) **Scale the data layer to the full corpora** — the fp16 parity cache is baked over
   **both** corpora under the one frozen pipeline (`pipeline_hash 9f88ddefe946`, index recording
   `normalisation_hash 75100066b3e0`): **1,057,326 stamps, 415.8 GB, 3.88 h at 76 stamps/s**,
@@ -737,6 +742,18 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   `survive_threshold=config.effect_floor`; four of O1's six features sit below 0.7267 *unmatched*
   and would fail by arithmetic whatever matching did. O1 therefore used a margin-over-own-null
   read instead. Whichever a later brief adopts, this must be decided rather than inherited.
+  **Measured consequence in Brief P (found in Brief R, 2026-09-22):** 18 of P's 19 "confounded by
+  size" features, and 21 of 22 "confounded" overall, were already below 0.7267 *before* matching;
+  matching moved their AUC by a median 0.021. P's "size dominates" headline was this arithmetic. Brief R0
+  re-adjudicates all 37 under O1's retention rule (`matching.retention_verdict`), but production is
+  unchanged — **owed a D-entry** before the next catalogue run.
+- [ ] (P1) **O1's retention rule has no floor under the unmatched margin.** It is a ratio,
+  (M − C_m)/(A − C). When A − C sits inside the untrained seed range, the ratio divides noise by
+  noise. Brief R hit it on `t10 winding: medium`: A − C = 0.003 against a 0.006 bar spread, so
+  linear read COLLAPSES and the MLP read SURVIVES, both on noise. It affects none of R0's 31
+  survivors (every margin ≥ 2× its seed spread). Before the rule is reused, it needs a floor, e.g.
+  A − C above the resolvable margin, else UNRESOLVED. That is a pre-registration change, so it
+  belongs in its own D-entry.
 - [ ] (P1) **Split variance is owed, and O2 deliberately excludes it.** An honest interval on a
   published AUC should cover which galaxies landed in the test set, not only which training draw
   was made. O2 holds the splits fixed so it can answer its own narrow question; the split-varying
@@ -865,6 +882,9 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 - [ ] (P1) **Inclination conditioning** — recoverability/entanglement as a function of axis ratio
   (b/a); the confound-fingerprint deliverable. A new axis on the existing probe, not a redesign.
   The columns are in the corpus; the conditioning run is not written. *(D13)*
+  **Watch:** they are in `data/probe/metadata.csv`, **not** in the compact probe-column sidecar
+  the harness reads (`_probe_rows` → `load_probe_columns`), so any run through `prepare` sees
+  `expAB_r` as absent. Brief R3 streams it from the CSV; the sidecar wants the two columns added.
 
 ## Deferred — Paper 2 `[P2-paper]`
 - [ ] Multi-survey corpus (SDSS + DESI Legacy → space-based); homogenisation (degrade-down first).
