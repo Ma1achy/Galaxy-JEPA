@@ -59,6 +59,28 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   at every depth, and it does not. Decide a vote-count floor **or** a weighting **local to those
   two**; do **not** impose it corpus-wide, which would delete the ambiguous middle that test
   exists to use. Bites hard at the frozen floor: 89.8% of t09 boxy's positives rest on ≤2 votes.
+- [ ] (P1) **Spiral's bend is a VISIBILITY axis, not inclination — the uncertainty-geometry brief
+  must separate it.** *(Brief S1, 2026-09-23; `artifacts/s_findings.md` §S1, pre-registration
+  hash `8574452c`.)* Inclination explains **0.087** of spiral's bend (full) and **0.027**
+  (well-voted), against a pre-registered attribution bar of 0.5. What carries it, exploratory and
+  unseparated: magnitude partial r **+0.65 / +0.67** (fainter), SNR **−0.62 / −0.62**, size
+  **−0.53 / −0.58** (full / well-voted). That is **D13's *resolution* confound, not its projection
+  one**: uncertain-vote spirals are the images that carry the least information. The brief must:
+  - **Pre-register the separation of faintness, SNR, size AND redshift** — partial on each,
+    controlling the other three. Redshift is the likely common cause (distance makes a galaxy
+    fainter, smaller and noisier at once), and `z` is already joined.
+  - **Answer one question:** does off-axis displacement predict vote uncertainty **beyond
+    visibility**? If visibility accounts for all of it, the uncertainty is resolution-limited —
+    a D13 verdict (volunteers disagreed because the image could not settle it), not evidence that
+    the representation encodes human ambiguity.
+  - **Test off-axis displacement as well as on-axis distance.** The bend lives off the concept
+    line; projecting onto the line alone discards exactly the component S1 found.
+  - **Reconcile with R0, which is not a contradiction:** the *concept direction* is not carried by
+    size or brightness (R0: spiral SURVIVES, retaining 0.86 of its margin under size matching in
+    the full population and 1.18 under magnitude matching in the conditional one); the
+    *uncertainty offset* tracks visibility (S1). One
+    axis says what a spiral is, the other how sure anyone could be — they are different
+    directions and a result on one says nothing about the other.
 - [x] (P0) **CasJobs / SkyServer metadata join** — z, Petrosian mag/radius, SNR, PSF, verified by
   a 10-row ra/dec guard + at-scale range summary. SNR is derived image-domain (`snr_r`) at the
   single derivation site and backfilled across the pulled corpora.

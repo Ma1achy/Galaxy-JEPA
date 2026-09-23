@@ -170,3 +170,65 @@ bound the pre-registration promised is not needed.
      (cosines −0.24 and +0.04) never cleared the 0.30 pair floor, so stage 1 never adjudicated
      them in either run. Flagged in `p_findings.md`; not re-run here.
 
+## T2 — `t08 odd: other`: what the direction is
+
+Grids: `artifacts/out/t2_other_{top,bottom,random}.png`. That is the top 30 and bottom 30 of the
+conditional test set by score along the ladder's direction, and 30 random `other`-labelled test
+galaxies. Numbers: `artifacts/out/t2_other.json`. The test set is 3,483 galaxies with 467 'other';
+the direction's AUC is 0.7346.
+
+**What they are: a mix, with a dominant kind.**
+- **Top.** Mostly *small, red, compact galaxies in crowded fields, with close or overlapping
+  companions*: double nuclei, touching pairs, compact groups. That is also what the random
+  'other'-labelled sample mostly shows, so this component is what volunteers mean by "other".
+- **Also in the top 30: artefacts.** At least 6 of 30:
+  - a satellite trail (s = +1.9);
+  - bright-star halos and diffraction spikes (s = +1.1, +0.8, +0.7, +0.6);
+  - frame edges.
+- **Bottom.** Large, nearby, well-resolved blue discs, many padded or flagged `petrorad_suspect`.
+  Their oddity has a name (arms, a lane), so it is not "other".
+
+**Against the artefact axes:**
+
+| axis | ρ with score | AUC for 'other' | AUC without the flagged galaxies |
+|---|---|---|---|
+| padded frame (E1, > 1%) | +0.00 | 0.48 | 0.746 |
+| `petrorad_suspect` | −0.01 | 0.52 | 0.734 |
+| star/artifact votes (≥ 0.2) | +0.22 | 0.69 | 0.734 |
+| all three removed (614 galaxies) | | | **0.746** |
+| bright neighbour (as defined) | +0.05 | 0.49 | *not read* |
+
+- **The direction is not an artefact axis.** Removing the flagged galaxies does not lower it.
+- **The bright-neighbour metric failed.** An outer peak above half the core peak is normal on a
+  normalised, crowded 256-px stamp, so the flag fires on 88% of stamps. I don't interpret it.
+  The grids show bright-star halos in about 4 of the top 30.
+- **What tracks the score is distance.** Redshift ρ **+0.51**, size **−0.44**, magnitude +0.21.
+  Holding each roughly fixed (AUC within quintiles):
+  - redshift: 0.735 → **0.697**
+  - size: → 0.722
+  - magnitude: → 0.727
+
+  So part of the direction is "small and far away". It is the visibility pattern S1 found in
+  spiral's uncertainty offset, here inside a concept direction. Most of the direction survives
+  with redshift held.
+
+**Verdict.** The direction is not one coherent category. Its main content is close companions and
+overlaps, the component that also makes it representationally entangled with `merger`. Mixed in
+are a distance/size component and a minority of image artefacts. Under the brief's rule it needed an
+explanation before being reported as R1, and it now has one. After D25 it is not R1: it is **R2,
+entangled with merger**. The record is corrected from "R1 (conditional), under examination" to
+that.
+
+**The >100% retention is noise on a changed sample, not a mechanism.**
+- Under magnitude matching, the real AUC falls 0.735 → 0.660 (−0.075), and the untrained bar
+  (mean of 3) falls 0.616 → 0.530 (−0.086).
+- The margin goes from 0.119 to 0.130, which is 1.10.
+- The two falls differ by 0.011. M's own 95% lower bound (0.625) sits 0.035 below M, so the
+  retained fraction's plausible range is roughly 0.8–1.4.
+- Matching does not strip something only the untrained encoder reads. The untrained scores
+  correlate with magnitude about as the real one does (ρ 0.16–0.21 vs 0.21). Magnitude barely
+  separates 'other' (AUC 0.57).
+- Both AUCs fall mainly because the matched set is a different sample: class-balanced, 934 of
+  3,483, 27%. The bar happened to fall slightly further.
+- **Read "SURVIVES", not "110%".** The same reading holds for the other > 1 retentions in this
+  record (up to 1.58).
