@@ -288,25 +288,30 @@ def _nuisance_clearance(
     train_ids: Sequence[int],
     test_ids: Sequence[int],
     *,
+    margin_established: bool,
     config: ProbingConfig,
 ) -> tuple[bool, match.MatchedVerdict | None]:
-    """Nuisance gate (3D-ii): clear iff no nuisance is competitive, or the worst one survives
-    matched evaluation (the nuisance held constant within the matched set).
+    """Nuisance gate (3D-ii): clear iff no nuisance is competitive, or the worst one's effect is
+    RETAINED under matched evaluation (the nuisance held constant within the matched set).
 
-    **Matching now runs unconditionally.** 3D-ii specified it as *targeted* — fires only for
-    flagged features, bounded cost. That has been measured false twice: on J's encoder and on M's,
-    every nuisance beat every morphology feature but featured-ness, so the trigger fires for every
-    feature on three or four nuisances each. Brief O1 then measured the standing cost at ~24 min on
-    top of a headline run. A gate whose trigger always fires is not a trigger, and running it
-    conditionally only hides which features were never tested. So the verdict is computed for every
-    feature and the *competitiveness* is recorded alongside rather than deciding whether to look.
+    **Survival is retention, not the effect floor (D24).** This gate judged "survived matching" as
+    *matched AUC ≥ effect floor*, so an answer already below the floor unmatched failed whatever
+    matching did — 21 of Brief P's 22 "confounded" answers. It now applies O1's pre-registered rule
+    (:func:`matching.retention_verdict`): does the margin over the untrained bar survive, measured
+    on the same matched rows with the bar re-measured there? ``C`` and ``C_m`` average
+    :data:`matching.RETENTION_SEEDS` untrained draws — Brief R0's construction, reproduced exactly.
+    The effect floor is an absolute clean-vs-marginal threshold and never tests anything relative.
 
-    **The `nuisance_valid` filter is applied here.** It was not, and that was a defect:
-    `controls.build_feature_controls` filters the same vectors through it before measuring the
-    nuisance panel, so the panel and the matched re-probe were being taken over different rows. The
-    unfiltered ones are `petrorad_suspect` — systematically bright, nearby and featured, i.e.
-    exactly the confound direction being matched away. Strata built over them are strata built over
-    651-px "galaxies".
+    **The margin floor reuses a gate rather than adding a parameter.** Retention is a ratio of
+    margins, and where the unmatched margin is not itself established the ratio divides noise by
+    noise (Brief R: ``t10 winding: medium``, margin 0.003 against a 0.006 bar spread, read COLLAPSES
+    linearly and SURVIVES with an MLP). So retention is judged only where the unmatched margin has
+    passed D23's existence test; otherwise the verdict is UNRESOLVED — a statement about the
+    evidence, not the nuisance.
+
+    **Matching runs unconditionally**, and competitiveness is recorded alongside rather than
+    deciding whether to look: a trigger that always fires is not a trigger. **The `nuisance_valid`
+    filter is applied**, so the panel and the matched re-probe are taken over the same rows.
     """
     competitive = [
         n
@@ -315,21 +320,70 @@ def _nuisance_clearance(
     ]
     if not fc.nuisance_aucs:
         return True, None
+    seeds = controls.untrained_seeds
+    if len(seeds) != match.RETENTION_SEEDS:
+        raise ValueError(
+            f"matched survival needs {match.RETENTION_SEEDS} untrained draws for C and C_m (D24), "
+            f"got {len(seeds)}: pass ControlEmbeddings(untrained_extra=...)"
+        )
     rows = matched_rows(fc.nuisance_aucs, controls.real, labels, feature, train_ids, test_ids)
     train, test = rows.embeddings(controls.real, labels, feature, train_ids, test_ids)
+    i_tr, i_te = match.matched_indices(
+        rows.values_train, train.y, rows.values_test, test.y, n_strata=5, seed=config.seed
+    )
 
-    verdict = match.matched_evaluation(
-        train,
-        test,
-        rows.values_train,
-        rows.values_test,
-        survive_threshold=config.effect_floor,
-        c=config.c,
-        seed=config.seed,
+    def sub(e: Embeddings, i: np.ndarray) -> Embeddings:
+        return Embeddings(e.x[i], e.y[i], e.fraction[i])
+
+    mtr, mte = sub(train, i_tr), sub(test, i_te)
+    degenerate = mte.y.size == 0 or len(np.unique(mtr.y)) < 2 or len(np.unique(mte.y)) < 2
+    n_test = len(feature_ids(controls.real, labels, feature, test_ids))
+    bar = float(
+        np.mean(
+            [
+                ctl._safe_auc(
+                    feature_embeddings(u, labels, feature, train_ids),
+                    feature_embeddings(u, labels, feature, test_ids),
+                    c=config.c,
+                )
+                for u in seeds
+            ]
+        )
+    )
+    m = m_lo = bar_m = None
+    if not degenerate:
+        m, m_lo, _, _ = probe_auc_ci_se(
+            mtr, mte, c=config.c, n_boot=config.n_boot, seed=config.seed
+        )
+        bar_m_draws = []
+        for u in seeds:
+            utr, ute = rows.embeddings(u, labels, feature, train_ids, test_ids)
+            bar_m_draws.append(ctl._safe_auc(sub(utr, i_tr), sub(ute, i_te), c=config.c))
+        bar_m = float(np.mean(bar_m_draws))
+    retention = match.retention_verdict(
+        fc.real_auc, bar, m, m_lo, bar_m, n_matched_test=int(mte.y.size), n_test=n_test
+    )
+    if not margin_established and retention.verdict != match.UNRESOLVED:
+        retention = dataclasses.replace(retention, verdict=match.UNRESOLVED)
+    survived = retention.verdict == match.SURVIVES
+    verdict = match.MatchedVerdict(
+        matched_auc=0.5 if m is None else m,
+        survived=survived,
+        n_matched_train=int(mtr.y.size),
+        n_matched_test=int(mte.y.size),
+        n_train=int(train.y.size),
+        n_test=int(test.y.size),
+        degenerate=degenerate,
+        retention=retention,
+        matched_auc_lo=m_lo,
+        bar_unmatched=bar,
+        bar_matched=bar_m,
+        k_bar=len(seeds),
+        margin_established=margin_established,
     )
     # Nothing competitive is still a clearance — the matched verdict is then a measurement carried
     # for the record, not a gate that can fail the feature.
-    return (True if not competitive else verdict.survived), verdict
+    return (True if not competitive else survived), verdict
 
 
 def _passing_rung(
@@ -361,13 +415,27 @@ def _passing_rung(
         and nuisance_cleared
         and not entangled
     )
+    # The mechanism names the gate that actually failed. It used to call every cleared-but-not-clean
+    # answer "entangled", which — once matching stopped failing below-floor answers by arithmetic
+    # (D24) — would have relabelled twenty of them with a second wrong reason.
     if clean_linear:
         rung, mechanism = "R1", "clean linear direction"
     elif not nuisance_cleared:
         worst = max(fc.nuisance_aucs, key=lambda n: fc.nuisance_aucs[n], default="?")
-        rung, mechanism = "R2", f"confounded by {worst} (did not survive matching)"
-    else:
+        state = None if matched is None or matched.retention is None else matched.retention.verdict
+        if state == match.UNRESOLVED:
+            mechanism = f"nuisance clearance unresolved ({worst})"
+        elif state == match.PARTIAL:
+            mechanism = f"confounded by {worst} (partial retention under matching)"
+        else:
+            mechanism = f"confounded by {worst} (collapsed under matching)"
+        rung = "R2"
+    elif entangled:
         rung, mechanism = "R2", "entangled linear (present, not orthogonal)"
+    elif not existence.clean:
+        rung, mechanism = "R2", "present, below the effect floor"
+    else:
+        rung, mechanism = "R2", "present, not selective"
     return RungVerdict(
         feature=feature,
         rung=rung,
@@ -387,10 +455,16 @@ def _failing_rung(
     train_ids: Sequence[int],
     test_ids: Sequence[int],
     nuisance_cleared: bool,
+    matched: match.MatchedVerdict | None = None,
     *,
     config: ProbingConfig,
 ) -> RungVerdict:
-    """Linear-failure → MLP bounded-capacity ladder → R3 (recoverable nonlinearly) / R4 (2D/2F)."""
+    """Linear-failure → MLP bounded-capacity ladder → R3 (recoverable nonlinearly) / R4 (2D/2F).
+
+    ``matched`` is carried onto the verdict so a failing feature's clearance is on the record too:
+    under D24 it is UNRESOLVED by construction (no established margin), and a record that omits it
+    cannot show that.
+    """
     train = feature_embeddings(controls.real, labels, feature, train_ids)
     test = feature_embeddings(controls.real, labels, feature, test_ids)
     rng = np.random.default_rng(config.seed)
@@ -442,6 +516,7 @@ def _failing_rung(
         nuisance_aucs=fc.nuisance_aucs,
         sweep=sweep,
         ceiling=ceiling,
+        matched=matched,
     )
 
 
@@ -557,7 +632,14 @@ def run_ladder(
     for feature in features:
         fc = feature_controls[feature]
         cleared, matched = _nuisance_clearance(
-            feature, fc, controls, labels, train_ids, test_ids, config=config
+            feature,
+            fc,
+            controls,
+            labels,
+            train_ids,
+            test_ids,
+            margin_established=existence[feature].exceeds_null,
+            config=config,
         )
         if existence[feature].exceeds_null and feature in directions:
             verdicts[feature] = _passing_rung(
@@ -571,7 +653,7 @@ def run_ladder(
             )
         else:
             verdicts[feature] = _failing_rung(
-                feature, fc, controls, labels, train_ids, test_ids, cleared, config=config
+                feature, fc, controls, labels, train_ids, test_ids, cleared, matched, config=config
             )
 
         # Power annotation, attached to every verdict rather than only the failures: a feature

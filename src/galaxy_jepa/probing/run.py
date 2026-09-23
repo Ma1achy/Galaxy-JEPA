@@ -27,6 +27,7 @@ from galaxy_jepa.data.manifest import manifest_hash
 from galaxy_jepa.data.orchestrate import assign_three_way
 from galaxy_jepa.probing import controls as ctl
 from galaxy_jepa.probing import entanglement as ent_mod
+from galaxy_jepa.probing import matching as match
 from galaxy_jepa.probing import uncertainty as unc
 from galaxy_jepa.probing.config import ProbingConfig
 from galaxy_jepa.probing.extract import LabelProvider, extract_matrix
@@ -108,7 +109,14 @@ def run_probing(
     device = config.device or "cpu"
     untrained = ctl.untrained_encoder_matrix(model_config, dataset, device=device, seed=config.seed)
     noise = ctl.noise_through_encoder_matrix(encoder, dataset, device=device, seed=config.seed)
-    controls = ctl.ControlEmbeddings(real=real, untrained=untrained, noise=noise)
+    # The matched-survival bars average RETENTION_SEEDS untrained draws (D24): seeds s, s+1, ...
+    extra = tuple(
+        ctl.untrained_encoder_matrix(model_config, dataset, device=device, seed=config.seed + k)
+        for k in range(1, match.RETENTION_SEEDS)
+    )
+    controls = ctl.ControlEmbeddings(
+        real=real, untrained=untrained, noise=noise, untrained_extra=extra
+    )
 
     # The BY family size is per-scheme, never a global constant: an explicit config value wins,
     # else the active scheme's primary count, else the number of features actually probed.

@@ -147,7 +147,10 @@ def main() -> None:
     noise = ctl.noise_through_encoder_matrix(frozen, ds, device=device, seed=cfg.seed)
     print(f"  noise     {time.perf_counter() - t0:6.0f}s", file=sys.stderr)
     _release(device)
-    controls = ctl.ControlEmbeddings(real=real, untrained=untrained, noise=noise)
+    extra = tuple(ctl.untrained_encoder_matrix(frozen.config, ds, device=device, seed=cfg.seed + k)
+                  for k in range(1, 3))  # D24: C and C_m average three untrained draws
+    controls = ctl.ControlEmbeddings(real=real, untrained=untrained, noise=noise,
+                                     untrained_extra=extra)
 
     out: dict[str, object] = {"headline": HEADLINE, "checkpoint": str(setup.ckpt),
                               "n_train": len(train_ids), "n_test": len(test_ids),

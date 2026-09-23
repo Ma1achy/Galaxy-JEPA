@@ -120,7 +120,10 @@ def _controls_and_ids(seed: int = 1):
     real = extract_matrix(encoder, dataset)
     untrained = ctl.untrained_encoder_matrix(_MODEL_CONFIG, dataset)
     noise = ctl.noise_through_encoder_matrix(encoder, dataset, seed=seed)
-    controls = ctl.ControlEmbeddings(real=real, untrained=untrained, noise=noise)
+    extra = tuple(ctl.untrained_encoder_matrix(_MODEL_CONFIG, dataset, seed=k) for k in (1, 2))
+    controls = ctl.ControlEmbeddings(
+        real=real, untrained=untrained, noise=noise, untrained_extra=extra
+    )
     return controls, [int(o) for o in real.object_ids]
 
 
@@ -211,7 +214,10 @@ def test_embeddings_extracted_once_never_re_encoded_per_feature(tmp_path):
     real = extract_matrix(encoder, dataset)
     untrained = ctl.untrained_encoder_matrix(_MODEL_CONFIG, dataset)
     noise = ctl.noise_through_encoder_matrix(encoder, dataset, seed=cfg.seed)
-    controls = ctl.ControlEmbeddings(real=real, untrained=untrained, noise=noise)
+    extra = tuple(ctl.untrained_encoder_matrix(_MODEL_CONFIG, dataset, seed=k) for k in (1, 2))
+    controls = ctl.ControlEmbeddings(
+        real=real, untrained=untrained, noise=noise, untrained_extra=extra
+    )
 
     calls["n"] = 0  # reset: all encoding is done; the ladder must add none
     ids = [int(o) for o in real.object_ids]
@@ -317,3 +323,53 @@ def test_an_uneven_bank_is_refused(tmp_path):
             config=_z_config(path),
             sky_label_col="snr",
         )
+
+
+# D24: matched survival is O1's retention rule, over three untrained draws, and only where the
+# unmatched margin is established — never "matched AUC ≥ the effect floor".
+
+
+@pytest.mark.integration
+def test_matched_survival_refuses_fewer_than_three_untrained_draws(tmp_path):
+    """One untrained draw decided a verdict under D23; a silently single-draw bar is refused."""
+    labels = _labels()
+    controls, ids = _controls_and_ids()
+    single = ctl.ControlEmbeddings(
+        real=controls.real, untrained=controls.untrained, noise=controls.noise
+    )
+    with pytest.raises(ValueError, match="D24"):
+        run_ladder(
+            single,
+            labels,
+            ids[:120],
+            ids[120:],
+            config=_z_config(_bank_file(tmp_path, labels.features)),
+            sky_label_col="snr",
+        )
+
+
+@pytest.mark.integration
+def test_retention_is_judged_only_where_the_margin_is_established(tmp_path):
+    """A margin that fails existence cannot have its retention judged: noise over noise."""
+    labels = _labels()
+    controls, ids = _controls_and_ids()
+    result = run_ladder(
+        controls,
+        labels,
+        ids[:120],
+        ids[120:],
+        config=_z_config(_bank_file(tmp_path, labels.features)),
+        sky_label_col="snr",
+    )
+    judged = [(f, v.matched) for f, v in result.verdicts.items() if v.matched is not None]
+    assert judged
+    # failing features carry their clearance too — the record must be able to show UNRESOLVED
+    failing = [f for f, e in result.existence.items() if not e.exceeds_null]
+    assert all(result.verdicts[f].matched is not None for f in failing)
+    for f, m in judged:
+        assert m.retention is not None and m.k_bar == 3
+        assert m.margin_established == result.existence[f].exceeds_null
+        if not m.margin_established:
+            assert m.retention.verdict == "UNRESOLVED"
+        assert m.survived == (m.retention.verdict == "SURVIVES")
+    assert not any("did not survive matching" in v.mechanism for v in result.verdicts.values())

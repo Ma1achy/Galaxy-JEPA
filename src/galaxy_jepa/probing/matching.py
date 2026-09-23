@@ -147,6 +147,14 @@ class MatchedVerdict:
     n_train: int = 0
     n_test: int = 0
     degenerate: bool = False
+    #: The retention judgement (D24) and what it was computed from; ``None`` on the entanglement
+    #: leg, which still judges survival against a threshold (flagged, not changed — see D24).
+    retention: RetentionVerdict | None = None
+    matched_auc_lo: float | None = None
+    bar_unmatched: float | None = None  # C, mean over ``k_bar`` untrained draws
+    bar_matched: float | None = None  # C_m, the same draws re-measured on the matched rows
+    k_bar: int = 0
+    margin_established: bool | None = None  # the unmatched margin passed D23 existence
 
     @property
     def share_test(self) -> float:
@@ -217,6 +225,10 @@ def matched_indices(
 RETAIN_FRACTION: float = 0.5
 MIN_MATCHED_TEST: int = 500
 MIN_MATCHED_SHARE: float = 0.10
+#: Untrained draws averaged into C and C_m (D24) — Brief R0's construction, kept so the ladder
+#: reproduces R0 exactly. The margin floor is NOT a further parameter: retention is judged only
+#: where the unmatched margin has passed D23's existence test, else UNRESOLVED.
+RETENTION_SEEDS: int = 3
 
 SURVIVES = "SURVIVES"
 PARTIAL = "PARTIAL"

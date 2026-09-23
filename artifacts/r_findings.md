@@ -97,6 +97,26 @@ shuffled-value null, curvature) call a known loop a loop. They separate M's loop
 0's, where orientation is linearly readable but the centroids do not wind. So R2's "straight"
 verdicts can be read as evidence rather than as the instrument's blindness.
 
+> **Criterion check (Brief S5, 2026-09-23): the circle criterion changed between plan versions,
+> and the change decides M's verdict.** The first Brief R plan (2026-09-22 18:56) required
+> *"effective dimensionality **≈ 2**"*. The amended plan (19:03), written after the brief's
+> amendments and **before any R3 data existed**, required **≥ 1.5**, and `geometry.circle_test`
+> implements ≥ 1.5. So the change was not tuned to M's result. But **no reason was recorded at
+> the time**, and it is stated here now.
+>
+> - *Reason.* The instrument had to show that R2's statistics can call a known closed loop
+>   **non-1-D**, because a line is what a "straight" verdict claims. "≈ 2" encodes an assumption the
+>   question does not need: that the loop is *planar*. A closed loop that winds exactly once in its
+>   top-two plane and closes is still a loop if it also moves through further dimensions. ≥ 1.5
+>   asks for the non-1-D property; the winding and closure criteria ask for the loop.
+> - *What the change is worth.* **Under the first plan's "≈ 2", M's circle would NOT have been
+>   recovered** (effective dimension 3.54). Untrained seeds 1 and 2 (2.20, 2.35) are recovered under
+>   either criterion, and seed 0 under neither. So the validation of R2 on **M** rests on the amended
+>   criterion. The loop itself is not in doubt (one turn, one order violation, closes), but its
+>   shape is non-planar, and the record should say so rather than read "recovered" unqualified.
+> - The planted test (`test_a_loop_is_recovered_as_a_circle`) checks 1.5–2.5 because its planted
+>   loop is planar by construction. That is a property of the fixture, not the criterion.
+
 **The D10 nuisance (divergence recorded under D10):** pretraining applied no rotation or reflection
 augmentation, so orientation was free to be encoded. It is, but **mostly for architectural
 reasons**:

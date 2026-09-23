@@ -323,6 +323,14 @@ class ControlEmbeddings:
     real: EmbeddingMatrix
     untrained: EmbeddingMatrix  # real images, random-init encoder
     noise: EmbeddingMatrix  # noise images, real encoder
+    #: Further untrained draws for the matched-survival bars C and C_m (D24): one untrained draw
+    #: decided a verdict under D23, so the retention rule averages over
+    #: :data:`matching.RETENTION_SEEDS` of them and the ladder refuses fewer.
+    untrained_extra: tuple[EmbeddingMatrix, ...] = ()
+
+    @property
+    def untrained_seeds(self) -> tuple[EmbeddingMatrix, ...]:
+        return (self.untrained, *self.untrained_extra)
 
 
 @dataclasses.dataclass(frozen=True)

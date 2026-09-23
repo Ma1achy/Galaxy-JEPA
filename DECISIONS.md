@@ -319,6 +319,28 @@ the five still open**.
 
 **Still separate, and deliberately not acted on here.** Vote count is *not* merely noise for the
 uncertainty geometry — see the open item in `TODO.md`.
+
+> **Scope — recorded 2026-09-23 (Brief S3, from Brief R2's measurement).** The reasoning above,
+> that shallow votes *attenuate toward chance rather than inventing a direction*, holds for
+> **readout**: a probe's AUC or direction fitted to noisy labels. It **fails for any measurement
+> that bins, conditions on, or projects against the vote fraction.**
+>
+> Two facts break it. First, low-reach galaxies pile onto quantised fractions (1/4, 1/3, 1/2):
+> conditional questions reach a median of only 5–8 volunteers. Second, reach tracks the parent
+> answer. So equal-width fraction bins hold *different mixes of populations*, and E[z | f] bends
+> from the mixture. Edge-on shows it: both vote-reach halves are straight (bend 0.02 and −0.05), and
+> only their mixture is curved (0.30). 11 of R2's 20 curved paths are this. It is a **conditioning
+> artefact, not attenuation**: noise that moves which galaxies share a bin does not wash out, it
+> manufactures structure.
+>
+> **Scope of D8, therefore:**
+> - The unfiltered population, frozen at 1, remains right for **verdicts**: existence, rungs,
+>   readout.
+> - A measurement that conditions on the fraction needs a **reach floor, chosen locally** for that
+>   measurement and pre-registered with it.
+> - The right population depends on the measurement, not on a global setting. Cross-reference: the
+>   uncertainty-geometry vote-count item in `TODO.md` ("decide a LOCAL floor"), and
+>   `artifacts/r_findings.md` §R2.
 ---
 
 ## D9 — Confidence usage — *decided (scratchpad): both, kept separate*
@@ -331,22 +353,46 @@ uncertainty geometry — see the open item in `TODO.md`.
 
 ---
 
-## D10 — Symmetry — *decided (scratchpad): augmentation first*
+## D10 — Symmetry — *REVISED (Brief S4): no rotation/reflection augmentation across the encoder family; divergence recorded; orientation measured*
 
-- [x] **Rotation/reflection augmentation first** (simplest, derisks the minimal
+> The original decision and the divergence note are kept below **as the record of what was
+> revised**. The live decision is "D10 revised" at the end of this section.
+
+- [x] ~~**Rotation/reflection augmentation first** (simplest, derisks the minimal
   run); **E(2)-equivariant ViT as a later ablation** (it reshapes encoder
-  geometry, so establish the vanilla-ViT ladder before baking in symmetry).
+  geometry, so establish the vanilla-ViT ladder before baking in symmetry).~~
 
 > **Spec/code divergence — recorded 2026-09-22 (Brief R).** This decision was never implemented.
 > Pretraining applies **no rotation or reflection augmentation**: every run on the probe ladder —
 > J, the D18/D21 λ arms, M — learned from stamps in their native orientation. Nothing here reverses
 > D10; the gap is recorded so it is not mistaken for a choice.
->
-> *Consequence.* Position angle is free to be encoded, and it is a nuisance for morphology: nothing
-> about a spiral's arms depends on which way the stamp was cut. Brief R3 measures how much of it M
-> carries (circle strength and ridge R² for (cos 2θ, sin 2θ), M against three untrained seeds), which
-> sizes the nuisance and says what implementing D10 would remove. Whether to implement it before the
-> headline run is a decision for its own brief, not an inheritance from this one.
+
+**D10 revised (2026-09-23, Brief S4).** **No rotation or reflection augmentation, across the whole
+encoder family** (M and every D12 baseline). The divergence stays recorded, and orientation is
+**measured** rather than removed. The E(2)-equivariant ViT stays as the later ablation D2
+already lists. Four reasons:
+
+1. **Retraining M would invalidate every result on record:** Briefs J–S, the frozen effect floor
+   (D22), and the 30-seed untrained bank's pairing with this architecture and split (D23). None of
+   them could be carried across.
+2. **Orientation is measured, and mostly architectural.** Brief R3: a linear readout recovers the
+   doubled position angle at ridge R² **0.42–0.44 from random weights** and **0.505 from M**.
+   Training adds about 0.07. Augmentation would have to remove what the patch embedding sees for
+   free, not just what M learned.
+3. **The orientation angle is not a morphology confound.** Nothing about a spiral's arms, a bar or
+   a bulge depends on which way the stamp was cut. **Elongation** is a confound, and that is the
+   axis ratio, already handled by D13 (`expAB_r` / `deVAB_r`). Brief S1 found that even
+   inclination explains only 3–9% of spiral's bend.
+4. **D12's cross-objective comparison needs ONE symmetry policy across all encoders.** A
+   difference between JEPA, MAE and MoCo must be a difference of objective, not of which images
+   each saw.
+
+**Forward constraint, for the baselines brief (flagged in `TODO.md` against D12). Decided there,
+not here.** Standard MoCo uses **horizontal flips**, which *are* reflections. MoCo needs
+augmentation to function at all, so its other augmentations (crops, colour, blur) are
+objective-intrinsic and acceptable. **Flips must be removed**, or the MoCo arm becomes
+reflection-invariant where M is not. That would be an asymmetry in exactly the comparison D12
+exists to make. The MAE recipe is to be checked for the same (flip in its default pipeline).
 
 ---
 
@@ -1188,3 +1234,113 @@ encoders**: M's untrained nulls matched J's to four decimals.
 p = 1×10⁻²⁷; t09 bulge-boxy p = 8.7×10⁻⁵, clearing BY's rank-1 bar by a factor of 3.7; t10
 arms-medium p = 0.90 — failing independently, in agreement with its seed-dependent existence and its
 collapse under all six of O1's matched evaluations.
+
+---
+
+## D24 — Matched survival is retention of the margin, and the effect floor never tests anything relative — *decided (Brief S; changes how a pre-registered gate judges nuisance clearance)*
+
+**What was wrong.** The ladder's nuisance gate judged "survived matching" as *matched AUC ≥ the
+effect floor* (`ladder.py`, `survive_threshold=config.effect_floor`). An answer already below 0.7267
+unmatched fails that whatever matching does. In Brief P that was **21 of the 22** answers labelled
+"confounded", and matching had moved their AUC by a median of 0.021. Brief R0 re-judged all 37
+under O1's pre-registered retention rule: **none** of the 22 loses its effect. P's "size dominates"
+headline was the gate's arithmetic.
+
+**The principle, recorded because this is the second time.** The effect floor (D22) is an
+**absolute clean-vs-marginal threshold** for a real effect. Its one legitimate consumer is R1's
+`existence.clean`. It must **never** test anything *relative*: a margin, a retention or a change.
+The power rule was the first instance, and was corrected to a margin over the bar (`65b904c`,
+`nulls.resolvable_margin`). The matched-survival gate is the second.
+
+**The decision.** The ladder's nuisance clearance applies **O1's retention rule, unchanged**
+(`matching.retention_verdict`):
+
+```
+SURVIVES  : (M − C_m) ≥ 0.5·(A − C)  AND  M's CI lower bound > C_m
+COLLAPSES : (M − C_m) ≤ 0            OR  M's CI contains C_m
+PARTIAL   : between the two
+UNRESOLVED: < 500 matched test galaxies, or < 10% of the unmatched test set
+```
+
+- A is the unmatched AUC. M is the matched AUC on the ladder's own matched rows (the worst
+  nuisance, `nuisance_valid` rows, 5 quantile strata), with a 2,000-resample CI.
+- **C** is the untrained bar on the full rows, the mean of **K = 3** untrained draws (seeds s,
+  s+1, s+2). **C_m** is the same **K = 3** draws re-measured on the **same matched rows**.
+- This is Brief R0's construction, kept so the ladder reproduces R0 exactly.
+  `ControlEmbeddings.untrained_extra` carries the further draws, and the ladder **refuses** fewer
+  than `matching.RETENTION_SEEDS` rather than silently computing a one-draw bar. One untrained draw
+  decided a verdict under D23.
+- A feature clears the nuisance gate iff no nuisance is competitive **or** retention is SURVIVES.
+  PARTIAL, COLLAPSES and UNRESOLVED do not clear.
+
+**The margin floor reuses an existing gate: D23 existence.** Retention is a ratio of margins,
+(M − C_m)/(A − C). Where the unmatched margin is not itself established, the ratio divides noise by
+noise. Brief R hit this on `t10 winding: medium`: margin 0.003 against a 0.006 spread of the bar
+across seeds, which read COLLAPSES linearly and SURVIVES with an MLP. So **retention is judged
+only where the unmatched margin has passed D23's existence test; otherwise the verdict is
+UNRESOLVED**. That is a statement about the evidence, not the nuisance, and it adds no parameter.
+
+*Does D23 cover the noise-over-noise case?* For the denominator, yes. Passing existence means
+A − mean(C₃₀) exceeds √(sd(C)² + se²) at the family-corrected bar: the margin is established
+against both the seed spread and the real AUC's sampling noise. **One residual, declared:**
+retention's C is a K = 3 mean, not the K = 30 bar existence uses. Its own error, about
+sd/√3 ≈ 0.006 at the measured sd ≈ 0.010, can move the ratio by up to ~18% for a feature sitting
+exactly at the BY rank-1 bar. It is far less for R0's full-population survivors, every one of which has a margin at
+least 2× its seed spread. The CI condition on M guards the numerator's sampling noise but not
+C_m's seed noise. If a later brief needs tighter, C can take the K = 30 bank mean. C_m cannot,
+since the bank holds full-row AUCs only, so it would need its own bank on matched rows. The
+alternative (a multiple of the 30-seed sd as a floor) was not adopted: it duplicates what D23
+already decides, with a new free constant.
+
+**Mechanism labels name the gate that failed.** The label used to call every cleared-but-not-clean
+answer "entangled linear". Once matching stopped failing below-floor answers by arithmetic, that
+would have relabelled twenty of them with a second wrong reason. `_passing_rung` now says, in order:
+- *confounded by X (collapsed / partial retention under matching)*
+- *nuisance clearance unresolved (X)*
+- *entangled linear*
+- *present, below the effect floor*
+- *present, not selective*
+
+**Not changed here, flagged.** The effect floor still tests something relative in two places:
+- **The entanglement leg** (`_entangled_map`) judges the matched cross-check (A's probe matched on
+  B's vote fraction) as *matched AUC ≥ floor*. That is a third instance of the same defect, and it
+  feeds `adjudicate_pair`, so fixing it can change rungs. It needs its own before/after.
+- **The MLP decode threshold** (`rung_from_sweep(..., decode_threshold=effect_floor)`) asks a
+  feature that failed existence to clear 0.7267. That is why R3 = 0 is unreadable (Brief P §a).
+
+Both are logged in `TODO.md`.
+
+**Verification** (`artifacts/s2_verify.py` → `artifacts/out/s2_ladder.json`). The production ladder
+is re-run on P2's union and split, both populations, and compared row by row with R0 and P2.
+
+*Predicted before the rerun, from R0 and P2 alone:*
+- Retention verdicts equal R0's everywhere except where the feature failed existence in P. Those
+  become UNRESOLVED: **full** `t10 winding: medium` (COLLAPSES →); **conditional** `t04 spiral` and
+  `t04 no spiral` (both SURVIVES →). The last two are the same rule, not a surprise: both are R4
+  in the conditional population.
+- A, C, M, M_lo and C_m reproduce R0 exactly.
+- Rung counts are unchanged unless an answer that is now cleared *and* above the floor turns out
+  unentangled and selective. That status was hidden by the old label order. Two candidates:
+  **full** `t05 bulge: dominant` (AUC 0.7517) and **conditional** `t08 odd: other` (0.7346). If
+  either becomes R1, that is reported as the consequence of D24, not suppressed.
+
+*Result (2026-09-23).*
+- **Reproduction is exact.** Every judged row matches R0's retention verdict: 33/33 full, 29/29
+  conditional. The maximum difference across A, C, M, M_lo and C_m is **0**. K = 3 for both C and
+  C_m.
+- **The three predicted flips hold** (`s2_verify.py --flips` → `artifacts/out/s2_flips.json`).
+  Through the production clearance with the margin floor lifted, each gives R0's verdict (COLLAPSES,
+  SURVIVES, SURVIVES). With its real existence status (failed), each gives **UNRESOLVED**. They had
+  to be checked directly: P2-era failing verdicts never carried their clearance onto the record, so
+  `_failing_rung` now attaches it.
+- **Rung counts: full unchanged** (R1 1, R2 32, R4 4). **Conditional: one change, R1 1 → 2.**
+  `t08 odd: other` (AUC 0.7346, 467 of 3,483 test positives, resolvable margin 0.041, not
+  underpowered) is now a **clean linear direction**. It was one of the two candidates named above.
+  It retains 110% of its margin under magnitude matching, is not entangled, and is selective.
+  Its old "confounded by magnitude" label was the floor arithmetic. The other candidate, full
+  `bulge: dominant`, is **entangled**, so it stays R2.
+- **Mechanisms, full population.** P's 22 "confounded" are now **12 entangled**, **8 present but
+  below the effect floor**, and **2 nuisance clearance unresolved** (thin matched sets). The old
+  label order had been hiding the first group. The conditional population keeps one genuine
+  confound: `t10 winding: medium`, which passes existence there and COLLAPSES under magnitude
+  matching.

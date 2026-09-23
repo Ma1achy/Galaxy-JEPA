@@ -86,7 +86,9 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   less a 0.1% heaviest-stamp trim (fit only; 827 stamps, sha-pinned). Closes the per-run refit
   whose seeded subsample moved when the corpus grew 10k → 827k. Refitting refused, no escape
   hatch. Stability: 0.0% of 200 disjoint halves breach the 1% tolerance. *(D16)*
-- [ ] (P1) Rotation/reflection augmentation pipeline (symmetry, augmentation-first). *(D10)*
+- [x] ~~(P1) Rotation/reflection augmentation pipeline (symmetry, augmentation-first).~~ *(D10)*
+  **Superseded by D10's revision (Brief S4, 2026-09-23):** no rotation/reflection augmentation across
+  the encoder family; orientation measured (R3), not removed.
   **Divergence, recorded under D10 (2026-09-22):** decided, never built — every checkpoint on the
   probe ladder, M included, trained without it. Brief R3 sizes the orientation nuisance this leaves.
 - [x] (P0) **Scale the data layer to the full corpora** — the fp16 parity cache is baked over
@@ -391,9 +393,20 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   the covariance factor saves ~13%, not orders). Scheme 1 × 2 ladders: **30 h at n=3,109**,
   **290 h at n=30,000**. 30k is not affordable locally; the trade needs to be made explicitly.
 
+- [ ] (P1) **The effect floor still tests something relative in two places (D24, flagged).**
+  (i) The entanglement leg (`ladder._entangled_map`) judges A's probe matched on B's vote fraction
+  as *matched AUC ≥ floor* — a third instance of D24's defect; it feeds `adjudicate_pair`, so fixing
+  it can change rungs and needs its own before/after. (ii) The MLP decode threshold
+  (`rung_from_sweep(..., decode_threshold=effect_floor)`) asks an existence-failing feature to clear
+  0.7267, which is why R3 = 0 is unreadable (Brief P §a).
+
 ## Epic G — Baselines as controls `[baseline]` — *same probe ladder, all SDSS-trained*
 - [ ] (P1) `[baseline]` **MAE** — reproduce the Wu & Walmsley recipe on our SDSS corpus. *(D12)*
 - [ ] (P1) `[baseline]` **Contrastive (MoCo)** — same SDSS corpus; probe identically. *(D12 sub)*
+  **Forward constraint (D10 revised, Brief S4): remove horizontal flips.** They are reflections; M has
+  none, so a flipped MoCo arm would be reflection-invariant where M is not — an asymmetry in exactly
+  the comparison D12 makes. Its other augmentations are objective-intrinsic and stay. Check the MAE
+  recipe for flips too. Decide in the baselines brief.
 - [ ] (P1) Cross-objective comparison table (rung per feature × objective).
 
 ## Epic H — Figures & eval `[P7]`
@@ -738,7 +751,8 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   test rows per feature from each size-matched set (336 on t01, 334 on t02, 242 on each t10 arm,
   213 on t09); production keeps them. Not fixed here, because `ladder.py` is on the verdict path
   and a change there belongs in its own brief with its own before/after.
-- [ ] (P1) **The effect floor cannot be the matched-survival bar.** `ladder.py:121` passes
+- [x] (P1) **The effect floor cannot be the matched-survival bar.** **Closed by D24 (Brief S2):**
+  the ladder applies O1's retention rule, K = 3 untrained draws for C and C_m. `ladder.py:121` passes
   `survive_threshold=config.effect_floor`; four of O1's six features sit below 0.7267 *unmatched*
   and would fail by arithmetic whatever matching did. O1 therefore used a margin-over-own-null
   read instead. Whichever a later brief adopts, this must be decided rather than inherited.
@@ -747,7 +761,8 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   matching moved their AUC by a median 0.021. P's "size dominates" headline was this arithmetic. Brief R0
   re-adjudicates all 37 under O1's retention rule (`matching.retention_verdict`), but production is
   unchanged — **owed a D-entry** before the next catalogue run.
-- [ ] (P1) **O1's retention rule has no floor under the unmatched margin.** It is a ratio,
+- [x] (P1) **O1's retention rule has no floor under the unmatched margin.** **Closed by D24:**
+  retention is judged only where the unmatched margin passed D23 existence, else UNRESOLVED. It is a ratio,
   (M − C_m)/(A − C). When A − C sits inside the untrained seed range, the ratio divides noise by
   noise. Brief R hit it on `t10 winding: medium`: A − C = 0.003 against a 0.006 bar spread, so
   linear read COLLAPSES and the MLP read SURVIVES, both on noise. It affects none of R0's 31
