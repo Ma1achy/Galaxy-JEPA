@@ -581,6 +581,15 @@ the pre-registration. The design is hashed above and waits for the catalogue.
 
 - **Verdict: BOTH**, and the same excluding flagged galaxies (A_m +0.349, A_v +0.460).
   **Not FLAG-SENSITIVE.**
+
+> **Superseded (Brief Z3, `z_findings.md` §Z3).** This design controlled each leg for the *other
+> noisy target*. Y3's planted check showed it reads BOTH on two noisy copies of one quantity
+> (0.63 / 0.65), so this BOTH could not tell "each beyond the other" from "one shared quantity".
+> The corrected rerun (on these rows) has each leg control the other *decoder's prediction* plus
+> visibility, and requires it to beat a random-direction shared-quantity null. It reads **BOTH**
+> again, with lower partials: A_m 0.27 (bar 0.08), A_v 0.39 (bar 0.11). The numbers above
+> overstate both legs. The state stands. The vote leg's learned margin is small (untrained
+> 0.25–0.28).
 - The encoder holds photometric bulge fraction that the votes do not carry, *and* the volunteers'
   judgement beyond what the decomposition measures.
 - The learned margin is larger on the measurement leg (+0.21) than on the vote leg (+0.14). The

@@ -54,6 +54,9 @@ MIN_N = 100
 N_CHI = 3000
 SEED = 0
 REFS = {"hart": "Hart et al 2017", "yuho": "Si-Yue Yu and Luis C. Ho 2020"}
+# Y1 joined `name` (DR8+) to object_id: 37,381. Z2: `OBJID` (DR7) to dr7objid recovers 9,501 more,
+# the same galaxies detected in an overlapping run (46,882). Set to "dr7objid" to use it.
+HAYES_KEY = "object_id"
 
 
 def md5(p: Path) -> str:
@@ -97,12 +100,14 @@ def table(setup) -> pd.DataFrame:
                     low_memory=False)
     part = partitions(setup)
     t["part"] = [part.get(int(o), "absent") for o in t.object_id]
-    h = pd.read_csv(HAYES, sep="\t", dtype={"name": str}, low_memory=False)
+    h = pd.read_csv(HAYES, sep="\t", dtype={"name": str, "OBJID": str}, low_memory=False)
+    if HAYES_KEY == "dr7objid":
+        h = h.drop(columns="name").rename(columns={"OBJID": "name"})
     keep = ["name", "P_CS", "diskAxisRatio", PRIMARY, *SENSITIVITY, "chirality_alenWtd",
             "chirality_maj", "top2_chirality_agreement", "totalNumArcs", "alenAt50pct",
             *[c for c in h.columns if c.startswith("numDcoArcsGE")]]
     h = h[keep].rename(columns={c: f"H_{c}" for c in keep if c != "name"})
-    t = t.merge(h, left_on="object_id", right_on="name", how="left").drop(columns="name")
+    t = t.merge(h, left_on=HAYES_KEY, right_on="name", how="left").drop(columns="name")
     cat = SkyCoord(t.ra.values * u.deg, t.dec.values * u.deg)
     for which in REFS:
         s = panda(which)

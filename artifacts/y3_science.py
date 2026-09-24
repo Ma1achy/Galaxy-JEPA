@@ -149,7 +149,10 @@ def two_by_two(E, tr, te, P, Wv, vis, seed: int) -> dict:
     return rec
 
 
-N_SHARED = 50
+# Z2's D28 rate check: at 50 draws and the 95th per leg, a planted shared quantity fired a leg in
+# 17 of 100 draws (10% and 7% per leg). 200 draws steady the percentile, and the 97.5th per leg
+# is Bonferroni over the two legs. Y3's T2 verdict was hashed at 50 / 95th and holds under both.
+N_SHARED = 200
 
 
 def partials_m(E, tr, te, a, b, vis) -> tuple[float, float]:
@@ -162,22 +165,34 @@ def partials_m(E, tr, te, a, b, vis) -> tuple[float, float]:
     return am, av
 
 
-def shared_null(E, tr, te, target, rho_a: float, rho_b: float, vis, seed: int) -> dict:
+def shared_null(E, tr, te, target, rho_a: float, rho_b: float, vis, seed: int,
+                latent: str = "random") -> dict:
     """What the partials read if measurement and votes were two noisy copies of ONE quantity the
-    encoder sees: the latent is M's own decoder direction for ``target`` (fitted on train), and
-    each copy's noise is set so its decode ρ matches the observed one."""
+    encoder sees, each copy's noise set so its decode ρ matches the observed one.
+
+    latent="random" (primary, from Z): each draw puts the shared latent on a fresh random
+    direction of M's embedding. latent="ridge" (Y3's hashed form): the latent is M's ridge fit to
+    ``target``. Z2's D28 calibration found the ridge form biased low, because a ridge fit lives in
+    the easily decoded subspace: planted shared quantities on random directions exceeded its 97.5th
+    in 4–22% of draws, depending on the direction."""
     from sklearn.linear_model import RidgeCV
 
     rows = np.r_[tr, te]
-    lat = np.full(len(target), np.nan)
-    m = RidgeCV(alphas=V2.ALPHAS).fit(E.x["M"][tr], target[tr])
-    lat[rows] = m.predict(E.x["M"][rows])
-    lat[rows] = (lat[rows] - lat[rows].mean()) / lat[rows].std()
     rng = np.random.default_rng(seed)
+    zM = E.x["M"]
+
+    def standard(v):
+        out = np.full(len(target), np.nan)
+        out[rows] = (v - v.mean()) / v.std()
+        return out
+
+    if latent == "ridge":
+        fixed = standard(RidgeCV(alphas=V2.ALPHAS).fit(zM[tr], target[tr]).predict(zM[rows]))
     sa = np.sqrt(max(1 / max(rho_a, 1e-3) ** 2 - 1, 0))
     sb = np.sqrt(max(1 / max(rho_b, 1e-3) ** 2 - 1, 0))
     am, av = [], []
     for _ in range(N_SHARED):
+        lat = fixed if latent == "ridge" else standard(zM[rows] @ rng.normal(size=zM.shape[1]))
         a, b = lat.copy(), lat.copy()
         a[rows] += sa * rng.normal(size=rows.size)
         b[rows] += sb * rng.normal(size=rows.size)
@@ -185,19 +200,40 @@ def shared_null(E, tr, te, target, rho_a: float, rho_b: float, vis, seed: int) -
         am.append(x)
         av.append(y)
     return {"a_m_95": float(np.percentile(am, 95)), "a_v_95": float(np.percentile(av, 95)),
+            "a_m_975": float(np.percentile(am, 97.5)), "a_v_975": float(np.percentile(av, 97.5)),
             "a_m_median": float(np.median(am)), "a_v_median": float(np.median(av)),
-            "noise_sd": [float(sa), float(sb)], "k": N_SHARED}
+            "noise_sd": [float(sa), float(sb)], "k": N_SHARED, "latent": latent}
 
 
-def state_2x2(b: dict, sig: dict) -> str:
-    """V2's states, with one more condition on each leg: the partial must exceed the matched
-    shared-quantity null's 95th percentile (D28 showed V2's form fires BOTH without it)."""
+def shared_calibration(E, tr, te, vis, null: dict, rng, n: int = 100) -> dict:
+    """D28 as a rate: fresh planted shared quantities (random directions, noise 0.5) against
+    ``null``. The either-leg rate is the chance a shared quantity reads as a one-sided verdict."""
+    n_all = len(vis)
+    zM = E.x["M"]
+    am, av = [], []
+    for _ in range(n):
+        s1 = zM @ rng.normal(size=zM.shape[1])
+        s1 = (s1 - s1.mean()) / s1.std()
+        x, y = partials_m(E, tr, te, s1 + 0.5 * rng.normal(size=n_all),
+                          s1 + 0.5 * rng.normal(size=n_all), vis)
+        am.append(x)
+        av.append(y)
+    am, av = np.array(am), np.array(av)
+    return {q: {"leg": [float(np.mean(am > null[f"a_m_{q}"])), float(np.mean(av > null[f"a_v_{q}"]))],
+                "either": float(np.mean((am > null[f"a_m_{q}"]) | (av > null[f"a_v_{q}"])))}
+            for q in ("95", "975")} | {"n": n, "plant_median": [float(np.median(am)),
+                                                                 float(np.median(av))]}
+
+
+def state_2x2(b: dict, sig: dict, q: str = "975") -> str:
+    """V2's states, with one more condition on each leg: the partial must exceed the shared-quantity
+    null's percentile ``q`` (97.5th from Z: Bonferroni over the two legs; Y3 hashed the 95th)."""
     def leg(k):
         r = b[k]
         if sig[k] and r["rho"] < 0:
             return "INVERTED"
         return bool(sig[k] and r["rho"] >= V2.NEGLIGIBLE and r["rho"] > max(r["untrained"])
-                    and r["rho"] > b["shared_null"][f"{k}_95"])
+                    and r["rho"] > b["shared_null"][f"{k}_{q}"])
 
     m, v = leg("a_m"), leg("a_v")
     if "INVERTED" in (m, v):
@@ -313,7 +349,10 @@ def axis_state(c: dict, sig: bool) -> str:
         return "INSUFFICIENT"
     if not sig:
         return "NONE"
-    if np.sign(c["partial"]) != np.sign(c["raw"]):
+    # A reversal must be a real partial, not a zero whose sign is a coin flip: Z2's D28 check
+    # read the pure-visibility plant (partial −0.025) as REVERSED. Amended before Z2 was hashed.
+    if (np.sign(c["partial"]) != np.sign(c["raw"]) and c["p"] < W.ALPHA
+            and abs(c["partial"]) >= V2.NEGLIGIBLE):
         return "REVERSED UNDER CONTROL"
     if c["retention"] < 0.5:
         return "MOSTLY VISIBILITY"
@@ -410,6 +449,9 @@ def y3(setup) -> dict:
     b["shared_null"] = shared_null(E, rows_tr, rows_te, xP, b["decode_bt"]["rho"],
                                    b["decode_bavg"]["rho"], xV, seed=77)
     b["state"] = state_2x2(b, sig2)
+    b["shared_null_ridge"] = shared_null(E, rows_tr, rows_te, xP, b["decode_bt"]["rho"],
+                                         b["decode_bavg"]["rho"], xV, seed=77, latent="ridge")
+    b["state_y3_rule"] = state_2x2({**b, "shared_null": b["shared_null_ridge"]}, sig2, q="95")
     rec["T2"] = {"hayes": b, "labels": {"decode_bt": "pitch (Hayes)", "decode_bavg": "w_avg",
                                         "a_m": "A_m: pitch beyond votes", "a_v":
                                         "A_v: votes beyond pitch"}}
@@ -548,6 +590,44 @@ def exploratory(t, E, oid, trm, tem, vis_h, pred_hayes) -> dict:
 # ------------------------------------------------------------------ planted (D28)
 
 
+def planted_2x2(E, rtr, rte, oid, ab_m, vis, rng) -> dict:
+    """BOTH / SHARED ONLY / NEITHER through the identical two_by_two + shared null + state_2x2.
+    Second consumer: Z3 (V2's B/T rows)."""
+    n_all = E.n_union + len(E.xpos)
+    zM = E.x["M"]
+    u1, u2 = rng.normal(size=zM.shape[1]), rng.normal(size=zM.shape[1])
+    s1, s2 = zM @ u1, zM @ u2
+    s1, s2 = (s1 - s1.mean()) / s1.std(), (s2 - s2.mean()) / s2.std()
+    xv = np.full(n_all, np.nan)
+    xv[E.rows(oid[ab_m])] = vis[ab_m]
+    out = {}
+    for name, (a, bb) in {"both": (s1 + 0.5 * rng.normal(size=n_all), s2 + 0.5 * rng.normal(size=n_all)),
+                          "shared": (s1 + 0.5 * rng.normal(size=n_all), s1 + 0.5 * rng.normal(size=n_all)),
+                          "neither": (rng.normal(size=n_all), rng.normal(size=n_all))}.items():
+        b = two_by_two(E, rtr, rte, a, bb, xv, seed=11)
+        b.pop("pred_pitch_M")
+        p = {k: b[k]["p"] for k in ("decode_bt", "decode_bavg", "a_m", "a_v")}
+        sig = by(p, 4)
+        for k in ("decode_bt", "decode_bavg"):
+            b[k]["state"] = V2.decode_state(b[k], sig[k])
+        b["shared_null"] = shared_null(E, rtr, rte, a, b["decode_bt"]["rho"],
+                                       b["decode_bavg"]["rho"], xv, seed=78)
+        ridge = shared_null(E, rtr, rte, a, b["decode_bt"]["rho"], b["decode_bavg"]["rho"], xv,
+                            seed=78, latent="ridge")
+        out[f"T2_{name}"] = {"state": state_2x2(b, sig),
+                             "state_y3_rule": state_2x2({**b, "shared_null": ridge}, sig, q="95"),
+                             "shared_null": b["shared_null"],
+                             "a_m": b["a_m"]["rho"], "a_v": b["a_v"]["rho"],
+                             "v2_form": [b["a_m"]["v2_form_descriptive"], b["a_v"]["v2_form_descriptive"]],
+                             "decode": [b["decode_bt"]["rho"], b["decode_bavg"]["rho"]]}
+        if name == "shared":
+            out["T2_calibration"] = {"random": shared_calibration(E, rtr, rte, xv, b["shared_null"],
+                                                                  np.random.default_rng(31)),
+                                     "ridge": shared_calibration(E, rtr, rte, xv, ridge,
+                                                                 np.random.default_rng(31))}
+    return out
+
+
 def planted3(setup) -> dict:
     ctx, t = load(setup)
     E = Emb(ctx)
@@ -572,30 +652,8 @@ def planted3(setup) -> dict:
         out[f"T1_{name}"] = {**{k: c[k] for k in ("rho", "partial", "p")},
                              "state": agreement_state(c, by({"x": c["p"]}, 3)["x"])}
 
-    # T2: planted targets on M's own embedding (untrained cannot share them) → BOTH / SHARED / NEITHER
-    n_all = E.n_union + len(E.xpos)
-    zM = E.x["M"]
-    u1, u2 = rng.normal(size=zM.shape[1]), rng.normal(size=zM.shape[1])
-    s1, s2 = zM @ u1, zM @ u2
-    s1, s2 = (s1 - s1.mean()) / s1.std(), (s2 - s2.mean()) / s2.std()
-    xv = np.full(n_all, np.nan)
-    ab_m = ok & t.part.isin(["A", "B"]).to_numpy()
-    xv[E.rows(oid[ab_m])] = vis[ab_m]
-    for name, (a, bb) in {"both": (s1 + 0.5 * rng.normal(size=n_all), s2 + 0.5 * rng.normal(size=n_all)),
-                          "shared": (s1 + 0.5 * rng.normal(size=n_all), s1 + 0.5 * rng.normal(size=n_all)),
-                          "neither": (rng.normal(size=n_all), rng.normal(size=n_all))}.items():
-        b = two_by_two(E, rtr, rte, a, bb, xv, seed=11)
-        b.pop("pred_pitch_M")
-        p = {k: b[k]["p"] for k in ("decode_bt", "decode_bavg", "a_m", "a_v")}
-        sig = nulls_mod.family_significant(p, alpha=W.ALPHA, method="benjamini_yekutieli", n_tests=4)
-        for k in ("decode_bt", "decode_bavg"):
-            b[k]["state"] = V2.decode_state(b[k], sig[k])
-        b["shared_null"] = shared_null(E, rtr, rte, a, b["decode_bt"]["rho"],
-                                       b["decode_bavg"]["rho"], xv, seed=78)
-        out[f"T2_{name}"] = {"state": state_2x2(b, sig), "shared_null": b["shared_null"],
-                             "a_m": b["a_m"]["rho"], "a_v": b["a_v"]["rho"],
-                             "v2_form": [b["a_m"]["v2_form_descriptive"], b["a_v"]["v2_form_descriptive"]],
-                             "decode": [b["decode_bt"]["rho"], b["decode_bavg"]["rho"]]}
+    # T2: planted targets on M's own embedding (untrained cannot share them)
+    out.update(planted_2x2(E, rtr, rte, oid, ok & t.part.isin(["A", "B"]).to_numpy(), vis, rng))
 
     # T3: spread states
     m = np.isfinite(P) & (cat >= 0) & np.isfinite(vis)
@@ -630,11 +688,21 @@ def planted3(setup) -> dict:
             c = axis_vs_pitch(proj, y, vt, seed=5)
         out[f"T4_{name}"] = {"raw": c["raw"], "partial": c["partial"], "retention": c["retention"],
                              "state": axis_state(c, by({"x": c["p_raw"]}, 4)["x"])}
+    # REVERSED (added in Z2): the axis carries visibility plus a part that runs against the target
+    e = rng.normal(size=vt.size)
+    proj_r = {n: vt + 0.5 * e if n == "M" else rng.normal(size=vt.size) for n in ENCODERS}
+    c = axis_vs_pitch(proj_r, vt - 0.5 * e + 0.3 * rng.normal(size=vt.size), vt, seed=5)
+    out["T4_reversed"] = {"raw": c["raw"], "partial": c["partial"], "retention": c["retention"],
+                          "state": axis_state(c, by({"x": c["p_raw"]}, 4)["x"])}
     return out
 
 
 def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else "--y3"
+    global OUT, PLANTED
+    if "--z2" in sys.argv:  # Brief Z2: Hayes joined on its DR7 OBJID (46,882 rows, not 37,381)
+        Y.HAYES_KEY = "dr7objid"
+        OUT, PLANTED = OUT.with_name("y3_pitch_z2.json"), PLANTED.with_name("y3_planted_z2.json")
     setup = R.prepare("runs/m/encoder.pt", R.MAX_TRAIN, label="Y3", sources=1)
     if mode == "--bank":
         bank(setup)

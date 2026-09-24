@@ -439,11 +439,8 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   (2,941) and Yu & Ho 2020 (1,194) rows. Hayes is DIVERGENT with Hart (ρ 0.38) and BROKEN with
   Yu & Ho (−0.03). Winding's ordering tracks SpArcFiRe pitch beyond visibility, but no 2DFFT
   check confirms it. The encoder: VOTES BEYOND MEASUREMENT. `artifacts/y_findings.md`.
-- [ ] (P1) **Re-run V2's Experiment D (B/T 2×2) with Y3's corrected design.** Y3's planted check
-  showed V2's form (each partial controls the other *noisy target*) reads BOTH on two noisy copies
-  of one quantity (0.63/0.65). V2's B/T "BOTH" (A_m 0.36, A_v 0.47) is unverified until re-run
-  with cross-decoder controls and the matched shared null (`y3_science.shared_null`,
-  `state_2x2`). A claim in `framing_a_claims.md` (A18) rests on it.
+- [x] **Re-run V2's Experiment D (B/T 2×2) with the corrected design** — done in Brief Z3: BOTH holds (A_m 0.27, A_v 0.39, each ≥ 3× the shared null); A18 restored with the caveat that the vote leg is mostly architectural. `artifacts/z_findings.md` §Z3.
+- [ ] (P2) **Pitch angle has no cross-method reference (Z1: Hart vs Yu & Ho DISAGREE, n 34).** Before any pitch tool: a 2DFFT or hand-measured sample on galaxies we also measure. More SpArcFiRe (ours or PyArcFiRe) would not resolve it.
 - [ ] (P3) **PyArcFiRe port — parked (Brief Y revised).** Only needed for galaxies outside the Hayes
   selection, or to measure on our own stamps. Licence: BSD-3-Clause (PyArcFiRe 0.1.1). Also parked:
   per-band centroid offsets against PC1/PC2, and test-time dihedral symmetrisation.
