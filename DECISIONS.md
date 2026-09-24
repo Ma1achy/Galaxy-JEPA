@@ -1509,6 +1509,17 @@ Bulge prominence is only partly ordered because obvious → dominant is inverted
 galaxies. Medium winding, AUC 0.52 as a Scheme 1 answer, lands between tight and loose.
 Details in `artifacts/u_findings.md` §U3.
 
+**Restated (Brief W1).** An ordered axis can be a visibility gradient (V1.5), so D26's verdict
+says the groups are ordered, not that the order is morphology.
+- **Roundness:** ordered, and it tracks measured axis ratio (V2a).
+- **Bulge prominence:** mostly ordered. The top end is underpowered, and the axis tracks measured
+  B/T (V2c).
+- **Winding:** ordered, but untested against a physical measurement while pitch angle is blocked.
+- **Arm count:** ordered, but the order is substantially visibility. Not established as morphology.
+
+A graded verdict is reported together with its independent-measurement check. Where there is none,
+the verdict is reported as ordered-only.
+
 **Wiring (second-consumer rule).** `schemes.py` still raises `GradedExistenceTestUndecided`. The
 test lives in `artifacts/u3_graded.py` until a Scheme 2 run through the package is its second
 consumer. At that point the exception is replaced by this test, and the docstring's "open design
@@ -1547,3 +1558,32 @@ only; the record it would have changed keeps its pre-registered verdict, and the
 labelled exploratory beside it. U2's verdicts are kept as recorded. `u2_uncertainty.REVERSAL_STATE`
 carries the REVERSES state for future runs, and V1.3's suppression check is the labelled
 exploratory reading.
+
+## D28 — Before hashing, a test is shown able to reach its states: a planted positive passes, and the null does not saturate — *decided (Brief W1.2; a standing rule, sibling to D27)*
+
+**The record.** Two tests have now been unable to reach an outcome by construction, which D27's
+rule cannot catch:
+
+| test | why it could not reach a state |
+|---|---|
+| the Hewitt–Liang permuted-label control (ladder, L1) | permuted train labels carry nothing about held-out galaxies, so it sits at ≈ 0.5 at any capacity. It is **blind to memorisation**, the thing it was read as measuring (R's correction). |
+| V3's projection-energy salience test | a shuffled mean-difference direction's noise is covariance-shaped, so the null sat at a median 0.755 of a 0–1 statistic (99th percentile 0.93). **SALIENT was unreachable.** |
+
+**D27 ensures every outcome has a state. D28 ensures the test can reach one.**
+
+**The rule.** Before any pre-registration is hashed, for every test in it:
+
+1. **Planted positive.** Construct an input on which the test's positive state is true by
+   construction, and run it through the *identical* code path, null and multiplicity included. For
+   example: labels derived from a known embedding direction, or a synthetic effect of the smallest
+   size of interest. Confirm that the positive state fires.
+2. **Planted negative,** where cheap: a shuffled or random input. Confirm it does not fire above
+   its nominal rate.
+3. **Null range.** Confirm the null distribution does not saturate the statistic's attainable
+   range. The p an extreme effect would receive (the statistic's maximum or minimum) must clear the
+   family-corrected threshold. This extends `assert_null_resolution`, which checks only the add-one
+   resolution.
+4. The planted results are recorded in the pre-registration **before** its hash.
+
+A test that fails 1 or 3 is redesigned before it runs, or declared VOID in advance, never run and
+read.

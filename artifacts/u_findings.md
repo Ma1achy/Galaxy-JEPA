@@ -605,3 +605,15 @@ the three draws.
     1 → 2 at 0.541.
 - *Unpredicted:* the bulge and arm-count middles are displaced *against* visibility. The
   couldn't-tell mechanism is specific to winding.
+
+### Restated (Brief W1): what an ordered axis does and does not establish
+
+V1 showed that an ordered axis can be a visibility gradient. So "ordered" is read against an
+independent measurement where one exists, and is not established as morphology where none does.
+
+| axis | U3 verdict | against a measurement | standing |
+|---|---|---|---|
+| **roundness** | ORDERED | tracks measured axis ratio (V2a: `expAB_r` decoded at 0.54, untrained 0.27; vote and measurement directions r_d ≈ 0.98) | **ordered, and tracks the physical quantity** |
+| **bulge prominence** | PARTLY ORDERED | tracks measured B/T (V2c: agreement 0.72; Experiment D reads BOTH) | **mostly ordered**; the top end (obvious → dominant, 38 test galaxies) is underpowered, not contrary. B/T itself is monotone across all four categories |
+| **winding** | ORDERED | **untested**; pitch angle is blocked (V2b; W3) | **ordered, but not yet separable from a visibility gradient**. Medium is less visible than its position predicts (U3-C), and pitch angle is the test that separates the readings |
+| **arm count** | ORDERED | none, and the order is substantially visibility (V1.5: visibility falls monotonically from 1 arm to 4+; the untrained encoder separates the endpoints at AUC 0.83–0.86) | **not established as morphology** |

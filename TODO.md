@@ -434,13 +434,15 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   "obvious" read UNRESOLVED with raw +, partial − (both significant), and loose's significant
   negative partial goes unscored because the rule tests the positive direction only. Add a
   REVERSES state before the uncertainty geometry is re-run on another encoder.
-- [ ] (P1) **Pitch-angle run (Brief V2b) is blocked on data.** Hart et al. (2017) publish no
+- [ ] (P1) **Pitch-angle run (Brief V2b) is blocked on data** (W3: Yu & Ho 2020 also releases only a 10-row excerpt; data requests to both groups are drafted in `artifacts/w_findings.md` §W3). Hart et al. (2017) publish no
   machine-readable table. The design is hashed in `artifacts/v_findings.md` §V2: machine ψ_galaxy
   only, never ψ_GZ2. Options: request the table from the authors, or substitute Yu & Ho (2020)
   2DFT pitch angles under a new pre-registration.
-- [ ] (P1) **Name V3's PC1 and PC2** (37% of the variance, |ρ| ≤ 0.08 with every measured
-  nuisance and vote). Candidates: g − r colour, sky noise, and companion or star count in the
-  stamp.
+- [ ] (P1) **V3's PC1 and PC2 are UNEXPLAINED** (Brief W2). They hold 37% of the variance, and
+  every tested candidate is negligible: padding, sky, noise, crowding, g − r, u − r and four stamp
+  axes (joint out-of-sample R² ≤ 0.02). They are learned (≤ 0.10 against the untrained top 10),
+  bounded and flat-topped. **Next:** a mirror-flip test (about 2,000 stamps and their reflections;
+  does PC1 or PC2 flip?), because pretraining has no flip augmentation (D10).
 - [ ] (P2) **Label-free discovery beyond PCA** (ICA, sparse dictionaries, SAEs). V3's plain-PCA
   held-out test found no concept that is an encoder component. The salience test needs a null
   with reachable power first: its shuffled-label null was too wide to fire (V3).

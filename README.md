@@ -222,6 +222,13 @@ Off the axis, the more ambiguous galaxies sit further along the concept path's b
 
 Details and every margin are in `artifacts/u_findings.md` and `artifacts/v_findings.md`.
 
+The graded questions were tested too (Scheme 2, D26). Each asks whether the answer categories land in order along an axis fitted only on the two extremes. All four do. An ordered axis can still be a visibility gradient, though, so each is checked against a measurement made without votes:
+
+- **Roundness** tracks measured axis ratio.
+- **Bulge prominence** tracks a photometric bulge-to-total decomposition, in both directions: the encoder carries the measurement beyond the votes, and the votes beyond the measurement.
+- **Winding** is ordered, but untested against pitch angle, because no machine-measured catalogue is public.
+- **Arm count** is ordered largely because visibility falls from "1 arm" to "4+". It is not established as morphology.
+
 # **The Data Layer**
 
 ---

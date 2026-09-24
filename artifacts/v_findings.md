@@ -734,3 +734,25 @@ the pre-registration. The design is hashed above and waits for the catalogue.
   - Orientation is absent from the top 20.
 - *Instrument:* the salience gate could not fire (D27's lesson, and memory's arithmetic check),
   reported rather than re-run with a changed null.
+
+### Corrected (Brief W1): the energy test is void, and the salience result is the held-out test
+
+- **The energy test could not fire, and is recorded as VOID, not "UNREMARKABLE".** Its design
+  paired two incompatible things:
+  - the **mean-difference direction (CAV)**;
+  - a **k/384 random-direction baseline**.
+- A CAV's own sampling noise is covariance-shaped (∝ Σ^½·g). A shuffled CAV therefore concentrates
+  in the top components by the variance share alone: here a median 0.755 of its energy, with the
+  99th percentile at 0.93.
+- Against that null, no concept could exceed the bar. The null saturated the statistic's range, so
+  no row of the verdict table said anything about the encoder.
+- The design came from the label-free note (projection energy against k/384, with the CAV rather
+  than the logistic weight), not from Brief V. V adopted it without running a planted positive
+  through it. D28 records the rule that would have caught it.
+- **Seeing's SUBMERGED stands as a descriptive observation only.** The low side of the range was
+  reachable, but a test that cannot reach one of its states is not read on the other.
+- **Salience was answered by the held-out recovery test, which could fail and did not.**
+  - No human concept is one of the encoder's own components.
+  - The best single frozen component reaches ≤ 0.63 of the probe's margin above chance.
+  - 15 of 33 answers are no better than the same protocol on an untrained encoder.
+  - **That is the salience result: decodable, not salient.**

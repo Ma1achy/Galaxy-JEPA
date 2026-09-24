@@ -64,6 +64,10 @@ is only trustworthy if the experimental guardrails are structural — hence the 
   insufficient samples, and significance disagreeing with magnitude each get a named state, and
   the precedence between them is stated. A state added after seeing a result is post hoc: it
   applies to future runs only and is labelled exploratory beside the record it would have changed.
+- **A test is shown able to reach its states before it is hashed** (D28). A planted positive goes
+  through the identical code path (null and multiplicity included) and must fire, and the null must
+  not saturate the statistic's range: an extreme effect's p must clear the family-corrected
+  threshold. D27 gives every outcome a state; D28 makes each state reachable.
 - **A bar you cannot reach is an error, not a null.** The existence test's resolution is
   `1/(n_null_draws+1)`; if that exceeds the family-corrected threshold, *every* feature fails and
   the catalogue looks like a scientific null. `nulls.assert_null_resolution` refuses to run.
