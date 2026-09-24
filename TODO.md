@@ -441,8 +441,12 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 - [ ] (P1) **V3's PC1 and PC2 are UNEXPLAINED** (Brief W2). They hold 37% of the variance, and
   every tested candidate is negligible: padding, sky, noise, crowding, g − r, u − r and four stamp
   axes (joint out-of-sample R² ≤ 0.02). They are learned (≤ 0.10 against the untrained top 10),
-  bounded and flat-topped. **Next:** a mirror-flip test (about 2,000 stamps and their reflections;
-  does PC1 or PC2 flip?), because pretraining has no flip augmentation (D10).
+  bounded and flat-topped. *Brief X1:* **not handedness, ORIENTATION-LIKE.** (PC1, PC2) transform
+  as the x/y components of an image-plane vector (rot90 maps PC1 → PC2; the mirror flips PC1
+  only), equally in smooth and spiral galaxies; 41% of M's variance is mirror-odd against 2–7%
+  untrained (D10). The vector is invariant to integer and sub-pixel shifts and to frame, so its
+  identity is still open. **Next:** the per-object PSF asymmetry (psField), and attribution maps of
+  PC1 on a handful of galaxies. `x_findings.md` §X1.
 - [ ] (P2) **Label-free discovery beyond PCA** (ICA, sparse dictionaries, SAEs). V3's plain-PCA
   held-out test found no concept that is an encoder component. The salience test needs a null
   with reachable power first: its shuffled-label null was too wide to fire (V3).
