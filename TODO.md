@@ -41,7 +41,7 @@ Port targets reference v1 at `/Users/malachy/Documents/Galaxy-Zoo-Classifier`.
   (`probing/schemes.py`), which is the D14 form of this task.
 - [ ] (P1) Q10 "bulge present" construction. Port v1 `image_preprocessing/cleandataset.py:94`.
 - [x] (P0) **Reliable-label filter — SUPERSEDED, and frozen as such.** The mean+2σ filter is
-  withdrawn: v1 needed it because v1 trained on the labels, and v2's encoder never sees one.
+  withdrawn: v1 applied it in its dataset analysis (§5.2.1), and the decision does not rest on v1.
   Probe-target noise is conservative — it attenuates toward chance and cannot manufacture a
   direction — so a feature clearing the gate unfiltered is a *stronger* result. Frozen at **1**,
   the minimum where a vote fraction is defined, via `VoteCountFreeze` (hashed, stamped, refit
@@ -424,6 +424,8 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   the answers reaching the rung; nuisance clearance by the MLP's own retention. Costed at ≈ 7–8 h
   (`artifacts/t_findings.md` §T1). Until then every existence-failing answer reads R4 *MLP decode
   unadjudicated*.
+  **Deferred to the rental runs (Brief U):** no current rung can reach R3 (every failing answer has
+  all nuisances competitive), and the bar is reusable across encoders that share the architecture.
 
 ## Epic G — Baselines as controls `[baseline]` — *same probe ladder, all SDSS-trained*
 - [ ] (P1) `[baseline]` **MAE** — reproduce the Wu & Walmsley recipe on our SDSS corpus. *(D12)*

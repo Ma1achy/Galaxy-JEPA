@@ -53,10 +53,9 @@ class VoteCountFreeze(FrozenChoice):
     agreement filter. That decision is withdrawn on its own terms, and the record has to show
     it was chosen rather than left blank:
 
-      v1 needed the mean+2σ filter because v1 **trained on the labels** — vote noise flowed
-      through the loss and bent the encoder weights, so noisy galaxies had to be excluded up
-      front. v2 breaks that coupling: the encoder never sees a label. The filter's original
-      purpose does not transfer.
+      v1 applied its mean+2σ filter (dissertation §5.2.1) in its **dataset analysis**, to keep
+      inaccurate low-vote classifications out — not to protect training, as this record once
+      said (corrected, Brief U0). The decision does not rest on v1 either way.
 
       Label noise in a **probe target** is conservative: it attenuates measured association
       toward chance and cannot manufacture a direction. A feature clearing the gate despite

@@ -26,7 +26,6 @@ from __future__ import annotations
 import dataclasses
 
 from galaxy_jepa.core.gates import Gate, MetricGate
-from galaxy_jepa.core.gates import all as gate_all
 from galaxy_jepa.probing.config import ProbingConfig
 
 __all__ = ["ProbingGates", "build_gates", "EXISTENCE_METRIC_FLOOR"]
@@ -40,14 +39,23 @@ EXISTENCE_METRIC_FLOOR = 0.5
 class ProbingGates:
     """The named control gates for one run, with thresholds bound from ``ProbingConfig``."""
 
-    existence: Gate  # exceeds the 5-null max (corrected) AND clears the effect floor (3B)
+    existence: Gate  # the family-corrected existence test passed (D23) — real, nothing more
+    #: The effect floor (D22): an ABSOLUTE clean-vs-marginal bar, applied only among the real. It
+    #: was once folded into ``existence``, the same existence/floor confusion D24 and D25 unpicked.
+    clean_bar: Gate
     selectivity: Gate  # beats the shuffled-label control by the floor (Hewitt–Liang)
     nuisance_clearance: Gate  # no nuisance competitive, or matched-survived (3D)
-    clean: Gate  # not entangled → R1 (else R2) (2A)
+    unentangled: Gate  # not representationally entangled → R1 (else R2) (2A)
 
     def rung_inputs(self) -> tuple[Gate, ...]:
         """The gates whose conjunction a clean linear rung (R1) requires."""
-        return (self.existence, self.selectivity, self.nuisance_clearance, self.clean)
+        return (
+            self.existence,
+            self.clean_bar,
+            self.selectivity,
+            self.nuisance_clearance,
+            self.unentangled,
+        )
 
 
 def build_gates(config: ProbingConfig) -> ProbingGates:
@@ -57,11 +65,9 @@ def build_gates(config: ProbingConfig) -> ProbingGates:
     structure does not change.
     """
     return ProbingGates(
-        existence=gate_all(
-            MetricGate("exceeds_null", gte=EXISTENCE_METRIC_FLOOR),
-            MetricGate("auc", gte=config.effect_floor),  # FLAGGED value (effect floor, 3B)
-        ),
+        existence=MetricGate("exceeds_null", gte=EXISTENCE_METRIC_FLOOR),
+        clean_bar=MetricGate("auc", gte=config.effect_floor),  # the effect floor (D22), absolute
         selectivity=MetricGate("selectivity", gte=config.selectivity_floor),
         nuisance_clearance=MetricGate("nuisance_cleared", gte=EXISTENCE_METRIC_FLOOR),
-        clean=MetricGate("entangled", lt=EXISTENCE_METRIC_FLOOR),
+        unentangled=MetricGate("entangled", lt=EXISTENCE_METRIC_FLOOR),
     )

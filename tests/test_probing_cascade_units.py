@@ -96,3 +96,11 @@ def test_gate_raises_on_a_metric_the_run_never_produced():
     # a structural bug (missing metric) is loud, unlike a failed bar (a finding)
     with pytest.raises(KeyError):
         MetricGate("auc", gte=0.5).evaluate({"selectivity": 0.3})
+
+
+def test_existence_is_not_the_clean_bar():
+    # D25/U0: a real effect below the effect floor EXISTS; it fails the clean bar, not existence
+    gates = build_gates(ProbingConfig(vote_count_min=21, effect_floor=0.7))
+    below = _metrics(exceeds_null=1.0, auc=0.6)
+    assert gates.existence.evaluate(below).passed is True
+    assert gates.clean_bar.evaluate(below).passed is False

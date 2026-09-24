@@ -68,7 +68,10 @@ def test_the_shipped_vote_floor_is_frozen_at_the_defined_minimum():
     assert freeze.value == config.vote_count_min == 1  # defined minimum: 0/0 is not a measurement
     assert freeze.sweep == (1, 5, 11, 21, 37)  # pre-registered before any results exist
     assert freeze.value in freeze.sweep
-    assert "SUPERSEDED" in freeze.rationale and "TRAINED ON THE LABELS" in freeze.rationale
+    assert "SUPERSEDED" in freeze.rationale
+    # the decision rests on probe-target noise attenuating readout; v1's filter was a dataset-
+    # analysis choice (§5.2.1), and the record says so rather than the old training rationale
+    assert "PROBE TARGET" in freeze.rationale and "DATASET ANALYSIS" in freeze.rationale
 
 
 def test_the_shipped_effect_floor_is_frozen_and_chosen_by_structure():

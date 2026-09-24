@@ -248,9 +248,12 @@ mean+2σ agreement filter and left only the *number* open. The filter itself is 
 the floor runs **unfiltered**. A bare `vote_count_min = 1` would read as an oversight, so the
 reasoning is recorded here and, verbatim, in the freeze artefact that stamps every result.
 
-> v1 needed the mean+2σ filter because v1 **trained on the labels** — vote noise flowed through
-> the loss and bent the encoder weights, so noisy galaxies had to be excluded up front. v2 breaks
-> that coupling: the encoder never sees a label. The filter's original purpose does not transfer.
+> v1's mean+2σ filter (dissertation §5.2.1, ≈21 votes) was a **dataset-analysis** choice: it kept
+> inaccurate low-vote classifications out of v1's analysis of the catalogue. It is not the reason
+> this decision was needed, and nothing here rests on it. The decision stands on its own ground.
+>
+> *(Corrected, Brief U0. This record used to say v1 needed the filter "because v1 trained on the
+> labels", protecting training. §5.2.1 applies it in the dataset analysis, not to training.)*
 >
 > Label noise in a **probe target** is conservative: it attenuates measured association toward
 > chance and cannot manufacture a direction. A feature clearing the gate despite unfiltered
@@ -474,6 +477,24 @@ confusion splits three ways, each with a distinct fingerprint across the
      confidently called barred is a galaxy confidently called everything.
    * separated but in the contrary order → reported as measured, not explained.
 
+   **Revised (Brief U0, 2026-09-24): stage 2 has nothing to receive, and bar × winding never
+   reached stage 1.**
+   - Since D25 judges the conditional leg by retention, `world_correlation` has all but vanished:
+     **0** of 53 full-population pairs and **1** of 41 conditional (`bar × no bar`, the binary
+     question matched on its own complement). Every earlier world-correlation verdict was a
+     matched AUC under the effect floor. As built, stage 1 almost never hands anything to stage 2.
+   - **Bar × winding was never adjudicated.** `bar × tight` (cosine **−0.24**) and `bar × loose`
+     (**+0.04**) are below the 0.30 cut for a flagged pair, so stage 1 never ran on them. Brief P
+     ran `bar_winding_alignment` unconditionally and read it as stage 2.
+   - What is supported is small. The bar direction is weakly anti-aligned with tight winding,
+     the sign Hart et al. predict (barred ⇒ looser). The +0.04 with loose is inside
+     random-direction noise: two random unit vectors in 384 dimensions have cosine sd
+     1/√384 ≈ 0.051. **An observation, not a resolution of the hard case.**
+   - The hard case therefore moves to a direct comparison, which needs no stage 1. The encoder's
+     cosines for bar × {winding, arm count} are set against the same-corpus vote correlations,
+     with the random-direction distribution as the null (Brief U1). A strong human association
+     that the encoder barely carries reads as labelling bleed.
+
 **Inclination proxy = axis ratio (b/a)** — an *independent photometric* measurement (SDSS
 pipeline, from the pixels), so conditioning on it to study *vote*-confusion is **not circular**
 (using the T01/T07 votes as the proxy *would* be). This is a **new capability on the existing
@@ -665,7 +686,7 @@ All of D1–D15 are now resolved. The table records what was chosen.
 | D4 | From-scratch vs warm-start | **From-scratch** |
 | D5 | Masking | **Bounding-box-biased** (`docs/masking.md`) |
 | D6 | Pretraining vs probing corpus | **Decouple** — pretrain on large unlabelled SDSS, probe on GZ2 ~250k (both single-survey) |
-| D8 | Reliable-label filter | **SUPERSEDED — run unfiltered.** v1 needed it because v1 trained on the labels; v2's encoder never sees one, and probe-target noise is conservative. Frozen at **1**, the minimum where a fraction is defined (GZ2 stores an unreached question as a literal 0.0). Sweep {1,5,11,21,37} pre-registered as robustness, not selection |
+| D8 | Reliable-label filter | **SUPERSEDED — run unfiltered.** Probe-target noise is conservative (attenuates, never manufactures); v1's filter was a dataset-analysis choice (§5.2.1), not a training safeguard. Frozen at **1**, the minimum where a fraction is defined (GZ2 stores an unreached question as a literal 0.0). Sweep {1,5,11,21,37} pre-registered as robustness, not selection |
 | D12 | Cross-objective baselines | **All trained on the same SDSS corpus** (MAE = reproduce Wu & Walmsley recipe on SDSS; Euclid MAE is reference only) |
 | D12 (sub) | Contrastive choice | **MoCo** (SDSS-trained) — explicit negatives = clean contrast vs JEPA; established galaxy baseline (Hayat) |
 | D13 | Confound taxonomy + inclination | **Axis ratio (b/a) as the non-circular inclination proxy**; taxonomy is the Framing-B interpretive layer, held pending results |
@@ -1367,7 +1388,9 @@ comparisons in 2026-09; these are the same five, and there is no sixth.
 | 5 | `ladder.py` `_failing_rung` (MLP decode) | was `MLP AUC ≥ floor` for an existence-failing answer | **RELATIVE** | **fixed here** |
 
 Note on #2: the gate is named `existence` in the tree, but it holds the clean bar. The name misleads
-a reader of the tree; the comparison is legitimate.
+a reader of the tree; the comparison is legitimate. **Renamed in Brief U0:** the tree now carries both
+`existence` (the D23 test, `exceeds_null`) and `clean_bar` (this comparison), each under its own
+name.
 
 *Bookkeeping, not tests:*
 - `config.py:163–164`: the value and its freeze.

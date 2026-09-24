@@ -18,9 +18,10 @@ device: null
 compare_populations: true   # runs the ladder on the full AND the consensus-conditional set
 consensus_gate: 0.5         # OPEN (spec register 2): which upstream vote, which threshold
 # --- the reliable-label floor (D8 — SUPERSEDED, and FROZEN at unfiltered) ---------------
-# D8 said reuse v1's mean+2σ agreement filter. Withdrawn, deliberately, not left unset: v1
-# needed it because v1 TRAINED ON THE LABELS, and v2's encoder never sees one. The floor now
-# sits at the minimum where a vote fraction is DEFINED — 1, not 0, because GZ2 stores an
+# D8 said reuse v1's mean+2σ agreement filter. Withdrawn, deliberately, not left unset: label
+# noise in a probe target attenuates readout and cannot manufacture a direction. (v1 applied the
+# filter in its dataset analysis, §5.2.1 — not, as once recorded here, to protect training.)
+# The floor now sits at the minimum where a vote fraction is DEFINED — 1, not 0, because GZ2 stores an
 # unreached question's fraction as a literal 0.0 and admitting those would be 118,962
 # fabricated negatives on t09 alone. Full reasoning rides in the freeze record below and in
 # DECISIONS.md "D8 superseded".
@@ -41,10 +42,10 @@ vote_count_freeze:
   frozen_by: malachy
   rationale: >-
     D8 IS SUPERSEDED, NOT SATISFIED. This is a reversal with a reason, not a value being filled
-    in. v1 needed the mean+2σ filter because v1 TRAINED ON THE LABELS — vote noise flowed
-    through the loss and bent the encoder weights, so noisy galaxies had to be excluded up
-    front. v2 breaks that coupling: the encoder never sees a label. The filter's original
-    purpose does not transfer. Label noise in a PROBE TARGET is conservative: it attenuates
+    in. v1 applied its mean+2σ filter (dissertation §5.2.1) in its DATASET ANALYSIS, to keep
+    inaccurate low-vote classifications out; it was not a training safeguard (corrected, Brief
+    U0: this record once said v1 needed it because v1 trained on the labels). The decision does
+    not rest on v1 either way. Label noise in a PROBE TARGET is conservative: it attenuates
     measured association toward chance and cannot manufacture a direction. A feature clearing
     the gate despite unfiltered labels is therefore a STRONGER result, not a weaker one. The
     existence null is computed on the same labels, so the comparison stays like-for-like.

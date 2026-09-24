@@ -230,6 +230,12 @@ reached the entanglement set.
 
 ## (f) D13's hard case: physics, not classification bleed
 
+> **Restated (Brief U0, 2026-09-24).** The verdict below is withdrawn. Neither pair entered
+> stage 1: both cosines are below the 0.30 cut. The +0.042 is inside random-direction noise
+> (sd ≈ 0.05 in 384 dimensions). What stands is a weak anti-alignment with tight winding (−0.24),
+> consistent in sign with Hart et al. — an observation, not a resolution. See D13 (revised) and
+> Brief U1.
+
 Stage 1 (the 2A conditional cross-check) decides whether entanglement is representational or
 reflects a real correlation in the data. Stage 2 (invariance plus literature) decides whether a real
 correlation is astrophysics or a labelling artefact. Both recorded, in that order.
@@ -350,6 +356,10 @@ was inflated by estimating a standard deviation from three points.
    an open decision of its own about a vote floor local to the uncertainty test.
 6. **Stage 1 licenses stage 2.** The Hart reading in §(f) is only meaningful because the
    bar+winding association survived as a world-correlation candidate. Reported in that order.
-   *(Flag, Brief T1: `bar × tight` and `bar × loose` (cosines −0.24, +0.04) never cleared the 0.30
-   pair floor, so stage 1 never adjudicated them. `bar_winding_alignment` ran unconditionally. The
-   premise of this item needs checking before §(f) is cited.)*
+   **Restated (Brief U0).** This premise was false. `bar × tight` (cosine −0.24) and `bar × loose`
+   (+0.04) never cleared the 0.30 pair cut, so stage 1 never adjudicated them, and
+   `bar_winding_alignment` ran unconditionally. What is supported: the bar direction is weakly
+   anti-aligned with tight winding, consistent in sign with Hart et al. The +0.04 with loose is
+   inside random-direction noise (sd ≈ 0.05 in 384 dimensions). A small observation, not a
+   resolution of D13's hard case. §(f)'s "physics consistent" is withdrawn as a verdict. See D13
+   (revised) and Brief U1.
