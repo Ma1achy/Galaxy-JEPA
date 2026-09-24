@@ -12,6 +12,7 @@ States and pre-registrations: `bb_findings.md`.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -240,12 +241,193 @@ def fourier() -> dict:
     return out
 
 
+# ── BB1 Stage 0: the published toy set ──────────────────────────────────────────────────────────
+
+TOYS = TOOLS / "ht_toys" / "SpArcFiRe-HT-Response" / "input"
+PUB_P2 = {("pitch", "TOY"): 1.44, ("pitch", "BAR"): 1.80, ("arms", "TOY"): 1.44, ("arms", "BAR"): 0.89,
+          ("width", "TOY"): 1.89, ("width", "BAR"): 2.00, ("sweep", "TOY"): 0.91, ("sweep", "BAR"): 1.84,
+          ("bar", "BAR"): 5.41}
+
+
+def toys() -> list[dict]:
+    """Truth from each filename: {TOY|BAR}_{pitch}_a{arms}_f{feather}_{c|b}{n}_{sweep}L."""
+    out = []
+    for f in sorted(TOYS.glob("*.jpg")):
+        kind, pa, a, fe, cb, sw = f.stem.split("_")
+        t = {"name": f.stem, "kind": kind, "pitch": float(pa), "arms": int(a[1:]), "feather": int(fe[1:]),
+             "cb": cb, "sweep": int(sw[:-1])}
+        base = t["pitch"] == 25 and t["arms"] == 2 and t["feather"] == 5 and cb == "c25" and t["sweep"] == 180
+        t["series"] = sorted(s for s, ok in (
+            ("pitch", t["arms"] == 2 and t["feather"] == 5 and cb == "c25" and t["sweep"] == 180),
+            ("arms", t["pitch"] == 25 and t["feather"] == 5 and cb == "c25" and t["sweep"] == 180),
+            ("width", t["pitch"] == 25 and t["arms"] == 2 and cb == "c25" and t["sweep"] == 180),
+            ("sweep", t["pitch"] == 25 and t["arms"] == 2 and t["feather"] == 5 and cb == "c25"),
+            ("bar", kind == "BAR" and cb.startswith("b"))) if ok)
+        t["baseline"] = base
+        out.append(t)
+    return out
+
+
+def p2_cells(err: dict[str, float], ts: list[dict]) -> dict:
+    cells = {}
+    for (series, kind), pub in PUB_P2.items():
+        e = [abs(err[t["name"]]) for t in ts if series in t["series"] and t["kind"] == kind
+             and np.isfinite(err[t["name"]])]
+        ours = float(np.mean(e)) if e else np.nan
+        tol = max(1.0, 0.3 * pub)
+        cells[f"{series}:{kind}"] = {"n": len(e), "ours": ours, "published": pub,
+                                     "replicates": bool(ours <= pub + tol),
+                                     "better_than_published": bool(ours < pub - tol)}
+    return cells
+
+
+def p2_state(cells: dict) -> str:
+    k = sum(c["replicates"] for c in cells.values())
+    return "REPRODUCED" if k >= 7 else "NOT REPRODUCED" if k <= 4 else "PARTIAL"
+
+
+def sf_state(err: np.ndarray) -> dict:
+    """SpArcFiRe on the 60: err = |pitch| − truth, NaN = failure."""
+    fail = int(np.sum(~np.isfinite(err)))
+    e = np.abs(err[np.isfinite(err)])
+    w2 = float(np.mean(e <= 2)) if e.size else 0.0
+    mx = float(e.max()) if e.size else np.inf
+    if fail <= 8 and w2 >= 0.85 and mx <= 5:
+        s = "REPRODUCED"
+    elif fail > 15 or w2 < 0.6:
+        s = "NOT REPRODUCED"
+    else:
+        s = "PARTIAL"
+    return {"state": s, "failures": fail, "within_2deg": w2, "max_err": mx, "n": int(err.size)}
+
+
+def toy_fits() -> Path:
+    from astropy.io import fits
+    from PIL import Image
+
+    work = OUT / "stage0_p2dfft"
+    work.mkdir(exist_ok=True)
+    for f in TOYS.glob("*.jpg"):
+        out = work / f"{f.stem}.fits"
+        if not out.exists():
+            fits.writeto(out, np.asarray(Image.open(f).convert("RGB"), np.float32).mean(2)[::-1],
+                         overwrite=True)  # FITS row 0 is the bottom; keep the displayed orientation
+    return work
+
+
+def stage0_p2dfft(shuffle: bool = False) -> dict:
+    ts = toys()
+    work = toy_fits()
+    p2dfft(work, [f"{t['name']}.fits" for t in ts])
+    stems = [t["name"] for t in ts]
+    orac = p2pa(work, stems, arms={t["name"]: t["arms"] for t in ts})
+    auto = p2pa(work, stems)
+    truth = {t["name"]: t["pitch"] for t in ts}
+    if shuffle:
+        sixty = [t["name"] for t in ts if t["series"]]
+        perm = np.random.default_rng(0).permutation(sixty)
+        truth.update({a: truth[b] for a, b in zip(sixty, perm, strict=True)})
+    out: dict = {"n_sixty": sum(bool(t["series"]) for t in ts)}
+    for k, g in (("oracle_arms", orac), ("auto", auto)):
+        err = {st: abs(g.get(st, {}).get("pa", np.nan)) - truth[st] for st in stems}
+        cells = p2_cells(err, ts)
+        out[k] = {"state": p2_state(cells), "cells": cells,
+                  "all200_median_abs_err": float(np.nanmedian(np.abs(list(err.values())))),
+                  "per_toy": err}
+    out["auto_mode_correct"] = float(np.mean([auto.get(t["name"], {}).get("mode") == t["arms"] for t in ts]))
+    return out
+
+
+def plant_stage0() -> dict:
+    ts = [t for t in toys() if t["series"]]
+    z = {t["name"]: 0.0 for t in ts}
+    far = {t["name"]: 6.0 for t in ts}
+    rng = np.random.default_rng(1)
+    out = {"n_sixty": len(ts), "p2_logic": {
+        "exact": p2_state(p2_cells(z, ts)),
+        "published-size errors": p2_state(p2_cells({t["name"]: PUB_P2.get((t["series"][0], t["kind"]), 1.5)
+                                                    for t in ts}, ts)),
+        "6deg everywhere": p2_state(p2_cells(far, ts)),
+        "6deg on the bar, sweep and width series": p2_state(p2_cells(
+            {t["name"]: 6.0 if set(t["series"]) & {"bar", "sweep", "width"} else 0.0 for t in ts}, ts))},
+        "sf_logic": {
+        "published (5 fail, 54 <2, one 3.2)": sf_state(np.r_[[np.nan] * 5, rng.uniform(0, 2, 54), 3.2])["state"],
+        "20 failures": sf_state(np.r_[[np.nan] * 20, np.zeros(40)])["state"],
+        "half within 2": sf_state(np.r_[np.full(30, 1.0), np.full(30, 4.0)])["state"],
+        "10 fail, rest fine": sf_state(np.r_[[np.nan] * 10, np.full(50, 1.0)])["state"]}}
+    sh = stage0_p2dfft(shuffle=True)
+    out["p2_shuffled_truth"] = {k: sh[k]["state"] for k in ("oracle_arms", "auto")}
+    return out
+
+
+SF_RUNS = TOOLS / "sparcfire-docker" / "out"  # official SpArcFiRe (BB0c image): <tag>/output/galaxy.tsv
+SF_DCO = "pa_alenWtd_avg_domChiralityOnly"
+
+
+def sf_read(path: Path) -> tuple[dict[str, float], dict[str, str]]:
+    """DCO pitch per galaxy from SpArcFiRe's galaxy.tsv, read by header name.
+
+    SpArcFiRe writes a zero-arc galaxy's row with extra padding fields, shifted from the header, and a
+    rejected input as a 2-field row. Neither is read positionally: such a row is a failure, and only
+    after checking it carries no finite value anywhere past the fixed-width head (so a shifted row
+    holding a real pitch would stop the run rather than be dropped)."""
+    lines = path.read_text().splitlines()
+    head = lines[0].split("\t")
+    col = head.index(SF_DCO)
+    pa, why = {}, {}
+    for ln in lines[1:]:
+        f = ln.split("\t")
+        if len(f) == len(head):
+            pa[f[0]] = float(f[col]) if f[col] not in ("", "NaN") else np.nan
+            if not np.isfinite(pa[f[0]]):
+                why[f[0]] = "no DCO pitch"
+            continue
+        tail = f[head.index("pa_longest"):head.index("numArcs_largest_length_gap") + 4]
+        if any(re.fullmatch(r"-?\d+\.\d+", v) for v in tail):
+            raise ValueError(f"{f[0]}: ragged row ({len(f)} fields) carries a pitch — cannot read it safely")
+        pa[f[0]] = np.nan
+        why[f[0]] = f[1] if len(f) == 2 else "no arcs (ragged row)"
+    return pa, why
+
+
+def stage0_sparcfire(tag: str) -> dict:
+    ts = toys()
+    pa, why = sf_read(SF_RUNS / tag / "output" / "galaxy.tsv")
+    # no arcs / no DCO pitch / missing row = failure (NaN), as pre-registered
+    err = {t["name"]: abs(pa.get(t["name"], np.nan)) - t["pitch"] for t in ts}
+    sixty = [t for t in ts if t["series"]]
+    per_series = {}
+    for series in ("pitch", "arms", "width", "sweep", "bar"):
+        for kind in ("TOY", "BAR"):
+            e = np.array([err[t["name"]] for t in sixty if series in t["series"] and t["kind"] == kind])
+            if e.size:
+                per_series[f"{series}:{kind}"] = {"n": int(e.size), "failures": int(np.sum(~np.isfinite(e))),
+                                                  "mean_abs_err": float(np.nanmean(np.abs(e)))
+                                                  if np.isfinite(e).any() else np.nan}
+    a = np.array(list(err.values()))
+    return {"tag": tag, "n_rows": len(pa), "failure_reasons": why, "n_sixty": len(sixty),
+            "state": sf_state(np.array([err[t["name"]] for t in sixty])),
+            "per_series": per_series,
+            "all200": {"failures": int(np.sum(~np.isfinite(a))),
+                       "median_abs_err": float(np.nanmedian(np.abs(a))),
+                       "within_2deg": float(np.mean(np.abs(a[np.isfinite(a)]) <= 2))},
+            "per_toy": err}
+
+
 def main() -> None:
     mode = sys.argv[1]
+    if mode == "--stage0-sparcfire":
+        tag = sys.argv[2]
+        out = stage0_sparcfire(tag)
+        (OUT / f"stage0_sparcfire_{tag}.json").write_text(json.dumps(out, indent=1, default=float))
+        print(json.dumps({k: v for k, v in out.items() if k != "per_toy"}, indent=1, default=float))
+        return
     fn, path = {"--plant-fidelity": (plant_fidelity, "bb0a_planted.json"),
                 "--fidelity": (fidelity, "bb0a_fidelity.json"),
                 "--plant-fourier": (plant_fourier, "bb0b_planted.json"),
-                "--fourier": (fourier, "bb0b_fourier.json")}[mode]
+                "--fourier": (fourier, "bb0b_fourier.json"),
+                "--plant-stage0": (plant_stage0, "stage0_planted.json"),
+                "--stage0-p2dfft": (stage0_p2dfft, "stage0_p2dfft.json")}[mode]
     out = fn()
     (OUT / path).write_text(json.dumps(out, indent=1, default=float))
     print(json.dumps({k: v for k, v in out.items() if k != "per_galaxy"}, indent=1, default=float)[:4000])

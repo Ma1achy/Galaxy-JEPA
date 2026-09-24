@@ -1,0 +1,4 @@
+MCR_*.zip
+out/
+regress_outputs/
+*.log
