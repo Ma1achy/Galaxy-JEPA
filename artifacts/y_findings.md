@@ -420,3 +420,150 @@ reading is not supported.**
     0.65).
   - V2's B/T verdict is therefore unverified, not refuted. It should be re-run with Y3's
     cross-decoder controls and matched shared null. It is flagged in TODO, not re-run here.
+
+## Y4 — the Hayes table recorded: citations, the DCO estimator, a reliability filter
+
+Written 2026-09-24, before Brief BB. Record first, then check.
+
+### Citations for the Hayes table
+
+- **Method:** Davis & Hayes 2014, ApJ 790, 87 (SpArcFiRe).
+- **GZ1-scale run:** Hayes, Davis & Silva 2017, MNRAS 466, 3928; Peng et al. 2018, MNRAS 479, 5532.
+- **P_CS:** Lintott et al. 2011, MNRAS 410, 166 (Galaxy Zoo 1 data release).
+- **Source.**
+  - Page: Wayne Hayes's student-research page, https://ics.uci.edu/~wayne/research/students/.
+  - Link: https://www.dropbox.com/s/4vmk1efntydpezr/SF5-CS.5%2BaxisRatio.5.tsv
+  - Accessed 2026-09-24.
+  - Saved as `out/ext/hayes_SF5-CS.5+axisRatio.5.tsv`: MD5 `2f8ccae37d32b5c75faea798c68ad360`,
+    SHA-256 `49cb1229f4fa62426575ed8d633a05bbd038371863c28b96ce73e485a106f9d9`, 94,322 rows,
+    195 columns.
+- **The "SF5" prefix is undocumented and is not interpreted.**
+- **The selection is on volunteer votes.**
+  - P_CS = P_EDGE + P_CW + P_ACW: GZ1's combined spiral class, *including edge-on votes*.
+    Checked on all 94,322 rows; it holds to 0.002, the catalogue's rounding.
+  - So the table's P_CS > 0.5 cut selects on volunteer votes, not on anything SpArcFiRe measured.
+  - The axis-ratio > 0.5 cut is on SpArcFiRe's own `diskAxisRatio`.
+
+### Which estimator Y used — audited from the code
+
+From the SpArcFiRe source (`getGalaxyParams.m:217–228`):
+- `pa_alenWtd_avg__abs` = Σ L|θ| / Σ L over **all** arcs. Arcs winding against the dominant
+  direction, which are likely noise, count fully.
+- `pa_alenWtd_avg_domChiralityOnly` = Σ Lθ / Σ L over arcs whose sign matches the dominant chirality.
+  Dominance is an arc-length-weighted vote. Every retained arc shares that sign, so the absolute
+  value is the DCO magnitude. The table has no `__abs` DCO column.
+
+| stage | estimator used | where |
+|---|---|---|
+| Y2 primary (Hayes vs Hart, vs Yu & Ho) | `pa_alenWtd_avg__abs` (all arcs) | `y_pitch.py:50`, `:225` |
+| Y2 sensitivity | \|DCO\| **was included**: `np.abs(pa_alenWtd_avg_domChiralityOnly)` — ρ vs Hart **0.427** (primary 0.379), vs Yu & Ho 0.008 (primary −0.025). The others were `pa_avg__abs`, `pa_alenWtd_median`, `pa_longest` | `y_pitch.py:51`, `:234–236` |
+| Y3 (T1–T4, T2 replication, T5), on the Y1 join and the Z2 join | `pa_alenWtd_avg__abs` only. **No DCO sensitivity** | `y3_science.py:412, 418, 496` |
+
+- So |DCO| was never primary anywhere, and Y3 never used it at all.
+- On the table, |DCO| and the all-arcs estimator agree at Spearman 0.853; medians are 18.9° and 19.5°.
+
+### Reliability filter (exploratory)
+
+- The file spells `top2_chirality_agreement` as `'agree'` 45,093, `'disagree'` 25,313,
+  `'onelong'` 14,110, `'allshort'` 9,180 and `'<2_arcs'` 626.
+- "Long" means at least a quarter of the image's smaller dimension (`getGalaxyParams.m:176–187`).
+- **'agree' is declared as a reliability filter, and plainly: Y2's diagnostic suggested it.**
+  - Y2 found the Hayes–Hart disagreements concentrated in 'disagree': median |ΔP| 5.2° against
+    3.8° in 'agree' (`out/y2_provenance.json` `localise`).
+  - It is exploratory until it is confirmed on data it wasn't chosen on.
+- Every comparison below is reported both filtered and unfiltered.
+
+### Pre-registration of the reruns
+
+- **Primary estimator from here on: |`pa_alenWtd_avg_domChiralityOnly`|**, unfiltered.
+  - This is justified by the SpArcFiRe authors' own guidance, not by the outcome: Peng et al. 2018
+    state that DCO is the more reliable global measure, because arcs winding against the dominant
+    direction are mostly noise.
+  - The Y2 sensitivity value above was seen before this choice. It is recorded here so the choice
+    can be judged against it.
+- **Grid:** estimator {all arcs (recorded), |DCO|} × filter {none, 'agree'}.
+  - The runs are Y2's pitch comparisons and all of Y3's primary tests.
+  - Both use the Z2 join (DR7 `OBJID` → `dr7objid`, 46,882 rows), which is the current record.
+  - The code is identical (`y_pitch.py --y2 --z2 [--dco] [--agree]`,
+    `y3_science.py --y3 --z2 [--dco] [--agree]`). The only change is which Hayes column enters,
+    and which rows keep it.
+- **The states and rules are Y2's and Y3's, unchanged.**
+  - A verdict **changes** iff its state name differs from the recorded one: Y2's pitch states, and
+    Y3's states as re-run on the Z2 join (`out/y3_pitch_z2.json`).
+  - Y2 all-arcs on the Z2 join has no recorded run. It is run here as the baseline for the Y2 grid,
+    and its difference from Y2's recorded object_id-join states is reported separately.
+  - Hart and Yu & Ho entries don't depend on the Hayes column. Where one appears, it must reproduce
+    exactly; a difference means a bug, not a finding.
+- **Reading.**
+  - |DCO| unfiltered is the primary result. If a Y3 verdict changes under it, the record changes
+    to the |DCO| state, with the all-arcs state kept beside it.
+  - The two 'agree' columns are exploratory. They never change the record by themselves.
+- **D28.**
+  - Y2's and Y3's planted checks (`out/y2_planted.json`, `out/y3_planted_z2.json`) exercise these
+    exact code paths. The switch changes input data only (a column and a row mask), not the
+    statistic, null or multiplicity, so they are not re-run.
+  - 'agree' keeps 48% of Hayes rows. Thin cells read INSUFFICIENT by the existing rules, never a
+    verdict.
+
+*Y4 pre-registration ends here: the Y4 section above (83 lines from "## Y4"), SHA-1 `07f86658db12698a40a8bbed9d3f8fc5460a96f9`.*
+
+### Y4 — result (`out/y2_provenance_z2{,_dco,_agree,_dco_agree}.json`, `out/y3_pitch_z2{…}.json`)
+
+**One verdict changes under the primary |DCO|: Y3 T1 Hayes, AGREE → WEAK AGREEMENT.** Every other
+Y2 and Y3 state holds.
+
+**Run notes.**
+- A shell-quoting slip (zsh does not word-split `$a`) made the first "--dco --agree" runs execute as
+  the all-arcs baseline, overwriting `y3_pitch_z2.json` with a fresh run of the same code. That rerun
+  reproduces Z2's recorded numbers exactly (T1 ρ −0.352, n 20,278; decode 0.228 / 0.399; A_m 0.094,
+  A_v 0.308; T3 D −0.530; T4b retention 0.46), so nothing was lost.
+- The combined cell was then rerun with the flags split.
+- A second slip applied Y2's 'agree' mask after the table was built. It was fixed and both Y2
+  'agree' cells rerun.
+- The Hart and Yu & Ho entries that don't depend on the Hayes column are identical in every cell,
+  as required.
+
+**Y2 — Hayes against the other references** (Z2 join):
+
+| | all arcs | **\|DCO\| (primary)** | all arcs, 'agree' | \|DCO\|, 'agree' |
+|---|---|---|---|---|
+| Hayes vs Hart | DIVERGENT: ρ 0.379, n 2,090 | **DIVERGENT: ρ 0.427** | DIVERGENT: 0.412, n 1,686 | DIVERGENT: 0.470 |
+| Hayes vs Yu & Ho | BROKEN: −0.040, n 471 | **BROKEN: −0.014** | BROKEN: −0.076, n 327 | BROKEN: −0.028 |
+| Hart vs Yu & Ho (no Hayes column) | −0.252, n 34 | same | same | same |
+
+- The Z2-join baseline also holds the Y1-join states (DIVERGENT 0.379, BROKEN −0.025 → −0.040 at
+  n 376 → 471).
+- **|DCO| and 'agree' both move Hayes toward Hart**, and together they reach 0.47. That is still
+  short of the 0.5 CONSISTENT bar.
+- Neither brings Yu & Ho (2DFFT) anywhere.
+
+**Y3** (Z2 join):
+
+| test | all arcs (record) | **\|DCO\| (primary)** | all arcs, 'agree' | \|DCO\|, 'agree' |
+|---|---|---|---|---|
+| T1 hayes: w_avg vs pitch | AGREE: ρ −0.352, partial −0.311, n 20,278 | **WEAK AGREEMENT: −0.307, −0.281** | AGREE: −0.360, −0.322, n 14,356 | AGREE: −0.332, −0.308 |
+| T2 Hayes 2×2 | VOTES BEYOND MEASUREMENT: decode pitch 0.228; A_m 0.094; A_v 0.308 | **VOTES BEYOND MEASUREMENT: decode 0.168; A_m 0.098; A_v 0.312** | same state: 0.227; 0.083; 0.292 | same state: 0.176; 0.094; 0.295 |
+| T2 replication: Hart transfer / CV | NOT / REPLICATED (0.036 / 0.065) | **NOT / REPLICATED (0.028 / 0.065)** | NOT / **NOT** (0.023 / 0.046) | NOT / NOT (0.019 / 0.046) |
+| T2 replication: Yu & Ho transfer / CV | NOT / NOT | **NOT / NOT** | NOT / **INVERTED** (−0.092) | NOT / INVERTED |
+| T3 hayes: medium's spread | NARROWER, D −0.53 | **NARROWER, D −0.61** | NARROWER, −0.47 | NARROWER, −0.65 |
+| T4a hayes: ordering | ORDERED BEYOND VISIBILITY, τ 0.251 | **ORDERED BEYOND VISIBILITY, τ 0.217** | same, 0.253 | same, 0.234 |
+| T4b: U3 winding axis vs pitch | MOSTLY VISIBILITY: raw −0.188, partial −0.086, retention 0.46 | **MOSTLY VISIBILITY: −0.116, −0.047, 0.40** | same: −0.190, −0.085, 0.45 | same: −0.131, −0.056, 0.43 |
+
+**Reading.**
+- **The record changes in one place, and at a threshold.**
+  - T1's partial moves from −0.311 to −0.281, across the −0.30 bar.
+  - The votes still agree with measured pitch, with the expected sign and far beyond chance (CI
+    −0.32 … −0.29). Under the authors' preferred estimator, the agreement is weak rather than
+    strong.
+  - The all-arcs state stays beside it as the recorded one.
+- **|DCO| makes Hayes more like Hart, and less like our encoder.**
+  - Against Hart, ρ rises 0.379 → 0.427.
+  - The encoder's pitch decode falls 0.228 → 0.168, and U3's axis alignment falls −0.188 → −0.116.
+  - Opposite-winding arcs carried some of what the encoder read as pitch. They are plausibly
+    visibility-linked noise; T4b's retention also drops, 0.46 → 0.40.
+  - Nothing the encoder said about winding gets stronger with the cleaner estimator.
+- **The 'agree' filter (exploratory) changes no primary state.** It moves Hayes toward Hart, which
+  is the diagnostic it was chosen on, so that is not a confirmation. It weakens the Hart CV
+  replication to NOT and turns Yu & Ho's to INVERTED; both are secondary legs. It needs data it was
+  not chosen on before it can be used.
+- **For BB:** SpArcFiRe's estimator is |`pa_alenWtd_avg_domChiralityOnly`|, as BB0a already used.

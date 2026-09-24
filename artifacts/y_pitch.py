@@ -48,6 +48,20 @@ PANDA = EXT / "panda_galaxies_all_v1.0.1.csv"
 SHAMIR = {"non_mirror": EXT / "shamir_small_non_mirror.csv",
           "mirror": EXT / "shamir_small_mirror.csv"}
 PRIMARY = "pa_alenWtd_avg__abs"  # pre-registered; the rest are sensitivity only
+RECORDED = PRIMARY  # the column Y2/Y3 were run on; `--dco` switches PRIMARY to "dco_abs" (Brief BB)
+DCO = "pa_alenWtd_avg_domChiralityOnly"
+AGREE_ONLY = False  # `--agree`: Hayes pitch kept only where top2_chirality_agreement is 'agree'
+
+
+def switches(argv: list[str], path: Path) -> Path:
+    """Brief BB estimator / reliability switches; returns the output path suffixed to match."""
+    global PRIMARY, AGREE_ONLY
+    tag = ""
+    if "--dco" in argv:
+        PRIMARY, tag = "dco_abs", tag + "_dco"
+    if "--agree" in argv:
+        AGREE_ONLY, tag = True, tag + "_agree"
+    return path.with_name(path.stem + tag + path.suffix) if tag else path
 SENSITIVITY = ("pa_avg__abs", "pa_alenWtd_median", "pa_longest", "pa_alenWtd_avg_domChiralityOnly")
 VIS_COLS = ("modelMag_r", "snr_r", "petroRad_r", "specz")  # V1's composite; magnitude first
 MIN_N = 100
@@ -103,11 +117,17 @@ def table(setup) -> pd.DataFrame:
     h = pd.read_csv(HAYES, sep="\t", dtype={"name": str, "OBJID": str}, low_memory=False)
     if HAYES_KEY == "dr7objid":
         h = h.drop(columns="name").rename(columns={"OBJID": "name"})
-    keep = ["name", "P_CS", "diskAxisRatio", PRIMARY, *SENSITIVITY, "chirality_alenWtd",
+    keep = ["name", "P_CS", "diskAxisRatio", RECORDED, *SENSITIVITY, "chirality_alenWtd",
             "chirality_maj", "top2_chirality_agreement", "totalNumArcs", "alenAt50pct",
             *[c for c in h.columns if c.startswith("numDcoArcsGE")]]
     h = h[keep].rename(columns={c: f"H_{c}" for c in keep if c != "name"})
     t = t.merge(h, left_on=HAYES_KEY, right_on="name", how="left").drop(columns="name")
+    # |DCO|: every retained arc shares the dominant sign, so the magnitude is the DCO pitch
+    t["H_dco_abs"] = pd.to_numeric(t[f"H_{DCO}"], errors="coerce").abs()
+    if AGREE_ONLY:
+        bad = t.H_top2_chirality_agreement.fillna("").str.strip("'") != "agree"
+        for c in ("H_dco_abs", f"H_{RECORDED}", *[f"H_{e}" for e in SENSITIVITY]):
+            t[c] = pd.to_numeric(t[c], errors="coerce").where(~bad)
     cat = SkyCoord(t.ra.values * u.deg, t.dec.values * u.deg)
     for which in REFS:
         s = panda(which)
@@ -410,6 +430,18 @@ def y1(setup, t: pd.DataFrame) -> dict:
 def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else "--y1"
     setup = R.prepare("runs/m/encoder.pt", R.MAX_TRAIN, label="Y", sources=1)
+    if "--z2" in sys.argv:
+        global HAYES_KEY
+        HAYES_KEY = "dr7objid"
+    if mode == "--y2" and any(a in sys.argv for a in ("--dco", "--agree", "--z2")):
+        path = switches(sys.argv, R.OUT / ("y2_provenance_z2.json" if "--z2" in sys.argv
+                                           else "y2_provenance.json"))  # before the table: it masks
+        t = table(setup)
+        out = y2(setup, t)
+        out["switches"] = {"primary": PRIMARY, "agree_only": AGREE_ONLY, "join": HAYES_KEY}
+        path.write_text(json.dumps(out, indent=1, default=float))
+        print(json.dumps(out["pitch"], indent=1, default=float)[:3000], file=sys.stderr)
+        return
     t = table(setup)
     if mode == "--y1":
         out, path = y1(setup, t), R.OUT / "y1_manifest.json"

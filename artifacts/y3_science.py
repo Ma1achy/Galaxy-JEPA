@@ -703,6 +703,7 @@ def main() -> None:
     if "--z2" in sys.argv:  # Brief Z2: Hayes joined on its DR7 OBJID (46,882 rows, not 37,381)
         Y.HAYES_KEY = "dr7objid"
         OUT, PLANTED = OUT.with_name("y3_pitch_z2.json"), PLANTED.with_name("y3_planted_z2.json")
+    OUT = Y.switches(sys.argv, OUT)
     setup = R.prepare("runs/m/encoder.pt", R.MAX_TRAIN, label="Y3", sources=1)
     if mode == "--bank":
         bank(setup)
