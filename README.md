@@ -12,7 +12,7 @@ This is **v2 of my undergraduate dissertation** &mdash; a direct follow-on from 
 
 A [JEPA](https://arxiv.org/abs/2301.08243) (Joint-Embedding Predictive Architecture) is trained **self-supervised** on hundreds of thousands of galaxy images: mask out patches, and have the model predict the *representation* of the hidden region from the visible context &mdash; never the pixels, and never a human label. To predict a masked galaxy region well, the model has to build an internal representation of what galaxies actually look like &mdash; their shapes, structures and features. The encoder is then **frozen**, and the Galaxy Zoo labels are brought in only as a *read-out key*, relocating the label noise out of representation-learning and into a measurement stage where it can be quantified and controlled rather than baked into the weights.
 
-> **Status &mdash; research in progress.** The premise was proven at pilot scale (see [The First Result](#the-first-result)), the schedule problem was [resolved by measurement](#before-the-full-run), and the full-scale run has since happened: **826,968 galaxies**, stopped at 4 epochs by a pre-registered rule, **frozen-probe AUC 0.9646**. All 37 Galaxy Zoo answers have now been put through the ladder &mdash; [the catalogue](#the-catalogue) is the result, and it is not the result the design expected. The uncertainty geometry has since run too ([as a margin over untrained](#the-uncertainty-geometry-as-a-margin-over-untrained)). What remains is the MAE / contrastive baselines.
+> **Status &mdash; research in progress.** The premise was proven at pilot scale (see [The First Result](#the-first-result)), the schedule problem was [resolved by measurement](#before-the-full-run), and the full-scale run has since happened: **826,968 galaxies**, stopped at 4 epochs by a pre-registered rule, **frozen-probe AUC 0.9646**. All 37 Galaxy Zoo answers have now been put through the ladder &mdash; [the catalogue](#the-catalogue) is the result, and it is not the result the design expected. The uncertainty geometry has since run too ([as a margin over untrained](#the-uncertainty-geometry-as-a-margin-over-untrained)), along with a [label-efficiency curve](#how-many-labels-does-it-take), a [coverage study of a second set of volunteers](#a-second-set-of-volunteers), and the discovery that the encoder's two largest components record [how the colour bands were cut](#what-the-two-largest-components-are), not morphology, at no cost to the readout. What remains needs rented compute: the MAE / contrastive baselines, supervised comparisons at matched label counts, and a retrain on registered bands.
 
 # **The Problem**
 
@@ -225,9 +225,64 @@ Details and every margin are in `artifacts/u_findings.md` and `artifacts/v_findi
 The graded questions were tested too (Scheme 2, D26). Each asks whether the answer categories land in order along an axis fitted only on the two extremes. All four do. An ordered axis can still be a visibility gradient, though, so each is checked against a measurement made without votes:
 
 - **Roundness** tracks measured axis ratio.
-- **Bulge prominence** tracks a photometric bulge-to-total decomposition, in both directions: the encoder carries the measurement beyond the votes, and the votes beyond the measurement.
-- **Winding** is ordered, but untested against pitch angle, because no machine-measured catalogue is public.
+- **Bulge prominence** tracks a photometric bulge-to-total decomposition, in both directions: the encoder carries the measurement beyond the votes, and the votes beyond the measurement. The first version of that test could not tell this from two noisy copies of one quantity; re-run with the corrected design (Brief Z3), it holds with wide margins. The cleaner half is the measurement side: M carries photometric bulge fraction the votes do not, +0.15 over untrained.
+- **Winding** is ordered, and the volunteers' ordering survives visibility against machine-measured pitch angle (SpArcFiRe, in two samples). The encoder's own winding axis is weaker: it meets measured pitch mostly through visibility, and its learned part sits on the votes, not the measurement. And pitch is not a settled reference: on the 34 galaxies both public catalogues measure, SpArcFiRe and 2DFFT pitch do not agree (&rho; &minus;0.25, upper bound +0.10). The claim stands within one algorithm family and no further.
 - **Arm count** is ordered largely because visibility falls from "1 arm" to "4+". It is not established as morphology.
+
+## How many labels does it take?
+
+A frozen representation is only useful if it can be read with few labels. So every answer's probe was retrained on 100 to 40,000 labelled galaxies (five stratified draws per size, always scored on the same 34,829 held-out galaxies), on M and on three untrained encoders (Brief AA1).
+
+<p align="center">
+  <img src="assets/label_efficiency.png" width="980" alt="Held-out AUC and margin over untrained against the number of labelled galaxies" />
+</p>
+
+<p align="center">
+  <em>Left: four answers on M (solid) and untrained (dashed). Right: M's margin over untrained for all 37, with the median in black. The prediction was that the margin is largest in the shaded region.</em>
+</p>
+
+**The pre-registered prediction failed.** It said the margin over untrained would be largest at small n. For 24 of 37 answers it is largest at large n, 9 are flat, and only 4 peak small: smooth, featured, spiral and no-spiral, the concepts M reads best. The margin is a hump, not a decay. At 100 labels M barely beats a random ViT on most answers (median +0.03). It needs a few hundred labels before its structure shows, and its advantage peaks between 1,000 and 10,000 labels, the size of a small labelling campaign.
+
+Read as a classifier, M reaches 90% of its full-data AUC (above chance) with about 10,000 labels on most answers, and 95% with about 30,000. Smooth/featured goes 0.71 &rarr; 0.83 &rarr; 0.88 at 100, 1,000 and 10,000 labels. Winding and arm count stay near chance at every n. This is label efficiency against an untrained encoder only. Whether it beats a supervised ViT or a fine-tuned M at the same n is the rental's question.
+
+## A second set of volunteers
+
+Galaxy Zoo DECaLS asked many of the same questions about the same galaxies, on deeper imaging. That makes it a possible referee: where SDSS volunteers were unsure and DECaLS volunteers were sure, whom does the encoder side with? Brief AA2 measured whether that test is possible before running it. Volunteer votes only, never the Zoobot predictions.
+
+<p align="center">
+  <img src="assets/decals_referee.png" width="980" alt="Galaxy Zoo DECaLS overlap per question, and plurality agreement between the two campaigns" />
+</p>
+
+- **Overlap: 108,113 of our 230,359 galaxies** (crossmatch within 3″; median separation 0.12″; chance matches 0.06%).
+- **The questions map, except bulge.** Where both campaigns are confident, their plurality answers agree 99&ndash;100% on smooth, edge-on, bar, spiral, winding and arm count. On bulge prominence they agree 47% of the time: the two trees draw the answer boundaries in different places, so DECaLS cannot referee bulge under a simple map.
+- **The referee test as specified is not possible.** Galaxies SDSS voters doubted and DECaLS voters settled are almost all resolved the same way by the deeper image, as featured or as having arms (smooth 178 : 6 in the test split). An AUC with six negatives measures nothing. A paired sign test on about 1,000 such galaxies would have 88% power, which is the next brief's.
+- **Two other uses are powered.** DECaLS winding on 1,105 held-out galaxies can referee the encoder's winding axis (smallest detectable &rho; 0.08), and the imaging-depth comparison is powered on every question, with no new images needed.
+
+## What the two largest components are
+
+The encoder's two largest principal components hold 37% of its variance, and every earlier brief failed to name them. They were learned (untrained encoders don't have them), they were not morphology, and they behaved like the x and y parts of an arrow drawn on the image: rotating the stamp by 90&deg; swapped them, and mirroring flipped one. But they didn't move when the whole stamp moved.
+
+<p align="center">
+  <img src="assets/pose_code.png" width="980" alt="PC1 and PC2 against the offset between colour bands, and the response to shifting one band" />
+</p>
+
+<p align="center">
+  <em>Left and centre: the two components against the measured offset between the r- and i-band images of each galaxy. Right: shifting only the g band by half a pixel and one pixel moves them in a straight line.</em>
+</p>
+
+**They record how the colour bands line up.** Each stamp is three images, g, r and i, cut separately from three CCDs. The offsets between the bands' centroids predict the two components at R² 0.83 and 0.84, and nothing else measured adds to that (Brief AA3a). The intervention settles it: shift the g band alone and the components move by the predicted amount, linearly, on the paired axis only. The misregistration comes from the cutout itself, which [The Data Layer](#the-data-layer) describes.
+
+**Does it cost the morphology anything?** Averaging each galaxy's embedding over the eight flips and rotations removes the code (its variance falls to 2&ndash;3%), and 33 of 37 answers then read better, by +0.01 to +0.05 AUC (Brief AA3b; pre-registered state MIXED, because six salience verdicts moved each way). But averaging eight views is also test-time augmentation. An exploratory check separates the two:
+
+<p align="center">
+  <img src="assets/pose_average.png" width="980" alt="Change in AUC from averaging over flips and rotations, and against the number of views averaged" />
+</p>
+
+<p align="center">
+  <em>Left: every answer after averaging 8 views, with its bootstrap interval. Right: the pose code is removed in every arm; only the number of views changes.</em>
+</p>
+
+Projecting the two components out of the embedding directly removes the code completely and changes nothing: median &Delta;AUC &minus;0.0007, no answer improved. The gain grows with the number of views averaged while the pose code is equally gone in every arm. **The pose code is harmless to the linear readout; the gain is ensembling.** That gain is available to any encoder, including the baselines, so it can only enter a comparison if every encoder gets it. Winding reads the same either way: mostly visibility.
 
 # **The Data Layer**
 
@@ -240,6 +295,8 @@ A self-supervised model trained to predict masked regions will happily learn *an
 **No rebinning &mdash; an empirically proven choice.** A fast cutout service was tested as a shortcut and **rejected** by a fidelity test: it preserved calibrated flux and bright signal, but attenuated high-frequency power to ~11% of native and correlated the pixel noise &mdash; injecting learnable fake structure exactly in the faint regime the science depends on. Native-resolution frames, never resampled, are therefore a *measured* protection, not a preference.
 
 **Server-side cutouts at native fidelity.** Direct frame download is throttled to the point of infeasibility at corpus scale, so cutouts are made *next to the data* on [SciServer Compute](https://www.sciserver.org/) &mdash; only ~50 KB stamps cross the link, byte-identical to the native frame, at ~17&times; the throughput.
+
+**A cost of not rebinning, found afterwards.** SDSS images each band on its own CCD, on its own pixel grid. The cutout cuts each band against that band's own coordinates and, by design, never resamples, so each band's stamp lands on the nearest whole pixel independently: g, r and i sit up to &plusmn;0.5 px apart, differently for every galaxy. The encoder noticed. Its two largest components, 37% of its variance, read that sub-pixel misregistration (Brief AA3a; R² 0.83 from the measured band offsets, and shifting the g band alone by one pixel moves them by exactly the predicted amount). It turns out not to cost the linear readout anything ([see above](#what-the-two-largest-components-are)), but 37% of the variance spent on a cutout artefact is capacity not spent on galaxies. A retrain should register the bands with a Fourier sub-pixel shift, which keeps all power below Nyquist. That changes a frozen data invariant, so it needs a decision entry first.
 
 **Leak-impossible splits.** The pretraining and probing corpora are deduplicated by object ID so the frozen encoder can never have seen a probe-test galaxy during pretraining; the uncertainty-geometry firewall (consensus galaxies fit the axis, ambiguous galaxies test it) is enforced *in code*, not by discipline. These guarantees are merge-blocking invariants &mdash; a split that could leak cannot be committed.
 
@@ -260,7 +317,12 @@ The codebase is built around a few structural commitments, several inherited as 
 
 The full experimental design of the probing stage is architected and largely built: the nameability ladder, a controls battery that gates every rung verdict (selectivity, negative controls, a nuisance battery), the uncertainty-geometry measurement, and MAE / contrastive baselines run through the same ladder to separate *intrinsic to the images* from *artefact of the objective*.
 
-The schedule is settled, the full-scale run is done and [the catalogue](#the-catalogue) is in. The **uncertainty geometry** is in too: it tracks on every answer, by a margin over untrained encoders that is real but modest. What remains is the **MAE / contrastive baselines**, without which the catalogue is what *one* objective can say and no more. The one-clean-direction finding in particular needs a baseline to interpret: whether it is a fact about JEPA or a fact about galaxy images is exactly the question a second objective answers.
+The schedule is settled, the full-scale run is done and [the catalogue](#the-catalogue) is in. The **uncertainty geometry** is in too: it tracks on every answer, by a margin over untrained encoders that is real but modest. The local measurements have now decided what the rented compute is for:
+
+- **MAE / contrastive baselines.** Without them the catalogue is what *one* objective can say and no more. The one-clean-direction finding in particular needs a baseline to interpret: whether it is a fact about JEPA or a fact about galaxy images is exactly the question a second objective answers.
+- **Supervised and fine-tuned comparisons at matched label counts.** The label-efficiency curve is measured against an untrained encoder only; "label-efficient" as a practical claim needs a supervised ViT and a fine-tuned M at the same n.
+- **A retrain on registered bands, as hygiene.** The encoder spends its two largest components on a cutout artefact. Removing it after the fact changes no linear readout, so this is not expected to move the catalogue; registering g and i onto r's grid removes it at the source for the baselines and any retrain. It changes a frozen data invariant and is recorded as needing a decision first.
+- **The DECaLS tests that are powered locally**: winding refereed by a second set of volunteers, the imaging-depth comparison, and a paired sign test for whether the encoder sides with the deeper image where SDSS voters were unsure.
 
 # **Dependencies**
 
@@ -324,4 +386,4 @@ Display JPGs compress exactly the faint-structure range the hard morphological f
 
 **Is this finished?**
 
-No &mdash; it's research in progress. The premise is proven at pilot scale; the full-scale run and the probing harness are designed and being built. See [What's Next](#whats-next).
+No &mdash; it's research in progress. The premise is proven at pilot scale, the full-scale run is done, and all 37 answers have been through the ladder, the uncertainty geometry and a label-efficiency curve. What's missing is the comparison that makes it interpretable: the baselines, and a retrain on registered bands. See [What's Next](#whats-next).

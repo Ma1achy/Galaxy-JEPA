@@ -6,6 +6,11 @@ Every figure here is computed from something on disk that a run produced:
   * the pilot UMAP               <- runs/slice/explorer/, the frozen pilot's embeddings
   * the schedule dose-response   <- artifacts/out/h2_arms.jsonl, Brief H's six arms
   * the three Brief P panels     <- artifacts/out/p2_ladder.json + p1_untrained_bank.json
+  * the label-efficiency curve   <- artifacts/out/aa1_label_efficiency.json (Brief AA1)
+  * the DECaLS referee panel     <- artifacts/out/aa2_decals.json (Brief AA2)
+  * the pose-code panel          <- artifacts/out/x1_transform_bank.npz + aa3a_offsets.npz +
+                                    aa3a_pose.json (Brief AA3a)
+  * the pose-average panel       <- artifacts/out/aa3b_pose_average.json (Brief AA3b)
 
 Run: uv run python artifacts/readme_figures.py
 """
@@ -720,6 +725,166 @@ def p_structure() -> None:
     print(f"wrote concept_structure.png  spearman {rho:+.3f}")
 
 
+# ------------------------------------------------------------------ Brief AA
+
+OUT = ROOT / "artifacts" / "out"
+AA1_SHOW = [("t01_smooth_or_features_a02_features_or_disk", "featured / disk", ACCENT),
+            ("t04_spiral_a08_spiral", "spiral", GOOD),
+            ("t02_edgeon_a04_yes", "edge-on", WARM),
+            ("t03_bar_a06_bar", "bar", "#8a5fb0")]
+
+
+def aa1_label_efficiency() -> None:
+    d = json.loads((OUT / "aa1_label_efficiency.json").read_text())["features"]
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11.5, 4.2))
+    for f, name, col in AA1_SHOW:
+        s = d[f]["summary"]
+        a.plot(s["n"], s["auc_M"], "-o", color=col, ms=3.5, lw=1.8, label=f"{name} — M")
+        a.plot(s["n"], s["auc_untrained"], "--", color=col, lw=1.1, alpha=0.8)
+    a.set_xscale("log")
+    a.set_xlabel("labelled training galaxies")
+    a.set_ylabel("held-out AUC (34,829 galaxies)")
+    a.set_title("Frozen M (solid) and untrained (dashed)", loc="left", fontsize=10)
+    a.grid(True, which="major", lw=0.6)
+    a.legend(frameon=False, fontsize=8, loc="lower right")
+    shown = {f: col for f, _, col in AA1_SHOW}
+    for f, r in d.items():
+        s = r["summary"]
+        b.plot(s["n"], s["margin"], color=shown.get(f, GRID), lw=1.8 if f in shown else 0.9,
+               zorder=3 if f in shown else 1)
+    ns = sorted({n for r in d.values() for n in r["summary"]["n"] if n in (100, 300, 1000, 3000, 10000, 30000)})
+    med = [np.median([r["summary"]["margin"][r["summary"]["n"].index(n)] for r in d.values()
+                      if n in r["summary"]["n"]]) for n in ns]
+    b.plot(ns, med, color=INK, lw=2.2, label="median of 37 answers", zorder=4)
+    b.axvspan(80, 1000, color=GRID, alpha=0.35, lw=0)
+    b.text(110, b.get_ylim()[1] * 0.93, "pre-registered\n'small n'", fontsize=8, color=MUTED, va="top")
+    b.axhline(0, color=MUTED, lw=0.6)
+    b.set_xscale("log")
+    b.set_xlabel("labelled training galaxies")
+    b.set_ylabel("AUC margin over untrained")
+    b.set_title("The margin is a hump, not a decay", loc="left", fontsize=10)
+    b.legend(frameon=False, fontsize=8, loc="upper left", bbox_to_anchor=(0.0, 0.86))
+    fig.savefig(ASSETS / "label_efficiency.png")
+    plt.close(fig)
+    print("wrote label_efficiency.png")
+
+
+def aa2_decals() -> None:
+    d = json.loads((OUT / "aa2_decals.json").read_text())["questions"]
+    names = {"smooth": "smooth / featured", "edge_on": "edge-on", "bar": "bar", "spiral": "spiral",
+             "bulge": "bulge prominence", "winding": "winding", "arm_count": "arm count"}
+    qs = list(names)
+    y = np.arange(len(qs))[::-1]
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11.5, 3.9), gridspec_kw={"width_ratios": [1.6, 1]})
+    both = [d[q]["both_reached"] for q in qs]
+    sharp = [d[q]["sharp"] for q in qs]
+    a.barh(y + 0.2, both, 0.38, color=ACCENT, label="both surveys reached (GZ2 ≥ 21, DECaLS ≥ 10 votes)")
+    a.barh(y - 0.2, sharp, 0.38, color=WARM, label="uncertain in SDSS, confident in DECaLS")
+    a.set_xscale("log")
+    a.set_yticks(y, [names[q] for q in qs])
+    a.set_xlabel("galaxies in our corpus")
+    a.legend(frameon=False, fontsize=8, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=1)
+    a.set_title("Galaxy Zoo DECaLS volunteers on our 230k: 108,113 overlap", loc="left", fontsize=10)
+    agree = [d[q]["plurality_agree_when_both_confident"] for q in qs]
+    b.barh(y, agree, 0.55, color=[WARM if v < 0.9 else GOOD for v in agree])
+    for yy, v in zip(y, agree, strict=True):
+        b.text(v + 0.01, yy, f"{v:.2f}", va="center", fontsize=8)
+    b.set_xlim(0, 1.12)
+    b.set_yticks(y, [])
+    b.set_xlabel("same plurality answer\n(where both surveys are confident)")
+    b.set_title("The bulge map fails", loc="left", fontsize=10)
+    fig.savefig(ASSETS / "decals_referee.png", bbox_inches="tight")
+    plt.close(fig)
+    print("wrote decals_referee.png")
+
+
+def aa3a_pose_code() -> None:
+    blob = np.load(OUT / "x1_transform_bank.npz")
+    off = np.load(OUT / "aa3a_offsets.npz")
+    assert np.array_equal(blob["ids"], off["ids"])
+    rec = json.loads((OUT / "aa3a_pose.json").read_text())
+    import sys
+
+    sys.path.insert(0, str(ROOT / "artifacts"))
+    import r_nonlinear as R  # noqa: E402
+    import x1_handedness as X  # noqa: E402
+
+    from galaxy_jepa.models.vit import load_frozen_encoder  # noqa: E402
+
+    setup = R.prepare("runs/m/encoder.pt", R.MAX_TRAIN, label="figures", sources=1)
+    ctx = R.Ctx(setup, load_frozen_encoder(setup.ckpt), 0, dry=True)
+    bb = X.basis(ctx, setup)[0]
+    pc = ((blob["M:orig"].astype(np.float64) - bb["mu"]) @ bb["v"][:, :2]) / bb["sd"][:2]
+    cen = off["cen"]
+    ri = cen[:, 1] - cen[:, 2]
+    fig, axs = plt.subplots(1, 3, figsize=(12, 3.9))
+    for ax, k, j, lab in ((axs[0], 0, 0, "x"), (axs[1], 1, 1, "y")):
+        ax.scatter(ri[:, j], pc[:, k], s=3, color=ACCENT, alpha=0.35, lw=0)
+        from scipy.stats import spearmanr
+
+        r = spearmanr(ri[:, j], pc[:, k])[0]
+        ax.set_xlim(-1.2, 1.2)
+        ax.set_xlabel(f"r − i centroid offset, {lab} (px)")
+        ax.set_ylabel(f"PC{k + 1} (A-sd units)")
+        ax.set_title(f"PC{k + 1} against r − i offset in {lab}: ρ = {r:+.2f}", loc="left", fontsize=10)
+    c = rec["causal"]
+    shifts = [0, 0.5, 1.0]
+    ax = axs[2]
+    for key, k, col, lab in (("x", 0, ACCENT, "g shifted in x → ΔPC1"),
+                             ("y", 1, WARM, "g shifted in y → ΔPC2")):
+        vals = [0] + [c[f"g+{s}{key}" if s != 1.0 else f"g+1{key}"]["mean_delta_sd"][k]
+                      for s in (0.5, 1.0)]
+        ax.plot(shifts, vals, "-o", color=col, label=lab)
+    ax.axhline(0, color=MUTED, lw=0.6)
+    ax.set_xlabel("shift of the g band alone (px)")
+    ax.set_ylabel("mean change (A-sd units)")
+    ax.set_title("Intervention: move one band, the code follows", loc="left", fontsize=10)
+    ax.legend(frameon=False, fontsize=8)
+    fig.savefig(ASSETS / "pose_code.png", bbox_inches="tight")
+    plt.close(fig)
+    print(f"wrote pose_code.png  R2 {rec['M']['inter:PC1']:.2f}/{rec['M']['inter:PC2']:.2f}")
+
+
+def aa3b_pose_average() -> None:
+    rec = json.loads((OUT / "aa3b_pose_average.json").read_text())
+    ens = json.loads((OUT / "aa3b_ensemble.json").read_text())
+    ex = {f: r for f, r in rec["existence"].items() if "delta" in r}
+    fs = sorted(ex, key=lambda f: ex[f]["delta"])
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(14, 4.2), gridspec_kw={"width_ratios": [2.6, 1]})
+    x = np.arange(len(fs))
+    d = np.array([ex[f]["delta"] for f in fs])
+    lo = np.array([ex[f]["ci"][0] for f in fs])
+    hi = np.array([ex[f]["ci"][1] for f in fs])
+    col = [GOOD if ex[f]["change"] == "IMPROVED" else WARM if ex[f]["change"] == "WORSENED" else MUTED
+           for f in fs]
+    ax.vlines(x, lo, hi, color=col, lw=1.2)
+    ax.scatter(x, d, color=col, s=14, zorder=3)
+    ax.axhline(0, color=INK, lw=0.6)
+    for yv in (-0.01, 0.01):
+        ax.axhline(yv, color=MUTED, lw=0.6, ls=":")
+    ax.set_xticks(x, [_short(f) for f in fs], rotation=90, fontsize=7)
+    ax.set_ylabel("ΔAUC, 8-view average − as trained")
+    share = rec["collapse"]["var_share_pc1_10"]
+    ax.set_title(f"Averaging 8 flips and rotations: PC1/PC2 fall to {share[0]:.2f} / {share[1]:.2f}; "
+                 f"33 of 37 answers gain", loc="left", fontsize=10)
+    views = [0, 2, 4, 8]
+    arms = list(ens)
+    med = [ens[a]["median_delta"] for a in arms]
+    per = np.array([[ens[a]["per_answer"][f] for f in fs] for a in arms])
+    for k in range(per.shape[1]):
+        bx.plot(views, per[:, k], color=MUTED, lw=0.5, alpha=0.35)
+    bx.plot(views, med, "-o", color=ACCENT, lw=2, label="median of 37 answers")
+    bx.axhline(0, color=INK, lw=0.6)
+    bx.set_xticks(views, ["PC1/PC2\nprojected out", "2", "4", "8"])
+    bx.set_xlabel("views averaged (pose code removed in every arm)")
+    bx.set_ylabel("ΔAUC over M as trained")
+    bx.set_title("The gain is ensembling, not pose (exploratory)", loc="left", fontsize=10)
+    bx.legend(frameon=False, fontsize=8, loc="upper left")
+    fig.savefig(ASSETS / "pose_average.png", bbox_inches="tight")
+    plt.close(fig)
+    print("wrote pose_average.png")
+
+
 if __name__ == "__main__":
     ASSETS.mkdir(exist_ok=True)
     pilot_collapse()
@@ -730,3 +895,7 @@ if __name__ == "__main__":
     p_catalogue()
     p_power()
     p_structure()
+    aa1_label_efficiency()
+    aa2_decals()
+    aa3a_pose_code()
+    aa3b_pose_average()

@@ -444,15 +444,22 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 - [ ] (P3) **PyArcFiRe port — parked (Brief Y revised).** Only needed for galaxies outside the Hayes
   selection, or to measure on our own stamps. Licence: BSD-3-Clause (PyArcFiRe 0.1.1). Also parked:
   per-band centroid offsets against PC1/PC2, and test-time dihedral symmetrisation.
-- [ ] (P1) **V3's PC1 and PC2 are UNEXPLAINED** (Brief W2). They hold 37% of the variance, and
-  every tested candidate is negligible: padding, sky, noise, crowding, g − r, u − r and four stamp
-  axes (joint out-of-sample R² ≤ 0.02). They are learned (≤ 0.10 against the untrained top 10),
-  bounded and flat-topped. *Brief X1:* **not handedness, ORIENTATION-LIKE.** (PC1, PC2) transform
-  as the x/y components of an image-plane vector (rot90 maps PC1 → PC2; the mirror flips PC1
-  only), equally in smooth and spiral galaxies; 41% of M's variance is mirror-odd against 2–7%
-  untrained (D10). The vector is invariant to integer and sub-pixel shifts and to frame, so its
-  identity is still open. **Next:** the per-object PSF asymmetry (psField), and attribution maps of
-  PC1 on a handful of galaxies. `x_findings.md` §X1.
+- [x] (P1) **V3's PC1 and PC2 — resolved (Brief AA3a): band misregistration, INSTRUMENTAL.**
+  They read the sub-pixel offsets between the g, r and i stamps (R² 0.83 / 0.84; the common
+  core-vs-centroid offset adds nothing), and a g-only shift of 1 px moves PC1 by +0.67 as predicted.
+  Cause: `artifacts/sciserver_cut.py:81` cuts each band with `Cutout2D` on its own WCS, snapping each
+  band independently to the nearest whole pixel. `aa_findings.md` §AA3a. Earlier history: W2
+  (every candidate negligible), X1 (image-plane vector, not handedness).
+- [ ] (P1) **Register the bands before any retrain.** Fourier sub-pixel shift of g and i onto r's
+  grid (keeps power below Nyquist; the 0.11 fidelity result was for rebinning), or store per-band
+  offsets and correct at load. Changes the no-rebin invariant (`docs/spec/data.md:80`) — **needs a
+  D-entry first.** Confirming step not yet run: CasJobs `colc`/`rowc` per band on AA3a's 2,000
+  galaxies (token lives in `artifacts/` only).
+  *Brief AA3b:* the code is harmless to the linear readout (projected out: median ΔAUC −0.0007).
+  So this is hygiene for the baselines and any retrain, not a catalogue fix.
+- [ ] (P2) **Test-time D4 averaging buys ~+0.02 AUC** (AA3b exploratory; 2 → 4 → 8 views give
+  +0.013 → +0.019 → +0.021). Decide whether the comparison table uses it; if it does, every encoder
+  (M, untrained, MAE, MoCo) gets it alike.
 - [ ] (P2) **Label-free discovery beyond PCA** (ICA, sparse dictionaries, SAEs). V3's plain-PCA
   held-out test found no concept that is an encoder component. The salience test needs a null
   with reachable power first: its shuffled-label null was too wide to fire (V3).
@@ -471,7 +478,15 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 - [x] (P0) **FIG 2** — concept-direction cosine matrix (`figure_entanglement`).
 - [x] (P0) **FIG 3** — uncertainty-geometry scatter (`figure_uncertainty`).
 - [x] (P1) **FIG 4** — controls panel (`figure_controls`).
-- [ ] (P1) Label-efficiency curve (SSL-pretrained vs supervised-from-scratch).
+- [ ] (P1) Label-efficiency curve (SSL-pretrained vs supervised-from-scratch). *Brief AA1:* the
+  frozen-M half is done against untrained (`assets/label_efficiency.png`; the margin is a hump
+  peaking at 1k–10k labels, the small-n prediction CONTRADICTED). Supervised-from-scratch and
+  fine-tuned M at the same n go to the rental.
+- [ ] (P1) **DECaLS referee as a paired sign test** (Brief AA2: the one-vs-rest form is NOT
+  POSSIBLE; the sharp sets are one-sided). About 1,003 smooth/featured sharp galaxies outside A,
+  88% power at 55/45; needs the 56,854 non-union overlap galaxies embedded first. Winding referee
+  (n 1,105, MDE ρ 0.084) and the depth comparison are POWERED as specified. Bulge map fails
+  (plurality agreement 0.47) — needs a per-campaign ordinal treatment.
 - [ ] (P1) v1-comparable evaluation, and the v1-vs-v2 comparison as a first-class deliverable.
 
 ## Brief I — SIGReg `[D18 adopted]`
