@@ -461,6 +461,56 @@ about are displaced from it by how visible they are. Where visibility does *not*
 offset (13 answers), the ambiguity is carried in the representation beyond the four covariates.
 That is the positive D13 reading: disagreement has a geometry of its own.
 
+### Restated (Brief V1): margins over untrained, and magnitude beside every verdict
+
+- **Margin:** trained − untrained. The interval runs from trained − (the max of the three draws) to
+  trained − (the min), as existence is stated against the untrained bar.
+- **Retention:** bend partial / raw on the visibility-complete rows.
+- **Reading:** *mostly visibility* < 0.5 ≤ *mostly beyond*; *reversed* < 0, whatever the
+  significance.
+- The verdict column is U2's, unchanged; it was not recomputed with the reversal state (V1.4).
+
+| answer | on-axis ρ | **on-axis margin** | bend verdict (U2) | retention | reading | bend-partial margin |
+|---|---|---|---|---|---|---|
+| t01 smooth | +0.476 | +0.15…+0.16 | BEYOND VISIBILITY | +0.73 | mostly beyond | +0.08…+0.09 |
+| t01 features or disk | +0.399 | +0.12…+0.12 | BEYOND VISIBILITY | +0.90 | mostly beyond | +0.09…+0.11 |
+| t02 yes | +0.242 | +0.04…+0.10 | NONE | — | — | -0.01…+0.02 |
+| t02 no | +0.242 | +0.04…+0.10 | NONE | — | — | -0.04…+0.07 |
+| t03 bar | +0.200 | +0.09…+0.13 | BEYOND VISIBILITY | +0.61 | mostly beyond | +0.02…+0.03 |
+| t03 no bar | +0.200 | +0.09…+0.13 | BEYOND VISIBILITY | +0.61 | mostly beyond | +0.02…+0.07 |
+| t04 spiral | +0.139 | +0.09…+0.10 | BEYOND VISIBILITY | +0.29 | **mostly visibility** | +0.13…+0.13 |
+| t04 no spiral | +0.139 | +0.09…+0.10 | RESOLUTION-LIMITED | +0.22 | **mostly visibility** | +0.12…+0.12 |
+| t05 no bulge | +0.272 | +0.16…+0.18 | NONE | — | — | +0.04…+0.06 |
+| t05 just noticeable | +0.391 | +0.19…+0.20 | BEYOND VISIBILITY | +0.56 | mostly beyond | +0.02…+0.06 |
+| t05 obvious | +0.357 | +0.14…+0.18 | UNRESOLVED | -0.74 | **reversed** | -0.11…-0.10 |
+| t06 yes | +0.147 | +0.07…+0.07 | BEYOND VISIBILITY | +0.75 | mostly beyond | +0.07…+0.09 |
+| t06 no | +0.147 | +0.07…+0.07 | BEYOND VISIBILITY | +0.75 | mostly beyond | +0.08…+0.10 |
+| t07 completely round | +0.128 | +0.07…+0.07 | NONE | — | — | +0.02…+0.02 |
+| t07 in between | +0.093 | +0.05…+0.06 | NONE | — | — | +0.00…+0.01 |
+| t07 cigar shaped | +0.174 | +0.08…+0.10 | NONE | — | — | -0.01…+0.01 |
+| t08 ring | +0.171 | +0.07…+0.11 | BEYOND VISIBILITY | +0.74 | mostly beyond | -0.05…+0.12 |
+| t08 disturbed | +0.236 | +0.04…+0.06 | BEYOND VISIBILITY | +0.74 | mostly beyond | +0.26…+0.27 |
+| t08 irregular | +0.399 | +0.09…+0.13 | NONE | — | — | +0.11…+0.12 |
+| t08 other | +0.283 | +0.13…+0.16 | NONE | — | — | -0.08…+0.01 |
+| t08 merger | +0.122 | +0.06…+0.10 | UNRESOLVED | -1.40 | **reversed** | -0.25…-0.23 |
+| t09 rounded | +0.363 | +0.17…+0.23 | NONE | — | — | +0.04…+0.06 |
+| t09 no bulge | +0.332 | +0.11…+0.13 | NONE | — | — | -0.02…-0.01 |
+| t10 winding a28 tight | +0.238 | +0.06…+0.09 | BEYOND VISIBILITY | +0.97 | mostly beyond | +0.05…+0.06 |
+| t10 winding a30 loose | +0.196 | +0.08…+0.11 | NONE | — | — | -0.16…-0.15 |
+| t11 number a32 2 | +0.151 | +0.05…+0.07 | BEYOND VISIBILITY | +1.05 | mostly beyond | +0.04…+0.04 |
+| t11 number a37 cant tell | +0.100 | +0.06…+0.09 | BEYOND VISIBILITY | +0.67 | mostly beyond | +0.04…+0.10 |
+
+- **The learned on-axis margin is +0.04 to +0.23.** It is real on every answer, but it is
+  typically half the headline ρ or less. "Reproduces human uncertainty without seeing a vote" is
+  mostly the architecture's for smooth/features (untrained +0.32 against +0.48).
+- **Spiral is mostly visibility.** Retention is 0.29 and 0.22; U2's BEYOND on "spiral" was
+  significance on a 0.038 residual. Its bend-partial margin over untrained is still +0.12,
+  because the untrained draws bend the other way (−0.09).
+- **Merger reverses**, with a margin of −0.24: the untrained encoders carry the positive
+  association (+0.15), and M's is opposite. See V1.3 for the suppression check.
+- **Disturbed is the largest learned off-axis margin** (+0.26). Anything-odd, smooth/features and
+  tight follow, at +0.05 to +0.11.
+
 ## U3 — result (`artifacts/out/u3_graded.json`)
 
 Full population, reach ≥ 21, plurality categories. τ is Kendall's τ-b (the JT statistic); p is

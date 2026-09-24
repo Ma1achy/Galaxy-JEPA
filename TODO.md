@@ -430,10 +430,20 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   `probing/` is its second consumer: replace `schemes.GradedExistenceTestUndecided` with the
   endpoint-fit JT test (`artifacts/u3_graded.py`), and rewrite the schemes docstring's open-question
   paragraph to cite D26.
-- [ ] (P2) **U2's off-axis verdict has no state for a sign reversal** (Brief U2): merger and bulge
+- [x] (P2) **U2's off-axis verdict has no state for a sign reversal** — *closed by D27 (Brief V1.4): `REVERSAL_STATE` for future runs; U2's record kept* (Brief U2): merger and bulge
   "obvious" read UNRESOLVED with raw +, partial − (both significant), and loose's significant
   negative partial goes unscored because the rule tests the positive direction only. Add a
   REVERSES state before the uncertainty geometry is re-run on another encoder.
+- [ ] (P1) **Pitch-angle run (Brief V2b) is blocked on data.** Hart et al. (2017) publish no
+  machine-readable table. The design is hashed in `artifacts/v_findings.md` §V2: machine ψ_galaxy
+  only, never ψ_GZ2. Options: request the table from the authors, or substitute Yu & Ho (2020)
+  2DFT pitch angles under a new pre-registration.
+- [ ] (P1) **Name V3's PC1 and PC2** (37% of the variance, |ρ| ≤ 0.08 with every measured
+  nuisance and vote). Candidates: g − r colour, sky noise, and companion or star count in the
+  stamp.
+- [ ] (P2) **Label-free discovery beyond PCA** (ICA, sparse dictionaries, SAEs). V3's plain-PCA
+  held-out test found no concept that is an encoder component. The salience test needs a null
+  with reachable power first: its shuffled-label null was too wide to fire (V3).
 
 ## Epic G — Baselines as controls `[baseline]` — *same probe ladder, all SDSS-trained*
 - [ ] (P1) `[baseline]` **MAE** — reproduce the Wu & Walmsley recipe on our SDSS corpus. *(D12)*

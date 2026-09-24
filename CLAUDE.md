@@ -60,6 +60,10 @@ is only trustworthy if the experimental guardrails are structural — hence the 
   stamps the forfeit onto the artefact. A run that only exercises plumbing sets
   `ProbingConfig.smoke`, which both changes the config hash and stamps `smoke` — so a smoke can
   never be read back as a result.
+- **A pre-registration enumerates every outcome before it is hashed** (D27). Sign flips,
+  insufficient samples, and significance disagreeing with magnitude each get a named state, and
+  the precedence between them is stated. A state added after seeing a result is post hoc: it
+  applies to future runs only and is labelled exploratory beside the record it would have changed.
 - **A bar you cannot reach is an error, not a null.** The existence test's resolution is
   `1/(n_null_draws+1)`; if that exceeds the family-corrected threshold, *every* feature fails and
   the catalogue looks like a scientific null. `nulls.assert_null_resolution` refuses to run.

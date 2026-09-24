@@ -45,6 +45,10 @@ N_PERM = 10_000
 BATCH = 250
 ALPHA = 0.05
 MIN_EXTREME = 50  # per class, train
+# Brief V1.4: U2's pre-registered rule had no state for a significant partial of the opposite sign
+# to the raw. Future runs read it as REVERSES; U2's recorded verdicts were made without it and are
+# not recomputed, so this stays False for the U2 record.
+REVERSAL_STATE = False
 VISIBILITY = ("magnitude", "snr", "size", "redshift")
 FLAGGED = {"t08_odd_feature_a24_merger": "merger", "t04_spiral_a08_spiral": "spiral",
            "t06_odd_a14_yes": "anything odd"}
@@ -286,7 +290,9 @@ def verdicts(rec: dict, cts: dict, feats: dict) -> None:
                     continue
                 raw_sig = fam[f"{kind}_raw"][f] and o["raw"] > 0
                 part_sig = fam[f"{kind}_partial"][f] and o["partial"] > 0
-                if not raw_sig:
+                if REVERSAL_STATE and fam[f"{kind}_partial"][f] and o["partial"] < 0:
+                    v[kind] = "REVERSES"  # either raw state: significant, opposite-signed partial
+                elif not raw_sig:
                     v[kind] = "NONE"
                 elif part_sig:
                     v[kind] = "BEYOND VISIBILITY"

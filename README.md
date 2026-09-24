@@ -12,7 +12,7 @@ This is **v2 of my undergraduate dissertation** &mdash; a direct follow-on from 
 
 A [JEPA](https://arxiv.org/abs/2301.08243) (Joint-Embedding Predictive Architecture) is trained **self-supervised** on hundreds of thousands of galaxy images: mask out patches, and have the model predict the *representation* of the hidden region from the visible context &mdash; never the pixels, and never a human label. To predict a masked galaxy region well, the model has to build an internal representation of what galaxies actually look like &mdash; their shapes, structures and features. The encoder is then **frozen**, and the Galaxy Zoo labels are brought in only as a *read-out key*, relocating the label noise out of representation-learning and into a measurement stage where it can be quantified and controlled rather than baked into the weights.
 
-> **Status &mdash; research in progress.** The premise was proven at pilot scale (see [The First Result](#the-first-result)), the schedule problem was [resolved by measurement](#before-the-full-run), and the full-scale run has since happened: **826,968 galaxies**, stopped at 4 epochs by a pre-registered rule, **frozen-probe AUC 0.9646**. All 37 Galaxy Zoo answers have now been put through the ladder &mdash; [the catalogue](#the-catalogue) is the result, and it is not the result the design expected. What remains is the uncertainty geometry (deliberately deferred, it has an open decision of its own) and the MAE / contrastive baselines.
+> **Status &mdash; research in progress.** The premise was proven at pilot scale (see [The First Result](#the-first-result)), the schedule problem was [resolved by measurement](#before-the-full-run), and the full-scale run has since happened: **826,968 galaxies**, stopped at 4 epochs by a pre-registered rule, **frozen-probe AUC 0.9646**. All 37 Galaxy Zoo answers have now been put through the ladder &mdash; [the catalogue](#the-catalogue) is the result, and it is not the result the design expected. The uncertainty geometry has since run too ([as a margin over untrained](#the-uncertainty-geometry-as-a-margin-over-untrained)). What remains is the MAE / contrastive baselines.
 
 # **The Problem**
 
@@ -208,6 +208,20 @@ As a continuity check, two of the three correlations quoted from v1 come back at
 
 The full write-up, including the limitations that travel with every verdict, is in [`artifacts/p_findings.md`](artifacts/p_findings.md).
 
+## The uncertainty geometry, as a margin over untrained
+
+The headline test ran in Brief U2, pre-registered and hashed. The axis is fitted on each answer's consensus extremes only. The ambiguous middle, which the axis never sees, is projected onto it and ranked against the vote fraction. **All 27 answers with a linear direction track the volunteers' split**, and every one does better than all three untrained encoders.
+
+That is not the whole story. Untrained encoders already reach &rho; = +0.32 on smooth, so much of "reproduces human uncertainty without seeing a vote" is the architecture. Stated the way existence is stated, as trained minus the untrained range, the learned part is **+0.04 to +0.23**. Smooth/features gains +0.12 to +0.16, and bulge answers gain up to +0.2.
+
+Off the axis, the more ambiguous galaxies sit further along the concept path's bend. For 13 answers this survives controlling faintness, SNR, size and redshift. Read by magnitude rather than significance:
+
+- **Spiral is mostly visibility.** The control removes 70&ndash;80% of its effect, though untrained encoders bend the other way.
+- **Merger's association reverses under control.** It still reverses against a single visibility index, and untrained encoders carry more of it than M does.
+- **Bulge "obvious" was suppression.** Its reversal came from entering four correlated covariates together, and it disappears against a single visibility index.
+
+Details and every margin are in `artifacts/u_findings.md` and `artifacts/v_findings.md`.
+
 # **The Data Layer**
 
 ---
@@ -239,7 +253,7 @@ The codebase is built around a few structural commitments, several inherited as 
 
 The full experimental design of the probing stage is architected and largely built: the nameability ladder, a controls battery that gates every rung verdict (selectivity, negative controls, a nuisance battery), the uncertainty-geometry measurement, and MAE / contrastive baselines run through the same ladder to separate *intrinsic to the images* from *artefact of the objective*.
 
-The schedule is settled, the full-scale run is done and [the catalogue](#the-catalogue) is in. What remains: the **uncertainty geometry** &mdash; the high-beta result, deliberately held back because it carries an open decision of its own about how to treat a 50/50 split on 60 votes against a 2/2 split on four &mdash; and the **MAE / contrastive baselines**, without which the catalogue is what *one* objective can say and no more. The one-clean-direction finding in particular needs a baseline to interpret: whether it is a fact about JEPA or a fact about galaxy images is exactly the question a second objective answers.
+The schedule is settled, the full-scale run is done and [the catalogue](#the-catalogue) is in. The **uncertainty geometry** is in too: it tracks on every answer, by a margin over untrained encoders that is real but modest. What remains is the **MAE / contrastive baselines**, without which the catalogue is what *one* objective can say and no more. The one-clean-direction finding in particular needs a baseline to interpret: whether it is a fact about JEPA or a fact about galaxy images is exactly the question a second objective answers.
 
 # **Dependencies**
 

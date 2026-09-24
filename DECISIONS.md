@@ -1518,3 +1518,32 @@ question" paragraph is rewritten to cite D26.
 - **D**, votes against measured winding through the Hart pitch-angle join, goes to the label-free
   note.
 - The untrained-MLP bar goes to the rental runs (TODO).
+
+## D27 — A pre-registration enumerates every outcome before it is hashed — *decided (Brief V1.4; a standing rule for every brief)*
+
+**The record.** Three pre-registered rules have now met an outcome they had no state for:
+
+| rule | missing state | what happened |
+|---|---|---|
+| the stopping rule | DECLINING | a falling curve read as "not yet plateaued" |
+| R1's nonlinear headroom | SENSITIVE TO C | evidence at one cluster count and not the other |
+| U2's off-axis verdict | a sign reversal | merger and bulge "obvious" read UNRESOLVED on a significant, opposite-signed partial; loose's significant negative partial went unscored |
+
+Each time the result had to be described outside the rule, after it was seen. That is exactly the
+freedom pre-registration exists to remove.
+
+**The rule.** Before hashing, every pre-registered verdict lists **all** its outcomes, including at
+least:
+
+- **Sign flips.** An effect of the opposite sign to the prediction, or a control that reverses the
+  raw sign.
+- **Insufficient sample.** The count below which the test is not run, and what is reported instead.
+- **Significance and magnitude disagreeing.** Significant but negligible, and large but not
+  significant, each with the magnitude threshold stated.
+- **Which state wins** when several conditions hold, as an ordered table (first match applies).
+
+**Not retroactive.** A state added after seeing a result is post hoc. It is applied to future runs
+only; the record it would have changed keeps its pre-registered verdict, and the new reading is
+labelled exploratory beside it. U2's verdicts are kept as recorded. `u2_uncertainty.REVERSAL_STATE`
+carries the REVERSES state for future runs, and V1.3's suppression check is the labelled
+exploratory reading.
