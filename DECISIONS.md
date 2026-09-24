@@ -1460,3 +1460,61 @@ rerun):
 48 of 53 full pairs are representational. Entanglement is now the finding it was designed to be,
 not the absence of a floor crossing. That makes the uncertainty-geometry and D13 stage-2 briefs
 the place where "entangled with what, and why" gets answered.
+
+## D26 — Scheme 2's graded existence test is the endpoint-fit ordering test — *decided (Brief U3; closes open register item 1)*
+
+**The decision.** A graded axis *exists* in the representation iff its plurality categories are
+**ordered** along a direction fitted on the endpoints alone:
+
+- Fit the ladder's logistic probe on **train** galaxies of the two **endpoint** categories only.
+  The middle categories never touch the fit.
+- Project **test** galaxies of every category.
+- Take Jonckheere–Terpstra as Kendall's τ-b between category index and projection. The p is
+  one-sided, from permuting category labels (≥ 10,000 draws, add-one), with BY across the scheme's
+  graded axes.
+- Categories are plurality answers at question reach ≥ 21 votes, with ties dropped.
+- **ORDERED:**
+  1. BY-significant;
+  2. every adjacent-category AUC > 0.5, meaning the middles land between on an axis that never saw
+     them;
+  3. τ-b above every one of K = 3 untrained draws (D23's reference).
+
+  The other states are **PARTLY ORDERED** (1 and 3 hold, but an adjacent pair is inverted),
+  **NOT ABOVE UNTRAINED** and **NOT ORDERED**.
+
+**Why this test and not the two candidates the spec named.**
+- *AUC on a binarised fraction* throws away the ordering it is meant to test. It is reported
+  alongside, as Scheme 1's per-answer AUC.
+- *Spearman of projection against a continuous score* (Masters et al. 2019's w_avg, B_avg)
+  depends on coefficients the paper itself calls arbitrary. It is reported alongside as B, never
+  the verdict.
+- The spec also feared that the graded test might collapse into the uncertainty geometry. It does
+  not:
+  - A asks whether the **groups** are ordered.
+  - The uncertainty geometry asks whether galaxies **within** one answer's ambiguous middle are
+    ranked by their vote fraction.
+
+  One can hold without the other.
+
+**First result (Brief U3, M, full population).**
+
+| axis | verdict | τ-b | untrained |
+|---|---|---|---|
+| winding | ORDERED | 0.29 | ≤ 0.19 |
+| bulge prominence | PARTLY ORDERED | 0.32 | ≤ 0.16 |
+| roundness | ORDERED | 0.40 | ≤ 0.21 |
+| arm count | ORDERED | 0.21 | ≤ 0.13 |
+
+Bulge prominence is only partly ordered because obvious → dominant is inverted, on 38 test
+galaxies. Medium winding, AUC 0.52 as a Scheme 1 answer, lands between tight and loose.
+Details in `artifacts/u_findings.md` §U3.
+
+**Wiring (second-consumer rule).** `schemes.py` still raises `GradedExistenceTestUndecided`. The
+test lives in `artifacts/u3_graded.py` until a Scheme 2 run through the package is its second
+consumer. At that point the exception is replaced by this test, and the docstring's "open design
+question" paragraph is rewritten to cite D26.
+
+**Deferred.**
+- **D**, votes against measured winding through the Hart pitch-angle join, goes to the label-free
+  note.
+- The untrained-MLP bar goes to the rental runs (TODO).

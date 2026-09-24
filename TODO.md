@@ -426,6 +426,14 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   unadjudicated*.
   **Deferred to the rental runs (Brief U):** no current rung can reach R3 (every failing answer has
   all nuisances competitive), and the bar is reusable across encoders that share the architecture.
+- [ ] (P2) **Wire D26's graded existence test into the package** when a Scheme 2 run through
+  `probing/` is its second consumer: replace `schemes.GradedExistenceTestUndecided` with the
+  endpoint-fit JT test (`artifacts/u3_graded.py`), and rewrite the schemes docstring's open-question
+  paragraph to cite D26.
+- [ ] (P2) **U2's off-axis verdict has no state for a sign reversal** (Brief U2): merger and bulge
+  "obvious" read UNRESOLVED with raw +, partial − (both significant), and loose's significant
+  negative partial goes unscored because the rule tests the positive direction only. Add a
+  REVERSES state before the uncertainty geometry is re-run on another encoder.
 
 ## Epic G — Baselines as controls `[baseline]` — *same probe ladder, all SDSS-trained*
 - [ ] (P1) `[baseline]` **MAE** — reproduce the Wu & Walmsley recipe on our SDSS corpus. *(D12)*
