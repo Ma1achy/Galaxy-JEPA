@@ -434,10 +434,19 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   "obvious" read UNRESOLVED with raw +, partial − (both significant), and loose's significant
   negative partial goes unscored because the rule tests the positive direction only. Add a
   REVERSES state before the uncertainty geometry is re-run on another encoder.
-- [ ] (P1) **Pitch-angle run (Brief V2b) is blocked on data** (W3: Yu & Ho 2020 also releases only a 10-row excerpt; data requests to both groups are drafted in `artifacts/w_findings.md` §W3). Hart et al. (2017) publish no
-  machine-readable table. The design is hashed in `artifacts/v_findings.md` §V2: machine ψ_galaxy
-  only, never ψ_GZ2. Options: request the table from the authors, or substitute Yu & Ho (2020)
-  2DFT pitch angles under a new pre-registration.
+- [x] (P1) **Pitch angle: unblocked and run (Brief Y, revised).** Public machine-measured tables
+  replaced the data requests: the Hayes SpArcFiRe table (37,381 matched), PAnDa's Hart machine
+  (2,941) and Yu & Ho 2020 (1,194) rows. Hayes is DIVERGENT with Hart (ρ 0.38) and BROKEN with
+  Yu & Ho (−0.03). Winding's ordering tracks SpArcFiRe pitch beyond visibility, but no 2DFFT
+  check confirms it. The encoder: VOTES BEYOND MEASUREMENT. `artifacts/y_findings.md`.
+- [ ] (P1) **Re-run V2's Experiment D (B/T 2×2) with Y3's corrected design.** Y3's planted check
+  showed V2's form (each partial controls the other *noisy target*) reads BOTH on two noisy copies
+  of one quantity (0.63/0.65). V2's B/T "BOTH" (A_m 0.36, A_v 0.47) is unverified until re-run
+  with cross-decoder controls and the matched shared null (`y3_science.shared_null`,
+  `state_2x2`). A claim in `framing_a_claims.md` (A18) rests on it.
+- [ ] (P3) **PyArcFiRe port — parked (Brief Y revised).** Only needed for galaxies outside the Hayes
+  selection, or to measure on our own stamps. Licence: BSD-3-Clause (PyArcFiRe 0.1.1). Also parked:
+  per-band centroid offsets against PC1/PC2, and test-time dihedral symmetrisation.
 - [ ] (P1) **V3's PC1 and PC2 are UNEXPLAINED** (Brief W2). They hold 37% of the variance, and
   every tested candidate is negligible: padding, sky, noise, crowding, g − r, u − r and four stamp
   axes (joint out-of-sample R² ≤ 0.02). They are learned (≤ 0.10 against the untrained top 10),
