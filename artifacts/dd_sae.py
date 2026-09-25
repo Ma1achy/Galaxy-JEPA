@@ -38,7 +38,7 @@ SAE_DIR = D.LOCAL / "sae"
 LAYERS = (11, 6)
 MULTS = (8, 16)
 K, K_AUX, AUX_COEF = 32, 256, 1 / 32
-BATCH, LR, EPOCHS = 4096, 2e-4, 4
+BATCH, LR, EPOCHS = 4096, 2e-4, 8
 DEAD_TOKENS = 1_000_000
 WIDTH = 384
 SEED = 20260925
@@ -133,8 +133,14 @@ class TokenStore:
             m.flush()
 
 
+def lr_for(mult: int) -> float:
+    """Gao et al.'s dictionary-size scaling of the Adam step: 2e-4 · sqrt(2^14 / n_latents)."""
+    return 2e-4 * float(np.sqrt(2**14 / (WIDTH * mult)))
+
+
 def train(enc: str, layer: int, mult: int, tokens: np.ndarray | None = None, epochs: int = EPOCHS,
-          lr: float = LR) -> TopKSAE:
+          lr: float | None = None) -> TopKSAE:
+    lr = lr_for(mult) if lr is None else lr
     data = tokens if tokens is not None else np.load(TokenStore.path(enc, layer, "sae"), mmap_mode="r")
     n_tok = len(data)
     rng = np.random.default_rng(SEED)

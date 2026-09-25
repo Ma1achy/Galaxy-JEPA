@@ -313,3 +313,296 @@ Scored against the hash above (`runs/dd/part1/score.json`, `plants.json`). Compu
 - `dd_circuits.py`: hooks and latent ablation; `test_dd_circuits.py` gives 3 passed.
 - Token disk: 20,000 × 256 × 384 × 2 B = **3.93 GB per layer per encoder** (sae), 0.98 GB (sae_eval).
   Blocks 11 + 6, for M and untrained: **19.7 GB** on the X10.
+
+## Stop 2 decisions (user, 2026-09-25)
+
+- **V1:** recorded as UNREACHABLE, with the randomisation curve as the headline (the maps mostly
+  reflect blocks 1–4). Exploratory additions (a)–(c) below.
+- **V2:** stays FAIL; the plant modelled the wrong mechanism. **For the aligned-encoder rerun,
+  pre-register a localised plant:** misalign g by 1 px only within one source's footprint (or one
+  quadrant). Pass if the band-offset map's mass inside the planted region rises against the
+  unplanted stamp.
+- **V3:** adopt the same-radius comparison as a post-hoc amendment (next section).
+- **V4:** noted. The band-offset map's sign flip under rot180 and flip is a consistency check.
+- **Part 2:** noted. The offset is a whole-stamp colour cast in every token.
+- **Part 3:** go, with a disk-first check and an amended S1 (see the Part 3 pre-registration).
+
+### V1 exploratory (a)–(c) (`artifacts/dd_part1b.py`, `runs/dd/part1/v1x.json`)
+
+**(a) Direct / indirect split.**
+- Dropping token j moves the mean-pooled embedding by a direct term, (h_j − p)/255 (j's own
+  absence, the other tokens held fixed), plus an indirect term (the other 255 tokens change,
+  because attention no longer sees j).
+- The direct term's share of map variance, median (IQR):
+
+  | map | direct share | ρ(direct, occlusion) |
+  |---|---|---|
+  | bar | 0.15 (0.05–0.27) | 0.57 |
+  | spiral | 0.24 (0.17–0.32) | 0.67 |
+  | edge-on | 0.07 (0.01–0.18) | 0.65 |
+  | band offset | −0.02 (≈ 0) | 0.11 |
+
+- **The maps are mostly indirect.** The cheap per-token read-out map (probe · token, rank-identical
+  to the direct term) is therefore *not* promoted to primary. It is reported beside the occlusion
+  map.
+- The band-offset map is wholly indirect: the offset code is not in any one token's own projection
+  but in how the tokens respond to each other. That fits Part 2's finding: the cast is in every
+  token.
+
+**(b) Concept specificity** (median |ρ| per galaxy, all 2,000):
+
+| pair | occlusion | direct |
+|---|---|---|
+| bar vs spiral | 0.34 | 0.19 |
+| bar vs edge-on | 0.13 | 0.13 |
+| spiral vs edge-on | 0.07 | 0.12 |
+
+- Self-agreement of each concept across removal modes, on the 400 secondary: bar 0.68 / 0.60
+  (drop 1 vs 2×2 / vs noise fill); spiral 0.77 / 0.56; edge-on 0.71 / 0.57.
+- **The concept maps agree with themselves far more than with each other, so they are not generic
+  salience.** Bar and spiral share the most, at 0.34.
+
+**(c) Brightness baseline** (median |ρ| with the r flux per patch):
+- Concept occlusion maps: 0.09 (bar), 0.09 (spiral), 0.10 (edge-on).
+- Band offset: 0.13. Concept-free: 0.23.
+- Direct maps: 0.39, 0.18, 0.22; band offset 0.41.
+
+## V3 amendment — ring-stratified AUC — post hoc (D27)
+
+*Made on 2026-09-25, after the pre-registered V3 plants failed and before any M V3 map was scored.
+It applies to this run and is labelled post hoc. The withheld V3 above was never scored.*
+
+**Reason.**
+- Inside the GZ3D footprint the positive patches are the central ones. The centre prior alone scored
+  median per-galaxy AUC 0.978 (bar) and 0.956 (arms).
+- A noisy perfect mask (label + N(0, 0.5)) scored 0.954 / 0.942 and could not beat it. The
+  comparison was saturated.
+
+**Metric.**
+- Per galaxy, a Mann–Whitney AUC over (positive, negative) patch pairs *in the same 16-px annulus*
+  of patch-centre radius, pooled over annuli (each annulus weighted by its pair count). The centre
+  prior is 0.5 by construction.
+- A galaxy is usable if at least one annulus holds both classes. Median over galaxies.
+- Lists, labels and footprint are unchanged (hashed above). Code: `dd_part1b.v3b_stat`.
+
+**Criterion, per structure (bar, spiral separately).**
+- M's primary map (token drop, single patch) must beat **both** the untrained encoder's map (its own
+  probe) **and** the brightness map (r flux per patch).
+- For each comparator: per-galaxy paired ΔAUC = M − comparator, with a 10,000-draw bootstrap 95% CI
+  of its median over galaxies.
+- States, in precedence:
+  - **INSUFFICIENT**: < 30 usable galaxies;
+  - **REVERSED**: either CI wholly below 0;
+  - **FAIL**: either CI reaches 0;
+  - **WEAK**: both CIs above 0, but either median Δ < 0.02;
+  - **PASS**.
+
+**Plants, run before this hash** (`runs/dd/part1/v3b_plants.json`; D28):
+- oracle (label + N(0, 0.5)) must PASS;
+- the brightness map + N(0, 0.1 SD) in M's place must not PASS;
+- no comparator may saturate (median ring AUC < 0.95).
+
+| list | oracle | brightness as M | untrained ring AUC | brightness ring AUC |
+|---|---|---|---|---|
+| spiral ≥ 50% | PASS | FAIL | 0.75 | 0.81 |
+| spiral ≥ 25% | PASS | FAIL | 0.75 | 0.86 |
+| bar ≥ 50% | **FAIL** | FAIL | 0.67 | **1.00** |
+| bar ≥ 25% | **FAIL** | FAIL | 0.67 | **1.00** |
+
+- **Spiral is reachable and is scored.**
+- **Bar is UNREACHABLE under this metric, and withheld.** Within an annulus the bar's patches are
+  the brightest, so the brightness map already ranks them perfectly (median 1.00) and no map can
+  beat it. Its M statistic is reported descriptively, never as a verdict.
+- A bar test needs a brightness-matched comparison (pairs matched on patch flux as well as radius).
+  That is left for the aligned-encoder pre-registration.
+
+**Reported beside the spiral verdict:**
+- the 2×2, noise-fill and direct-term maps;
+- the ≥ 2 and ≥ 5 vote sensitivities;
+- the ≥ 25% coverage list;
+- bar, all of the above, descriptively.
+
+*Amendment hashed 2026-09-25, before any M V3 statistic: SHA-1 over this section from its heading through the line above the blank line before this footer, plus a trailing newline: `97e3ed526d412bb61dfeffb26d036b841249030b`.*
+
+### V3 amendment result (`runs/dd/part1/v3b_score.json`) — spiral **REVERSED**; bar withheld
+
+| map / list | structure | state | ring AUC: M / untrained / brightness | ΔAUC vs untrained (CI) | ΔAUC vs brightness (CI) |
+|---|---|---|---|---|---|
+| **drop 1 patch, ≥3 votes (primary)** | **spiral** | **REVERSED** | 0.665 / 0.748 / 0.810 | −0.045 (−0.086, 0.000) | −0.139 (−0.182, −0.097) |
+| drop 2×2 | spiral | REVERSED | 0.667 / 0.748 / 0.810 | −0.027 (−0.063, 0.000) | −0.109 (−0.145, −0.073) |
+| noise fill | spiral | REVERSED | 0.575 / 0.748 / 0.810 | −0.116 (−0.151, −0.071) | −0.200 (−0.241, −0.163) |
+| direct term | spiral | REVERSED | 0.600 / 0.748 / 0.810 | −0.106 (−0.157, −0.077) | −0.188 (−0.226, −0.143) |
+| drop, ≥2 votes | spiral | REVERSED | 0.711 / 0.789 / 0.882 | −0.034 (−0.061, 0.000) | −0.133 (−0.154, −0.104) |
+| drop, ≥5 votes | spiral | REVERSED | 0.667 / 0.727 / 0.765 | −0.100 (−0.192, 0.000) | −0.143 (−0.231, −0.079) |
+| drop, ≥25% coverage | spiral | REVERSED | 0.720 / 0.748 / 0.857 | 0.000 (−0.017, 0.000) | −0.105 (−0.130, −0.083) |
+| drop (descriptive) | bar | — | 0.500 / 0.667 / 1.000 | — | — |
+
+- **Tool reading, on M:** at 16-px patches, the spiral occlusion maps rank volunteer-marked arm
+  patches *below* the patch brightness within an annulus, and not above the untrained encoder's
+  maps. Every mode, threshold and coverage rule agrees.
+- This fits (a) and the cascade. The maps are mostly indirect and mostly shaped by early blocks. What
+  they rank is not where the arms are, but which removals most perturb the other tokens.
+- On the aligned encoder, occlusion maps are not to be read as arm localisers without a new V3 that
+  passes.
+- Medians are quantised because many galaxies have few same-annulus pairs, hence CI endpoints at
+  exactly 0.000.
+
+## Part 3 pre-registration — sparse autoencoders (S1–S3)
+
+Code: `artifacts/dd_sae.py` (tokens, training, evaluation) and `artifacts/dd_sae_score.py` (S1–S3,
+plants).
+
+**Disk, first** (user condition).
+- X10 free: 2,329 GiB.
+- The rest of the re-pull needs about 1,080 GiB: probe_v2's remaining ~109k stamps (87 GB),
+  pretrain_v2 (655 GB), and the fp16 cache for both (416 GB).
+- The extraction adds 19.7 GB.
+- Headroom after both: about 1,230 GiB, well above the 50 GB floor.
+- The internal SSD has 13 GB free, so the extraction goes to the X10 (`runs/dd/sae_tokens`).
+
+**Data and training (fixed now).**
+- Tokens: blocks 11 (the probe layer) and 6, from M and the untrained encoder (seed 0), fp16.
+  Train on sae (20,000 probe-train galaxies, 5.12 M tokens); evaluate on sae_eval (5,000 test).
+- TopK SAE:
+  - k = 32; dictionary 8× (3,072) and 16× (6,144);
+  - unit-norm decoder (renormalised each step, parallel gradient removed);
+  - pre-encoder bias initialised at the token mean; one input scale so that E‖x‖² = 384;
+  - AuxK: k_aux = 256, coefficient 1/32, dead after 1 M tokens unfired.
+- Optimiser: Adam (0.9, 0.999, ε 6.25e−10), batch 4,096 tokens, 8 epochs (~10,000 steps). The step
+  follows Gao et al.'s size scaling: 2e−4 · √(2¹⁴ / n) = 4.6e−4 (8×), 3.3e−4 (16×).
+- Batches are shuffled within 65,536-token contiguous blocks, drawn in random order.
+- Eight SAEs: {M, untrained} × {b11, b6} × {8×, 16×}.
+- Reported: loss curves, variance explained, and % dead on sae_eval.
+
+**S3 — faithfulness.**
+- Replace block-L tokens with their reconstructions, run the rest of the blocks to 11, mean-pool,
+  and apply the 37 fixed probes (O1 bank refits). AUC on sae_eval galaxies (each answer's eligible
+  population), original against reconstructed.
+- States, in precedence:
+  - **FAIL**: mean drop > 0.02;
+  - **UNEVEN**: mean drop ≤ 0.02 but some answer drops > 0.05;
+  - **PASS**.
+- **Chosen dictionary** (used for S1, S2 and the cards): 8× at block 11, unless 8× FAILs and 16×
+  doesn't. The S3 verdict is the chosen size's. Everything else is reported.
+
+**S1 — planted positive, amended by the user in light of Part 2.**
+- At least one latent (block 11, chosen size) has galaxy-level |Spearman| ≥ 0.5 with a per-band
+  offset: v1's recorded g−r and i−r in-stamp offsets, x and y, from probe_v2's cut_log. Galaxy-level
+  activation is the mean over the galaxy's 256 tokens.
+- And its **nearest match** in the untrained-encoder SAE (same layer and size) correlates with the
+  same offset at |ρ| < 0.2.
+- **"Nearest match" is by activation, not decoder.** The two SAEs' decoders live in different
+  networks' embedding spaces, where a cosine means nothing. So the match is the untrained latent with
+  the highest |Pearson| of token-level activations with the M latent, over the same sae_eval tokens.
+  This is a clarification of the user's wording, flagged to them.
+- Location (centre vs edge, bright edge vs other) is reported, not required.
+- States, in precedence:
+  - **INSUFFICIENT**: fewer than 500 sae_eval galaxies with recorded offsets (2,658 now);
+  - **FAIL**: no latent at |ρ| ≥ 0.5;
+  - **NOT-SPECIFIC**: every such latent's match reaches |ρ| ≥ 0.2;
+  - **PASS**.
+- Also reported: the untrained SAE's best |ρ| over *all* its latents per offset, and block 6.
+
+**S2 — injected positive (supporting, not decisive).**
+- Synthetic satellite trails in 2% of sae_eval (100 galaxies, seeded):
+  - a straight line in all three bands, Gaussian FWHM 3.5 px;
+  - peak 3–10× each band's own sky σ (normalised units);
+  - random angle, passing within 64 px of the centre.
+- Trail patches: ≥ 16 pixels within 2 px of the centre line. The other 98% are the clean tokens.
+- Per latent, precision = fires on trail patches / all fires; recall = fires on trail patches / trail
+  patches.
+- States: **DETECTED** if any latent reaches precision ≥ 0.8 with recall ≥ 0.2 (the floor, so that a
+  latent firing once cannot count); else **NOT DETECTED**.
+
+**Plants, run before this hash** (`runs/dd/sae/plants.json`). Every state is reached through its own
+scoring function:
+- S1 planted latent → PASS;
+- null → FAIL;
+- untrained match also tracking → NOT-SPECIFIC;
+- n = 300 → INSUFFICIENT;
+- S2 oracle latent → DETECTED; random → NOT DETECTED;
+- S3 identity → PASS; lossy → FAIL; one answer collapsing → UNEVEN.
+- A real stamp's injected trail covers 16 patches.
+
+**Feature cards (Stop 3; chosen size, block 11, M; exploratory).** Per latent:
+- top-activating patches with 3×3-patch context crops;
+- activation density;
+- spatial histogram (radius of the firing patch);
+- galaxy-level Spearman with the 37 vote fractions;
+- galaxy-level Spearman with the nuisance panel: per-band offsets, psfWidth_r, modelMag_r, specz,
+  camcol, frame-edge distance, valid fraction;
+- **brightness:** galaxy-level with total r flux, and token-level with patch r flux.
+- **Nuisance flag:** the strongest |ρ| is a nuisance variable or brightness.
+- "Most interpretable": among unflagged latents with density in [1e−4, 0.1], ranked by their
+  strongest |ρ| with a vote fraction; the top 20.
+- The 20 top nuisance-flagged latents are ranked by that nuisance |ρ|.
+
+*Hashed 2026-09-25, before any token was extracted: SHA-1 over this section from its heading through the line above the blank line before this footer, plus a trailing newline: `e25e1e27af4114de4c639e9c3022c69ce4f4a3b3`.*
+
+## Stop 3 — Part 3 results (2026-09-25; TOOL VALIDATION, no morphology claims)
+
+Scored against the Part 3 hash (`runs/dd/sae/score.json`, `cards.json`).
+- Extraction: 19.7 GB, 5 min.
+- Training: eight SAEs, 8 epochs each, 8–19 min apiece.
+- Final training NMSE: 0.037 for every M SAE, 0.128–0.137 for the untrained.
+
+**S3 — FAIL (chosen = 8×, block 11: both sizes fail, so the rule keeps 8×).**
+
+| SAE | VE (eval) | dead on eval | mean AUC drop | max drop | state |
+|---|---|---|---|---|---|
+| **M b11 8×** | 0.965 | 37% | **0.029** | 0.093 | **FAIL** |
+| M b11 16× | 0.966 | 30% | 0.031 | 0.097 | FAIL |
+| M b6 8× | 0.966 | 22% | 0.016 | 0.052 | UNEVEN |
+| M b6 16× | 0.967 | 16% | 0.015 | 0.054 | UNEVEN |
+| untrained b11 8× / 16× | 0.881 / 0.884 | 0% | 0.064 / 0.061 | 0.139 / 0.137 | FAIL |
+| untrained b6 8× / 16× | 0.882 / 0.885 | 0% | 0.023 / 0.027 | 0.068 / 0.073 | FAIL |
+
+- At 96.5% of variance, the missing 3.5% still carries 0.03 AUC of the probes' signal at block 11.
+  Per the brief, the block-11 SAE is too lossy to interpret. Block 6 comes closer (UNEVEN).
+- **Dead latents on held-out data (37%) far exceed dead-in-training (6.6% at the end).** Many
+  latents fire on training galaxies but never on the test set. That is consistent with latents
+  keyed to individual galaxies' whole-stamp cast, and a reason to prefer fewer, denser latents, or
+  to train on the aligned corpus.
+
+**S1 — PASS (block 11; block 6 also PASS).**
+- 40 latents reach |ρ| ≥ 0.5 with a per-band offset (n = 3,116 galaxies with recorded offsets).
+  Latent 328 has ρ +0.91 with i−r x; latent 1472 has −0.88 with i−r y.
+- Their activation matches in the untrained SAE correlate at |ρ| ≤ 0.01.
+- Reported: the untrained SAE's best latent over *all* of them reaches only 0.21 (g−r x), 0.20,
+  0.23 (i−r x), 0.22 at block 11, and 0.19–0.29 at block 6.
+- Location (reported): the offset latents are **dense**, firing on 23–48% of all tokens, mostly bare
+  sky (`dd_sae_cards_nuisance_1.png`). That is Part 2's whole-stamp cast, now as SAE features. i−r
+  dominates g−r.
+- One caveat: several M candidates share one untrained match (latent 755), a generic high-activity
+  latent. Activation matching is weak across networks with nothing in common.
+
+**S2 — NOT DETECTED (supporting).**
+- The best latent reaches precision 0.09 at recall 0.55 on 1,965 injected trail patches, at both
+  layers.
+- By contrast, **latent 2336 (i−r x, ρ 0.81) fires on real red, i-only streaks in the data**: natural
+  single-band trails, coded as a band-offset feature.
+
+**Feature cards** (`out/dd/dd_sae_cards_{interpretable,nuisance}_{1,2}.png`).
+- 886 of 3,072 latents are live in the density window. **94% of them are nuisance-flagged.**
+- Top nuisance latents: the band offsets (dense sky latents); padding (valid fraction ρ −0.80 to
+  −0.83, e.g. 2743, 1806); brightness (1741, 2968, 2104, ρ ±0.73–0.78).
+- **Latent 2452 fires on frame-edge stripes where v1's three bands are padded on different rows**, a
+  v1 per-band padding artefact the aligned cutter's shared pad removes.
+- The top "interpretable" latents are spatial motifs with |ρ| 0.30–0.52 against features-or-disk,
+  spiral, bulge and arm number, each with specz close behind (0.3–0.4):
+  - the sky just beside a galaxy's edge (983, 2933);
+  - edge-on disc cores (1341);
+  - disc and spiral texture (207, 2797);
+  - stamp corners (825: positional, which the panel doesn't carry).
+- The radial histograms are counts, not normalised by ring area, so they lean to the edge by
+  construction.
+
+**Tool reading for the aligned encoder.**
+- The SAE and card pipeline works end to end. The S1 plant fires, with the same offset seen by
+  Part 2's PCA and V4's sign flip.
+- On M, the representation's sparse features are dominated by processing variables (offset,
+  padding, brightness), as AA3a predicted.
+- The rerun on the aligned encoder should:
+  - use block 6 or a larger k if block 11 stays lossy;
+  - add stamp position and ring area to the panel;
+  - pre-register S3 against the chosen layer.
