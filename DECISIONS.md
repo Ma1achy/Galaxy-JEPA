@@ -138,9 +138,13 @@ Both corpora are pulled and verified; these are measured, not planned, numbers.
 | footprint | 171 GB | 612 GB |
 | median angular size | 2.05 ViT patches | 1.94 ViT patches |
 
-The pretrain pull targeted 826,984 and landed **826,968** — sixteen galaxies lost to chunks that
-died at the SciServer end and whose retries also failed. Recorded rather than papered over; at
-this scale it changes nothing, and `data_snapshot` hashes what exists, not what was intended.
+The pretrain pull targeted 826,984 and landed **826,968**. *Corrected 2026-09-25:* the sixteen were
+not lost to dead chunks. Every chunk succeeded, and sixteen individual `cut_one` calls failed inside
+nine of them (chunks 152, 334 ×2, 336, 339 ×2, 624, 736, 766, 790, 805 ×6). v1's cutter swallowed
+each exception silently, so no reason survives. Their IDs are targets − `metadata.csv`
+(`.sciserver_work/pretrain_v1_failed.csv`). The aligned re-pull retries them and logs why
+(`artifacts/repull_findings.md`). Recorded rather than papered over; at this scale it changes
+nothing, and `data_snapshot` hashes what exists, not what was intended.
 
 **The reasoning, recorded so it is never relitigated:**
 
@@ -1587,3 +1591,23 @@ rule cannot catch:
 
 A test that fails 1 or 3 is redesigned before it runs, or declared VOID in advance, never run and
 read.
+
+## D29 — A corpus's pixels are part of its identity once a cutter is named — *decided (aligned re-pull; amends D15's "IDs carry identity")*
+
+**Fork.** `manifest_hash` covers the object IDs and the pull query. The aligned re-pull (v2)
+re-cuts the same IDs with a different cutter, so without a change its corpora would carry M's
+`data_snapshot`: different pixels, same identity. The split plan was also hashed with
+`query=""` (`harness.py`), so even a distinct corpus manifest never reached a run's stamp.
+
+**Decision.**
+- A v2 corpus's `manifest.json` query ends `|cutter=v2|sha=<sha256 of the cutter, 16 hex>`
+  (written by `artifacts/sciserver_pull.py --cutter v2`).
+- `data.manifest.corpus_identity(dir)` returns that manifest's snapshot when its query names a
+  cutter, else `""`.
+- The harness folds both corpora's identities into `write_split_plan(query=…)`. Probing folds the
+  probe corpus's identity into its own `data_snapshot` (`run_probing(corpus_identity=…)`).
+- **A corpus with no cutter tag contributes `""`**, so every snapshot recorded before the re-pull,
+  M's included, is byte-identical. Split *assignment* is untouched (it hashes objID and seed), so
+  a galaxy held out in M is held out in any v2 run.
+- Test: `tests/test_provenance_identity.py::TestCorpusPixelIdentity` (same IDs, different cutter
+  → different identity; untagged → unchanged).

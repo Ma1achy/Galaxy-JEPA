@@ -27,9 +27,11 @@ from galaxy_jepa.data.sources import DirectorySource, load_fits_stamp
 from galaxy_jepa.data.transforms import AsinhStretch
 from galaxy_jepa.data.validity import validity_mask
 
-CORPUS, Q = "pretrain", 4.0
+# E5_CORPUS=pretrain_v2 freezes the aligned re-pull by the identical procedure (plan A8)
+CORPUS, Q = __import__("os").environ.get("E5_CORPUS", "pretrain"), 4.0
 OUT = ("/private/tmp/claude-501/-Users-malachy-Documents-Galaxy-JEPA/"
-       "519f0c5e-3b4c-4159-bf72-4f179da196ae/scratchpad/corpus_moments.npz")
+       "519f0c5e-3b4c-4159-bf72-4f179da196ae/scratchpad/"
+       + ("corpus_moments.npz" if CORPUS == "pretrain" else f"corpus_moments_{CORPUS}.npz"))
 CHUNK = 500
 
 

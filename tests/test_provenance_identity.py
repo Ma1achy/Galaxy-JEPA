@@ -158,3 +158,38 @@ class TestTheStampNamesWhatARunForfeited:
 
     def test_a_real_run_is_the_default(self):
         assert _cfg().smoke is False
+
+
+class TestCorpusPixelIdentity:
+    """The aligned re-pull re-cuts the same IDs: different pixels must not share an identity,
+    and every identity recorded before it (M's) must not move."""
+
+    @staticmethod
+    def _corpus(tmp_path, name: str, query: str):
+        import json
+
+        from galaxy_jepa.data.manifest import manifest_hash
+
+        d = tmp_path / name
+        d.mkdir()
+        (d / "manifest.json").write_text(
+            json.dumps({"data_snapshot": manifest_hash([1, 2, 3], query), "n": 3, "query": query})
+        )
+        return d
+
+    def test_a_corpus_without_a_cutter_tag_adds_nothing(self, tmp_path):
+        from galaxy_jepa.data.manifest import corpora_query, corpus_identity
+
+        v1 = self._corpus(tmp_path, "v1", "SELECT TOP 3 …")
+        assert corpus_identity(v1) == ""
+        assert corpus_identity(tmp_path / "absent") == ""
+        assert corpora_query(v1, v1) == ""  # write_split_plan(query="") — M's snapshot unchanged
+
+    def test_same_ids_different_cutter_hash_apart(self, tmp_path):
+        from galaxy_jepa.data.manifest import corpora_query, corpus_identity
+
+        v1 = self._corpus(tmp_path, "v1", "SELECT TOP 3 …")
+        v2 = self._corpus(tmp_path, "v2", "SELECT TOP 3 …|cutter=v2|sha=aaaa")
+        v2b = self._corpus(tmp_path, "v2b", "SELECT TOP 3 …|cutter=v2|sha=bbbb")
+        assert corpus_identity(v2) and corpus_identity(v2) != corpus_identity(v2b)
+        assert corpora_query(v1, v1) != corpora_query(v2, v2) != corpora_query(v2b, v2b)

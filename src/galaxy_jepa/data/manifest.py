@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable
+from pathlib import Path
 
 _PREFIX = "manifest:"
 
@@ -29,3 +30,34 @@ def manifest_hash(object_ids: Iterable[int], query: str) -> str:
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return _PREFIX + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def corpus_identity(corpus_dir: str | Path) -> str:
+    """The corpus's own snapshot when its pixels are part of its identity, else ``""``.
+
+    ``manifest_hash`` covers IDs + query, so re-cutting the same IDs with a different cutter
+    would reuse the old corpus's identity: different pixels, same ``data_snapshot``. A corpus
+    whose manifest query names its cutter (``|cutter=``, written by the aligned re-pull) carries
+    that into every run built on it. A corpus without one returns ``""``, so every identity
+    recorded before the re-pull (M's included) is unchanged.
+    """
+    manifest = Path(corpus_dir) / "manifest.json"
+    if not manifest.exists():
+        return ""
+    record = json.loads(manifest.read_text())
+    if "|cutter=" not in str(record.get("query", "")):
+        return ""
+    return str(record["data_snapshot"])
+
+
+def corpora_query(pretrain_dir: str | Path, probe_dir: str | Path) -> str:
+    """The split plan's query: each corpus's pixel identity, where it has one."""
+    parts = [
+        f"{name}={ident}"
+        for name, ident in (
+            ("pretrain", corpus_identity(pretrain_dir)),
+            ("probe", corpus_identity(probe_dir)),
+        )
+        if ident
+    ]
+    return "|".join(parts)

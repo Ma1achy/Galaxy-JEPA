@@ -49,7 +49,7 @@ from galaxy_jepa.data.cache import (
     write_scalars,
 )
 from galaxy_jepa.data.dataset import ResumableShuffle, StampDataset, rows_by_id
-from galaxy_jepa.data.manifest import manifest_hash
+from galaxy_jepa.data.manifest import corpora_query, corpus_identity, manifest_hash
 from galaxy_jepa.data.metadata import FEATURED_FRACTION_COL
 from galaxy_jepa.data.orchestrate import (
     assign_three_way,
@@ -475,6 +475,7 @@ def _prepare(
         pretrain=pre_split,
         seed=seed,
         ratios=ratios,
+        query=corpora_query(pretrain_dir, probe_dir),  # "" for pre-re-pull corpora (unchanged)
     )
 
     # 2. one frozen pipeline, baked into a shared hash-keyed cache (incremental top-up)
@@ -876,6 +877,7 @@ def probe_frozen_checkpoint(
         config=cfg,
         out_dir=out,
         emit_figures=emit_figures,
+        corpus_identity=corpus_identity(config.paths.probe_dir),
     )
 
 

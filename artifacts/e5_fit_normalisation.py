@@ -36,7 +36,7 @@ from galaxy_jepa.data.sources import DirectorySource
 from galaxy_jepa.data.transforms import AsinhStretch, NormalisationFreeze
 from galaxy_jepa.data.validity import MIN_REGION_PX
 
-CORPUS, Q, SEED = "pretrain", 4.0, 0
+CORPUS, Q, SEED = os.environ.get("E5_CORPUS", "pretrain"), 4.0, 0  # plan A8: pretrain_v2
 DETECTOR = f"like-4-neighbour bit-identity, all channels, region >= {MIN_REGION_PX}px"
 # Freeze only if two disjoint halves of the corpus agree to better than this, relative, on every
 # channel of both statistics.
@@ -63,7 +63,8 @@ MAX_BREACH = 0.05
 TRIM_Q = 0.999
 TRIM_RANK = "total valid-pixel sum-of-squares across all channels, post-asinh"
 MOMENTS = ("/private/tmp/claude-501/-Users-malachy-Documents-Galaxy-JEPA/"
-           "519f0c5e-3b4c-4159-bf72-4f179da196ae/scratchpad/corpus_moments.npz")
+           "519f0c5e-3b4c-4159-bf72-4f179da196ae/scratchpad/"
+           + ("corpus_moments.npz" if CORPUS == "pretrain" else f"corpus_moments_{CORPUS}.npz"))
 
 
 def trim_keep(z) -> tuple[np.ndarray, float]:

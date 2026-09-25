@@ -87,6 +87,7 @@ def run_probing(
     out_dir: str | Path,
     sky_label_col: str = "snr_r",
     emit_figures: bool = True,
+    corpus_identity: str = "",
 ) -> ProbingReport:
     """Run the full probing battery on a frozen encoder and stamp the artefacts.
 
@@ -174,7 +175,13 @@ def run_probing(
         uncertainty=uncertainty,
         figures=figures,
         out_dir=str(out),
-        data_snapshot=manifest_hash(ids, f"probe|seed={config.seed}|ratios={config.ratios}"),
+        # the corpus's pixel identity, when it has one (data.manifest.corpus_identity; "" keeps
+        # every pre-re-pull snapshot unchanged)
+        data_snapshot=manifest_hash(
+            ids,
+            f"probe|seed={config.seed}|ratios={config.ratios}"
+            + (f"|corpus={corpus_identity}" if corpus_identity else ""),
+        ),
         scheme=scheme.name if scheme is not None else None,
         family_size=family_size,
         conditional=conditional,

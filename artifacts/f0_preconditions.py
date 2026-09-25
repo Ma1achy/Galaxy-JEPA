@@ -21,8 +21,9 @@ from galaxy_jepa.data.transforms import Normalise
 from galaxy_jepa.harness import HarnessConfig, _build_pipeline
 
 REPO = Path(__file__).resolve().parent.parent
-CACHE_BASE = Path("/Volumes/X10 Pro/galaxy-jepa/runs/full/cache")
-EXPECTED_NORM_PREFIX = "75100066b3e0"
+# F0_CACHE_BASE / F0_NORM_PREFIX point this at a v2 run's cache and freeze (plan A8)
+CACHE_BASE = Path(__import__("os").environ.get("F0_CACHE_BASE", "/Volumes/X10 Pro/galaxy-jepa/runs/full/cache"))
+EXPECTED_NORM_PREFIX = __import__("os").environ.get("F0_NORM_PREFIX", "75100066b3e0")
 
 
 def _load(name: str) -> dict[str, Any]:

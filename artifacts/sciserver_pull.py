@@ -60,6 +60,8 @@ from galaxy_jepa.data.sciserver import (  # noqa: E402
 )
 
 CUTTER = Path(__file__).with_name("sciserver_cut.py")
+#: v2 (aligned) run options, set from the CLI. v1 behaviour is unchanged when these are unset.
+V2: dict = {"on": False, "variants": "v2", "log_only": False, "metadata_from": None, "base_query": ""}
 WORK = Path(".sciserver_work")
 
 # A *stalled* transfer is the failure mode the retry loop in `_fetch_one` cannot see. It
@@ -327,11 +329,10 @@ def _submit_chunk(Jobs, Files, *, corpus: str, k: int, rows: list[dict], stamp_p
     safe(Files.upload, fs, f"{rel}/targets.csv", localFilePath=str(targets_local), quiet=True)
 
     b64 = base64.b64encode(CUTTER.read_text().encode()).decode()
-    cmd = (
-        f"echo {b64} | base64 -d > /tmp/cut.py && "
-        f"STAMP_PX={stamp_px} TARGETS_CSV={results}/targets.csv python3 /tmp/cut.py 2>&1 "
-        f"| tee cut.log"
-    )
+    env = f"STAMP_PX={stamp_px} TARGETS_CSV={results}/targets.csv"
+    if V2["on"]:
+        env += f" VARIANTS={V2['variants']} LOG_ONLY={'1' if V2['log_only'] else '0'}"
+    cmd = f"echo {b64} | base64 -d > /tmp/cut.py && {env} python3 /tmp/cut.py 2>&1 | tee cut.log"
     job = safe(
         Jobs.submitShellCommandJob,
         cmd,
@@ -414,7 +415,7 @@ def _fetch_chunk(Jobs, Files, chunk: dict, dest: Path, *, poll_s: int, max_wait_
             print(f"[fetch] chunk {chunk['k']} transfer failed ({exc}); retrying ...")
             time.sleep(10 * (attempt + 1))
     with tarfile.open(local_tar) as tar:
-        tar.extractall(dest)
+        tar.extractall(dest, filter="data")
     local_tar.unlink(missing_ok=True)
     return dest
 
@@ -543,9 +544,15 @@ def _load_or_plan(corpus: str, limit: int, out_dir: Path, *, stamp_px: int,
             "a fresh --out before starting a new pull."
         )
     WORK.mkdir(exist_ok=True)
-    print(f"[full] querying {corpus} metadata (limit={limit}) over SkyServer REST ...")
-    rows, sql = _targets(corpus, limit)
-    _write_targets(rows, _all_targets_path(corpus))
+    if V2["on"]:  # the target list is given (the old corpus's written IDs), never re-queried
+        rows = _read_all_targets(corpus)
+        if len(rows) != limit:
+            sys.exit(f"[full] {_all_targets_path(corpus)} has {len(rows)} rows, --limit says {limit}")
+        sql = v2_query()
+    else:
+        print(f"[full] querying {corpus} metadata (limit={limit}) over SkyServer REST ...")
+        rows, sql = _targets(corpus, limit)
+        _write_targets(rows, _all_targets_path(corpus))
     st = {"corpus": corpus, "out_dir": str(out_dir), "stamp_px": stamp_px, "query": sql,
           "limit": limit, "max_per_job": max_per_job,
           "chunks": _plan_chunks(len(rows), max_per_job)}
@@ -590,6 +597,118 @@ def _accumulate(chunk_dir: Path, out: Path) -> int:
     # to get this process killed mid-fetch.
     os.sync()
     return len(rows)
+
+
+def v2_query() -> str:
+    """The v2 corpus's manifest query: the population's query plus the cutter's identity.
+
+    ``manifest_hash`` covers IDs + query only, so without this a re-cut of the same IDs would get
+    M's ``data_snapshot`` — different pixels, same identity.
+    """
+    import hashlib
+    sha = hashlib.sha256(CUTTER.read_bytes()).hexdigest()[:16]
+    return f"{V2['base_query']}|cutter=v2|sha={sha}"
+
+
+_V2_IDS: set[str] | None = None
+_V2_LOGS = ("cut_log.csv", "failed.csv", "frames.csv")
+
+
+def _accumulate_v2(chunk_dir: Path, out: Path) -> int:
+    """v2's merge: stamps (and pilot variants) moved in; cut/failed/frame logs appended.
+
+    Torn-write safe: IDs already merged (``out/.ids``) are skipped, so a crash after the move but
+    before the chunk is marked done re-merges nothing twice; ``_finalize_v2`` dedupes as a backstop.
+    """
+    global _V2_IDS
+    ids_f = out / ".ids"
+    if _V2_IDS is None:
+        _V2_IDS = set(ids_f.read_text().split()) if ids_f.exists() else set()
+    with (chunk_dir / "cut_log.csv").open(newline="") as fh:
+        rd = csv.DictReader(fh)
+        cols, rows = rd.fieldnames or [], [r for r in rd if r["object_id"] not in _V2_IDS]
+    for r in rows:
+        oid = r["object_id"]
+        if not V2["log_only"]:
+            src = chunk_dir / f"{oid}.fits"
+            if not src.exists():
+                raise FileNotFoundError(f"{chunk_dir} logs {oid} but {src} is missing")
+            _relocate(src, out / f"{oid}.fits")
+            for vdir in (chunk_dir / "variants").glob("*") if (chunk_dir / "variants").exists() else []:
+                (out / "variants" / vdir.name).mkdir(parents=True, exist_ok=True)
+                if (vdir / f"{oid}.fits").exists():
+                    _relocate(vdir / f"{oid}.fits", out / "variants" / vdir.name / f"{oid}.fits")
+    log = out / "cut_log.csv"
+    new = not log.exists()
+    with log.open("a", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=cols)
+        if new:
+            w.writeheader()
+        w.writerows(rows)
+    for name in ("failed.csv", "frames.csv"):
+        src, dst = chunk_dir / name, out / name
+        lines = src.read_text().splitlines() if src.exists() else []
+        if lines:
+            with dst.open("a") as fh:
+                fh.write("\n".join(lines if not dst.exists() or dst.stat().st_size == 0 else lines[1:]) + "\n")
+    with ids_f.open("a") as fh:
+        fh.write("".join(f"{r['object_id']}\n" for r in rows))
+    _V2_IDS.update(r["object_id"] for r in rows)
+    os.sync()
+    return len(rows)
+
+
+state_corpus: list[str] = []  # set by run_full for v2 (finalize needs the target file)
+
+
+def _finalize_v2(out: Path, query: str) -> None:
+    """Dedupe the logs, build metadata.csv from the old corpus's catalogue rows, write the manifest."""
+    with (out / "cut_log.csv").open(newline="") as fh:
+        rd = csv.DictReader(fh)
+        cols, seen, rows = rd.fieldnames or [], set(), []
+        for r in rd:
+            if r["object_id"] not in seen:
+                seen.add(r["object_id"])
+                rows.append(r)
+    dupes = sum(1 for _ in csv.DictReader((out / "cut_log.csv").open(newline=""))) - len(rows)
+    tgt = _all_targets_path(state_corpus[0]) if state_corpus else None
+    flag = False
+    if tgt and tgt.exists():  # probe_v2: GZ2→PhotoObj separation joined in; 1″–3″ flagged
+        sep = {r["objID"]: r.get("gz2_sep_arcsec", "") for r in csv.DictReader(tgt.open(newline=""))}
+        if any(sep.values()):
+            flag = True
+            cols = [*cols, "gz2_sep_arcsec", "gz2_sep_flag"]
+            for r in rows:
+                v = sep.get(r["object_id"], "")
+                r["gz2_sep_arcsec"] = v
+                r["gz2_sep_flag"] = "1-3arcsec" if v and float(v) > 1.0 else ""
+    if dupes or flag:
+        with (out / "cut_log.csv").open("w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=cols)
+            w.writeheader()
+            w.writerows(rows)
+    for fr in (out / "frames.csv", out / "failed.csv"):  # a re-merged chunk repeats these; dedupe
+        if fr.exists():
+            lines = fr.read_text().splitlines()
+            body = sorted({ln for ln in lines[1:] if ln and ln != lines[0]})
+            fr.write_text("\n".join([lines[0], *body]) + "\n")
+    if V2["metadata_from"]:  # catalogue rows are the old corpus's, unchanged; streamed, never held
+        with Path(V2["metadata_from"]).open(newline="") as fi, (out / "metadata.csv").open("w", newline="") as fo:
+            rd = csv.DictReader(fi)
+            w = csv.DictWriter(fo, fieldnames=rd.fieldnames or [])
+            w.writeheader()
+            n = 0
+            for r in rd:
+                if r["object_id"] in seen:
+                    w.writerow(r)
+                    n += 1
+        if n != len(seen):
+            sys.exit(f"[full] metadata-from covers {n} of {len(seen)} cut IDs — refusing to write a manifest")
+    ids = sorted(int(i) for i in seen)
+    (out / "manifest.json").write_text(json.dumps(
+        {"data_snapshot": manifest_hash(ids, query), "n": len(ids), "query": query,
+         "cut_log_duplicates_removed": dupes}, indent=2) + "\n")
+    print(f"[full] v2 finalized: {len(ids)} stamps, {dupes} duplicate log rows removed")
 
 
 def _relocate(src: Path, dst: Path) -> None:
@@ -698,7 +817,7 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
                 try:
                     _fetch_chunk(Jobs, Files, {"k": c["k"], "jid": c["jid"], "rel": c["rel"]},
                                  dest, poll_s=15, max_wait_min=90)
-                    n = _accumulate(dest, out)
+                    n = _accumulate_v2(dest, out) if V2["on"] else _accumulate(dest, out)
                 except Exception as exc:  # noqa: BLE001 — nothing here may abort the whole pull
                     # An expired token is neither of the two failures below: the job is alive
                     # and its output is intact, only this process cannot ask for it. Hold for a
@@ -774,7 +893,10 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
         print(f"[full] pass {p_no + 1} done; {len(still)} chunk(s) requeued, retrying")
 
     remaining = [c for c in state["chunks"] if c["status"] != "done"]
-    if not remaining:
+    if not remaining and V2["on"]:
+        state_corpus[:] = [corpus]
+        _finalize_v2(out, state["query"])
+    elif not remaining:
         _finalize_manifest(out, state.get("query"))
         n_fits = len(list(out.glob("*.fits")))
         print(f"[full] DONE — {n_fits} stamps under {out} (+ metadata.csv + manifest.json)")
@@ -784,7 +906,13 @@ def run_full(corpus: str, limit: int, out_dir: Path, *, stamp_px: int, domain_pr
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="SciServer native-stamp corpus pull.")
-    p.add_argument("--corpus", choices=["pretrain", "probe"], required=True)
+    p.add_argument("--corpus", required=True,
+                   help="pretrain | probe (v1), or a v2 name whose targets sit at WORK/<corpus>_all_targets.csv")
+    p.add_argument("--cutter", choices=["v1", "v2"], default="v1")
+    p.add_argument("--variants", default="v2", help="v2 only: comma list; the pilot adds nomargin,bilinear")
+    p.add_argument("--log-only", action="store_true", help="v2 only: logs, no stamps (the header job)")
+    p.add_argument("--metadata-from", help="v2 only: the old corpus's metadata.csv (catalogue rows)")
+    p.add_argument("--base-query-from", help="v2 only: the old corpus's manifest.json (population query)")
     p.add_argument("--limit", type=int, help="required for submit/full")
     p.add_argument("--out", type=Path, help="required for submit/full")
     p.add_argument("--stamp-px", type=int, default=256)
@@ -803,6 +931,14 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--domain", default="Small", help="substring of the compute domain name")
     p.add_argument("--mode", choices=["full", "submit", "fetch"], default="full")
     args = p.parse_args(argv)
+    global CUTTER
+    if args.cutter == "v2":
+        CUTTER = Path(__file__).with_name("sciserver_cut_v2.py")
+        base = json.loads(Path(args.base_query_from).read_text())["query"] if args.base_query_from else ""
+        V2.update(on=True, variants=args.variants, log_only=args.log_only,
+                  metadata_from=args.metadata_from, base_query=base)
+    elif args.corpus not in ("pretrain", "probe"):
+        p.error("v1 corpora are pretrain | probe")
 
     try:
         if args.mode == "full":
