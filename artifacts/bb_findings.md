@@ -438,3 +438,403 @@ on the 60 under the hashed rule.
 - **Not tested:** whether emulation, the ImageMagick version used for the JPEG → PNG step, or the
   Runtime build shifts which faint arcs survive clustering. The regression pass bounds the numerics
   on the SDSS path, not arc survival on toys.
+
+## BB2 — synthetic SDSS-matched spirals: does either method measure pitch at SDSS quality, and where does it stop?
+
+**Question.** Both methods are shown the same synthetic spirals of known pitch. Each spiral borrows
+its degradation (PSF, size, surface brightness, sky noise) from a real Galaxy Zoo 2 spiral, the
+"donor", and so inherits that donor's V1 visibility.
+- Where does each method detect arms?
+- How accurately does it then measure pitch?
+- Does it rank galaxies by pitch faithfully?
+- At what visibility does it stop?
+
+Code `artifacts/bb2.py` (sha256 `882cc6801b92b05e…` at this hash). Outputs go to `out/bb/bb2/`.
+
+**Generator** (known in advance; D28 below).
+- **Model.** Exponential disc × (1 + A·window·((1 + cos mψ)/2)^4), with
+  ψ = θ − χ·ln(r/r_in)/tan φ − θ0, plus a round de Vaucouleurs bulge (B/T ~ U(0.05, 0.3)).
+- **PSF and pixels.** Gaussian PSF with FWHM = the donor's `psfWidth_r`, rendered at 4×
+  oversampling and integrated to native 0.396″ pixels on a 256² stamp.
+- **Scale length.** h is solved so the PSF-convolved model's SDSS Petrosian radius (η = 0.2) equals
+  the donor's `petroRad_r`. If that is unreachable in a 256 px stamp, h is NaN: dropped and counted.
+- **Flux.** The donor's `modelMag_r`.
+- **Noise model (declared).** The donor's own r-band sky σ (robust σ of its v1 stamp's 16 px
+  border) plus Poisson noise from the galaxy at 4.7 e⁻/DN, 0.005 nMgy/DN. This gives synthetic
+  SNR 1.2–2.1× the donor's `snr_r`. A uniform σ matched to `snr_r` was rejected: it put 2–3.6× the
+  real sky noise in.
+- **Donors.** Y's spiral definition (features ≥ 0.5, not edge-on ≥ 0.5, spiral ≥ 0.5): 42,564,
+  of which 41,476 are eligible (finite PSF and `expAB_r`, `petroRad_r` > 0, not
+  `petrorad_suspect`).
+- **V1** = `v1_loose_ends.composite` over the pool: loadings mag 0.566, snr −0.499,
+  size −0.463, z 0.465. Quintile edges [−1.673, −0.434, 0.643, 1.670]; Q1 is the most visible.
+- **FITS files** are float32 in nanomaggies with a blind header (`BUNIT`, `PIXSCALE` only; p2pa
+  reads an `ARMS` keyword, so the truth is never written).
+- **Grid axes.** Pitch {5, 10, 15, 20, 25, 30, 40}°; arms {1, 2, 3, 4}; contrast A ∈
+  {0.3, 0.6, 1.2}; chirality ±1 at random.
+
+**Stages.**
+1. Clean and face-on.
+2. Inclined, q = max(`expAB_r`, 0.3) of the donor, with a random PA.
+3. As 2, but flocculent (lognormal σ 0.7, smoothed 0.3h), broken (2–3 gaps of ±0.125 in ln r per
+   arm) or barred (a Gaussian bar, 10% of the flux, arms starting at the bar end).
+
+Every stage includes nulls: noise only, and armless discs with the same donors.
+
+**Methods and settings.**
+- **SpArcFiRe**, official compiled build (BB0c image `sha256:bd682e08…`).
+  - Primary: its documented defaults via `-convert-FITS`.
+  - Inclined stages: the true ellipse supplied through `-elps_dir`, in SpArcFiRe's own convention
+    (calibrated; D28 (b)).
+  - Sensitivities: `run.sh`'s settings, with and without `-unsharpMaskAmt 15`. These set
+    `useImageStandardization 0`, which returns before the ellipse branch. **The sensitivities
+    therefore see un-deprojected inclined images (declared).**
+  - Estimator: |`pa_alenWtd_avg_domChiralityOnly`| (DCO). All-arcs `pa_alenWtd_avg` is reported
+    for Peng P5 only.
+- **P2DFFT 6.2**, on the image (Stage 1) or on the image deprojected with the true ellipse
+  (Stages 2–3; cubic `map_coordinates`).
+  - Inner radius 1 px; outer radius min(round(1.5 × `petroRad_r`/0.396), 127) px.
+  - The p2dfft 6.2 parameter-file parser needs a 4th field (a stale getline token; worked around,
+    no algorithmic change).
+  - Primary: its own mode choice (`p2pa` auto). Sensitivity: the oracle arm count.
+
+**Detection (user, 2026-09-25; replaces the null-range rule of the 2026-09-24 decision for both
+methods).**
+- **SpArcFiRe** detects when it returns any arc (a finite DCO).
+- **P2DFFT detects 100% by definition (option 1).** Every finite answer is a detection.
+  - Its answers on null images are reported as a false-answer rate (100% expected) with their
+    |pitch| distribution.
+  - Why: the null-range rule failed D28. P2DFFT's |pitch| on nulls spans [2.2°, 90°], which
+    saturates the range, so 0/10 strong spirals were "detected" although all 10 were within 2°.
+    Neither its error, its amplitude nor its FFT SNR separated nulls from spirals.
+- **Finding, recorded now.** P2DFFT never abstains. On armless discs and noise it returns pitches
+  spanning 2–90° (D28 (d): 60/60 nulls answered, median 41°). So in any published P2DFFT catalogue,
+  values for galaxies without clear arms are indistinguishable from measurements.
+- **Consequence, stated before the hash.** Detection is 100% for P2DFFT, so wherever SpArcFiRe
+  detects ≤ 90%, the detection route to FOURIER BETTER opens (logic plant: both methods good,
+  SpArcFiRe at 90% → FOURIER BETTER, 9/10 draws). The headline verdict must be read with **common
+  support**, which says whether P2DFFT's extra answers are measurements.
+
+**Per method, per stage × V1 quintile cell. Two co-primary ladders, reported side by side.**
+- **Accurate (WORKS)** iff detection ≥ 50% AND RMS of (measured − true) over detected spirals
+  ≤ 7°. 7° is the ~7° spread between real galaxies (Z1).
+- **Rank-faithful (WORKS)** iff detection ≥ 50% AND Spearman(measured, true) ≥ **0.70**, over
+  detected spirals with true pitch 10–30° (sd 7.1°, matching the real ~7° spread).
+  - Justification, fixed before hashing: with measurement error e on a truth of spread σ,
+    ρ ≈ σ/√(σ²+e²). That is 0.707 at e = σ = 7°, the rank equivalent of the 7° RMS bar.
+  - Two methods each at 0.70 with truth agree with each other at ≈ 0.5, which is Z1's bar.
+- **Cell states** for both ladders:
+  - INSUFFICIENT if n < 40;
+  - FAILS if there are fewer than 20 detected spirals (or 20 in the 10–30° set for rank) and
+    detection < 50%;
+  - INSUFFICIENT if there are fewer than 20 but detection ≥ 50%.
+- **Borderline** means a bootstrap CI (2,000 draws) straddles a bar. It feeds FRAGILE.
+- **Also reported per cell:** detection, RMS, bias (median error), scatter (1.4826·MAD), ρ.
+
+**Quintile calls and the stage verdict** (unchanged from the logic D28 below; applied per ladder).
+- **Quintile call:**
+  - INSUFFICIENT if either cell is;
+  - NEITHER if both fail;
+  - S or F if only one works;
+  - if both work, a paired bootstrap decides.
+- **Paired bootstrap:**
+  - Accuracy ladder: better via detection (Δdet ≥ 0.10 with CI > 0, RMS not worse beyond 1°) or
+    via RMS (ΔRMS ≥ 1° with CI < 0, detection not worse beyond 0.10).
+  - Rank ladder: the same with Δρ ≥ 0.05 replacing ΔRMS.
+  - Below the margins it is a TIE, noted if significant.
+- **Stage verdict** (first match applies):
+  1. INSUFFICIENT (≥ 2 insufficient quintiles);
+  2. BOTH FAIL AT SDSS QUALITY (each method works in ≤ 2 quintiles);
+  3. DEPENDS ON VISIBILITY (at least one S call and one F call);
+  4. SPARCFIRE BETTER (no F call, and ≥ 2 S calls or S works in ≥ 3 while F works in ≤ 2);
+  5. FOURIER BETTER (mirror of 4);
+  6. BOTH ADEQUATE (both work in ≥ 3);
+  7. an unmatched case raises.
+- **FRAGILE:** the alternative verdicts reached by pushing every borderline cell to WORKS, then
+  to FAILS. The crossover quintiles are reported.
+- **Stop-visibility** per method and ladder: the first quintile, from most to least visible,
+  where it stops working (with the V1 edge), flagged if non-monotone.
+- **BB3 uses a method as a reference only if it is rank-faithful in ≥ 3 of 5 Stage-3 quintiles
+  (primary settings).**
+
+**Common support** (per stage, pooled over quintiles, and per quintile as description).
+- **(a)** Both methods on the spirals SpArcFiRe detected: RMS, bias, scatter and ρ for each, and
+  paired ΔRMS and Δρ with CIs.
+- **(b)** P2DFFT's median |error| on SpArcFiRe's abstentions minus on its detections (bootstrap):
+  - **ABSTAINS WHERE HARD** if the CI is > 0 and the difference ≥ 1°;
+  - **NOT WHERE HARD** if the CI lies below 1°;
+  - **UNRESOLVED** otherwise;
+  - **INSUFFICIENT** under 20 in either group.
+
+**Diagnostic, nulls and Peng.**
+- **Diagnostic:** do the methods agree with each other on the co-detected spirals? Z1's bar:
+  - AGREE if the outer envelope of the Fisher (Bonett–Wright) and bootstrap CIs is ≥ 0.5;
+  - DISAGREE if it is < 0.5;
+  - UNRESOLVED otherwise;
+  - INSUFFICIENT under 30.
+- **Nulls, every stage:** SpArcFiRe's any-arc rate (a false detection), and P2DFFT's false-answer
+  rate and |pitch| quantiles. Everything is also broken down by pitch, arms, contrast and stage.
+- **Peng et al. 2018's SpArcFiRe trends** on synthetics with truth. Each reads MATCHES / OPPOSITE
+  / NOT RESOLVED / NOT TESTABLE:
+  - P1: convergence;
+  - P2: error grows with faintness;
+  - P3: loose arms err more in degrees AND tight arms more as a fraction (read as a pair, because
+    P3b alone saturates on the null);
+  - P4: tight arms are lost first;
+  - P5: DCO is less affected than all arcs.
+  - Over 40 null draws, P2 read MATCHES twice (the nominal ~2.5% one-sided rate). A single MATCHES
+    is read with that rate.
+
+**Known in advance (declared, not findings).**
+- **SpArcFiRe compresses loose arms**:
+  - 40° → 31.8° face-on;
+  - 30° → ~19.5° at q = 0.5, with the true ellipse and with its own;
+  - D28 (c): median |error| 6.1° on 15°/30° at q = 0.5, while supplied-vs-own ellipse agree to 0.52°.
+  So the accuracy ladder will penalise SpArcFiRe at 30–40°, and the rank ladder is where
+  compression is not a failure.
+- **The `run.sh` sensitivities see un-deprojected inclined images.**
+- The noise model above.
+
+**D28, before this hash** (`plant_generator.json`, `plant_ellipse.json`, `plant_nulls.json`,
+`plant_logic.json`).
+- **(a) Generator validity** on 11 clean spirals. SpArcFiRe: median |err| 1.78°, ρ 0.92.
+  P2DFFT auto and oracle: 0.26°, ρ 0.92. All VALID. The chirality convention is consistent
+  (S-wise ↔ P2DFFT negative).
+- **(b) Ellipse convention** calibrated on 9 armless discs (angle sign −1, offset 0; σ and length
+  per h linear in q).
+- **(c) Ellipse plumbing: VALID.** The supplied ellipse is echoed exactly. SpArcFiRe's pitch with
+  the supplied ellipse matches that with its own fit (median 0.52°). P2DFFT on our deprojection:
+  median 1.37°.
+- **(d) Nulls under option 1: VALID.** P2DFFT answered 60/60 nulls (quantiles 2.1°, 4.2°, 14.1°,
+  41.2°, 79.7°, 90°, 90°) and was right on the strong spirals (median 0.61°). The null-range rule
+  it replaces is recorded as FAILED.
+- **(e) Logic.** Every verdict is reached from fakes at the planned cell size:
+  - BOTH ADEQUATE; SPARCFIRE BETTER; FOURIER BETTER; BOTH FAIL; DEPENDS (crossover Q2–Q3);
+  - detection-driven and accuracy-driven calls; a below-margin TIE; FRAGILE; INSUFFICIENT
+    (30 per quintile).
+  - Rank ladder (modal verdict over 10 draws):
+    - compressed 0.4·truth+7 → accuracy BOTH FAIL 10/10, rank BOTH ADEQUATE 9/10;
+    - shuffled S → rank FOURIER BETTER 10/10;
+    - ρ on the 0.70 bar → FRAGILE 10/10;
+    - option 1 → FOURIER BETTER via detection 9/10.
+  - Common support (b): ABSTAINS WHERE HARD, NOT WHERE HARD and INSUFFICIENT are all reached.
+  - The BB3 rule is reached.
+  - Diagnostic: AGREE, DISAGREE, UNRESOLVED and INSUFFICIENT are all reached.
+  - Peng: every test MATCHES on a planted pattern.
+
+**Pilot, then stop** (budget ≤ 8 h of SpArcFiRe in total; one heavy process at a time).
+- 300 Stage 1 images: per V1 quintile, 52 spirals at random grid points and 8 nulls
+  (4 noise, 4 armless).
+- SpArcFiRe default; P2DFFT auto and oracle.
+- **The pilot reports timing, detection rates and null answers only. No accuracy is computed.**
+  Accuracy is the grid's test.
+- Then the full grid for Stages 1–3 plus nulls is proposed. It was provisionally approved for
+  the pilot: per stage, 7 pitches × 4 arms × 3 contrasts = 84 per quintile × 5 quintiles, plus
+  nulls; SpArcFiRe sensitivities on half.
+- **Stop for the go-ahead before the full run.**
+
+*BB2 pre-registration ends here: the BB2 section above (193 lines from "## BB2"), SHA-1 `49f8772d4b1e9772189fc9d13bc912ba97997723`.*
+
+### Pilot result — Stage 1, 300 images (`out/bb/bb2/pilot.json`; detection and timing only, no accuracy computed)
+
+**Timing.** Render 0.31 s/image. SpArcFiRe 5.28 s/image (1,583 s for 300, emulated x86-64).
+P2DFFT 0.32 s/image. No h was unreachable (0 dropped).
+
+**Detection by V1 quintile (52 spirals + 8 nulls each).**
+
+| Quintile | SpArcFiRe any-arc, spirals | P2DFFT answers, spirals | SpArcFiRe any-arc, nulls | P2DFFT answers, nulls |
+|---|---|---|---|---|
+| Q1 | 0.92 | 1.00 | 0.13 | 1.00 |
+| Q2 | 0.85 | 1.00 | 0.50 | 1.00 |
+| Q3 | 0.94 | 1.00 | 0.38 | 1.00 |
+| Q4 | 0.87 | 1.00 | 0.38 | 1.00 |
+| Q5 | 0.92 | 1.00 | 0.50 | 1.00 |
+
+- **Nulls by kind.** SpArcFiRe returns arcs on **0/20 noise-only images but 15/20 armless discs
+  (75%)**, a median of 2 arcs (up to 15) against 5 on spirals. P2DFFT answers 40/40, with |pitch|
+  quantiles 1.3°, 6.3°, 18.0°, 48.2°, 76.0°, 90°, 90°.
+- **SpArcFiRe detection on spirals** by pitch: 5° 0.77, 10° 0.89, 15° 0.90, 20° 0.95, 25° 0.97,
+  30° 0.95, 40° 0.88. By arms: 1: 0.88, 2: 0.94, 3: 0.93, 4: 0.85. By contrast: 0.3: 0.84,
+  0.6: 0.91, 1.2: 0.94.
+- **Detection is flat across V1.** Synthetic matched-filter SNR falls from a median of 631 (Q1) to
+  218 (Q5), 10th percentile 175. The scale length falls from 11.4 to 5.2 px. So at Stage 1 the V1
+  axis mostly shrinks the galaxy and never makes it faint enough to lose the disc.
+
+**Read (descriptive; no state is assigned by the pilot).**
+- SpArcFiRe's "any arc" is a weak detector on discs. It fires on 75% of armless discs and on ~90%
+  of spirals.
+- So, like P2DFFT, it rarely abstains on a real disc. Its abstentions come mostly from tight (5°)
+  and low-contrast arms.
+- Common support (b) will therefore have few abstentions to work with (INSUFFICIENT is likely in
+  Q1–Q5 separately; pooled per stage it has ~40–60).
+
+### Recorded before the grid (user, 2026-09-25)
+
+- **Finding: neither method reliably abstains on a disc.** SpArcFiRe's "any arc" fires on 15/20
+  armless discs (75%), against ~90% of spirals and 0/20 noise images. P2DFFT answers every image.
+  So pitch values for galaxies without arms are mostly measurements of nothing, in either method's
+  catalogue. Published catalogues depend on pre-selecting spirals; the Hayes table's P_CS cut does
+  this.
+- **Exploratory, reported beside the hashed rule and labelled as such:** detection =
+  `top2_chirality_agreement == 'agree'`, the reliability filter declared in Y4. Reported: its
+  detection rate on spirals against armless discs, per quintile and stage. It enters no verdict.
+  On the pilot: 'agree' on 94/260 spirals (36%), 0/20 armless and 0/20 noise. The rest were
+  all-short 67, one-long 33, <2 arcs 24, disagree 16, no arcs 26.
+- **If common support (b) reads INSUFFICIENT, that is an acceptable outcome.** The grid is not
+  enlarged to rescue it.
+- **Stage 1's flat detection across visibility is a property of the stage, not the harness.**
+  At Stage 1, visibility is mostly size (disc scale 11 → 5 px); SNR stays ≥ ~175.
+- **Grid, as proposed** (~5.5 h SpArcFiRe, ~20 min P2DFFT).
+  - Per stage, 84 spirals per quintile (7 pitches × 4 arms × 3 contrasts; Stage 3: 28 each of
+    flocculent, broken and barred) plus 20 noise + 20 armless per quintile: 620 images per stage.
+  - SpArcFiRe default on all 1,860. The `run.sh` sensitivities (with and without amt 15) on a fixed
+    half: every other grid point in each stage-quintile, plus half the nulls.
+  - P2DFFT auto and oracle on all (deprojected for Stages 2–3).
+
+### Grid run notes (2026-09-25)
+
+- **The first grid run failed after Stage 1's SpArcFiRe runs had finished.** `run.sh` does no disk
+  or bulge fit, so those columns hold `[]`, which the parser did not read as missing. Those columns
+  are only read from the ellipse runs of Stages 2–3, so no measured value changes. Log:
+  `out/bb/bb2/grid.failed_parse.log`.
+- **One Stage-1 null was dropped and counted**, per the pilot's `dropped_h_nan` rule, which the grid
+  path lacked: `s1_q5_armless12`.
+  - Its donor, 1237667448343429137 (r = 20.18, petroRad_r 1.25″), is smaller than its PSF
+    (FWHM 1.09″), so no disc matches its Petrosian radius, and the image rendered all-NaN.
+  - SpArcFiRe could not convert it, and it was missing from all three runs.
+  - Left in, it would have read as a SpArcFiRe abstention on a null. It is now kept out of both
+    methods' inputs and listed in `grid.json` → `build.dropped_h_nan`.
+
+### BB2 grid result (`out/bb/bb2/grid.json`, `grid_s{1,2,3}_rows.csv`)
+
+**BOTH FAIL AT SDSS QUALITY at every stage, on both ladders.** **`bb3_reference`: neither method is
+rank-faithful in any Stage-3 quintile**, so neither is usable in BB3.
+
+| stage | SpArcFiRe det | SpArcFiRe RMS (°) | SpArcFiRe ρ | P2DFFT RMS (°) | P2DFFT ρ |
+|---|---|---|---|---|---|
+| 1 (face-on, clean) | 0.85–0.92 | **6.5 (Q1, WORKS)** → 13.9 | **0.78 (Q1, WORKS)** → 0.15 | 37–52 | 0.50 → −0.17 |
+| 2 (inclined) | 0.82–0.99 | 9.6 → 15.6 | 0.61 → 0.29 | 47–54 | ≤ 0 |
+| 3 (full) | 0.94–0.98 | 10.2 → 15.3 | 0.62 → 0.13 | 48–55 | ≤ 0.09 |
+
+Each range runs Q1 → Q5. Q1 at Stage 1 is the only WORKS cell (SpArcFiRe, both ladders).
+
+- **SpArcFiRe compresses loose arms, as declared.** The Stage-3 median at truth 40° is 20.9°.
+  - Its rank fidelity falls with the quintile, and the fall is not flat: the Q5 synthetic SNR runs
+    218 against Q1's 631.
+  - The `run.sh` sensitivities detect too little to rank beyond Stage-1 Q1.
+- **Nulls.**
+  - SpArcFiRe's false detection on armless discs: 0.62 (Stage 1) and 0.66 (Stage 3).
+  - P2DFFT answers 100% of nulls, as defined, with pitches of 1–90°.
+- **Common support (a).** On SpArcFiRe's own detections, SpArcFiRe beats P2DFFT:
+  - ΔRMS −32.6° [−35.2, −30.0] at Stage 1 and −37.7° at Stage 3;
+  - Δρ +0.39 [0.24, 0.54].
+- **EXPLORATORY `top2 == agree` rule** (fires on spirals / armless / noise):
+
+  | quintile | Stage 1 | Stage 3 |
+  |---|---|---|
+  | Q1 | 0.49 / 0.05 / 0.00 | 0.35 / 0.00 / 0.15 |
+  | Q5 | 0.17 / 0.00 / 0.00 | 0.20 / 0.05 / **0.70** |
+
+  It fires on noise increasingly at Stage 3, so it is not a detection rule there.
+- **Peng predictions.** All MATCH at Stage 3 except P5, which is NOT RESOLVED.
+- **Dropped (h undefined):** 1 at Stage 1, 2 at Stage 2, 1 at Stage 3.
+
+**OPEN — P2DFFT's failure is quantised, and I missed it at the pilot stop.**
+- Its answers pile onto arctan(m/p) at the lowest radial frequencies: 90.0°, 75.96° (arctan 4),
+  63.43° (arctan 2), 82.87° (arctan 8). The median answer for truth 5–15° is 76°.
+- The pilot showed the same (median 53°); I reported only detection then.
+- The clean-image generator plant passed P2DFFT (ρ ≥ 0.9, median error ≤ 3°), and the oracle-m
+  sensitivity recovers ρ 0.84 at Stage-1 Q1. So under noise, **auto mode's pick of m and p lands on
+  the low-frequency end**.
+- Whether that is the method or the declared configuration (the inner radius does not exclude the
+  bulge; the outer radius is 1.5 × Petrosian) is unresolved.
+- The verdicts above stand as pre-registered. Separating method from configuration would be an
+  exploratory rerun of P2DFFT on the Stage-1 images, with the bulge excluded and on noise-free
+  copies.
+
+**Conclusion (user, 2026-09-25).**
+- The verdicts stand as pre-registered.
+- **At SDSS depth, neither method ranks pitch well enough for BB3.**
+- The winding referee stays DECaLS (AA2) plus votes. **BB3 as planned does not run.**
+- Nothing is written about P2DFFT's performance until the exploratory Stage-1 rerun is in:
+  (a) the bulge excluded by the inner radius; (b) noise-free copies; (c) both.
+
+### P2DFFT exploratory rerun (Stage 1) — EXPLORATORY
+
+(`artifacts/bb2_p2_explore.py`; `out/bb/bb2/p2_explore.{json,png,log}`.) **The pre-registered
+verdicts stand. Nothing here changes them.**
+
+**Set-up**
+- The 619 Stage-1 images; `s1_q5_armless12` stays dropped.
+- Scored on the 420 spirals. ρ is Spearman on truth 10–30°. "Pile" is the share of answers within
+  ±0.05° of 90 / 82.87 / 75.96 / 63.43 / 45°.
+
+**Starting radius**
+- Set per image through P2DFFT's own mechanism: the BAR FITS keyword, which p2pa reads as the
+  starting inner radius. The same `.h5` files are reused.
+- *bulge*: the first radius, moving out, where the PSF-convolved disc reaches the PSF-convolved
+  bulge, from truth. Spirals: median 4 px, 5–95% 1–6 px.
+- *arm* (supplementary, added because the bulge crossing lies inside the arms' start): ceil(0.75 h),
+  from truth. Median 6 px, 5–95% 4–11 px.
+- Both are best cases, not blind recipes. 1 image is capped at end − 5.
+
+**Other conditions**
+- *clean*: the same spec and solved h with the noise draw removed. The 100 noise-only nulls drop out,
+  since they would be blank.
+- *base* reproduces `grid_s1_rows.csv` exactly in both modes (max |Δ| 0.0, no NaN mismatch).
+
+| condition | mode | pile | 90° | 75.96° | 63.43° | median | RMS | ρ pooled | ρ Q1…Q5 |
+|---|---|---|---|---|---|---|---|---|---|
+| base | auto | 0.53 | 0.24 | 0.20 | 0.06 | 63.4 | 46.8 | −0.03 | 0.50 0.02 −0.10 −0.18 −0.17 |
+| bulge | auto | 0.41 | 0.15 | 0.15 | 0.08 | 38.7 | 41.3 | 0.02 | 0.46 0.13 0.06 −0.21 −0.14 |
+| clean | auto | 0.61 | 0.51 | 0.06 | 0.02 | 90.0 | 54.8 | −0.05 | 0.48 0.03 −0.05 −0.30 −0.20 |
+| clean + bulge | auto | 0.50 | 0.42 | 0.04 | 0.03 | 53.1 | 50.3 | 0.02 | 0.51 0.17 0.07 −0.25 −0.18 |
+| arm (supp.) | auto | 0.35 | 0.10 | 0.14 | 0.08 | 33.7 | 36.9 | 0.11 | 0.56 0.15 0.09 −0.10 0.03 |
+| clean + arm (supp.) | auto | 0.46 | 0.39 | 0.03 | 0.01 | 38.7 | 48.4 | 0.07 | 0.51 0.15 0.16 −0.21 −0.10 |
+| base | oracle | 0.17 | 0.06 | 0.05 | 0.03 | 23.2 | 26.3 | 0.53 | 0.84 0.50 0.56 0.57 0.26 |
+| bulge | oracle | 0.12 | 0.03 | 0.03 | 0.03 | 21.8 | 22.2 | 0.54 | 0.83 0.59 0.55 0.50 0.29 |
+| clean | oracle | 0.20 | 0.10 | 0.06 | 0.03 | 25.2 | 30.7 | 0.61 | 0.89 0.71 0.60 0.49 0.39 |
+| clean + bulge | oracle | 0.15 | 0.06 | 0.04 | 0.03 | 24.8 | 25.9 | 0.67 | 0.89 0.82 0.66 0.52 0.49 |
+| arm (supp.) | oracle | 0.10 | 0.01 | 0.03 | 0.03 | 21.8 | 20.2 | 0.55 | 0.82 0.57 0.53 0.58 0.31 |
+| clean + arm (supp.) | oracle | 0.13 | 0.04 | 0.03 | 0.01 | 24.6 | 22.7 | 0.69 | 0.87 0.78 0.68 0.56 0.57 |
+
+(82.87° ≤ 0.007 and 45° ≤ 0.04 everywhere.)
+
+**Median answer by true pitch 5 / 10 / 15 / 20 / 25 / 30 / 40°**
+
+| condition | mode | 5° | 10° | 15° | 20° | 25° | 30° | 40° |
+|---|---|---|---|---|---|---|---|---|
+| base | auto | 76 | 76 | 76 | 22 | 51 | 32 | 45 |
+| clean + bulge | auto | 90 | 90 | 33 | 21 | 26 | 30 | 41 |
+| every condition | oracle | 5–12 | 10 | 15 | 20 | 25 | 30 | 39–41 |
+
+**Where the pile-up sits: it is m = 1**
+- In auto mode, p2pa picks m = 1 for 227–294 of the 420 spirals, against 105 true one-armed spirals.
+- 142–254 of those m = 1 picks land on a pile value.
+- Of the picks at m ≥ 2, at most 5 do, in any condition.
+- Removing noise makes it **worse**, not better: 90° goes from 24% to 51%. Every noise-free armless
+  disc answers 90° (99/99).
+- So a deterministic m = 1, zero-frequency component in the smooth disc outweighs the arms whenever
+  their contrast is modest.
+- Its origin is not isolated here. Candidates are the centre convention or the log-polar m = 1 term
+  of an off-centre profile. Noise dilutes it rather than causing it.
+
+**Conclusion (exploratory)**
+- **The pile-up does not go away under any condition in auto mode.** Excluding the bulge or the
+  inner disc trims it: 53% → 41% (bulge) and → 35% (arm start). Noise-free copies raise it to
+  46–61%. Auto-mode ρ stays ≤ 0.11 everywhere.
+- With the arm count supplied, the pile-up is 10–20%, the median tracks truth at 10–40°, and ρ rises
+  from 0.53 to 0.67–0.69 once noise is removed. Even then it stays under 0.70 pooled; only Q1–Q2
+  clear it.
+- **This points to the configuration's mode selection, not the Fourier pitch measurement.** p2pa's
+  amplitude-chosen m is captured by a spurious m = 1 low-frequency term. Given the right m, the method
+  measures pitch; the inner radius and noise are second-order.
+- The pre-registered result is unchanged. Auto mode is what the declared configuration ran, and it
+  fails.
+
+**Recorded (user, 2026-09-25; EXPLORATORY).**
+- In automatic mode P2DFFT picks one arm for most spirals, from a low-frequency signal of the smooth
+  disc. Neither noise nor the bulge causes the pile-up.
+- With the true arm count supplied, it tracks pitch. It still stays below ρ 0.70, even noise-free
+  with the bulge excluded using true parameters (the best case).
+- The pre-registered BB2 verdicts are unchanged.
