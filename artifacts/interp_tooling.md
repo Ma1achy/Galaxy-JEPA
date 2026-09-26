@@ -606,3 +606,21 @@ Scored against the Part 3 hash (`runs/dd/sae/score.json`, `cards.json`).
   - use block 6 or a larger k if block 11 stays lossy;
   - add stamp position and ring area to the panel;
   - pre-register S3 against the chosen layer.
+
+## Stop 3 decisions (user, 2026-09-26)
+
+### 1. S1 matching — amendment recorded after the hash
+
+- **What changed.** The hashed S1 said "nearest decoder match in the untrained-encoder SAE". It was
+  scored with **activation-based matching** instead: the untrained latent with the highest |Pearson|
+  of token-level activations over the same sae_eval tokens.
+- **Why.** Decoder vectors of two SAEs trained on two different networks live in unrelated
+  embedding spaces, so a decoder cosine between them is undefined.
+- The change was made after the hash, disclosed at Stop 3, and accepted by the user as a recorded
+  amendment (D27: labelled, not retroactive to the hash).
+- **Primary S1 evidence, needing no matching:** at block 11, **no untrained-SAE latent exceeds
+  |ρ| 0.23 with any band offset** (best per offset: g−r x 0.21, g−r y 0.20, i−r x 0.23, i−r y 0.22).
+  M's best latent reaches 0.91, and 40 of M's latents reach ≥ 0.5.
+- At block 6 the untrained best reaches 0.29 (g−r x); the statement is block 11's.
+- The matched-pair figures (M latent against its activation match, |ρ| ≤ 0.01) are supporting only.
+  Several M latents share one weakly matched untrained latent (755).
