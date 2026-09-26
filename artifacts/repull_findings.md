@@ -434,3 +434,39 @@ Code at run time: analysis `4d9d9f4e`, cutter `0dc4aeed`. Fresh job 486114: 555 
   and SNR, the centring residuals are indistinguishable.
 - **Note.** Pretrain's own selection also caps petroRad_r ≤ 25″, which the support filter did not
   apply. The balance held regardless (every |SMD| ≤ 0.005).
+
+## Data-quality check: M's SAE latent 2336 as a streak flag (Brief DD Stop 3, item 4; 2026-09-26)
+
+**Why.** Latent 2336 (M, block 11, 8× TopK SAE; ρ +0.81 with v1's i−r x offset) had red, i-only
+streaks among its top-activating patches (`artifacts/interp_tooling.md`, Stop 3). The question is
+whether it counts single-band streaks in the probe corpus.
+
+**Threshold, from the activation distribution.**
+- 2336 is dense: it fires on 30% of held-out tokens, with a smooth tail and no gap.
+- A stamp is **flagged if any token reaches ≥ 15.0**: the 99.99th percentile of its non-zero token
+  activations on the 1.28 M held-out sae_eval tokens, where the card's streak tokens sit.
+- Script: `artifacts/dd_l2336_scan.py`. M reads its own v1 cache; the eyeball uses the probe_v2
+  re-cuts.
+
+**Count.** **1,438 of 230,358 probe stamps flagged (0.62%).**
+
+**Concentration: none to speak of.**
+- The flags fall in 1,421 distinct frames; no frame has more than 3.
+- By run, the most-flagged hold 18–26 stamps each, at 0.5–1.1% of the run's stamps against 0.62%
+  overall. Run 4674 is the highest, at 1.1%.
+
+**Eyeball** (30 flagged stamps, seeded; g, r, i shown separately; `out/dd/dd_l2336_eyeball.png`):
+- **2 of 30 show a single-band streak.** Both are r-only, and in one of them the strongest token sits
+  on a compact source beside the streak rather than on it.
+- **In the other 28, the strongest token is on a compact source**, mostly faint stars and small knots.
+  No streak, no artefact.
+
+**Reading.**
+- **Latent 2336 is not a streak flag.** Its extreme tail is dominated by compact bright sources, and
+  streaks are an occasional member.
+- The implied number of streak stamps among the 1,438 is about 2/30, i.e. ~100, with a binomial 95%
+  range of roughly 12–320. That bounds only the streaks this latent happens to catch, not the corpus
+  total.
+- A real streak census needs a dedicated detector, e.g. a line (Hough) search on per-band
+  differences, run on the v2 corpus.
+- **No filtering has been done.** The decision on removal is the user's.
