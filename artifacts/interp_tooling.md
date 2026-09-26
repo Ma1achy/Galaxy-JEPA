@@ -624,3 +624,19 @@ Scored against the Part 3 hash (`runs/dd/sae/score.json`, `cards.json`).
 - At block 6 the untrained best reaches 0.29 (g−r x); the statement is block 11's.
 - The matched-pair figures (M latent against its activation match, |ρ| ≤ 0.01) are supporting only.
   Several M latents share one weakly matched untrained latent (755).
+
+### 2. S3 — FAIL, recorded; no rescue on M
+
+- **S3 stands as FAIL** at the chosen 8× block-11 SAE: mean AUC drop 0.029, against the 0.02 bar.
+- Dictionary size, sparsity, block and training settings are **not** varied on M in search of a
+  pass.
+- **Rerun queue (aligned encoder):** S3 with identical settings (k = 32; 8× and 16×; blocks 11 and
+  6; 8 epochs; Gao-scaled LR; AuxK as hashed) and the same hashed criteria and chosen-size rule.
+- **Plausible reasons, not tested:**
+  - The colour-cast latents consume dictionary capacity. The band-offset latents are dense (23–48%
+    of all tokens) and 94% of live latents are nuisance-flagged, which leaves fewer latents for the
+    residual the probes read.
+  - The held-out dead rate (37%, against 6.6% at the end of training) fits galaxy-specific
+    colour-cast features. They fire on the training galaxies whose cast they encode and never on
+    held-out ones.
+  - On the aligned corpus, with the cast gone, both should change. That is the rerun's question.
