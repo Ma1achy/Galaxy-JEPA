@@ -470,3 +470,13 @@ whether it counts single-band streaks in the probe corpus.
 - A real streak census needs a dedicated detector, e.g. a line (Hough) search on per-band
   differences, run on the v2 corpus.
 - **No filtering has been done.** The decision on removal is the user's.
+
+**Decision (user, 2026-09-26): nothing filtered.** Latent 2336 is closed as a streak flag.
+
+## v2 QA backlog (open)
+
+- **OPEN — single-band streak detector.** A dedicated line-finder (e.g. a Hough or Radon search)
+  run on per-band residuals (each band minus the PSF-matched mean of the other two), over the
+  probe_v2 and pretrain_v2 corpora. It would count single-band satellite and aircraft trails and
+  flag them. It replaces latent 2336, which catches compact sources far more often than streaks.
+  Not started. Any filtering waits on its count and on the user's decision.
