@@ -1,5 +1,7 @@
 # Interpretability tooling on M — TOOL VALIDATION (Brief DD)
 
+**Closed 2026-09-26.** Summary table, rerun queue and method limits: see "Brief DD on M — closed" at the end.
+
 **Everything here is tool validation on M, and exploratory. No morphology claims.** The same code
 re-runs on the aligned encoder later, where claims are pre-registered separately. Nothing from this
 file enters the findings.
@@ -905,3 +907,48 @@ Jaccard 0.62): it would read **GENERIC**.
 
 **Tool reading.** The ablation machinery now supports set-level, energy-matched controls, and the
 standing rules keep single draws and unpowered answers from carrying a verdict.
+
+## Brief DD on M — closed (2026-09-26)
+
+These tests validate the tools; none of them makes a morphology claim. Every verdict is M's, scored
+against its hash. "Rerun" means the aligned encoder (trained on probe_v2 and pretrain_v2), run under
+the same hashed criterion unless an amendment is recorded.
+
+| test | hashed criterion (short) | hash | verdict on M | aligned rerun |
+|---|---|---|---|---|
+| **V1** model sensitivity | median \|ρ\| (M map against fully randomised) < 0.3, with CI; UNREACHABLE if the plants cannot reach FAIL | `b19ee5ee` | **UNREACHABLE**. The cascade shows the maps are set by blocks 1–4 | queued, same criterion |
+| **V2** band-map planted positive | bright-edge mass of the band-offset map rises under a 1 px g roll (paired Wilcoxon, α 0.01) | `b19ee5ee` | **FAIL**. The plant modelled the wrong mechanism | queued, **amended**: localised plant (g misaligned within one footprint or quadrant; mass inside the region must rise). A new pre-registration is hashed before the rerun |
+| **V3** maps locate GZ3D structure | original: patch AUC against the centre prior | withheld (D28, saturated) | **WITHHELD** | superseded by V3′ |
+| **V3′** same-radius (post hoc) | ring-stratified ΔAUC against the untrained map **and** the brightness map, bootstrap CIs | `97e3ed52` | spiral **REVERSED** (0.665 against 0.748 and 0.810); bar **withheld** (brightness comparator at 1.00) | queued, amended criterion. Bar stays withheld unless a non-saturating comparator is pre-registered |
+| **V4** equivariance | exploratory, no bar | `b19ee5ee` | median ρ 0.26–0.65 across rot90/rot180/flip; the band map's sign flips under rot180 and flip | queued, exploratory |
+| **S1** offset latent | a latent at \|ρ\| ≥ 0.5 with a band offset, whose untrained counterpart is < 0.2 | `e25e1e27` + post-hash amendment (activation matching) | **PASS**. Matching-free: untrained best 0.23 against M 0.91; 40 M latents ≥ 0.5 | queued, amended (matching-free statement primary) |
+| **S2** injected trail | a latent with precision ≥ 0.8 at recall ≥ 0.2 on injected trails | `e25e1e27` | **NOT DETECTED** (best precision 0.09) | queued |
+| **S2 diagnostic** | token-level linear probe for the trail, held-out AUC ≥ 0.75 | `3355cac5` | **DETECTED** (0.991). S2's miss is an SAE limitation | queued with S2 |
+| **S3** faithfulness | mean probe-AUC drop ≤ 0.02 (UNEVEN if any answer drops > 0.05) | `e25e1e27` | **FAIL** (0.029; 37% dead on held-out) | queued, identical settings |
+| **Part 4** ablate latent 328 | E1: ≥ 0.05 towards chance; E2: morphology mean ≤ 0.01, max ≤ 0.03 | `185e1897` | **NEITHER**. It rests on E1 (0.024); the E2 breach was an unpowered answer (note, post hoc) | **not queued**; superseded by set ablation |
+| **Part 4b** offset-set collateral | offset set's max **and** mean \|ΔAUC\| (powered answers) above the 95th percentile of 50 energy-matched non-offset sets | `81e5b690` | **GENERIC**. The offset set costs less than energy-matched random sets on 20 answers | queued, with the standing control rule |
+| Part 2, feature cards, V1 (a)–(c), latent 2336 | exploratory, not hashed | — | the offset is a whole-stamp colour cast; 94% of live latents are nuisance-flagged; 2336 is not a streak flag | cards and Part 2 rerun as exploratory |
+
+**Standing rules that bind every rerun:**
+- random controls come from latents without the ablated property, energy-matched where feasible,
+  with ≥ 20 draws;
+- only powered answers can trip a collateral bound. Powered status is recomputed on the aligned
+  encoder's evaluation galaxies, since baseline AUCs change with the encoder;
+- plants are run and pass before each hash (D28).
+
+**Open, the user's call before the rerun hash:** does the powered-answer rule also govern S3's
+UNEVEN clause ("any answer drops > 0.05")? It is a per-answer bound of the same kind. As hashed, it
+counts every answer.
+
+**Method limits on M, plainly:**
+- **Occlusion maps do not locate arms at 16 px on M.** On GZ3D spiral masks, M's map ranks arm
+  patches below both the untrained encoder's map and plain r-band brightness at the same radius
+  (V3′ REVERSED). The cascade shows the maps are largely set by blocks 1–4, not by M's trained top
+  blocks (V1).
+- **The SAE misses features that are linearly present.** No latent picks out an injected trail
+  (best precision 0.09), yet a linear probe on the same block-11 tokens finds it at AUC 0.991 (S2
+  and its diagnostic). At block 11 the SAE is also too lossy for the probes' signal (S3). Absence of
+  a latent is not absence of a feature.
+- **Single-latent ablation is ineffective where features are redundant.** Latent 328 alone moves
+  its offset probe 0.024 towards chance; all 40 offset latents move it 0.283 (Part 4). Set ablation
+  with energy-matched controls is the working unit (Part 4b).
