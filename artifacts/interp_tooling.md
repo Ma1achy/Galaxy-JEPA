@@ -924,7 +924,7 @@ the same hashed criterion unless an amendment is recorded.
 | **S1** offset latent | a latent at \|ρ\| ≥ 0.5 with a band offset, whose untrained counterpart is < 0.2 | `e25e1e27` + post-hash amendment (activation matching) | **PASS**. Matching-free: untrained best 0.23 against M 0.91; 40 M latents ≥ 0.5 | queued, amended (matching-free statement primary) |
 | **S2** injected trail | a latent with precision ≥ 0.8 at recall ≥ 0.2 on injected trails | `e25e1e27` | **NOT DETECTED** (best precision 0.09) | queued |
 | **S2 diagnostic** | token-level linear probe for the trail, held-out AUC ≥ 0.75 | `3355cac5` | **DETECTED** (0.991). S2's miss is an SAE limitation | queued with S2 |
-| **S3** faithfulness | mean probe-AUC drop ≤ 0.02 (UNEVEN if any answer drops > 0.05) | `e25e1e27` | **FAIL** (0.029; 37% dead on held-out) | queued, identical settings |
+| **S3** faithfulness | mean probe-AUC drop ≤ 0.02 (UNEVEN if any answer drops > 0.05) | `e25e1e27` | **FAIL** (0.029; 37% dead on held-out) | queued, identical settings; **amended**: only powered answers can trip UNEVEN |
 | **Part 4** ablate latent 328 | E1: ≥ 0.05 towards chance; E2: morphology mean ≤ 0.01, max ≤ 0.03 | `185e1897` | **NEITHER**. It rests on E1 (0.024); the E2 breach was an unpowered answer (note, post hoc) | **not queued**; superseded by set ablation |
 | **Part 4b** offset-set collateral | offset set's max **and** mean \|ΔAUC\| (powered answers) above the 95th percentile of 50 energy-matched non-offset sets | `81e5b690` | **GENERIC**. The offset set costs less than energy-matched random sets on 20 answers | queued, with the standing control rule |
 | Part 2, feature cards, V1 (a)–(c), latent 2336 | exploratory, not hashed | — | the offset is a whole-stamp colour cast; 94% of live latents are nuisance-flagged; 2336 is not a streak flag | cards and Part 2 rerun as exploratory |
@@ -936,9 +936,8 @@ the same hashed criterion unless an amendment is recorded.
   encoder's evaluation galaxies, since baseline AUCs change with the encoder;
 - plants are run and pass before each hash (D28).
 
-**Open, the user's call before the rerun hash:** does the powered-answer rule also govern S3's
-UNEVEN clause ("any answer drops > 0.05")? It is a per-answer bound of the same kind. As hashed, it
-counts every answer.
+**Settled (user, 2026-09-26):** the powered-answer rule governs S3's UNEVEN clause for the aligned
+rerun. See the S3 amendment below.
 
 **Method limits on M, plainly:**
 - **Occlusion maps do not locate arms at 16 px on M.** On GZ3D spiral masks, M's map ranks arm
@@ -952,3 +951,27 @@ counts every answer.
 - **Single-latent ablation is ineffective where features are redundant.** Latent 328 alone moves
   its offset probe 0.024 towards chance; all 40 offset latents move it 0.283 (Part 4). Set ablation
   with energy-matched controls is the working unit (Part 4b).
+
+## Stop 5 decisions (user, 2026-09-26)
+
+### S3 — pre-rerun amendment: only powered answers can trip UNEVEN
+
+- **Amendment, for the aligned rerun only.** S3's UNEVEN clause ("mean drop ≤ 0.02 but some answer
+  drops > 0.05") counts **powered answers only**: smaller class ≥ 100 and baseline AUC ≥ 0.6, on the
+  aligned encoder's own evaluation galaxies. Unpowered answers' drops are reported, exploratory.
+- **Reason:** an unpowered per-answer bound fires on noise, as Part 4's four-arms breach did (14
+  positives, base AUC 0.505, SE ≈ 0.08).
+- It is recorded before the rerun's hash, so it binds that hash and is not post hoc for it.
+- **M's S3 stays FAIL**, which rests on the mean drop (0.029 against 0.02) and is untouched by the
+  amendment.
+
+**Retrospective note on block 6's UNEVEN** (note only; verdicts unchanged; `runs/dd/sae/M_b6_x*.eval.json`,
+powered status from Part 4b's list):
+- **8×:** the answers over 0.05 are edge-on yes (0.052) and edge-on no (0.050). **Both powered.**
+- **16×:** edge-on no (0.054), edge-on yes (0.054) and cigar-shaped (0.050). **All powered.**
+- So block 6's UNEVEN would stand under the amended rule too. It was not a noise trip.
+- **Descriptive:** the same elongation answers (edge-on, cigar-shaped, completely round) head the
+  per-answer losses at block 11 as well (0.054–0.097). Part 4b's secondary arm flagged the same
+  family as the one the offset removal touches. Both observations are exploratory. Whether shape
+  read-outs sit in the directions an SAE (or a colour-cast removal) disturbs first is a question for
+  the aligned rerun, not a finding.
