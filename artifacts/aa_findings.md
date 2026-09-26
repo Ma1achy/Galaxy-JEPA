@@ -327,6 +327,16 @@ sub-pixel registration of the three bands against each other.
   - That is a change to a frozen data invariant, so it needs a D-entry. **Flagged, not made.**
 - AA3b now asks whether this instrumental code costs the morphology readout anything.
 
+### Later: the offset features in M's SAE (Brief DD Part 4b, 2026-09-26)
+
+- **Finding.** On M, the colour-offset features form a separable nuisance subspace: removing them costs morphology less than energy-matched random ablation (4b GENERIC; less damage than 97.5% of random sets on 20 of 36 answers, 19 of them among the 28 powered). 85% of the offset energy sits in 4 latents.
+- (The user's wording said "20 of 28 powered"; the 20 answers above the band include one unpowered answer, two arms, so the powered count is 19 of 28.)
+- Source: `artifacts/interp_tooling.md`, "Part 4b"; `runs/dd/sae/part4b.json`. The block-11 8× TopK
+  SAE; 40 offset latents (S1, |ρ| ≥ 0.5 with a per-band offset); 50 energy-matched sets of 40
+  non-offset latents.
+- Consistent with this section's diagnosis: the misregistration is a whole-stamp colour cast that
+  the model stores in its own directions, largely apart from the morphology read-outs.
+
 ## AA1 — the label-efficiency curve
 
 ### Pre-registration

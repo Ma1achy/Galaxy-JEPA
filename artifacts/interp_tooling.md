@@ -939,6 +939,8 @@ the same hashed criterion unless an amendment is recorded.
 **Settled (user, 2026-09-26):** the powered-answer rule governs S3's UNEVEN clause for the aligned
 rerun. See the S3 amendment below.
 
+**Finding (Brief DD, Part 4b; user, 2026-09-26).** On M, the colour-offset features form a separable nuisance subspace: removing them costs morphology less than energy-matched random ablation (4b GENERIC; less damage than 97.5% of random sets on 20 of 36 answers, 19 of them among the 28 powered). 85% of the offset energy sits in 4 latents. (The user's wording said "20 of 28 powered"; the 20 answers above the band include one unpowered answer, two arms, so the powered count is 19 of 28.)
+
 **Method limits on M, plainly:**
 - **Occlusion maps do not locate arms at 16 px on M.** On GZ3D spiral masks, M's map ranks arm
   patches below both the untrained encoder's map and plain r-band brightness at the same radius
