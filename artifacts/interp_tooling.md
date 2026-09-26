@@ -677,3 +677,68 @@ mean and SD).
 - A trail is 2% of galaxies and ~0.15% of tokens, far rarer than the dense colour-cast features that
   take the capacity (item 2). A sparse dictionary trained without trails has little reason to
   spend a latent on one.
+
+### 5. Part 4 pre-registration — ablating latent 328 through the hooks
+
+Code: `artifacts/dd_circuits.py` (hooks, `latent_patch`) and `artifacts/dd_part4.py`.
+
+**Intervention.**
+- At block 11, M's 8× SAE latent 328 (S1's top latent: ρ +0.91 with i−r x) is removed from every token
+  of every sae_eval galaxy: x′ = x − W_dec[:, 328] · z₃₂₈ / scale. The SAE's reconstruction error is
+  kept, so nothing else moves.
+- The ablated tokens are mean-pooled and read out.
+
+**Read-outs.**
+- **The i−r x offset probe:** sign(i−r x) from the block-11 pooled embedding. Standardised L2
+  logistic, C = 1, trained on the SAE-training galaxies (probe-train split) with recorded offsets,
+  and scored by AUC on sae_eval galaxies with recorded offsets.
+- **The 37 morphology probes:** the ladder refits, AUC on each answer's eligible sae_eval galaxies.
+
+**Expectation, with numeric bounds.**
+- **E1:** the offset probe moves towards chance, |AUC − 0.5| falling by **≥ 0.05**.
+- **E2:** the morphology probes barely move, mean |ΔAUC| over the 37 **≤ 0.01** and max **≤ 0.03**.
+- States:
+  - **AS EXPECTED**: E1 and E2;
+  - **NO EFFECT**: E2 only;
+  - **NOT SELECTIVE**: E1 only;
+  - **NEITHER**.
+
+**Reported, not decisive:**
+- a density-matched control latent (random, within ±25% of 328's density) ablated the same way;
+- all S1 candidate offset latents ablated together;
+- the shift in AA3a's PC1 score;
+- hook-path pooled against token-arithmetic pooled (consistency).
+
+**Reachability** (D28; `artifacts/test_dd_circuits.py`, 4 passed):
+- a planted latent whose decoder is a read-out direction moves that read-out and leaves an orthogonal
+  one within 1e−4 (the AS EXPECTED shape);
+- ablating a dead latent changes every read-out by exactly 0 (the NO EFFECT shape);
+- capture matches `block_tokens`, and an identity patch is a no-op, with hooks detached.
+
+**The prior is uncertain.** 328 is one of about 40 offset latents, several on i−r x (2389, 2336,
+2725, …). Redundancy could leave the probe at its baseline, which would read NO EFFECT.
+
+*Hashed 2026-09-26, before the ablation ran: SHA-1 over this section from its heading through the line above the blank line before this footer, plus a trailing newline: `185e1897886dd754bbf21b2b620adee865da37d5`.*
+
+**Part 4 result: NEITHER** (`runs/dd/sae/part4.json`).
+
+| ablation (block 11) | offset-probe AUC | towards chance | morph mean \|ΔAUC\| | morph max \|ΔAUC\| (answer) | PC1 shift (median \|Δ\|, SD) | state |
+|---|---|---|---|---|---|---|
+| **latent 328** | 0.973 → 0.948 | **0.024** (< 0.05) | 0.005 | **0.037** (arms = 4) | 0.52 | **NEITHER** |
+| control 2526 (density-matched draw) | 0.973 → 0.973 | 0.000 | 0.001 | 0.004 | 0.05 | NO EFFECT |
+| all 40 S1 offset latents | 0.973 → 0.690 | 0.283 | 0.010 | 0.057 (arms = 4) | 17.0 | NOT SELECTIVE |
+
+- **E1 fails.** Removing 328 alone costs the i−r x probe only 0.024 AUC. The offset is held
+  redundantly across about 40 latents, several of them on i−r x, as the pre-registration's prior
+  warned. All 40 together take the probe most of the way to chance (0.69).
+- **E2 fails narrowly on one answer:** "four arms" moves 0.037 against a max bound of 0.03, while the
+  mean (0.005) is well inside. The offset latents are not perfectly orthogonal to the morphology
+  read-outs, and removing all 40 costs 0.010 on average.
+- **The control draw was not neutral.** The random density-matched latent, 2526, is itself an
+  offset latent (i−r y, ρ 0.83), because the dense latents at 328's density are mostly offset
+  latents. It leaves the i−r x probe exactly where it was, which reads as an axis-specificity check.
+- **Hook plumbing is consistent:** block-11 pooled via hooks matches the stored-token arithmetic to
+  0.0024 (the fp16 storage of the tokens). The unit tests give 4 passed, including the new
+  dead-latent test.
+- **Tool reading:** single-latent ablation on M's SAE is weak evidence of anything, because of
+  redundancy. Feature-set ablation is the working unit.

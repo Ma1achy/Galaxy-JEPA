@@ -72,3 +72,15 @@ def test_ablating_a_planted_latent_moves_its_readout_only():
     with torch.no_grad():
         z0 = sae.encode(h.acts[11])[..., 0].mean(1).numpy()
     assert np.allclose(out["u"], -z0, rtol=1e-4, atol=1e-3)
+
+
+def test_ablating_a_dead_latent_changes_nothing():
+    m = _tiny()
+    x = torch.randn(4, 3, 64, 64)
+    sae = TopKSAE(32, 8, k=2)
+    with torch.no_grad():
+        sae.b_enc.data[5] = -1e6  # never in the top-k: dead
+    rng = np.random.default_rng(1)
+    ro = D.Readout(["a", "b"], rng.standard_normal((32, 2)), np.zeros(2))
+    out = ablate_latent(m, sae, 11, 5, x, [ro])
+    assert np.all(out["a"] == 0) and np.all(out["b"] == 0)
