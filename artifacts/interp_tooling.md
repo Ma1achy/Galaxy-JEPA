@@ -742,3 +742,166 @@ Code: `artifacts/dd_circuits.py` (hooks, `latent_patch`) and `artifacts/dd_part4
   dead-latent test.
 - **Tool reading:** single-latent ablation on M's SAE is weak evidence of anything, because of
   redundancy. Feature-set ablation is the working unit.
+
+## Stop 4 decisions (user, 2026-09-26)
+
+Stop 3 results were accepted as reported.
+
+### 1. Part 4 — NEITHER stands as hashed
+
+#### Standing rule — random controls for ablations (all future ablations)
+
+- Random controls are drawn from latents that **do not carry the ablated property**.
+- They are matched on **removed energy** where feasible, else on density.
+- Use **≥ 20 draws**, and report the distribution, not one draw.
+
+Why: Part 4's single density-matched control, 2526, was itself an offset latent.
+
+This amends the user's first wording ("not flagged as offset/nuisance, density-matched"), which was
+infeasible on M:
+- only 48 non-flagged latents lie in the offset set's density range, so 50 sets of 40 overlapped at
+  Jaccard ≈ 0.6;
+- non-flagged latents are vote-enriched by construction, which biases the null towards GENERIC.
+
+#### Standing rule — only powered answers can trip a collateral bound (all future collateral bounds)
+
+- An answer is **powered** on the evaluation galaxies iff its smaller class has **≥ 100** galaxies
+  and its baseline probe AUC is **≥ 0.6**.
+- Only powered answers can trip a collateral bound. The rest are reported, exploratory.
+- On sae_eval, 28 of the 36 scoreable answers are powered.
+
+Why: four-arms, the answer that tripped Part 4's E2, has 14 positives on sae_eval and a baseline AUC
+of 0.505 (Hanley–McNeil SE ≈ 0.078). An at-chance probe cannot register a drop; it can only move by
+noise.
+
+#### Part 4 note (post hoc, D27; the verdict is unchanged)
+
+- Part 4 reads **NEITHER as hashed.**
+- Its E2 breach (four-arms, 0.037 against the 0.03 bound) lies within one SE of an unpowered answer
+  (base AUC 0.505).
+- Under the powered-answer rule that breach would not trip the bound. The NEITHER then rests on
+  latent 328's E1 shortfall alone: 0.024 towards chance, against the 0.05 bound.
+- 328's figures on the powered answers are given with the Part 4b result below.
+
+The same caution applies to the "all 40 offset latents" row: its 0.057 maximum is also four-arms.
+
+### Part 4b pre-registration — is the offset set's collateral SPECIFIC or GENERIC?
+
+Code: `artifacts/dd_part4b.py`.
+
+**Question.** Does removing M's offset features hurt morphology more than removing an equal amount of
+non-offset representation?
+
+**Tested set.** The 40 S1 offset latents at block 11 of M's 8× SAE, ablated together (Part 4's set).
+
+**Exact token arithmetic.**
+- Block 11 is M's last block, and the probes read its mean-pooled tokens.
+- Ablating a set S is therefore pooled − (Ā_S · W_dec,Sᵀ) / scale, where Ā is the galaxy-mean SAE
+  activation on the stored sae_eval tokens.
+- Part 4 checked the hook path against this arithmetic to 0.0024, the fp16 token storage.
+- The run reports the offset set's all-answer mean and max |ΔAUC| beside Part 4's hook values
+  (0.0102, 0.0570) as a consistency check.
+
+**Removed energy.**
+- E(S) = 1_Sᵀ C 1_S, with C = (ZᵀZ / n) ⊙ (W_decᵀ W_dec / scale²).
+- Z is taken over all 1.28 M held-out tokens. E is the exact mean ‖Σ_{j∈S} z_j d_j / scale‖² per
+  token.
+- The offset set's E is 1,164. It is 97% diagonal, and 85% of it sits in four dense latents
+  (370, 275, 194 and 154).
+
+**Primary pool.**
+- Live latents (density ≥ 1e−4 on sae_eval), not in the offset set, whose galaxy-level |ρ| with every
+  band offset (g−r x/y, i−r x/y) is < 0.3.
+- Brightness- and nuisance-flagged latents are included.
+- 852 latents.
+
+**Primary sets.**
+- 50 sets of 40 distinct pool latents, each within ±15% of the offset set's E, by rejection sampling.
+- Proposal: latents drawn with probability ∝ C_jj^0.5.
+  - α = 0.5 was chosen from the energies alone, so the median proposal sits near the target.
+  - Per-latent pairing is infeasible: the offset set's four densest latents each carry more energy
+    than any pool latent (the pool's maximum is 182).
+- Achieved: 50 sets from 97 proposals, energy ratio 0.857–1.142, mean pairwise Jaccard 0.084.
+
+**Statistics** (over the 28 powered answers; ΔAUC is ablated minus baseline, 37 probes refit as in
+Part 4):
+- **(a)** max |ΔAUC| over the powered answers;
+- **(b)** mean |ΔAUC| over the powered answers.
+
+**States and precedence:**
+1. **INSUFFICIENT** if fewer than 20 accepted random sets.
+2. Otherwise **SPECIFIC** iff the offset set's (a) exceeds the random sets' 95th percentile of (a)
+   **and** its (b) exceeds their 95th percentile of (b). SPECIFIC means removing the offset features
+   hurts morphology more than removing an equal amount of non-offset representation.
+3. Otherwise **GENERIC**: removing any 40 latents of that energy costs about that much.
+   - The run reports which of (a) and (b) cleared, when exactly one did. That split is descriptive,
+     not a separate state.
+
+**Reported, exploratory, no verdict:**
+- **Per answer, all 36:** the offset set's signed ΔAUC against the random sets' 2.5–97.5% band,
+  marked powered or not. Any answer outside the band is flagged. 36 answers are scanned, so about
+  2 flags are expected by chance.
+- **Secondary arm:** the cards' non-flagged pool (72 live latents outside the offset set), each
+  offset latent density-matched within ×3.
+  - ×3 is the loosest band at which a draw is feasible; draws that run out of candidates are
+    redrawn.
+  - 50 sets, Jaccard 0.62, median energy 0.44× the offset set's.
+  - The pool is vote-enriched by construction (its latents' strongest |ρ| is with a vote), and its
+    sets overlap heavily. It is reported for comparison only, with the state it would read.
+- The offset probe's AUC under each random set, as an axis-specificity check.
+- **Latent 328 alone on the powered answers,** post hoc, for the Part 4 note.
+
+**Reachability** (D28; `runs/dd/sae/part4b_plants.json`, identical code path, same 50 sets):
+- **SPECIFIC plant: fires.** The offset set's removal, plus 0.75 of the 37-probe weight subspace
+  replaced by a permuted galaxy's, reads SPECIFIC.
+  - A blind dose check (booleans only) found (b) clears from λ = 0.5 and (a) from λ = 0.75. λ = 0.75
+    is therefore the smallest tested dose at which both clear.
+- **GENERIC plant:** each random set tested against the other 49 reads SPECIFIC at a rate of
+  **0.04**, bound ≤ 0.10.
+- **Not saturated:** every random set's mean |ΔAUC| is > 0, and the offset probe's baseline sits off
+  chance and off ceiling.
+
+**Blinding.**
+- The offset set's all-answer statistics were already known from Part 4. The null's quantiles were
+  therefore never printed before this hash; the plants report states and booleans only.
+- The offset set's powered-answer statistics have not been computed.
+
+*Hashed 2026-09-26, before the run: SHA-1 over this section from its heading through the line above the blank line before this footer, plus a trailing newline: `81e5b6905c9b073b84d36508888992310c8ecf93`.*
+
+**Part 4b result: GENERIC** (`runs/dd/sae/part4b.json`). Hash `81e5b690` re-verified after the run.
+
+| statistic (28 powered answers) | offset set | random 95th pct (50 energy-matched sets) | cleared |
+|---|---|---|---|
+| (a) max \|ΔAUC\| | 0.038 (edge-on: no) | 0.174 | no |
+| (b) mean \|ΔAUC\| | 0.009 | 0.060 | no |
+
+- **Neither statistic clears.** Removing the offset set costs morphology no more than removing any 40
+  non-offset latents of equal energy; per answer it mostly costs less (below).
+- **Per answer (exploratory, 36 scanned):** the offset set lies **above** the random 2.5–97.5% band
+  on 20 answers (19 powered) and **below** it on none. Above the band means less damage than 97.5%
+  of the random sets.
+  - Given the energy it removes, the offset set is unusually morphology-sparing. This fits the
+    offset being a colour-cast direction largely orthogonal to the morphology read-outs (Part 2).
+- **Axis-specificity:** the random sets leave the i−r x offset probe at 0.969–0.973 (baseline
+  0.973), while the offset set takes it to 0.681.
+- **Consistency:** the token arithmetic reproduces Part 4's hook values for the offset set on all
+  answers: mean 0.010175 against 0.010175, max 0.057005 against 0.057005, a difference of 4 × 10⁻⁷.
+- **Latent 328 alone on the powered answers** (post hoc, for the Part 4 note): max |ΔAUC| 0.010
+  (bar), mean 0.003.
+  - Under the powered-answer rule it would pass E2 (≤ 0.03, ≤ 0.01).
+  - Part 4's NEITHER therefore rests on E1 alone, as the note states.
+
+**Secondary arm** (exploratory, no verdict; the non-flagged pool at ×3 density, 0.44× the energy,
+Jaccard 0.62): it would read **GENERIC**.
+- Mean |ΔAUC| 0.009 against a p95 of 0.018; max 0.038 against 0.043.
+- The offset set lies below this arm's band on four powered shape answers: edge-on yes/no,
+  completely round and cigar-shaped (ΔAUC −0.034 to −0.038, against bands down to about −0.025).
+  - This arm's sets carry less than half the energy, so the comparison is not like for like.
+  - The primary arm's energy-matched sets hold all four inside their bands.
+- It is a hint only, not a finding: the offset removal touches elongation read-outs somewhat more
+  than a light, vote-enriched set does. A sub-pixel band misregistration elongating the colour
+  image would do that.
+- The other three below-band flags are unpowered (four arms, boxy bulge, medium winding).
+
+**Tool reading.** The ablation machinery now supports set-level, energy-matched controls, and the
+standing rules keep single draws and unpowered answers from carrying a verdict.
