@@ -640,3 +640,40 @@ Scored against the Part 3 hash (`runs/dd/sae/score.json`, `cards.json`).
     colour-cast features. They fire on the training galaxies whose cast they encode and never on
     held-out ones.
   - On the aligned corpus, with the cast gone, both should change. That is the rerun's question.
+
+### 3. S2 diagnostic — pre-registration: is the trail represented at all?
+
+Code: `artifacts/dd_s2_probe.py`.
+
+**Data.** The same injected-trail set as S2, regenerated with identical seeds and draw order: 100
+sae_eval galaxies and 1,965 trail patches (the count matches S2's, confirming it is the same set).
+
+**Probe.**
+- Token level on M's block-11 tokens. Label = trail patch (S2's definition); negatives = every
+  other token of the same 100 galaxies.
+- Standardised L2 logistic regression, C = 1. Split by galaxy, 70 train / 30 test (seeded).
+
+**Criterion.** **DETECTED** if the held-out token AUC ≥ 0.75, else **NOT DETECTED**. Reading:
+- DETECTED: S2's NOT DETECTED stands as an **SAE sensitivity limitation**. The absence of a latent
+  does not imply absence from the model.
+- NOT DETECTED: the plant was not represented at block 11, so S2 is **INVALID** as a test, not a miss.
+- No redesign of the plant on M either way.
+
+**Reported, not decisive:** the same probe on block 6, and on a pixel baseline (per patch, each band's
+mean and SD).
+
+**Plants, run before this hash** (`runs/dd/sae/s2_probe_plants.json`):
+- tokens plus a noisy label column → AUC 0.997, DETECTED;
+- labels scrambled within galaxy → AUC 0.503, NOT DETECTED.
+
+*Hashed 2026-09-26, before the probe ran on the real labels: SHA-1 over this section from its heading through the line above the blank line before this footer, plus a trailing newline: `3355cac506152336415546f60a2f9d1a2d0fa367`.*
+
+**Result: DETECTED** (`runs/dd/sae/s2_probe.json`).
+- A linear probe on M's block-11 tokens finds the trail patches at held-out AUC **0.991** (block 6
+  also 0.991; the pixel baseline 0.959).
+- The trail is plainly, linearly represented in M's tokens. **S2's NOT DETECTED is an SAE sensitivity
+  limitation:** no single one of the 3,072 latents (k = 32) picks it out at precision ≥ 0.8. The
+  absence of a latent does not imply absence from the model.
+- A trail is 2% of galaxies and ~0.15% of tokens, far rarer than the dense colour-cast features that
+  take the capacity (item 2). A sparse dictionary trained without trails has little reason to
+  spend a latent on one.
