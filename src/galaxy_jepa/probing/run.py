@@ -31,6 +31,12 @@ from galaxy_jepa.probing import matching as match
 from galaxy_jepa.probing import uncertainty as unc
 from galaxy_jepa.probing.config import ProbingConfig
 from galaxy_jepa.probing.extract import LabelProvider, extract_matrix
+from galaxy_jepa.probing.floor import (
+    FLOOR_BYPASSED,
+    OPEN_HATCH,
+    EffectFloorRecord,
+    resolve_effect_floor,
+)
 from galaxy_jepa.probing.ladder import LadderResult, run_ladder
 
 __all__ = ["ProbingReport", "run_probing"]
@@ -50,7 +56,8 @@ class ProbingReport:
     conditional: LadderResult | None = None
 
     def rung_table(self) -> dict[str, str]:
-        """Feature → rung, the one-line story (Figure 1's content)."""
+        """Feature → rung, the one-line story (Figure 1's content). Refused if FLOOR BYPASSED."""
+        self.ladder.assert_reportable("the rung table")
         return {f: v.rung for f, v in self.ladder.verdicts.items()}
 
     def population_comparison(self) -> dict[str, dict[str, Any]]:
@@ -59,22 +66,32 @@ class ProbingReport:
         Empty when the conditional ladder was not run. ``rung_changed`` is the headline: a
         feature whose verdict is the same either way says the tree's conditioning is cosmetic
         *for that feature*; one that changes says the population definition is doing real work.
+        Refused if FLOOR BYPASSED, like every other verdict read-out.
         """
-        if self.conditional is None:
-            return {}
-        out: dict[str, dict[str, Any]] = {}
-        for feature, full in self.ladder.verdicts.items():
-            cond = self.conditional.verdicts.get(feature)
-            if cond is None:
-                continue
-            out[feature] = {
-                "rung_full": full.rung,
-                "rung_conditional": cond.rung,
-                "rung_changed": full.rung != cond.rung,
-                "auc_full": full.metrics.get("auc"),
-                "auc_conditional": cond.metrics.get("auc"),
-            }
-        return out
+        self.ladder.assert_reportable("the population comparison")
+        return _compare_populations(self.ladder, self.conditional)
+
+
+def _compare_populations(
+    ladder: LadderResult, conditional: LadderResult | None
+) -> dict[str, dict[str, Any]]:
+    """The body of :meth:`ProbingReport.population_comparison`, unguarded — for the summary
+    writer, which records a bypassed run's numbers under its marker rather than reporting them."""
+    if conditional is None:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for feature, full in ladder.verdicts.items():
+        cond = conditional.verdicts.get(feature)
+        if cond is None:
+            continue
+        out[feature] = {
+            "rung_full": full.rung,
+            "rung_conditional": cond.rung,
+            "rung_changed": full.rung != cond.rung,
+            "auc_full": full.metrics.get("auc"),
+            "auc_conditional": cond.metrics.get("auc"),
+        }
+    return out
 
 
 def run_probing(
@@ -97,6 +114,9 @@ def run_probing(
     chosen label-blind upstream (design 1C), so labels never select the encoder.
     """
     assert_frozen(encoder)  # the probing freeze boundary
+    # The floor record is resolved here as well as in `run_ladder`, so the stamp below carries
+    # the record the ladder scored against — and a refusal lands before the extraction.
+    config = resolve_effect_floor(config)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -166,9 +186,12 @@ def run_probing(
                 seed=config.seed,
             )
 
-    # Phase 7: figures + stamped artefacts.
+    # Phase 7: figures + stamped artefacts. A figure of rungs is a verdict read-out, so a run
+    # whose floor was bypassed draws none — it says why in the place the figures would be.
     figures: dict[str, str] = {}
-    if emit_figures:
+    if emit_figures and ladder.floor_bypassed:
+        figures = {"refused": f"{FLOOR_BYPASSED}: a smoke's verdicts are not drawn"}
+    elif emit_figures:
         figures = _emit_figures(ladder, uncertainty, out)
     report = ProbingReport(
         ladder=ladder,
@@ -190,9 +213,10 @@ def run_probing(
         ladder,
         uncertainty,
         out,
+        floor_value=config.effect_floor,
         scheme=report.scheme,
         family_size=family_size,
-        comparison=report.population_comparison(),
+        comparison=_compare_populations(ladder, conditional),
     )
 
     stamp = RunStamp.create(
@@ -205,9 +229,10 @@ def run_probing(
         escape_hatches_used=(
             [*config.escape_hatches]
             + (["smoke"] if config.smoke else [])
-            # An unfrozen floor is a forfeited guarantee, not a neutral default: the run's
-            # clean-vs-marginal line was set by a placeholder. Say so on the artefact.
-            + ([] if config.effect_floor_freeze is not None else ["effect_floor_open"])
+            # A bypassed floor is a forfeited guarantee, not a neutral default: the run's
+            # clean-vs-marginal line was not the frozen one. The ledger name, and the marker
+            # verbatim, so a reader refusing on either string finds it.
+            + ([OPEN_HATCH, FLOOR_BYPASSED] if ladder.floor_bypassed else [])
         )
         or None,
     )
@@ -244,12 +269,24 @@ def _write_summary(
     uncertainty: dict[str, unc.UncertaintyGeometry],
     out: Path,
     *,
+    floor_value: float,
     scheme: str | None = None,
     family_size: int | None = None,
     comparison: dict[str, dict[str, Any]] | None = None,
 ) -> Path:
     """Persist the rung table + the gate verdict trees + uncertainty stats as JSON."""
+    # Which floor `clean` was judged at, stated where the verdicts are rather than only in the
+    # stamp: a summary copied away from its stamp must still say it was bypassed.
+    record = ladder.floor if isinstance(ladder.floor, EffectFloorRecord) else None
+    floor_block: dict[str, Any] = {
+        "status": "frozen" if record is not None else FLOOR_BYPASSED,
+        "value": floor_value,
+        "rule": record.rule if record is not None else None,
+        "content_hash": record.content_hash if record is not None else None,
+        "reason": None if record is not None else getattr(ladder.floor, "reason", None),
+    }
     summary = {
+        "effect_floor": floor_block,
         "rungs": {
             f: {
                 "rung": v.rung,
@@ -287,6 +324,7 @@ def _write_summary(
                 "exceeds_null": e.exceeds_null,
                 "clean": e.clean,
                 "method": e.method,
+                "floor": FLOOR_BYPASSED if e.floor_bypassed else "frozen",
             }
             for f, e in ladder.existence.items()
         },

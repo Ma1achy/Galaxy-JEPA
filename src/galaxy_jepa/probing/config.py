@@ -23,9 +23,9 @@ Everything else here is a trigger threshold, not one of the five, and is marked 
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
-from pydantic import model_validator
+from pydantic import SerializeAsAny, model_validator
 
 from galaxy_jepa.core.config import FrozenChoice, RunConfig
 from galaxy_jepa.probing.schemes import DEFAULT_CONSENSUS_GATE
@@ -93,6 +93,12 @@ class VoteCountFreeze(FrozenChoice):
 class ProbingConfig(RunConfig):
     """A complete, stamped probing run: splits + probe + the gated ladder + the flagged stats."""
 
+    #: ``effect_floor_file`` says where the floor record lives, not what it is (D15). What it *is*
+    #: enters the hash once resolved — the loaded record, ``content_hash`` included, rides in
+    #: ``effect_floor_freeze`` — and leaving the path out also keeps every config that never sets
+    #: it hashing exactly as it did before the field existed.
+    NON_DETERMINING: ClassVar[frozenset[str]] = RunConfig.NON_DETERMINING | {"effect_floor_file"}
+
     # --- run marking -------------------------------------------------------------------
     # A smoke exercises the load path; it is NOT a result. Setting this stamps ``smoke`` into
     # ``escape_hatches_used`` (the power-path ledger, docs/spec/escape-hatches.md) and changes
@@ -108,7 +114,9 @@ class ProbingConfig(RunConfig):
     #: Declared deviations from a grounded default (``docs/spec/escape-hatches.md``). A run that
     #: wants to weaken a grounded floor must *name* what it forfeits here, and the name is stamped
     #: onto every artefact — so "we ran 200 shuffles" can never be read off a result as if it were
-    #: the pre-registered ≥10,000. Known: ``reduced_permutations``.
+    #: the pre-registered ≥10,000. Known: ``reduced_permutations``. ``effect_floor_open`` is a
+    #: ledger name, not a declarable hatch: only a smoke may score without its floor record, and
+    #: the stamp says so by itself (``floor.resolve_effect_floor``).
     escape_hatches: tuple[str, ...] = ()
 
     # --- splits / extremes (reuse data/orchestrate + the firewall thresholds) -----------
@@ -154,13 +162,21 @@ class ProbingConfig(RunConfig):
     # silently empty). Raising it costs one logistic fit per draw per feature.
     n_null_draws: int = 50
     # Spec register item 4 — the *number* is a scientific call, and the window for making it has
-    # now been used: `configs/probe.yaml` carries a freeze at **0.7267** (Brief O0, from N1/N2 on
-    # M's 4-epoch encoder). The shipped code default below deliberately stays OPEN, because a
-    # pre-registered call belongs in the config a run actually loads, not in a library constant
-    # that a caller could inherit without ever declaring it. So constructing this class bare still
-    # refuses `headline=True`; loading the shipped YAML does not.
+    # now been used: `configs/effect_floor.json` is the write-once record of **0.7267** (D22,
+    # Brief O0, from N1/N2 on M's 4-epoch encoder), and `configs/probe.yaml` points at it. The
+    # shipped code default below deliberately stays OPEN, because a pre-registered call belongs
+    # in a record a run actually loads, not in a library constant a caller could inherit without
+    # ever declaring it. So constructing this class bare refuses `headline=True`, and scoring it
+    # is refused unless it is a smoke (which then scores at this inline value, FLOOR BYPASSED).
     effect_floor: float = 0.65
-    effect_floor_freeze: EffectFloorFreeze | None = None
+    # Serialised as its runtime type, so a resolved file record (``floor.EffectFloorRecord``)
+    # dumps — and hashes — with its rule, inputs and content_hash rather than as the bare base.
+    effect_floor_freeze: SerializeAsAny[EffectFloorFreeze] | None = None
+    #: The write-once, hashed floor record (``floor.freeze_effect_floor``) — the gate. ``floor.
+    #: resolve_effect_floor`` loads it at the scoring choke point and the record's value *replaces*
+    #: the inline one. Unset, missing or edited, a run is refused unless it is a ``smoke``, which
+    #: scores at the inline floor with every output marked ``FLOOR BYPASSED``.
+    effect_floor_file: str | None = None
 
     # --- how existence is computed (D23) ------------------------------------------------
     # `empirical` is the original add-one estimator over `nulls.existence_null_samples`. It is a
@@ -273,14 +289,41 @@ class ProbingConfig(RunConfig):
         return self
 
     @model_validator(mode="after")
+    def _the_effect_floor_has_one_source(self) -> ProbingConfig:
+        """An inline freeze beside a floor file is two records of one call; refuse the pair."""
+        if self.effect_floor_file is not None and self.effect_floor_freeze is not None:
+            raise ValueError(
+                f"effect_floor_file={self.effect_floor_file!r} is set beside an inline "
+                "effect_floor_freeze. The file is the record once it exists; drop the inline "
+                "freeze rather than keeping two that could disagree (an effect_floor line may "
+                "stay, and resolve_effect_floor refuses it unless it is the record's value)."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _the_floor_cannot_be_declared_open(self) -> ProbingConfig:
+        """``effect_floor_open`` used to let any run fall back past its floor file. Not any more."""
+        if "effect_floor_open" in self.escape_hatches:
+            raise ValueError(
+                "escape_hatches declares effect_floor_open, which no longer opens anything: only "
+                "a smoke may score without its effect-floor record (set smoke: true — its outputs "
+                "are then marked 'FLOOR BYPASSED' and no verdict reader will report them). The "
+                "name is stamped onto a bypassed run's ledger, never declared."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _headline_requires_a_frozen_floor(self) -> ProbingConfig:
-        if self.headline and self.effect_floor_freeze is None:
+        # Only the file is frozen here: an inline effect_floor_freeze alone cannot score a
+        # non-smoke run (`floor.resolve_effect_floor`), so a headline resting on one would load and
+        # then be refused. Whether the file exists and is intact is checked where it is read.
+        if self.headline and self.effect_floor_file is None:
             raise ValueError(
                 "headline=True but the effect floor is still OPEN. The floor separates clean "
                 "from marginal among the real, so setting it after seeing headline verdicts is "
-                "p-hacking; set it from the medium local run's AUC distribution and record the "
-                "freeze in effect_floor_freeze (value / derived_from / frozen_at / frozen_by / "
-                "rationale) before the headline run."
+                "p-hacking; freeze it with floor.freeze_effect_floor (a named rule over named "
+                "inputs, written once) and point effect_floor_file at the record before the "
+                "headline run. An inline effect_floor_freeze is not enough: it is not the gate."
             )
         if self.headline and self.smoke:
             raise ValueError("a run cannot be both a smoke and the headline")

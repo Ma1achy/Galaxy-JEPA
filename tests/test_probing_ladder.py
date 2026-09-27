@@ -10,6 +10,7 @@ score AUC > 0.5 on the absent feature yet fail the null. Needs sklearn/torch/mat
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -20,6 +21,7 @@ from torch.utils.data import Dataset
 from galaxy_jepa.probing import controls as ctl
 from galaxy_jepa.probing.config import ProbingConfig
 from galaxy_jepa.probing.extract import LabelProvider, extract_matrix
+from galaxy_jepa.probing.floor import freeze_effect_floor
 from galaxy_jepa.probing.ladder import run_ladder
 from galaxy_jepa.probing.run import run_probing
 
@@ -97,8 +99,36 @@ def _labels() -> LabelProvider:
     )
 
 
+_FLOOR_DIR: list[Path] = []
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _floor_dir(tmp_path_factory):
+    _FLOOR_DIR[:] = [tmp_path_factory.mktemp("floors")]
+
+
+def _floor_file(value: float) -> str:
+    """A write-once floor record at ``value`` — a real one, since only a smoke scores without.
+
+    Two inputs 0.01 either side put the widest-gap midpoint exactly on ``value``.
+    """
+    path = _FLOOR_DIR[0] / f"floor_{value}.json"
+    if not path.exists():
+        freeze_effect_floor(
+            path,
+            rule="widest_gap_midpoint",
+            inputs={"lo": round(value - 0.01, 4), "hi": round(value + 0.01, 4)},
+            frozen_by="tests",
+            derived_from="fixture",
+            rationale="fixture: a floor record for the synthetic ladder",
+            frozen_at="2026-09-27",
+        )
+    return str(path)
+
+
 def _config() -> ProbingConfig:
     return ProbingConfig(
+        effect_floor_file=_floor_file(0.65),
         vote_count_min=21,
         mlp_widths=(8, 16, 32),
         mlp_epochs=40,
@@ -451,7 +481,7 @@ def test_moving_the_effect_floor_moves_nothing_but_clean(tmp_path):
             labels,
             ids[:120],
             ids[120:],
-            config=_z_config(bank).model_copy(update={"effect_floor": f}),
+            config=_z_config(bank).model_copy(update={"effect_floor_file": _floor_file(f)}),
             sky_label_col="snr",
         )
         for f in (0.51, 0.99)

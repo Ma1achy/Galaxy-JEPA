@@ -99,6 +99,7 @@ class TestGroundedStatistics:
         import numpy as np
 
         from galaxy_jepa.probing.controls import FeatureControls
+        from galaxy_jepa.probing.floor import FloorBypass
         from galaxy_jepa.probing.nulls import existence_null_samples, existence_verdicts
 
         def fc(sky: float) -> FeatureControls:
@@ -118,8 +119,9 @@ class TestGroundedStatistics:
         assert existence_null_samples(fc(0.8373)).max() == 0.60
         # moving it cannot move the null, the p-value, or the verdict
         assert np.array_equal(existence_null_samples(fc(0.51)), existence_null_samples(fc(0.99)))
-        (low,) = existence_verdicts({"f": fc(0.51)}, n_tests=1, effect_floor=0.65).values()
-        (high,) = existence_verdicts({"f": fc(0.99)}, n_tests=1, effect_floor=0.65).values()
+        floor = FloorBypass(value=0.65, reason="unit fixture: the floor is not under test")
+        (low,) = existence_verdicts({"f": fc(0.51)}, n_tests=1, floor=floor).values()
+        (high,) = existence_verdicts({"f": fc(0.99)}, n_tests=1, floor=floor).values()
         assert (low.pvalue, low.exceeds_null) == (high.pvalue, high.exceeds_null)
         assert high.exceeds_null is True
         # but it is still measured and still carried — removed from the bar, not from the record
@@ -178,6 +180,7 @@ class TestGroundedStatistics:
         import numpy as np
 
         from galaxy_jepa.probing.controls import FeatureControls
+        from galaxy_jepa.probing.floor import FloorBypass
         from galaxy_jepa.probing.nulls import existence_verdicts
 
         strong_but_null = FeatureControls(
@@ -191,7 +194,8 @@ class TestGroundedStatistics:
             selectivity=0.0,
             nuisance_aucs={},
         )
-        (v,) = existence_verdicts({"f": strong_but_null}, n_tests=1, effect_floor=0.65).values()
+        floor = FloorBypass(value=0.65, reason="unit fixture: its position is not the point")
+        (v,) = existence_verdicts({"f": strong_but_null}, n_tests=1, floor=floor).values()
         assert v.exceeds_null is False
         assert v.clean is False
 

@@ -43,6 +43,13 @@ from galaxy_jepa.probing.extract import (
     feature_embeddings,
     feature_ids,
 )
+from galaxy_jepa.probing.floor import (
+    EffectFloorRecord,
+    FloorBypass,
+    assert_reportable,
+    effect_floor_gate,
+    resolve_effect_floor,
+)
 from galaxy_jepa.probing.gates import EXISTENCE_METRIC_FLOOR, build_gates
 from galaxy_jepa.probing.logistic import (
     ConceptDirection,
@@ -91,6 +98,16 @@ class LadderResult:
     #: The 2A pair adjudications behind every entangled flag, kept so a reader can see WHY a
     #: feature was marked — which of the four measures agreed, and which did not.
     pair_verdicts: list[ent.PairVerdict] = dataclasses.field(default_factory=list)
+    #: The floor ``clean`` was judged at. A bypass (or no floor at all) makes every verdict here
+    #: unreportable — :meth:`assert_reportable` is what a reader calls before quoting one.
+    floor: EffectFloorRecord | FloorBypass | None = None
+
+    @property
+    def floor_bypassed(self) -> bool:
+        return not isinstance(self.floor, EffectFloorRecord)
+
+    def assert_reportable(self, what: str) -> None:
+        assert_reportable(self.floor, what)
 
 
 def _load_untrained_bank(
@@ -630,6 +647,10 @@ def run_ladder(
     tests — the nulls calibrate the bar; the extremes filter is the uncertainty geometry's job
     (``uncertainty.py``), which fits on extremes and tests the middle.
     """
+    # Before any fit: a run with no intact floor record refuses here, not after an hour of
+    # controls — unless it is a smoke, whose floor object then marks every verdict bypassed.
+    config = resolve_effect_floor(config)
+    floor = effect_floor_gate(config)
     features = labels.features
     n_tests = config.n_primary_tests if config.n_primary_tests is not None else len(features)
 
@@ -681,7 +702,7 @@ def run_ladder(
         feature_controls,
         alpha=config.alpha,
         method=config.multiplicity,
-        effect_floor=config.effect_floor,
+        floor=floor,
         n_tests=n_tests,
         existence_method=config.existence_method,
         untrained_bank=bank,
@@ -789,4 +810,5 @@ def run_ladder(
         feature_controls=feature_controls,
         directions=directions,
         pair_verdicts=pair_verdicts,
+        floor=floor,
     )

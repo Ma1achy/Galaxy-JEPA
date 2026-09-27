@@ -24,11 +24,11 @@ Masking is **not** here — it is part of the JEPA objective and lives in ``obje
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
 import numpy as np
 
-from galaxy_jepa.core.config import Configurable, FrozenChoice, config_hash
+from galaxy_jepa.core.config import Configurable, HashedFrozenChoice
 
 # Images flow through the pipeline as float arrays shaped ``(C, H, W)`` (channels-first,
 # to match torch). Transforms preserve that shape.
@@ -126,7 +126,7 @@ class Normalise(Configurable):
         return (np.asarray(image, dtype=np.float64) - mean) / std
 
 
-class NormalisationFreeze(FrozenChoice):
+class NormalisationFreeze(HashedFrozenChoice):
     """The pinned normalisation statistic — the parity lock, made into an artefact.
 
     **This exists because its absence was a defect, not merely a gap.** ``fit_normalise``
@@ -163,8 +163,11 @@ class NormalisationFreeze(FrozenChoice):
     trim_threshold: float  # a stamp is excluded from the FIT iff its rank exceeds this
     trim_excluded: int
     trim_ids_sha256: str  # sha256 over the excluded object IDs, sorted, as 8-byte big-endian
-    content_hash: str
     code_sha: str
+
+    RECORD_NAME: ClassVar[str] = "the normalisation freeze"
+    MADE: ClassVar[str] = "fitted"
+    REMEDY: ClassVar[str] = "Re-fit it rather than hand-editing"
 
     def determining_fields(self) -> dict[str, object]:
         """Everything the statistic actually depends on — what ``content_hash`` covers."""
@@ -183,22 +186,10 @@ class NormalisationFreeze(FrozenChoice):
             "trim_ids_sha256": self.trim_ids_sha256,
         }
 
-    def expected_hash(self) -> str:
-        return config_hash(self.determining_fields())
-
     def to_normalise(self) -> Normalise:
         """The frozen transform. Constructed, never fitted."""
         self.assert_intact()
         return Normalise(mean=self.mean, std=self.std)
-
-    def assert_intact(self) -> None:
-        if self.content_hash != self.expected_hash():
-            raise ValueError(
-                "the normalisation freeze has been edited since it was fitted: content_hash "
-                f"{self.content_hash[:12]} does not match the record it covers "
-                f"({self.expected_hash()[:12]}). Re-fit it rather than hand-editing — the "
-                "whole point of the record is that the numbers cannot drift silently."
-            )
 
 
 class Pipeline(Configurable):

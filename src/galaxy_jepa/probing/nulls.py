@@ -24,6 +24,7 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 
 from galaxy_jepa.probing.controls import FeatureControls
+from galaxy_jepa.probing.floor import EffectFloorRecord, FloorBypass
 
 __all__ = [
     "existence_null_samples",
@@ -445,14 +446,17 @@ class ExistenceVerdict:
     #: Which construction produced ``pvalue`` — the two are not interchangeable and an artefact
     #: read back later must not have to guess which one it carries.
     method: str = EXISTENCE_EMPIRICAL
+    #: ``clean`` was judged at a smoke's inline floor, not an intact record (``floor.FloorBypass``)
+    #: — so it is written out as ``FLOOR BYPASSED`` and no verdict reader will report it.
+    floor_bypassed: bool = False
 
 
 def existence_verdicts(
     controls: Mapping[str, FeatureControls],
     *,
+    floor: EffectFloorRecord | FloorBypass,
     alpha: float = 0.05,
     method: str = "benjamini_yekutieli",
-    effect_floor: float = 0.65,
     n_tests: int | None = None,
     existence_method: str = EXISTENCE_EMPIRICAL,
     untrained_bank: Mapping[str, Sequence[float] | np.ndarray] | None = None,
@@ -467,7 +471,21 @@ def existence_verdicts(
     significance and decides real/not-real; ``clean`` additionally requires the effect floor and
     only separates clean from marginal *among the real*. The floor cannot rescue a
     non-significant feature, and significance cannot excuse a trivial effect size.
+
+    **The floor is an object, not a number** (``floor.py``). It was a float defaulting to 0.65,
+    so any direct caller scored past the frozen record without ever meeting it. Now it is the
+    intact record — re-checked here, hash and rule both — or a smoke's declared
+    :class:`~galaxy_jepa.probing.floor.FloorBypass`, which marks every verdict it produces.
     """
+    if isinstance(floor, EffectFloorRecord):
+        floor.assert_intact()
+    elif not isinstance(floor, FloorBypass):
+        raise TypeError(
+            f"existence_verdicts takes the effect-floor record (floor.EffectFloorRecord) or a "
+            f"smoke's floor.FloorBypass, not {type(floor).__name__}: a bare number is not a "
+            "floor. Get it through floor.resolve_effect_floor + floor.effect_floor_gate."
+        )
+    bypassed = isinstance(floor, FloorBypass)
     if existence_method == EXISTENCE_UNTRAINED_Z:
         if untrained_bank is None or real_se is None:
             raise ValueError(
@@ -503,8 +521,9 @@ def existence_verdicts(
             real_auc=fc.real_auc,
             pvalue=pvals[feat],
             exceeds_null=significant[feat],
-            clean=significant[feat] and fc.real_auc >= effect_floor,
+            clean=significant[feat] and fc.real_auc >= floor.value,
             method=existence_method,
+            floor_bypassed=bypassed,
         )
         for feat, fc in controls.items()
     }

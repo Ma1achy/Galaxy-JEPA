@@ -15,6 +15,7 @@ yaml = pytest.importorskip("yaml")
 
 from galaxy_jepa.harness import HarnessConfig  # noqa: E402
 from galaxy_jepa.probing.config import ProbingConfig, VoteCountFreeze  # noqa: E402
+from galaxy_jepa.probing.floor import load_effect_floor, resolve_effect_floor  # noqa: E402
 
 pytestmark = pytest.mark.invariant
 
@@ -84,8 +85,8 @@ def test_the_shipped_effect_floor_is_frozen_and_chosen_by_structure():
     """
     with open("configs/probe.yaml") as fh:
         config = ProbingConfig(**yaml.safe_load(fh))
-    freeze = config.effect_floor_freeze
-    assert freeze is not None, "a bare effect_floor would read as an oversight, not a decision"
+    assert config.effect_floor_file is not None, "a bare effect_floor is not a decision"
+    freeze = load_effect_floor(config.effect_floor_file)  # the write-once record, intact
     assert freeze.value == config.effect_floor == 0.7267
     assert "runs/m/encoder.pt" in freeze.derived_from  # the encoder it was read off, named
     # chosen by the band's structure, not by which features it lands on
@@ -107,20 +108,20 @@ def test_the_frozen_floor_unlocks_the_headline_and_the_vote_gate_still_bites():
         raw = yaml.safe_load(fh)
     headline = ProbingConfig(**{**raw, "headline": True, "smoke": False})
     assert headline.headline is True
-    assert headline.effect_floor_freeze is not None
+    assert headline.effect_floor_file is not None
 
     with pytest.raises(ValueError, match="effect floor is still OPEN"):
-        ProbingConfig(**{**raw, "headline": True, "smoke": False, "effect_floor_freeze": None})
+        ProbingConfig(**{**raw, "headline": True, "smoke": False, "effect_floor_file": None})
     with pytest.raises(ValueError, match="vote floor is still OPEN"):
         ProbingConfig(**{**raw, "headline": True, "smoke": False, "vote_count_freeze": None})
 
 
 def test_a_shipped_floor_that_contradicts_its_record_is_refused():
-    """The live value and the stamped value are the same number or the config does not load."""
+    """The live value and the recorded value are the same number or the config does not score."""
     with open("configs/probe.yaml") as fh:
         raw = yaml.safe_load(fh)
-    with pytest.raises(ValueError, match="contradicts its freeze record"):
-        ProbingConfig(**{**raw, "effect_floor": 0.70})
+    with pytest.raises(ValueError, match="two that disagree"):
+        resolve_effect_floor(ProbingConfig(**{**raw, "effect_floor": 0.70}))
 
 
 def test_a_headline_threshold_outside_its_own_sweep_is_refused():
@@ -156,7 +157,8 @@ class TestEffectFloorFreeze:
         with pytest.raises(ValueError, match="still OPEN"):
             ProbingConfig(headline=True, vote_count_min=21, vote_count_freeze=VOTE_FREEZE)
 
-    def test_a_frozen_floor_unlocks_the_headline_and_carries_its_provenance(self):
+    def test_only_a_floor_file_unlocks_the_headline(self):
+        """An inline freeze still carries provenance, but it is not the gate (floor.py)."""
         from galaxy_jepa.probing.config import EffectFloorFreeze
 
         freeze = EffectFloorFreeze(
@@ -166,16 +168,25 @@ class TestEffectFloorFreeze:
             frozen_by="malachy",
             rationale="set from the medium run's per-feature AUC distribution",
         )
-        config = ProbingConfig(
-            headline=True,
-            effect_floor=0.65,
-            effect_floor_freeze=freeze,
-            vote_count_min=21,
-            vote_count_freeze=VOTE_FREEZE,
-        )
+        config = ProbingConfig(effect_floor=0.65, effect_floor_freeze=freeze, vote_count_min=21)
         assert config.effect_floor_freeze.derived_from == "runs/medium"
         # the record is part of the config, so it is hashed and written with every artefact
         assert "effect_floor_freeze" in config.model_dump(mode="json")
+        with pytest.raises(ValueError, match="still OPEN"):
+            ProbingConfig(
+                headline=True,
+                effect_floor=0.65,
+                effect_floor_freeze=freeze,
+                vote_count_min=21,
+                vote_count_freeze=VOTE_FREEZE,
+            )
+        headline = ProbingConfig(
+            headline=True,
+            effect_floor_file="configs/effect_floor.json",
+            vote_count_min=21,
+            vote_count_freeze=VOTE_FREEZE,
+        )
+        assert headline.headline is True
 
     def test_a_floor_that_contradicts_its_record_is_refused(self):
         from galaxy_jepa.probing.config import EffectFloorFreeze
@@ -187,25 +198,19 @@ class TestEffectFloorFreeze:
             ProbingConfig(effect_floor=0.70, effect_floor_freeze=freeze, vote_count_min=21)
 
     def test_a_run_cannot_be_both_smoke_and_headline(self):
-        from galaxy_jepa.probing.config import EffectFloorFreeze
-
-        freeze = EffectFloorFreeze(
-            value=0.65, derived_from="r", frozen_at="2026-09-10", frozen_by="m", rationale="x"
-        )
         with pytest.raises(ValueError, match="both a smoke and the headline"):
             ProbingConfig(
                 headline=True,
                 smoke=True,
-                effect_floor_freeze=freeze,
+                effect_floor_file="configs/effect_floor.json",
                 vote_count_min=21,
                 vote_count_freeze=VOTE_FREEZE,
             )
 
-    def test_an_open_floor_is_recorded_in_the_ledger(self):
-        """An unfrozen floor is a forfeited guarantee, so the artefact must say so."""
-        assert (
-            ProbingConfig(vote_count_min=21).effect_floor_freeze is None
-        )  # the shipped default is OPEN
+    def test_the_code_default_is_open(self):
+        """Bare, the floor is OPEN: only a smoke can score it, and it is stamped FLOOR BYPASSED."""
+        bare = ProbingConfig(vote_count_min=21)
+        assert bare.effect_floor_freeze is None and bare.effect_floor_file is None
 
 
 #: The budget Brief M displaces: `steps` and `checkpoint_every` are both determining, so moving

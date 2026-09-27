@@ -240,6 +240,40 @@ class FrozenChoice(RunConfig):
     rationale: str
 
 
+class HashedFrozenChoice(FrozenChoice):
+    """A frozen choice that carries a hash over its own contents, so a hand edit is refused.
+
+    A record in a file can be edited by anyone with a text editor, and a number that moved
+    without its derivation moving too is exactly the drift a freeze exists to rule out. So the
+    record states what it covers (:meth:`determining_fields`) and :meth:`assert_intact` refuses
+    it the moment ``content_hash`` stops matching. Subclasses name themselves and the honest
+    remedy through the three class variables, so each refusal says what to do instead.
+    """
+
+    content_hash: str
+
+    #: How the refusal names the record, how it came to be, and what to do instead of editing.
+    RECORD_NAME: ClassVar[str] = "the frozen record"
+    MADE: ClassVar[str] = "frozen"
+    REMEDY: ClassVar[str] = "Re-derive it rather than hand-editing"
+
+    def determining_fields(self) -> dict[str, Any]:
+        """Everything the record's value depends on — what ``content_hash`` covers."""
+        raise NotImplementedError
+
+    def expected_hash(self) -> str:
+        return config_hash(self.determining_fields())
+
+    def assert_intact(self) -> None:
+        if self.content_hash != self.expected_hash():
+            raise ValueError(
+                f"{self.RECORD_NAME} has been edited since it was {self.MADE}: content_hash "
+                f"{self.content_hash[:12]} does not match the record it covers "
+                f"({self.expected_hash()[:12]}). {self.REMEDY} — the whole point of the record "
+                "is that the numbers cannot drift silently."
+            )
+
+
 # --- provenance --------------------------------------------------------------------
 
 _NO_GIT = "nogit"

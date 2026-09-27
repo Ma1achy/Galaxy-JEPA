@@ -396,7 +396,8 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   of them; still `# FLAGGED`. *Candidate recorded, not chosen:* give the MLP rung its own null
   from the untrained-encoder control rather than a fixed constant, so selectivity stays relative
   the way every other rung is.
-- [ ] (P0) **The combined null is a point mass — measured, and it blocks the budget question.**
+- [x] (P0) **The combined null is a point mass — SUPERSEDED by D23** (e5e575a, 28e6b11): existence
+  moved to the untrained-z construction, whose p is continuous; see Brief P / Q1 below.
   Three of the five controls (noise-through-encoder, untrained-encoder, sky/noise) are *single
   AUCs*, not distributions; only shuffled-labels and random-embeddings resample. Because the
   combination rule takes the per-draw max, and the largest singleton exceeds every resampled
@@ -404,12 +405,13 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   n=200). So the existence p can take only two values — `1/(n+1)` or `1.0` — and raising the
   draw count buys **no resolution**, only a lower floor. Fix the degeneracy before sizing the
   budget; a draw budget over a constant null is compute spent on arithmetic.
-- [ ] (P0) **Null-draw budget** (blocked on the above). `nulls.required_null_draws` derives it:
-  the BY rank-1 bar at family 37 is 3.216e-4, so the floor `1/(n+1)` needs **n ≥ 3,109**; family
-  10 needs 585. Sized from **Scheme 1 and applied to both** (`BUDGET_FAMILY_SIZE`), so "different
-  null resolution" can never explain a Scheme-1-vs-Scheme-2 disagreement. `assert_null_resolution`
-  stays live regardless — it is what stops a future config change from silently producing an
-  all-R3 catalogue that reads like a scientific null.
+- [x] (P0) **Null-draw budget — SUPERSEDED by D23** (e5e575a, 28e6b11): under `untrained_z` the
+  draws are reported controls, not the test's denominator. As recorded (blocked on the above):
+  `nulls.required_null_draws` derives it: the BY rank-1 bar at family 37 is 3.216e-4, so the floor
+  `1/(n+1)` needs **n ≥ 3,109**; family 10 needs 585. Sized from **Scheme 1 and applied to both**
+  (`BUDGET_FAMILY_SIZE`), so "different null resolution" can never explain a Scheme-1-vs-Scheme-2
+  disagreement. `assert_null_resolution` stays live regardless — it is what stops a future config
+  change from silently producing an all-R3 catalogue that reads like a scientific null.
 - [ ] (P0) **Cost reality.** Measured on this machine at N=3,000: **471 ms per draw per feature**
   (two logistic fits at (2136, 384); `multivariate_normal` is only 34% of one of them, so caching
   the covariance factor saves ~13%, not orders). Scheme 1 × 2 ladders: **30 h at n=3,109**,
