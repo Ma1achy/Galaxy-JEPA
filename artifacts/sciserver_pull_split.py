@@ -38,6 +38,7 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import hashlib
 import itertools
 import json
 import os
@@ -395,16 +396,27 @@ def _fetch_chunk(Jobs, Files, chunk: dict, dest: Path, *, poll_s: int, max_wait_
 
     dest.mkdir(parents=True, exist_ok=True)
     local_tar = WORK / f"{chunk['k']}_corpus.tar.gz"
-    # A multi-hundred-MB transfer at ~1-2 MB/s runs for minutes and does drop
-    # (ChunkedEncodingError: IncompleteRead). Retry the transfer itself, and check the byte
-    # count against what the file service advertised — a truncated tarball that still opens
-    # would merge a short chunk and mark it done, silently losing galaxies.
+    _download_tar(Files, fs, job_rel, size, chunk["k"], local_tar)
+    with tarfile.open(local_tar) as tar:
+        tar.extractall(dest, filter="data")
+    local_tar.unlink(missing_ok=True)
+    return dest
+
+
+# --- split download (sciserver_pull_split.py only) -----------------------------------
+# The file service drops long transfers (IncompleteRead after 20-400 MB; 2026-09-29/30) but
+# delivers 16 MiB files reliably, and it ignores HTTP Range. A splitter in a Kraken container
+# (tmp/kraken/split_daemon.py, running in scratch) cuts each finished tarball into parts with a
+# SHA-256 per part and for the whole. Here the parts are fetched, verified and reassembled into
+# the byte-identical tarball. If no parts appear in time, the whole-file transfer is used.
+_PARTS_WAIT_S = 20 * 60
+_PART_STALL_S = 60
+
+
+def _whole_transfer(Files, fs, job_rel: str, size: int, k: int, local_tar: Path) -> None:
     for attempt in range(4):
         try:
             res = safe(Files.download, fs, f"{job_rel}/corpus.tar.gz", format="response")
-            # The client sets no read timeout, so a connection that stalls without closing blocked
-            # iter_content forever (2026-09-29: chunk 527 sat at 218 MB for hours). A socket
-            # timeout turns a stall into an exception, which the retry below handles.
             res.raw.connection.sock.settimeout(_STALL_S)
             with local_tar.open("wb") as fh:
                 for piece in res.iter_content(chunk_size=8 << 20):
@@ -412,17 +424,67 @@ def _fetch_chunk(Jobs, Files, chunk: dict, dest: Path, *, poll_s: int, max_wait_
             got = local_tar.stat().st_size
             if got != size:
                 raise OSError(f"truncated transfer: {got} of {size} bytes")
-            break
+            return
         except Exception as exc:  # noqa: BLE001 — transfers drop; that is what this retries
             local_tar.unlink(missing_ok=True)
             if attempt == 3:
                 raise
-            print(f"[fetch] chunk {chunk['k']} transfer failed ({exc}); retrying ...")
+            print(f"[fetch] chunk {k} transfer failed ({exc}); retrying ...")
             time.sleep(10 * (attempt + 1))
-    with tarfile.open(local_tar) as tar:
-        tar.extractall(dest, filter="data")
-    local_tar.unlink(missing_ok=True)
-    return dest
+
+
+def _get_part(Files, fs, path: str, want: str) -> bytes:
+    for attempt in range(8):
+        try:
+            res = safe(Files.download, fs, path, format="response")
+            res.raw.connection.sock.settimeout(_PART_STALL_S)
+            h, buf = hashlib.sha256(), bytearray()
+            for piece in res.iter_content(chunk_size=1 << 20):
+                buf += piece
+                h.update(piece)
+            if h.hexdigest() != want:
+                raise OSError(f"sha256 mismatch on {path.rsplit('/', 1)[-1]}")
+            return bytes(buf)
+        except Exception as exc:  # noqa: BLE001
+            if attempt == 7:
+                raise
+            time.sleep(5 * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
+def _download_tar(Files, fs, job_rel: str, size: int, k: int, local_tar: Path) -> None:
+    parts = f"{job_rel}/parts"
+    t0 = time.time()
+    while not _parts_done_exists(Files, fs, parts):
+        if time.time() - t0 > _PARTS_WAIT_S:
+            print(f"[fetch] chunk {k}: no split parts after {_PARTS_WAIT_S // 60} min; whole-file transfer")
+            _whole_transfer(Files, fs, job_rel, size, k, local_tar)
+            return
+        time.sleep(30)
+    sums = [ln.split() for ln in safe(Files.download, fs, f"{parts}/SHA256SUMS", format="txt").splitlines() if ln.strip()]
+    whole_sha, whole_size, n = safe(Files.download, fs, f"{parts}/WHOLE", format="txt").split()
+    if int(whole_size) != size or int(n) != len(sums):
+        raise OSError(f"chunk {k}: parts manifest disagrees (size {whole_size} vs {size}, n {n} vs {len(sums)})")
+    h = hashlib.sha256()
+    t1 = time.time()
+    with local_tar.open("wb") as fh:
+        for sha, name in sums:
+            b = _get_part(Files, fs, f"{parts}/{name}", sha)
+            fh.write(b)
+            h.update(b)
+    if h.hexdigest() != whole_sha or local_tar.stat().st_size != size:
+        local_tar.unlink(missing_ok=True)
+        raise OSError(f"chunk {k}: reassembled tarball fails its whole-file SHA-256")
+    print(f"[fetch] chunk {k}: {len(sums)} parts, {size / 1e6:.0f} MB verified in {time.time() - t1:.0f}s")
+
+
+def _parts_done_exists(Files, fs, parts: str) -> bool:
+    """DONE is an empty file, so _file_size reports 0 for it; look for it by name."""
+    try:
+        files = safe(Files.dirList, fs, parts, level=2)["root"].get("files", [])
+        return any(f.get("name") == "DONE" for f in files)
+    except Exception:  # noqa: BLE001 — no parts dir yet
+        return False
 
 
 # --- phases -------------------------------------------------------------------------
