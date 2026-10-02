@@ -15,9 +15,11 @@ The steps, each deterministic (SEED), each taking the pool from the previous one
   pcasweep  RECORD of the rejected plain PCA: probe-AUC cost of the PCA-d re-expressed probe vs
             the full 384-D one, for each --dims, on the subset's test galaxies. No d up to 128 met
             mean loss <= 0.02 and worst <= 0.06 (plate_pca_sweep.json), hence the basis below.
-  basiseval the 48-D basis (`_basis`: the 37 probe directions by QR + 11 residual principal
+  basiseval the basis (`_basis`: the 37 probe directions by QR + --residual residual principal
             components, in the standardised space) measured on the subset BEFORE export, against
             the v1 plate.bin of the same subset: AUC loss, kNN overlap beside PCA-32's, variance.
+            Run on the v1 40,000 (its subset + plate.bin in --out), 1,000 seeded queries, int8: 37+11
+            = 48 keeps 3.04 of 6 neighbours, 37+27 = 64 4.62, 37+43 = 80 5.00 (the first >= 5.0: taken).
   export    one file: magic + JSON header + planar binary sections (plate_data_format.md).
             Probes: `_fit` with C from probe.yaml on the pool's probe-train split, exactly as
             aligned_c2.fit_scores; read-outs on train galaxies are in-sample (split flag). The fit
@@ -25,7 +27,7 @@ The steps, each deterministic (SEED), each taking the pool from the previous one
             Read-out byte = the decision, affine per answer onto 0-255 over its [0.1, 99.9]
             percentile range on the subset — NOT sigmoid x 255, which puts most of a rare answer's
             galaxies on a dozen levels (both are measured; see the report's `readout_mapping`).
-            Coordinates on the 48-D basis: int8, per-dimension scale = max |z| over the file's
+            Coordinates on the 80-D basis: int8, per-dimension scale = max |z| over the file's
             galaxies / 127. Each probe is exact on the float coordinates.
   testfile  the first 500 galaxies (the file order is a seeded shuffle, so any prefix is a fair
             sample), standalone: kNN recomputed among the 500 in 384-D.
@@ -37,8 +39,8 @@ c2_m1 (runs/m/encoder.pt).
 
   uv run python artifacts/plate_export.py subset [--limit N --size S --clusters K --rare-cap R] [--out DIR]
   uv run python artifacts/plate_export.py pcasweep [--dims 32,48,64,96,128] [--out DIR]
-  uv run python artifacts/plate_export.py basiseval [--out DIR]
-  uv run python artifacts/plate_export.py export   [--out DIR] [--file NAME]
+  uv run python artifacts/plate_export.py basiseval [--out DIR] [--residual R]
+  uv run python artifacts/plate_export.py export   [--out DIR] [--file NAME] [--residual R]
   uv run python artifacts/plate_export.py testfile [--out DIR]
   uv run python artifacts/plate_export.py sanity   [--out DIR] [--file plate.bin]
 """
@@ -64,7 +66,7 @@ from f0_preconditions import REPO  # noqa: E402
 SEED = 20260927
 MAGIC = b"ALMGPLT1"
 N_PCA, K_NN, N_TEST_FILE = 64, 6, 500  # N_PCA: pcasweep's plain-PCA record only
-N_RESIDUAL = 11  # basis = 37 probe directions (QR) + 11 residual principal components = 48
+N_RESIDUAL = 43  # basis = 37 probe directions (QR) + 43 residual principal components = 80 (v2.0: 11, 48)
 STD_REF = 0  # the standardisation every probe is re-expressed in: t01's, fitted on the whole train split
 FORMAT_VERSION = 2  # 2: int8 coordinates on the probe-QR + residual-PCA basis (v1: float16 PCA-32)
 PCA_LOSS_MEAN, PCA_LOSS_WORST = 0.02, 0.06  # pcasweep's acceptance bar (AUC, full 384 - PCA-d)
@@ -162,7 +164,7 @@ def _members(s, pool: np.ndarray) -> dict[str, np.ndarray]:
 def _git() -> str:
     sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
                          cwd=Path(__file__).parent).stdout.strip()
-    dirty = subprocess.run(["git", "status", "--porcelain", "--", "artifacts/plate_export.py"],
+    dirty = subprocess.run(["git", "status", "--porcelain", "--", Path(__file__).name],  # cwd-relative
                            capture_output=True, text=True, cwd=Path(__file__).parent).stdout.strip()
     return sha + ("+plate_export-uncommitted" if dirty else "")
 
@@ -380,7 +382,7 @@ def _quantise(z: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _basis(probes: list[dict | None], xs: np.ndarray, n_res: int = N_RESIDUAL) -> dict:
-    """The 48-D basis, in the standardised space the probes read.
+    """The 37 + n_res basis, in the standardised space the probes read.
 
     The probes' scalers differ (each is fitted on its own answer's eligible train galaxies), so one
     is chosen — STD_REF, t01's, fitted on the whole train split — and every probe is re-expressed in
@@ -500,7 +502,7 @@ def _overlap(z: np.ndarray, q: np.ndarray, nb: np.ndarray) -> np.ndarray:
 
 
 def basiseval(a) -> dict:
-    """The 48-D basis on the current subset, before any export: probe-AUC loss (float and int8),
+    """The 37 + --residual basis on the current subset, before any export: probe-AUC loss (float and int8),
     kNN overlap against the stored 384-D neighbours of the v1 plate.bin (same galaxies, same file
     order, same 1,000 seeded queries as `sanity`), variance kept, and the int8 section's gzip."""
     out = Path(a.out)
@@ -520,8 +522,9 @@ def basiseval(a) -> dict:
     dec = _decisions(probes, xs)
     feats = s.labels.features
     votes, counts, qof, _ = _labels(s.labels, gid, feats)
-    bas = _basis(probes, xs)
+    bas = _basis(probes, xs, a.residual)
     z = bas["z"]
+    dn = f"basis{z.shape[1]}"
     assert np.allclose(z @ bas["w"].T + bas["b"], dec.T, atol=1e-6 * max(1, np.abs(dec).max()))
     zq, zscale = _quantise(z)
     zi = zq * zscale
@@ -532,7 +535,7 @@ def basiseval(a) -> dict:
     # reference the 5.22 of 6 for PCA-32 was measured against; the same queries as `sanity`
     q = np.random.default_rng(SEED).choice(len(gid), min(1000, len(gid)), replace=False)
     nb = A["knn"].T.astype(np.int64)
-    ov = {"basis48_float": _overlap(z, q, nb), "basis48_int8": _overlap(zi, q, nb),
+    ov = {f"{dn}_float": _overlap(z, q, nb), f"{dn}_int8": _overlap(zi, q, nb),
           "pca32_float16_v1_file": _overlap(A["pca"].T.astype(np.float64), q, nb)}
     # and against neighbours in the full STANDARDISED 384-D space (the space the basis lives in)
     sfull = (xs - bas["mu"]) / bas["sd"]
@@ -550,12 +553,12 @@ def basiseval(a) -> dict:
                    f"Euclidean, among its {len(gid):,} galaxies, self excluded", "query_rule": "default_rng(SEED).choice(n, 1000)",
                    **{k: {"mean_overlap_of_6": float(v.mean()), "hist": np.bincount(v, minlength=K_NN + 1).tolist()}
                       for k, v in ov.items()},
-                   "basis48_int8_vs_standardised384": {"mean_overlap_of_6": float(ov_std.mean()),
+                   f"{dn}_int8_vs_standardised384": {"mean_overlap_of_6": float(ov_std.mean()),
                                                        "hist": np.bincount(ov_std, minlength=K_NN + 1).tolist()}},
            "int8_section": {"bytes": zq.nbytes, "gzip9_alone": len(gzip.compress(np.ascontiguousarray(zq.T).tobytes(),
                                                                                   9, mtime=0))},
            "per_answer": per}
-    (out / "plate_basis_eval.json").write_text(json.dumps(rep, indent=1))
+    (out / f"plate_basis_eval_d{z.shape[1]}.json").write_text(json.dumps(rep, indent=1))
     return {k: v for k, v in rep.items() if k not in ("per_answer", "qr_order")}
 
 
@@ -591,9 +594,9 @@ def export(a) -> dict:
     feats = L.features
     assert len(feats) == 37 and [f.split("_")[0] for f in feats] == [p.split("_")[0] for p in PLATE_IDS]
 
-    # the 48-D probe-QR + residual-PCA basis in the standardised space; int8 per-dimension scale.
+    # the probe-QR + residual-PCA basis in the standardised space; int8 per-dimension scale.
     # Each probe is exact on the float coordinates, for every galaxy
-    bas = _basis(probes, xs)
+    bas = _basis(probes, xs, a.residual)
     z, wp, bp = bas["z"], bas["w"], bas["b"]
     d = z.shape[1]
     assert np.allclose(z @ wp.T + bp, dec.T, atol=1e-6 * max(1, np.abs(dec).max()))
@@ -656,7 +659,7 @@ def export(a) -> dict:
                                   f"StandardScaler, fitted on its {probes[STD_REF]['n_train']} train galaxies (the "
                                   "whole probe-train split); every other probe re-expressed in it exactly",
                    "construction": "basis rows 0..36: the 37 probe weight vectors in that space, orthonormalised "
-                                   "by QR in qr_order; rows 37..47: the top principal components of the "
+                                   "by QR in qr_order; rows 37..: the top principal components of the "
                                    "subset's standardised embedding with the probe span projected out",
                    "qr_order": list(feats),
                    "project": "z = basis @ ((x - std_mean) / std_scale) - centre",
@@ -843,6 +846,7 @@ if __name__ == "__main__":
     ap.add_argument("--clusters", type=int, default=400)
     ap.add_argument("--rare-cap", type=int, default=1_000, help="max oversampled members per rare class")
     ap.add_argument("--dims", default="32,48,64", help="pcasweep: PCA dimensions to evaluate")
+    ap.add_argument("--residual", type=int, default=N_RESIDUAL, help="basiseval/export: residual PCs after the 37")
     ap.add_argument("--file", default=None, help="export: output name; sanity: file to check")
     a = ap.parse_args()
     r = {"subset": subset, "pcasweep": pcasweep, "basiseval": basiseval, "export": export, "testfile": testfile,
