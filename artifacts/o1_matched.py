@@ -53,6 +53,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from j4_spread_controls import OUT, SPREAD, prepare  # noqa: E402
+from probe_bank import load_bank, write_bank  # noqa: E402
 
 from galaxy_jepa.models.vit import load_frozen_encoder  # noqa: E402
 from galaxy_jepa.probing import controls as ctl  # noqa: E402
@@ -165,7 +166,7 @@ def main() -> None:
     # analysis used to cost the whole pass. Bank the matrices: keyed on the checkpoint, so a
     # different encoder cannot silently reuse them.
     cache_path = OUT / f"{args.tag}_embeddings.npz"
-    blob = np.load(cache_path, allow_pickle=False) if cache_path.exists() else None
+    blob = load_bank(cache_path) if cache_path.exists() else None  # its recorded checkpoint still hashes true
     if blob is not None and str(blob["checkpoint"]) == str(s.ckpt):
         real = EmbeddingMatrix(blob["ids"], blob["real"], str(blob["encoder_name"]))
         untrained = EmbeddingMatrix(blob["ids"], blob["untrained"], "untrained")
@@ -185,8 +186,8 @@ def main() -> None:
         # prevent, made by the line itself. Compared properly.
         if not np.array_equal(real.object_ids, untrained.object_ids):
             raise SystemExit("O1: the control matrix is not co-indexed with the real one")
-        np.savez(cache_path, ids=real.object_ids, real=real.x, untrained=untrained.x,
-                 checkpoint=str(s.ckpt), encoder_name=real.encoder_name)
+        write_bank(cache_path, ids=real.object_ids, x=None, real=real.x, untrained=untrained.x,
+                   checkpoint=str(s.ckpt), encoder_name=real.encoder_name)
     if not np.array_equal(real.object_ids, untrained.object_ids):
         raise SystemExit("O1: the control matrix is not co-indexed with the real one")
 

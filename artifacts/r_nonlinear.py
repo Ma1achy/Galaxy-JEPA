@@ -34,6 +34,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from j4_spread_controls import OUT, _release, prepare  # noqa: E402
+from probe_bank import load_bank, untrained_descriptor, write_bank  # noqa: E402
 
 from galaxy_jepa.models.vit import load_frozen_encoder  # noqa: E402
 from galaxy_jepa.probing import controls as ctl  # noqa: E402
@@ -75,13 +76,17 @@ def _key(obj: object) -> str:
     return hashlib.sha256(json.dumps(obj, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
+def _seeds_descriptor(frozen) -> str:
+    return untrained_descriptor(dict(frozen.config), "+".join(map(str, EXTRA_SEEDS)))
+
+
 def load_matrices(setup, frozen) -> tuple[EmbeddingMatrix, list[EmbeddingMatrix]]:
     """M's real matrix and the three untrained ones, all co-indexed over P2's union.
 
     Refuses rather than realigns: a bank built on another checkpoint, another architecture or
     another union would put two different populations into one comparison.
     """
-    blob = np.load(O1_BANK, allow_pickle=False)
+    blob = load_bank(O1_BANK, expected_checkpoint=setup.ckpt)  # by SHA-1; the path check stays
     if str(blob["checkpoint"]) != str(setup.ckpt):
         raise SystemExit(f"R: {O1_BANK.name} is for {blob['checkpoint']}, not {setup.ckpt}")
     ids = blob["ids"]
@@ -90,7 +95,7 @@ def load_matrices(setup, frozen) -> tuple[EmbeddingMatrix, list[EmbeddingMatrix]
     real = EmbeddingMatrix(ids, blob["real"], str(blob["encoder_name"]))
     untrained = [EmbeddingMatrix(ids, blob["untrained"], "untrained-s0")]
 
-    seeds = np.load(SEED_BANK, allow_pickle=False)
+    seeds = load_bank(SEED_BANK, expected_checkpoint=_seeds_descriptor(frozen))
     if str(seeds["model_key"]) != _key(dict(frozen.config)):
         raise SystemExit("R: the seed bank was built for a different architecture")
     if not np.array_equal(seeds["ids"], ids):
@@ -102,8 +107,8 @@ def load_matrices(setup, frozen) -> tuple[EmbeddingMatrix, list[EmbeddingMatrix]
 
 def stage_bank(setup, frozen) -> None:
     """Extract untrained seeds 1 and 2. Architecture-determined, so reusable by any M-shaped run."""
-    have = dict(np.load(SEED_BANK, allow_pickle=False)) if SEED_BANK.exists() else {}
-    ids = np.load(O1_BANK, allow_pickle=False)["ids"]
+    have = dict(load_bank(SEED_BANK, _seeds_descriptor(frozen))) if SEED_BANK.exists() else {}
+    ids = load_bank(O1_BANK, expected_checkpoint=setup.ckpt)["ids"]
     out = {"ids": ids, "model_key": _key(dict(frozen.config))}
     for s in EXTRA_SEEDS:
         if f"seed{s}" in have:
@@ -116,7 +121,7 @@ def stage_bank(setup, frozen) -> None:
         if not np.array_equal(mat.object_ids, ids):
             raise SystemExit(f"R: untrained seed {s} is not co-indexed with O1's bank")
         out[f"seed{s}"] = mat.x
-        np.savez(SEED_BANK, **out)  # after EACH seed — an interruption costs one extraction
+        write_bank(SEED_BANK, x=None, checkpoint=_seeds_descriptor(frozen), **out)  # after EACH seed — an interruption costs one extraction
         print(f"  seed {s}: {time.perf_counter() - t0:.0f}s", file=sys.stderr)
         del mat
         _release(setup.device)
