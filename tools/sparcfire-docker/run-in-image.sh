@@ -4,7 +4,7 @@
 #        run-in-image.sh fits <tag> <fits_dir> <elps_dir|NONE> [flags...]  (FITS path; flags as given)
 # The SpArcFiRe clone is mounted at /sparcfire, the toys at /toys (read-only), outputs under /out.
 set -u
-PM=${PITCH_METHODS:-$HOME/Documents/pitch-methods}
+PM=${PITCH_METHODS:-"/Volumes/X10 Pro/galaxy-jepa/pitch-methods"}
 SF=${SPARCFIRE_REPO:-$PM/SpArcFiRe}
 TOYS=${TOYS_DIR:-$PM/ht_toys/SpArcFiRe-HT-Response/input}
 OUTD=${SF_OUT:-$PM/sparcfire-docker/out}

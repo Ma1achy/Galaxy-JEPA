@@ -14,7 +14,7 @@ Recipe only. No SpArcFiRe code and no MATLAB Runtime live in this repository.
 
   Then build it: `docker build --platform linux/amd64 -t sparcfire-official:r2017a .`
 - **SpArcFiRe:** a clone of `waynebhayes/SpArcFiRe`, mounted at `/sparcfire` at run time. Its
-  location is set by `SPARCFIRE_REPO`, defaulting to `~/Documents/pitch-methods/SpArcFiRe`.
+  location is set by `SPARCFIRE_REPO`, defaulting to `/Volumes/X10 Pro/galaxy-jepa/pitch-methods/SpArcFiRe`.
 - **Validation:** `./run-in-image.sh regress` runs the repo's `regression-test-all.sh`. The verdict,
   recorded in `artifacts/bb_findings.md` §BB0c, is **PARTIAL**:
   - all four SpArcFiRe tests pass;

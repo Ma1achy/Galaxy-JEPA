@@ -1,8 +1,8 @@
 """Brief BB — which pitch-angle method works at SDSS quality? Synthetic spirals with known truth.
 
 Both methods are external tools, run as subprocesses; neither is vendored here.
-  PyArcFiRe  ~/Documents/pitch-methods/pyarcfire   (private Ma1achy/pyarcfire; scripts/bb_measure.py)
-  P2DFFT     ~/Documents/pitch-methods/p2dfft-6.2-src/build  (p2dfft, p2spiral; p2pa is python)
+  PyArcFiRe  /Volumes/X10 Pro/galaxy-jepa/pitch-methods/pyarcfire   (private Ma1achy/pyarcfire; scripts/bb_measure.py)
+  P2DFFT     /Volumes/X10 Pro/galaxy-jepa/pitch-methods/p2dfft-6.2-src/build  (p2dfft, p2spiral; p2pa is python)
 States and pre-registrations: `bb_findings.md`.
 
   --plant-fidelity   BB0a D28 (state logic + the mirrored end-to-end plant)
@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 from scipy.stats import spearmanr
 
-TOOLS = Path.home() / "Documents" / "pitch-methods"
+TOOLS = Path("/Volumes/X10 Pro/galaxy-jepa/pitch-methods")  # moved off the internal disk, 2026-09-29
 PYARC = TOOLS / "pyarcfire"
 FID = PYARC / "bb_local" / "fidelity"
 OUT = Path(__file__).parent / "out" / "bb"
