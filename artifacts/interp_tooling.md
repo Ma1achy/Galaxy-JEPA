@@ -977,3 +977,40 @@ powered status from Part 4b's list):
   family as the one the offset removal touches. Both observations are exploratory. Whether shape
   read-outs sit in the directions an SAE (or a colour-cast removal) disturbs first is a question for
   the aligned rerun, not a finding.
+
+## Amendment (2026-09-28) — S1 and Part 4b on the complete sae_eval offsets
+
+S1 (Stop 3) and Part 4b were scored while probe_v2's `cut_log.csv` was still filling. Only
+**3,116** of the 5,000 sae_eval galaxies had recorded offsets then; the complete file gives
+**4,999**. Rerun on the complete file with the same code and hashes in a separate directory
+(`runs/dd_v4ref`; M's originals in `runs/dd` verified unchanged, 39 files by SHA-1). The figures
+below replace the 3,116-galaxy figures in Stop 3 and in the Part 4b result. No verdict changes.
+
+**S1 — PASS, unchanged** (`runs/dd_v4ref/sae/score.json`, n = 4,999).
+- 40 latents reach |ρ| ≥ 0.5 with a per-band offset, as before. The set differs by one latent:
+  2782 drops out and 1360 enters.
+- The top latent is still **328**: ρ +0.910 with i−r x (was +0.912). Then 2389 (−0.881, i−r x)
+  and 1472 (−0.880, i−r y), which swap order.
+- The untrained matches still correlate at |ρ| ≤ 0.01.
+
+**Part 4b — GENERIC, unchanged** (`runs/dd_v4ref/sae/part4b.json`; the offset set is S1's 40 on
+the complete file).
+
+| statistic (28 powered answers) | offset set | random 95th pct (50 energy-matched sets) | cleared |
+|---|---|---|---|
+| (a) max \|ΔAUC\| | 0.033 (edge-on: no) | 0.171 | no |
+| (b) mean \|ΔAUC\| | 0.011 | 0.061 | no |
+
+- Per answer (exploratory): the offset set lies above the random 2.5–97.5% band on **14** answers
+  (all powered) and below it on none.
+- Axis-specificity: the random sets leave the i−r x offset probe at 0.969–0.972, while the offset
+  set takes it to **0.690**.
+- Secondary arm (exploratory): it would still read GENERIC; mean 0.011 against a p95 of 0.019, max
+  0.033 against 0.042.
+- Part 4's hook-consistency figures belong to Part 4's own 40 latents, one of which (2782) is no
+  longer in the set, so they are not recomputed here.
+- Latent 328 alone on the powered answers: max |ΔAUC| 0.010, mean 0.003, unchanged.
+
+S3 (FAIL, mean drop 0.029) and V3′ (spiral and bar REVERSED) do not read the offsets and reproduce
+exactly. These complete-file outputs are M's reference values for the aligned comparison's
+criterion 4 (`artifacts/aligned_comparison.md`).

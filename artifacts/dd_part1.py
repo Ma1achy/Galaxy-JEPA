@@ -26,7 +26,7 @@ from scipy.stats import spearmanr, wilcoxon
 sys.path.insert(0, str(Path(__file__).parent))
 import dd_core as D  # noqa: E402
 
-P1 = D.LOCAL / "part1"
+P1 = D.RUN / "part1"
 SEED = 20260925
 V1_ANSWERS = ("t03_bar_a06_bar", "t04_spiral_a08_spiral", "t02_edgeon_a04_yes")
 V1_BAR, V1_PLANT_SEED = 0.3, 2
@@ -55,7 +55,7 @@ class Ctx:
         self.m = D.m_encoder()
         self.ids, self.st = D.stamps("occl")
         self.groups = json.loads((D.LOCAL / "occl_groups.json").read_text())
-        self.bank = np.load(D.O1_BANK, allow_pickle=False)
+        self.bank = np.load(D.BANK, allow_pickle=False)
         self.pos = {int(o): i for i, o in enumerate(self.bank["ids"])}
         occl_rows = [self.pos[int(i)] for i in self.ids]
         self.probes = D.probe_readout(self.setup, "real")

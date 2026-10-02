@@ -11,7 +11,7 @@ TopK SAE after Gao et al. 2024 ("Scaling and evaluating sparse autoencoders"):
 - Inputs are scaled by one scalar so that E‖x‖² = d; the scalar is stored with the SAE.
 
 Layers: block 11 (the probe layer) and block 6. Encoders: M and the untrained baseline (seed 0).
-Tokens are stored fp16 as memmaps on runs/dd/sae_tokens.
+Tokens are stored fp16 as memmaps on runs/dd/sae_tokens (`dd_core.RUN`). "M" below is `dd_core.TAG`.
 
   uv run python artifacts/dd_sae.py extract            # tokens: sae (train) + sae_eval, per encoder/layer
   uv run python artifacts/dd_sae.py train <enc> <layer> <mult>
@@ -33,8 +33,8 @@ from torch import nn
 sys.path.insert(0, str(Path(__file__).parent))
 import dd_core as D  # noqa: E402
 
-TOK = D.LOCAL / "sae_tokens"
-SAE_DIR = D.LOCAL / "sae"
+TOK = D.RUN / "sae_tokens"
+SAE_DIR = D.RUN / "sae"
 LAYERS = (11, 6)
 MULTS = (8, 16)
 K, K_AUX, AUX_COEF = 32, 256, 1 / 32
@@ -197,7 +197,7 @@ def evaluate(enc: str, layer: int, mult: int, readout=None) -> dict:
     sse = sst = 0.0
     mu = torch.from_numpy(np.asarray(data[:: max(1, len(data) // 200_000)], np.float32)).mean(0).to(D.DEVICE)
     fired = torch.zeros(sae.W_enc.shape[0], dtype=torch.bool, device=D.DEVICE)
-    model = D.m_encoder() if enc == "M" else D.untrained_encoder(D.m_encoder().config, seed=0)
+    model = D.m_encoder() if enc == D.TAG else D.untrained_encoder(D.m_encoder().config, seed=0)
     pooled_rec, pooled_orig = [], []
     for g in range(0, n_gal, 64):
         x = torch.from_numpy(np.asarray(data[g * 256:(g + 64) * 256], np.float32)).to(D.DEVICE)
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     if cmd == "extract":
         TOK.mkdir(parents=True, exist_ok=True)
         m = D.m_encoder()
-        for enc, model in (("M", m), ("untrained", D.untrained_encoder(m.config, seed=0))):
+        for enc, model in ((D.TAG, m), ("untrained", D.untrained_encoder(m.config, seed=0))):
             for sample in ("sae", "sae_eval"):
                 if not TokenStore.path(enc, LAYERS[-1], sample).exists():
                     TokenStore.extract(model, enc, sample)
@@ -277,7 +277,7 @@ if __name__ == "__main__":
         import r_nonlinear as R
         from j4_spread_controls import prepare
         ro = D.probe_readout(prepare(None, R.MAX_TRAIN, label="DD3", sources=1),
-                             "real" if enc == "M" else "untrained")
+                             "real" if enc == D.TAG else "untrained")
         print(json.dumps(evaluate(enc, layer, mult, ro), indent=1))
     elif cmd == "smoke":
         smoke()

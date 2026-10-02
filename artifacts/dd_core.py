@@ -16,6 +16,7 @@ the concept (removing it lowers the score).
 from __future__ import annotations
 
 import copy
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,19 +27,36 @@ import torch
 sys.path.insert(0, str(Path(__file__).parent))
 
 REPO = Path(__file__).resolve().parents[1]
-LOCAL = REPO / "runs" / "dd"
+LOCAL = REPO / "runs" / "dd"  # the samples (stamps, id lists, GZ3D labels): encoder-independent, shared
 OUT = REPO / "artifacts" / "out" / "dd"
-O1_BANK = REPO / "artifacts" / "out" / "o1_embeddings.npz"
+# The encoder under test (criterion 4 reruns DD on other encoders). Unset, each is M's literal; a
+# relative value is taken from the repo root. TAG names the encoder's files and selects it wherever
+# "M" did, so it cannot be "untrained" (the baseline's own tag). RUN holds everything derived from
+# the encoder (sae/, sae_tokens/, part1/); the untrained baseline's files follow it there.
+ENCODER = REPO / os.environ.get("DD_ENCODER", "runs/m/encoder.pt")
+BANK = REPO / os.environ.get("DD_BANK", "artifacts/out/o1_embeddings.npz")  # keys "real" + "untrained"
+TAG = os.environ.get("DD_TAG", "M")
+RUN = REPO / os.environ.get("DD_OUT", "runs/dd")
+if TAG == "untrained":
+    raise SystemExit("dd_core: DD_TAG='untrained' would collide with the untrained baseline's files")
 READ_BLOCK = 11  # 1-based; DEFAULT_LAYER = -2 of 12
 GRID = 16
 DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
 
 
+def _bank():
+    """BANK, refused unless it was embedded by ENCODER (by SHA-1): DD_BANK and DD_ENCODER are set
+    independently, and a mismatched pair would read one encoder's probes against another's features."""
+    from probe_bank import load_bank
+    return load_bank(BANK, expected_checkpoint=ENCODER)
+
+
 # ── encoders ─────────────────────────────────────────────────────────────────────────────────────
 
 def m_encoder():
+    """The encoder under test: M unless DD_ENCODER says otherwise."""
     from galaxy_jepa.models.vit import load_frozen_encoder
-    return load_frozen_encoder(REPO / "runs" / "m" / "encoder.pt").to(DEVICE)
+    return load_frozen_encoder(ENCODER).to(DEVICE)
 
 
 def untrained_encoder(config: dict, seed: int = 0):
@@ -111,7 +129,7 @@ def probe_readout(setup, source: str = "real") -> Readout:
     coordinates. `source`: 'real' (M) or 'untrained' (seed 0, its own probes)."""
     from galaxy_jepa.probing.extract import EmbeddingMatrix, feature_embeddings
     from galaxy_jepa.probing.logistic import _fit
-    bank = np.load(O1_BANK, allow_pickle=False)
+    bank = _bank()
     mat = EmbeddingMatrix(bank["ids"].astype(np.int64), bank[source].astype(np.float64), source)
     names, ws, bs = [], [], []
     for f in setup.labels.features:
@@ -129,7 +147,7 @@ def probe_readout(setup, source: str = "real") -> Readout:
 def band_offset_readout(setup) -> Readout:
     """AA3a's PC1 — the band-misregistration axis: PC1 of M's pooled embeddings over the bank's
     train rows (`m_band_axis` reproduces AA3a with a 5k stride of the same rows)."""
-    bank = np.load(O1_BANK, allow_pickle=False)
+    bank = _bank()
     pos = {int(o): i for i, o in enumerate(bank["ids"])}
     x = bank["real"][[pos[i] for i in setup.train_ids if i in pos]].astype(np.float64)
     mu = x.mean(0)

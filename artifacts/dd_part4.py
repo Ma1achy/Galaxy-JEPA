@@ -24,11 +24,11 @@ from dd_part2 import offsets  # noqa: E402
 
 LATENT, LAYER, MULT = 328, 11, 8
 E1_MIN_TOWARD, E2_MEAN, E2_MAX = 0.05, 0.01, 0.03
-OUT = D.LOCAL / "sae" / "part4.json"
+OUT = D.RUN / "sae" / "part4.json"
 
 
 def _pooled_from_tokens(sample: str) -> np.ndarray:
-    tok = np.load(S.TokenStore.path("M", LAYER, sample), mmap_mode="r")
+    tok = np.load(S.TokenStore.path(D.TAG, LAYER, sample), mmap_mode="r")
     return np.stack([np.asarray(tok[g * 256:(g + 1) * 256], np.float32).mean(0) for g in range(len(tok) // 256)])
 
 
@@ -67,10 +67,10 @@ def main() -> dict:
     band = D.band_offset_readout(setup)
     off_ro, n_train = offset_probe()
     m = D.m_encoder()
-    sae = S.load("M", LAYER, MULT).to(D.DEVICE)
+    sae = S.load(D.TAG, LAYER, MULT).to(D.DEVICE)
     ids, st = D.stamps("sae_eval")
     base, abl, abl_rand, abl_all = [], [], [], []
-    tok = np.load(S.TokenStore.path("M", LAYER, "sae_eval"), mmap_mode="r")
+    tok = np.load(S.TokenStore.path(D.TAG, LAYER, "sae_eval"), mmap_mode="r")
     dens = np.zeros(sae.W_enc.shape[0])
     for a in range(0, min(len(tok), 256 * 1000), 65536):
         dens += (sae.encode(torch.from_numpy(np.asarray(tok[a:a + 65536], np.float32)).to(D.DEVICE)) > 0).float().sum(0).cpu().numpy()
@@ -78,7 +78,7 @@ def main() -> dict:
     # control: a random live latent within ±25% of 328's density
     near = [j for j in np.where(np.abs(dens - dens[LATENT]) <= 0.25 * dens[LATENT])[0] if j != LATENT]
     ctrl = int(np.random.default_rng(20260926).choice(near))
-    score = json.loads((D.LOCAL / "sae" / "score.json").read_text())
+    score = json.loads((D.RUN / "sae" / "score.json").read_text())
     offset_set = sorted({t["latent"] for t in score["S1"]["b11"]["top"]})
 
     def drop_all(tokens):

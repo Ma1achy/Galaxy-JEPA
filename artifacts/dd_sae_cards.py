@@ -106,9 +106,9 @@ def main() -> None:
     from j4_spread_controls import prepare
 
     mult = chosen_size(11)
-    sae = S.load("M", 11, mult)
+    sae = S.load(D.TAG, 11, mult)
     ids, st = D.stamps("sae_eval")
-    tok = np.load(S.TokenStore.path("M", 11, "sae_eval"), mmap_mode="r")
+    tok = np.load(S.TokenStore.path(D.TAG, 11, "sae_eval"), mmap_mode="r")
     rng = np.random.default_rng(20260925)
     sub = np.sort(rng.choice(len(tok), 200_000, replace=False))
     flux_tok = np.array([float(np.asarray(st[t // 256][1], np.float64)[(t % 256) // 16 * 16:(t % 256) // 16 * 16 + 16,

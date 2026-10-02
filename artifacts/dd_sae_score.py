@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import dd_core as D  # noqa: E402
 import dd_sae as S  # noqa: E402
 
-OUT = D.LOCAL / "sae"
+OUT = D.RUN / "sae"
 SEED = 20260925
 S1_RHO, S1_MATCH_MAX, S1_MIN_N = 0.5, 0.2, 500
 S2_FRAC, S2_PREC, S2_RECALL = 0.02, 0.8, 0.2
@@ -57,7 +57,7 @@ def s1_stat(acts_m: np.ndarray, acts_u: np.ndarray, match: dict[int, int], y: np
         return {"n": g, "state": "INSUFFICIENT"}
     r = spearman_cols(acts_m, y)  # (L, 4)
     best = np.abs(r).max(1)
-    cand = [int(c) for c in np.argsort(-best) if best[c] >= S1_RHO]
+    cand = [int(c) for c in np.argsort(-best, kind="stable") if best[c] >= S1_RHO]  # ties: lower index
     out: dict = {"n": g, "max_abs_rho": float(best.max()), "n_candidates": len(cand), "top": []}
     ru_all = np.abs(spearman_cols(acts_u, y)).max(0)  # the untrained SAE's best latent per offset
     out["untrained_best_abs_rho"] = dict(zip(OFFSETS, ru_all.round(3).tolist(), strict=True))
@@ -210,13 +210,13 @@ def galaxy_acts(sae, tok: np.ndarray, chunk_gal: int = 256) -> np.ndarray:
 def s2_eval(layer: int, mult: int) -> dict:
     """Trails injected into 2% (100) of the held-out sae_eval galaxies (seeded); the other 98% are the
     stored clean tokens. Fires counted per latent over all 5,000 galaxies' tokens."""
-    sae = S.load("M", layer, mult).to(D.DEVICE)
+    sae = S.load(D.TAG, layer, mult).to(D.DEVICE)
     model = D.m_encoder()
     _, st = D.stamps("sae_eval")
     n_gal = len(st)
     rng = np.random.default_rng(SEED + 2)
     picked = set(int(k) for k in rng.choice(n_gal, int(round(S2_FRAC * n_gal)), replace=False))
-    tok = np.load(S.TokenStore.path("M", layer, "sae_eval"), mmap_mode="r")
+    tok = np.load(S.TokenStore.path(D.TAG, layer, "sae_eval"), mmap_mode="r")
     L = sae.W_enc.shape[0]
     total, trail, n_trail = np.zeros(L), np.zeros(L), 0
     for g in range(0, n_gal, 64):
@@ -237,7 +237,7 @@ def s2_eval(layer: int, mult: int) -> dict:
 
 
 def chosen_size(layer: int = 11) -> int:
-    ev = {m: json.loads((OUT / f"M_b{layer}_x{m}.eval.json").read_text()) for m in S.MULTS}
+    ev = {m: json.loads((OUT / f"{D.TAG}_b{layer}_x{m}.eval.json").read_text()) for m in S.MULTS}
     st = {m: s3_state(ev[m]["faithfulness"])["state"] for m in S.MULTS}
     return 8 if st[8] != "FAIL" or st[16] == "FAIL" else 16
 
@@ -248,21 +248,21 @@ def score() -> dict:
     res: dict = {"S3": {}}
     for layer in S.LAYERS:
         for mult in S.MULTS:
-            for enc in ("M", "untrained"):
+            for enc in (D.TAG, "untrained"):
                 ev = json.loads((OUT / f"{enc}_b{layer}_x{mult}.eval.json").read_text())
                 res["S3"][f"{enc}_b{layer}_x{mult}"] = {**s3_state(ev["faithfulness"]),
                                                        "variance_explained": ev["variance_explained"],
                                                        "dead_frac": ev["dead_frac"]}
     mult = chosen_size(11)
     res["chosen"] = mult
-    res["S3_state"] = res["S3"][f"M_b11_x{mult}"]["state"]
+    res["S3_state"] = res["S3"][f"{D.TAG}_b11_x{mult}"]["state"]
     off = offsets(ids)
     rows = [k for k, o in enumerate(ids) if int(o) in off]
     y = np.stack([off[int(ids[k])] for k in rows])
     res["S1"] = {}
     for layer in S.LAYERS:
-        sm, su = S.load("M", layer, mult), S.load("untrained", layer, mult)
-        tm = np.load(S.TokenStore.path("M", layer, "sae_eval"), mmap_mode="r")
+        sm, su = S.load(D.TAG, layer, mult), S.load("untrained", layer, mult)
+        tm = np.load(S.TokenStore.path(D.TAG, layer, "sae_eval"), mmap_mode="r")
         tu = np.load(S.TokenStore.path("untrained", layer, "sae_eval"), mmap_mode="r")
         am, au = galaxy_acts(sm, tm)[rows], galaxy_acts(su, tu)[rows]
         r = np.abs(spearman_cols(am, y)).max(1)

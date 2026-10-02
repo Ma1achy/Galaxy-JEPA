@@ -32,7 +32,7 @@ import dd_sae as S  # noqa: E402
 LAYER, MULT, N_SETS, SEED = 11, 8, 50, 20260926
 LIVE, OFF_RHO_MAX, E_TOL, MAX_PROPOSALS, MIN_SETS, ALPHA = 1e-4, 0.3, 0.15, 200_000, 20, 0.5
 POWER_MIN_CLASS, POWER_MIN_AUC, PLANT_LAMBDA = 100, 0.6, 0.75
-OUT = D.LOCAL / "sae"
+OUT = D.RUN / "sae"
 FLAGS, STATS = OUT / "flags.npz", OUT / "part4b_stats.npz"
 
 
@@ -45,9 +45,9 @@ def flags() -> dict:
     from dd_sae_score import galaxy_acts
     from j4_spread_controls import prepare
 
-    sae = S.load("M", LAYER, MULT)
+    sae = S.load(D.TAG, LAYER, MULT)
     ids, st = D.stamps("sae_eval")
-    tok = np.load(S.TokenStore.path("M", LAYER, "sae_eval"), mmap_mode="r")
+    tok = np.load(S.TokenStore.path(D.TAG, LAYER, "sae_eval"), mmap_mode="r")
     rng = np.random.default_rng(20260925)  # the cards' subsample, so token flux ρ is theirs exactly
     sub = np.sort(rng.choice(len(tok), 200_000, replace=False))
     flux_tok = np.array([float(np.asarray(st[t // 256][1], np.float64)[(t % 256) // 16 * 16:(t % 256) // 16 * 16 + 16,
@@ -74,9 +74,9 @@ def flags() -> dict:
 def stats() -> dict:
     """Galaxy-mean activations Ā, the energy matrix C, and each latent's max |ρ| with the four band offsets."""
     from dd_sae_cards import _corr_masked, _panel
-    sae = S.load("M", LAYER, MULT).to(D.DEVICE)
+    sae = S.load(D.TAG, LAYER, MULT).to(D.DEVICE)
     ids, _ = D.stamps("sae_eval")
-    tok = np.load(S.TokenStore.path("M", LAYER, "sae_eval"), mmap_mode="r")
+    tok = np.load(S.TokenStore.path(D.TAG, LAYER, "sae_eval"), mmap_mode="r")
     L = sae.W_enc.shape[0]
     ztz = torch.zeros((L, L), device=D.DEVICE)
     abar = []
@@ -189,7 +189,7 @@ class Bench:
         self.off_ro, _ = offset_probe()
         self.ids, _ = D.stamps("sae_eval")
         self.base = _pooled_from_tokens("sae_eval").astype(np.float64)
-        sae = S.load("M", LAYER, MULT)
+        sae = S.load(D.TAG, LAYER, MULT)
         self.w_dec = sae.W_dec.detach().double().numpy()
         self.scale = float(sae.scale)
         self.abar = np.load(STATS)["abar"].astype(np.float64)
