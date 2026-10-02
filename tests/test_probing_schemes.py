@@ -143,6 +143,22 @@ def test_label_provider_populations_share_everything_but_the_definition():
     assert cond.eligible(_BAR, [1, 2, 3]) == [1]
 
 
+def test_with_population_shares_the_rows_rather_than_copying_them():
+    """The sibling is a view over the parent's rows, not a second copy of the sidecar.
+
+    Rebuilding with the default ``copy_rows=True`` turned an array-backed ``ProbeColumns`` into
+    Python dicts — the whole probe table, a multi-GB peak on the real corpus. Identity pins it:
+    both for rows the parent copied itself and for a view it was handed.
+    """
+    scheme = full_tree_scheme()
+    copied = LabelProvider(_rows(), scheme=scheme, vote_count_min=21)
+    assert copied.with_population("conditional").rows is copied.rows
+    view = _rows()
+    shared = LabelProvider(view, scheme=scheme, vote_count_min=21, copy_rows=False)
+    cond = shared.with_population("conditional")
+    assert cond.rows is view and cond.rows[1] is view[1]
+
+
 def test_label_provider_rejects_an_unknown_population():
     with pytest.raises(ValueError, match="population must be"):
         LabelProvider(_rows(), vote_count_min=21, population="conditional-ish")

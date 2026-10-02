@@ -271,10 +271,14 @@ class LabelProvider:
 
         The D14 comparison is *two runs of the same ladder*, not one masked run, so the two
         populations must differ in exactly one field and nothing else — hence deriving the
-        sibling here rather than rebuilding it at the call site.
+        sibling here rather than rebuilding it at the call site. The sibling shares this
+        provider's rows rather than copying them: they were normalised (or handed over as a
+        read-only view) when this provider was built, so a second copy defends nothing and,
+        on the real sidecar, doubled the footprint.
         """
         return LabelProvider(
             self.rows,
+            copy_rows=False,
             feature_cols=self.feature_cols,
             nuisance_cols=self.nuisance_cols,
             nuisance_flag_cols=self.nuisance_flag_cols,
