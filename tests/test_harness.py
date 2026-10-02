@@ -307,3 +307,78 @@ def test_run_harness_persists_the_numeric_traces(tmp_path):
     assert all(v is not None for v in traces["sigreg_losses"])  # the penalty was on
     assert traces["collapse_trace"]["effective_rank"]
     assert traces["steps_completed"] == 4
+
+
+def _battery_cfg(cfg: HarnessConfig, **probing) -> HarnessConfig:
+    from galaxy_jepa.harness import ProbingStageConfig
+
+    stage = ProbingStageConfig(vote_count_min=1, **probing)
+    return cfg.model_copy(update={"probing": stage})
+
+
+@pytest.mark.invariant
+def test_probe_frozen_checkpoint_refuses_without_the_floor_record(tmp_path):
+    """No ``effect_floor_file`` → a loud refusal before any disk is touched, never a quiet 0.65."""
+    from galaxy_jepa.harness import probe_frozen_checkpoint
+
+    cfg = _battery_cfg(_cfg(tmp_path / "pre", tmp_path / "probe", tmp_path / "out", fit=False))
+    with pytest.raises(ValueError, match=r"configs/effect_floor\.json"):
+        probe_frozen_checkpoint(cfg)
+
+
+@pytest.mark.invariant
+def test_probe_frozen_checkpoint_hands_the_floor_record_on(tmp_path, monkeypatch):
+    """The default ``ProbingConfig`` the harness builds carries the record, and it resolves."""
+    import galaxy_jepa.harness as harness_mod
+    from galaxy_jepa.probing.floor import resolve_effect_floor
+
+    built, real = [], harness_mod.ProbingConfig
+
+    class _Stop(Exception):
+        pass
+
+    def capture(**kwargs):
+        built.append(real(**kwargs))
+        return built[-1]
+
+    def stop(*_):
+        raise _Stop  # the config is built; nothing past it is under test
+
+    monkeypatch.setattr(harness_mod, "ProbingConfig", capture)
+    monkeypatch.setattr(harness_mod, "_open_existing_cache", stop)
+
+    cfg = _cfg(tmp_path / "pre", tmp_path / "probe", tmp_path / "out", fit=False)
+    with pytest.raises(_Stop):
+        harness_mod.probe_frozen_checkpoint(
+            _battery_cfg(cfg, effect_floor_file="configs/effect_floor.json")
+        )
+    (probing,) = built
+    assert probing.effect_floor_file == "configs/effect_floor.json"
+    assert not probing.smoke
+    assert resolve_effect_floor(probing).effect_floor == 0.7267  # not refused: it is the gate
+
+
+def test_run_harness_battery_carries_the_floor_record_or_refuses(tmp_path, monkeypatch):
+    """The end-of-training battery builds its own ``ProbingConfig``; it must carry the record too.
+
+    It was the call site that did not: ``probing.enabled`` handed ``run_probing`` a config with no
+    ``effect_floor_file``, which ``resolve_effect_floor`` refuses — so a non-smoke battery could
+    not have run at all, and would have failed only after the training run had been paid for.
+    """
+    import galaxy_jepa.harness as harness_mod
+
+    pretrain = _make_corpus(tmp_path / "pre", n=16, base_id=1000, labelled=False, seed=1)
+    probe = _make_corpus(tmp_path / "probe", n=40, base_id=5000, labelled=True, seed=2)
+    seen = []
+    monkeypatch.setattr(
+        harness_mod, "probe_frozen_checkpoint", lambda config, **kw: seen.append(kw["probing"])
+    )
+
+    cfg = _cfg(pretrain, probe, tmp_path / "out")
+    run_harness(_battery_cfg(cfg, enabled=True, effect_floor_file="configs/effect_floor.json"))
+    (probing,) = seen
+    assert probing.effect_floor_file == "configs/effect_floor.json"
+
+    cfg = _cfg(pretrain, probe, tmp_path / "out_missing")
+    with pytest.raises(ValueError, match=r"configs/effect_floor\.json"):
+        run_harness(_battery_cfg(cfg, enabled=True))

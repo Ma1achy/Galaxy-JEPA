@@ -192,3 +192,4 @@ probing:                    # the full battery — off by default; see ProbingSt
   enabled: false            # the design runs it after a LABEL-BLIND checkpoint choice (spec 1C)
   scheme: full_tree         # D14 order: full tree first, then `reduced`
   max_galaxies: null
+  effect_floor_file: configs/effect_floor.json   # the write-once floor record; not hashed (D15)

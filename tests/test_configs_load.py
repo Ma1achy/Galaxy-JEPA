@@ -286,3 +286,34 @@ def test_the_medium_run_is_a_smoke_and_that_is_the_only_thing_that_moved():
     assert config_hash(dump)[:16] == "046659910b5fd543"  # as shipped: D21 + M's budget + smoke
     assert config_hash(at_stock)[:16] == "7ecf5dce5a1f60ba"  # minus the budget: D21 as shipped
     assert config_hash(dict(at_stock, smoke=False))[:16] == "de87b8f9704b7e2d"  # D21's recipe
+
+
+@pytest.mark.parametrize("path", ["configs/pretrain.yaml", "configs/pretrain_v2.yaml"])
+def test_the_pretrain_configs_name_the_floor_record_and_the_path_is_not_identity(path):
+    """The harness battery reads the same record ``configs/probe.yaml`` does, and naming it
+    moved no run.
+
+    Without the path a harness-run battery that is not a smoke is refused at the scoring choke
+    point (``resolve_effect_floor``). With it, ``config_hash`` must stay put: the path says where
+    the record lives, not what it is (D15), so M's stamp ``v2:61330a0012234374`` still names the
+    config as shipped. The record itself enters the *probing* stamp once the battery loads it.
+    """
+    from galaxy_jepa.core.config import config_hash
+
+    with open(path) as fh:
+        config = HarnessConfig(**yaml.safe_load(fh))
+    assert config.probing.effect_floor_file == "configs/effect_floor.json"
+    assert load_effect_floor(config.probing.effect_floor_file).value == 0.7267  # intact
+
+    dump = config.determining_dump()
+    assert "effect_floor_file" not in dump["probing"]
+    unnamed = config.model_copy(
+        update={"probing": config.probing.model_copy(update={"effect_floor_file": None})}
+    )
+    assert config_hash(unnamed.determining_dump()) == config_hash(dump)
+    # and the deny-list reaches only that one nested key: the rest of the stage is still hashed
+    assert config_hash(
+        config.model_copy(
+            update={"probing": config.probing.model_copy(update={"max_galaxies": 7})}
+        ).determining_dump()
+    ) != config_hash(dump)

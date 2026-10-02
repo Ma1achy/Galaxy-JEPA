@@ -30,7 +30,7 @@ import statistics
 import time
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -221,6 +221,11 @@ class ProbingStageConfig(RunConfig):
     deliberate act; :func:`probe_frozen_checkpoint` is the standalone entry point.
     """
 
+    #: Mirrors ``ProbingConfig``: the floor record's path says where it lives, not what it is
+    #: (D15). The record itself enters the probing stamp once ``resolve_effect_floor`` loads it,
+    #: so naming the path here leaves the training run's ``config_hash`` where it was.
+    NON_DETERMINING: ClassVar[frozenset[str]] = RunConfig.NON_DETERMINING | {"effect_floor_file"}
+
     enabled: bool = False
     scheme: str | None = None  # None ⇒ the LabelProvider default; else a probing.schemes name
     max_galaxies: int | None = None  # truncate the corpus (plumbing smokes only)
@@ -228,6 +233,10 @@ class ProbingStageConfig(RunConfig):
     # mean+2σ *method* carries, its value 21 does not — that was read off a different data
     # release. Turning probing on means stating the floor. See `probing.config.VoteCountFreeze`.
     vote_count_min: float | None = None
+    # REQUIRED whenever the battery runs, likewise: the write-once effect-floor record
+    # (`configs/effect_floor.json`), handed on to the harness-built `ProbingConfig`. Without it
+    # `resolve_effect_floor` refuses any run that is not a smoke, and the harness battery is not.
+    effect_floor_file: str | None = None
 
 
 class PathsConfig(RunConfig):
@@ -291,6 +300,16 @@ class HarnessConfig(RunConfig):
     model: ModelConfig = Field(default_factory=ModelConfig)
     probe: ProbeConfig = Field(default_factory=ProbeConfig)
     probing: ProbingStageConfig = Field(default_factory=ProbingStageConfig)
+
+    def determining_dump(self) -> dict[str, Any]:
+        """As :meth:`RunConfig.determining_dump`, with ``probing`` minus its own deny-list.
+
+        ``NON_DETERMINING`` is a top-level-key deny-list, so a nested location would otherwise
+        move ``config_hash``; the floor record's path is the one nested location there is.
+        """
+        dump = super().determining_dump()
+        dump["probing"] = self.probing.determining_dump()
+        return dump
 
     def autocast_dtype(self) -> torch.dtype | None:
         if self.autocast is None:
@@ -657,6 +676,7 @@ def run_harness(config: HarnessConfig) -> RunReport:
                     ratios=config.ratios,
                     device=config.runtime.device,
                     vote_count_min=_required_vote_floor(config),
+                    effect_floor_file=_required_effect_floor_file(config),
                 ),
                 scheme=get_scheme(config.probing.scheme) if config.probing.scheme else None,
                 max_galaxies=config.probing.max_galaxies,
@@ -683,6 +703,21 @@ def _required_vote_floor(config: HarnessConfig) -> float:
             "withdrawn heuristic for the registered sweep."
         )
     return float(floor)
+
+
+def _required_effect_floor_file(config: HarnessConfig) -> str:
+    """The effect-floor record's path, or a loud refusal — never a quiet inline 0.65."""
+    path = config.probing.effect_floor_file
+    if path is None:
+        raise ValueError(
+            "probing needs `probing.effect_floor_file` and this config leaves it unset. The "
+            "floor decides which features exist at all, and it is a write-once hashed record "
+            "rather than a number: `configs/effect_floor.json` (0.7267, D22), which "
+            "`configs/probe.yaml` already points at. Name it in the `probing:` block; the path "
+            "is not hashed (D15), the record is, once the battery loads it. Without it "
+            "`resolve_effect_floor` refuses every run that is not a smoke."
+        )
+    return path
 
 
 def _probe_rows(cache: TensorCache, probe_dir: str | Path) -> tuple[Any, list[int]]:
@@ -826,6 +861,7 @@ def probe_frozen_checkpoint(
             seed=config.seed,
             ratios=config.ratios,
             vote_count_min=_required_vote_floor(config),
+            effect_floor_file=_required_effect_floor_file(config),
         )
     )
     out = (
