@@ -3,23 +3,22 @@
 **Question.** How much of each encoder's representation is spent on instrumental nuisance rather than
 morphology?
 
-**Status.** Draft v2, 2026-09-27 (Kickoff B task 3; Follow-up item 6). Scope as the user settled it:
-every arm is pre-registered now, including MAE and MoCo, which are **pending baselines (Kickoff F)** and
-scored only once they exist. The plants run on M, O2 and the untrained encoder (D28), and the user
-approves before hashing. Once settled, the section from "## Pre-registration" through its last content
-line is hashed (SHA-1, trailing newline), **before any MAE or MoCo embedding is read**. The open
-questions of v1 are settled (user, 2026-09-27; see "Settled"), and the thin-n failure is answered by a
-rule, UNRESOLVED by width, not by a plant change. **Not hashable yet:** (1) the full plant rerun under
-the new rule has **not run** — it is blocked at `f0_preconditions.check` (see "Plant results"), so the
-results and pins below are still v1's; (2) by arithmetic on v1's own numbers, the thin-n plant will
-**still not fire** under the rule as written (CI half-width 0.0092 < MDD 0.0128), which is for the user;
-(3) the `sky_r` pull is pending.
-
-## Pre-registration" through its last content line is hashed (SHA-1, trailing newline),
-**before any MAE or MoCo embedding is read**. The plant results below are the **full run** (2026-09-27);
-one plant (thin-n UNRESOLVED) did not fire and is open. Open before the hash, each marked *(open)* where it
-applies: the baselines' corpus version, their patch size, their training length, the materiality
-floor of criterion 2, and the sky variable.
+**Status.** Draft v3, 2026-10-02 (Kickoff B task 3; Follow-up item 6; user's 28 September item 2).
+Scope as the user settled it: every arm is pre-registered now, including MAE and MoCo, which are
+**pending baselines (Kickoff F)** and scored only once they exist. The plants run on M, O2 and the
+untrained encoder (D28), and the user approves before hashing. Once settled, the section from
+"## Pre-registration" through its last content line is hashed (SHA-1, trailing newline), **before any
+MAE or MoCo embedding is read**. Changes from v2: (1) UNRESOLVED is now the CI **straddling** the
+detectable threshold (lo < MDD < hi, or lo < −MDD < hi), replacing v2's half-width rule, in the index,
+the secondary index, the per-variable states and the one-seed read; (2) `sky_r` is pulled (record
+pinned) and is variable 7; `snr_r` is a declared secondary, reported with no state; (3) all 17 plants
+are rerun once with `sky_r` under the new rule; v2's output on record is kept as
+`distractor_plants_v2.json`. (A stray duplicate of the v1 status paragraph, which opened with a
+second "## Pre-registration" line, is removed.) **v3 rerun done (2026-10-02 19:28):** every plant
+fires but two, the thin-n plant now reads UNRESOLVED, and MDD = 0.014257, MDD′ = 0.005435 (see "Plant
+results — v3"). **Not hashable yet:** two plants fail as written: the null (one draw's NI CI misses 0)
+and the secondary index's Δ = 0 plant (SEEDS DISAGREE 2 of 20). Both are diagnosed and their fixes
+proposed, not applied (D28: kept on record beside the fix); the user decides, then one rerun.
 
 ## Pre-registration
 
@@ -70,29 +69,30 @@ floor of criterion 2, and the sky variable.
      criterion 1a's (`aligned_c13.c1_arrays`).
   2. **PSF:** `psfWidth_r` (FWHM, arcsec).
   3. **Brightness:** `modelMag_r`.
-  4. **Sky.** Settled (user, 2026-09-27): **`sky_r`** (PhotoObjAll, the sky flux at the object's
-     centre after deblending, nanomaggies/arcsec²) if it is cheap to add to a PhotoObj query;
-     otherwise `snr_r` is declared as the stand-in. *(Pending the pull.)*
-     - **Cost, measured:** it is cheap. The probe metadata was pulled by public SkyServer SQL
-       (`metadata.run_sql`, no token), paged in 10,000-row blocks on `g.dr8objid`
-       (`_plan_full_probe.py`). One timed page of `p.sky_r` over the probe query's own joins
-       (`zoo2MainSpecz ⋈ PhotoObjAll ⋈ Field ⋈ SpecObj`, `ORDER BY g.dr8objid`, the first 10,000
-       probe ids) returned 10,000 rows in **3.9 s**. The 230,358 galaxies are 24 pages: about
-       **1.5 min** of queries, a few minutes with retries. The values are sane: median 4.40, 1–99%
-       3.61–6.17, maximum 16.4 nanomaggies/arcsec² (about 20.9 mag/arcsec², dark r-band sky), none
-       zero, negative or a sentinel; Spearman ρ 0.96 with the field-level `Field.sky_r`.
-     - **Until it lands, `snr_r` holds slot 7** and every plant below ran on it. `snr_r` (the
-       image-domain SNR, `metadata.photometric_snr`, const / `modelMagErr_r`) measures depth, which
-       mixes source brightness with sky noise, so it is largely brightness: its Spearman ρ with
-       `modelMag_r` on the test split is **−0.84**. With `snr_r` as variable 7, brightness enters the
-       index about twice (magnitude, and most of SNR). PSF is independent of magnitude (ρ −0.02).
-     - **When it lands before the hash,** `sky_r` replaces `snr_r` as variable 7 (median split, as the
-       other continuous variables), `snr_r` moves to reported, and the plants are rerun on `sky_r`; that
-       rerun's pins replace the ones below. If it lands after the hash, it is a new pre-registration,
-       and its read is labelled exploratory beside this one.
+  4. **Sky: `sky_r`** (PhotoObjAll, the sky flux at the object's centre after deblending,
+     nanomaggies/arcsec²), median split as the other continuous variables. Settled (user, 2026-09-27:
+     `sky_r` if cheap to add to a PhotoObj query; 2026-09-28: pull it now).
+     - **The pull, pinned** (`distractor_plants.py pull-sky`, 2026-10-02; record
+       `artifacts/out/distractor_sky_r.json`): public SkyServer SQL (`metadata.run_sql`, DR17, no
+       token), `SELECT CAST(p.objID AS varchar(20)) AS objID, p.sky_r FROM PhotoObjAll p WHERE p.objID
+       IN ({})`, 100 ids per call (400-id lists failed to connect that week), each batch kept as it
+       landed. The galaxies are criteria 1 and 2's: the capped train + test, 74,829 ids (O1's bank ids,
+       which every plant run checks equal to them; ids SHA-1 `3ff38816…`). Requested 74,829, returned
+       74,829, **missing 0**; sentinels (≤ −9000) 0, zero or negative 0. Median 3.97, 1–99% 2.73–7.34,
+       maximum 24.7 nanomaggies/arcsec². Output `artifacts/out/distractor_sky_r.csv`, SHA-1
+       `6fa39dbb9a36e254b160c937a76f4012132dd24d`; the plant script refuses a file that does not
+       match its record.
+     - On these galaxies `sky_r` is nearly independent of the other two continuous variables:
+       Spearman ρ +0.04 with `modelMag_r`, +0.00 with `psfWidth_r` (and −0.15 with `snr_r`).
+  - **Declared secondary, reported with no state: `snr_r`** (the image-domain SNR,
+    `metadata.photometric_snr`, const / `modelMagErr_r`). It held slot 7 through v2. It measures depth,
+    which mixes source brightness with sky noise, so it is largely brightness (Spearman ρ −0.84 with
+    `modelMag_r` on the test split); as variable 7 it entered brightness into the index about twice.
+    Its AUC and CI are reported per encoder beside the index; it is in neither index and carries no
+    state.
   - **Reported, no state:** redshift (`specz`) and size (`petroRad_r`, without the
     `petrorad_suspect` rows), N1's two physical nuisances, for continuity with N1's panel.
-- **Continuous variables: the median-split AUC, not ridge R².** PSF, magnitude and SNR are binarised
+- **Continuous variables: the median-split AUC, not ridge R².** PSF, magnitude and sky are binarised
   at each split's own median, as N1's panel does (`LabelProvider.nuisance_label`); settled (user,
   2026-09-27) as the protocol throughout. The probe is the one fit path (`probing.logistic._fit`: standardised L2 logistic, C = 1), which is also criterion 1a's
   probe. Why:
@@ -102,7 +102,7 @@ floor of criterion 2, and the sky variable.
     approximating it. The full run checks this (precondition below).
   - **One scale.** The offsets are AUCs. A median-split AUC puts all seven readabilities on one scale,
     so the index can average them.
-  - **Robust.** It is scale-free and insensitive to the heavy tails of PSF and SNR.
+  - **Robust.** It is scale-free and insensitive to the heavy tails of PSF and sky.
   - The cost, declared: the split discards ranking within each half, and ridge R² would keep it. R² is
     not computed.
 - **Bootstrap.** Criterion 2's paired Poisson galaxy bootstrap of the test split (`aligned_c2.weights`,
@@ -128,19 +128,22 @@ floor of criterion 2, and the sky variable.
 - **The smallest detectable difference, MDD** (the power check, criterion 2's realistic width, fixed
   from M and O2 alone before any baseline is read): J1 and J2 are two genuinely independent draws, so
   sd(D̄) ≈ sd_boot(NI_J1 − NI_J2) / √2 over the 2,000 shared draws, and
-  **MDD = S̄_J + 1.96 sd(D̄)**, with S̄_J = mean_v |J1_v − J2_v|. On the full run
-  **MDD = 0.012765** (S̄_J 0.012006, sd(D̄) 0.000388; `distractor_plants.json` 'power'). It is a
-  constant of this pre-registration: it is not recomputed on a baseline's rows, seeds or galaxies.
+  **MDD = S̄_J + 1.96 sd(D̄)**, with S̄_J = mean_v |J1_v − J2_v|. On v3's full run (`sky_r` as
+  variable 7) **MDD = 0.014257** (S̄_J 0.013582, sd(D̄) 0.000344; `distractor_plants.json` 'power'), and
+  the secondary index's **MDD′ = 0.005435** (S̄′_J 0.004834, sd 0.000307). v2's run (`snr_r`) gave
+  0.012765; it is superseded. It is a constant of this pre-registration: it is not recomputed on a baseline's rows, seeds or galaxies.
 - **States of the index, in precedence** (the first that applies is the state):
   1. **INSUFFICIENT:** any of the seven variables, in any of the four encoders, has fewer than 500 test
      galaxies or a smaller class below 100. The index is a fixed set of seven, so a variable is not
      dropped to rescue it.
-  2. **UNRESOLVED (by width):** the CI half-width of D̄ exceeds the MDD, whatever the bar S̄. The
-     measurement cannot resolve the smallest difference this design is powered to detect, so no
-     direction or equivalence is read from it. Settled (user, 2026-09-27) after the thin-n plant read
-     SAME: its independent score noise inflated S̄ from 0.012 to 0.019, so a CI too wide to settle
-     anything still sat inside ±S̄. It stands above SEEDS DISAGREE because that state reads the two
-     B seeds' point NIs, which a CI this wide does not resolve either.
+  2. **UNRESOLVED (straddles the MDD):** the CI of D̄ straddles the detectable threshold,
+     lo < MDD < hi or lo < −MDD < hi, whatever the bar S̄. The measurement cannot say whether the
+     difference is above or below the smallest one this design is powered to detect, so no direction or
+     equivalence is read from it. Settled (user, 2026-09-28, replacing v2's half-width rule) after the
+     thin-n plant read SAME: its independent score noise inflated S̄ from 0.012 to 0.019, so a CI too
+     wide to settle anything still sat inside ±S̄, and its half-width (0.0092) was below the MDD while
+     the CI ran across it. It stands above SEEDS DISAGREE because that state reads the two B seeds'
+     point NIs, which such a CI does not resolve either.
   3. **SEEDS DISAGREE:** the two B seeds lie on opposite sides of the JEPA mean NI, each by more than
      2 s_J, where s_J = |NI_J1 − NI_J2|. The baseline's two seeds disagree in direction beyond JEPA's
      own seed noise, so the objective does not decide it at two seeds. (The margin is 2 s_J, not
@@ -154,8 +157,8 @@ floor of criterion 2, and the sky variable.
   8. **UNRESOLVED:** otherwise. The CI includes 0 and reaches beyond a bar, so it is not settled.
 - **Per variable** (criterion 2's per-answer rule): the shrunk bar B_v = (S_v + S̄) / 2, with the
   bootstrap p-values of the MORE and LESS directions BY-corrected across the seven at q = 0.05.
-  - States, in precedence: **INSUFFICIENT**; **UNRESOLVED (by width)**, when the half-width of D_v's
-    95% bootstrap CI exceeds the same MDD (0.012765), whatever B_v; **SEEDS DISAGREE** (the two B
+  - States, in precedence: **INSUFFICIENT**; **UNRESOLVED (straddles the MDD)**, when D_v's 95%
+    bootstrap CI straddles the same MDD (lo < MDD < hi or lo < −MDD < hi), whatever B_v; **SEEDS DISAGREE** (the two B
     seeds on opposite sides of the JEPA mean of that variable, each by more than 2 × |J1_v − J2_v|);
     then the shrunk-bar read **MORE / LESS / SAME / UNRESOLVED**. The MDD is the index's; the
     per-variable rule uses it unchanged, because a per-variable power check is not part of the draft.
@@ -163,13 +166,13 @@ floor of criterion 2, and the sky variable.
     B reads MORE overall but LESS on PSF. They are reported beside the index and do not change it.
 - **One seed** (a baseline with a single trained seed): D = NI_B1 − mean(NI_J1, NI_J2), against the
   JEPA spread alone, S̄_J = mean_v |J1_v − J2_v|. The baseline's own seed noise is unknown.
-  - The same thresholds and precedence apply (INSUFFICIENT, then UNRESOLVED by width against the same
-    MDD, then MORE / LESS / SAME / UNRESOLVED), and the state is suffixed **(PROVISIONAL, one seed)**.
+  - The same thresholds and precedence apply (INSUFFICIENT, then UNRESOLVED when the CI straddles ±
+    the same MDD, then MORE / LESS / SAME / UNRESOLVED), and the state is suffixed **(PROVISIONAL, one seed)**.
   - SEEDS DISAGREE cannot be read, and per-variable states are not given (D_v is reported).
   - When the second seed lands, the two-seed read replaces this one; the two are never combined.
 - **Two indices** (settled, user 2026-09-27). The **primary** index is NI above, equal-weighted over the
   seven; it governs the reading. The **secondary** index NI′ is the same mean over the **six without
-  PSF** (g−r x, g−r y, i−r x, i−r y, magnitude, SNR / sky). Why: PSF carries almost all of the JEPA
+  PSF** (g−r x, g−r y, i−r x, i−r y, magnitude, sky). Why: PSF carries almost all of the JEPA
   seed noise (J1 and J2 differ by 0.066 on PSF and by at most 0.007 elsewhere), so it sets most of
   the primary bar, and NI′ asks the question at the resolution the other six allow.
   - NI′ has its own states, by the same rules and the same precedence, with every quantity taken over
@@ -187,13 +190,14 @@ floor of criterion 2, and the sky variable.
   - Per variable, the headroom is 1 − max(AUC_J). On the i−r offsets J already reads about 0.97, so a
     per-variable MORE there has about 0.03 of room. The per-variable headroom is reported, and a
     variable whose headroom is below its B_v cannot read MORE.
-  - The realistic-width check is the MDD above; it now also carries a state (UNRESOLVED by width).
+  - The realistic-width check is the MDD above; it also carries a state (UNRESOLVED when the CI
+    straddles ±MDD).
 - **Reported, no state:**
   - U's AUCs and NI_U (and NI′_U), the floor, for three untrained seeds, as a **range** (min–max), never a
     spread.
   - The excess NI_e − NI_U for every encoder, against each end of the untrained range: the readability
     that training added over a random ViT on the same pixels.
-  - The redshift and size AUCs.
+  - The redshift and size AUCs, and `snr_r`'s (the declared secondary, see variable 7).
 - **Why U gets no state.** U is not a candidate objective, and "J reads more nuisance than a random
   network" is not the question. A state would also need U's own seed noise, and three untrained draws
   give a range, not a spread to test against, as Brief R did.
@@ -206,7 +210,7 @@ encoder.
 - **Top 10 PCs.** Each PC's variance share, and its galaxy-level |Spearman| with four families:
   - offsets: the four above;
   - brightness: `modelMag_r` and the total r flux (criterion 3's);
-  - observing: `psfWidth_r` and `snr_r`;
+  - observing: `psfWidth_r` and `sky_r` (`snr_r` until v3, with variable 7);
   - morphology: the 37 raw vote fractions (not debiased), each on its eligible galaxies.
 
   A PC **tracks** the family with its largest |ρ| if that |ρ| ≥ 0.3 (criterion 3's rule); otherwise
@@ -286,14 +290,18 @@ seen.
 ### Plant evidence (pinned)
 
 SHA-1 of each file as it stands after the full plant run. The hash of this section covers these pins.
-*(Provisional, v1's run: one plant has not fired — see the plant results. The script has since been
-edited for the width rule, the secondary index and the three untrained seeds, so its pin below no longer
-matches the file on disk; the rerun replaces both pins.)*
+*(Provisional until the two v3 failures are settled and the plants rerun: the first three pins are then
+replaced.)*
 
 | file | role | SHA-1 |
 |---|---|---|
-| `artifacts/out/distractor_plants.json` | criteria 1 and 2 plants, full run | `b042f29fa8a0ff96a112a1e7046fadb645e71e9a` |
-| `artifacts/distractor_plants.py` | the plant script, as run | `bdf6a997b23b72e6fc71503b6f8daf2281536a4c` |
+| `artifacts/out/distractor_plants.json` | criteria 1 and 2 plants, v3 full run | `84464a45d305d8ac3b495ecd23b53b682bea02f5` |
+| `artifacts/out/distractor_v3_diag.json` | diagnosis of v3's two failures (20 null draws, 200 secondary Δ = 0) | `ed399a8840f399247820b8f8e52be3a45d37ae7c` |
+| `artifacts/distractor_v3_diag.py` | its script | `9c0af22003864b2bb16691cd5795eca1ef9864c3` |
+| `artifacts/out/distractor_plants_v2.json` | v2's output on record (v1's run, `snr_r`, half-width rule not yet in it) | `b042f29fa8a0ff96a112a1e7046fadb645e71e9a` |
+| `artifacts/distractor_plants.py` | the plant script, as run for v3 | `b4d1041a347b6121195fa6114236f63e653e425a` |
+| `artifacts/out/distractor_sky_r.csv` | variable 7, the `sky_r` pull | `6fa39dbb9a36e254b160c937a76f4012132dd24d` |
+| `artifacts/out/distractor_sky_r.json` | the pull's record (query, batch, n, output SHA-1) | `ecc144debb3b4c533fb62789875bc75419362803` |
 | `artifacts/aligned_c2.py` | criterion 2's statistic, imported | `5428d679770696f9a4ddfbc037961a11c1864b9f` (as pinned in `aligned_comparison.md`) |
 | `artifacts/aligned_c13.py` | criterion 3's representation, 1a's arrays, imported | `2cc7cffdf1b8bc0bfcfa8abd38787e7b87ce8e89` (as pinned in `aligned_comparison.md`) |
 
@@ -304,14 +312,15 @@ matches the file on disk; the rerun replaces both pins.)*
 - Follow-up item 6 (the v1 open questions):
   - **The rule, not the plant.** The index and every variable are UNRESOLVED whenever the CI
     half-width exceeds the MDD (0.012765, the power check's value fixed from M and O2), whatever the
-    bar; precedence stated in criterion 1. The thin-n plant is not changed.
+    bar; precedence stated in criterion 1. The thin-n plant is not changed. *(Superseded on
+    2026-09-28: the CI straddling the MDD replaces the half-width; see below.)*
   - **Baselines** train on **v1 pretrain**, with **M's backbone and patch size (ViT-S/16)**, for
     **101,308 steps** (matched compute).
   - **Materiality floor 0.10** stays, justified by the shares plants (0.25% false calls at Δ = 0;
     MORE 1,999 / 2,000 at +0.20).
   - **Sky:** `sky_r` if cheap to add to a PhotoObj query, otherwise `snr_r` as the declared
-    stand-in. Measured cheap (3.9 s per 10,000-row page, about 1.5 min for the corpus); the pull is
-    pending.
+    stand-in. Measured cheap (3.9 s per 10,000-row page, about 1.5 min for the corpus). *(Pulled
+    2026-10-02; see below.)*
   - **Median-split AUC** throughout.
   - **Three untrained seeds**: seed 0 is O1's bank, seeds 1 and 2 from `r_untrained_seeds.npz`, whose
     ids are checked equal to the capped train + test in every run.
@@ -319,21 +328,89 @@ matches the file on disk; the rerun replaces both pins.)*
     MDD′, read in the plants.
   - **MAE and MoCo**: pending baselines (Kickoff F).
 
-## Plant results — full run (2026-09-27, before the hash)
+## Settled (user, 2026-09-28, item 2)
 
-> **Superseded in part, pending the rerun.** Everything in this section is v1's full run under the v1
-> rules (no UNRESOLVED-by-width, no secondary index, one untrained seed). The rerun of all 17 plants
-> under the new rule, with the secondary index and three untrained seeds, has **not run**: it is blocked
-> at `f0_preconditions.check`, which `_r_flux_pread` calls to open the fp16 cache. Its step 4 refuses
-> ("probe.yaml carries no effect-floor freeze"), because `configs/probe.yaml` was migrated at 20:15 from
-> the inline `effect_floor_freeze` to `effect_floor_file: configs/effect_floor.json` and step 4 still
-> reads the inline freeze. That file is outside this brief, and the gate is not bypassed.
+- **UNRESOLVED iff the CI straddles the detectable threshold:** lo < MDD < hi, or lo < −MDD < hi. It
+  replaces the half-width wording everywhere (index, secondary index with its own MDD′, per variable,
+  one seed), at the same place in the precedence.
+- **Pull `sky_r` now**, recording the query and the output's hash; rerun all 17 plants once with
+  `sky_r`; keep `snr_r` as a declared secondary.
+
+## Plant results — v3 full run (2026-10-02, before the hash)
+
+`sky_r` as variable 7, the straddle rule, the secondary index (without PSF), three untrained seeds. 40,000
+capped train and 34,829 test galaxies, 2,000 bootstrap draws, 20 realisations per score plant;
+`artifacts/out/distractor_plants.json`, 1,469 s, max RSS 4.1 GB. `sky_r`: 0 missing in train or test.
+Precondition met: the median split reproduces N1's panel on J1 to within 0.0001 (PSF, magnitude, SNR,
+redshift, size).
+
+| | g−r x | g−r y | i−r x | i−r y | PSF | mag | sky | **NI** (95% CI) | NI′ | N | PR |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| J1 (M) | 0.882 | 0.872 | 0.975 | 0.966 | 0.819 | 0.903 | 0.923 | **0.406** (0.404–0.407) | 0.420 | 0.640 | 9.6 |
+| J2 (O2) | 0.883 | 0.875 | 0.974 | 0.965 | 0.753 | 0.910 | 0.906 | **0.395** (0.394–0.397) | 0.419 | 0.572 | 13.2 |
+| U (seeds 0/1/2) | 0.61–0.62 | 0.62 | 0.60–0.62 | 0.61 | 0.58–0.59 | 0.86–0.87 | 0.84 | **0.177–0.182** | 0.192–0.197 | 0.87–0.89 | 1.5 |
+
+- Seed noise is PSF's (J1 − J2 = 0.066) and now sky's (0.016); every other variable is within 0.007.
+  S̄_J = 0.0136; S̄′_J = 0.0048. SNR is reported, no state: 0.869 / 0.874 / 0.839.
+- Headroom above the JEPA pair: NI 0.094 (sky 0.077).
+
+| plant | required | got | fires |
+|---|---|---|---|
+| inject, 50% | MORE | MORE (D̄ +0.100), all 7 MORE; NI′ MORE | yes |
+| erase (LEACE) | LESS | LESS (−0.401), all 7 LESS; NI′ LESS | yes |
+| swap | SAME | SAME; NI′ SAME | yes |
+| split | SEEDS DISAGREE | SEEDS DISAGREE, all 7; NI′ SEEDS DISAGREE | yes |
+| one seed | MORE (PROVISIONAL) | MORE (PROVISIONAL); NI′ likewise | yes |
+| morphology direction, 20% | Mo MORE | Mo MORE (0.225 / 0.209) | yes |
+| **null: J1 permuted** | every variable NEAR CHANCE; NI CI ∋ 0 | all NEAR CHANCE; **NI 0.0025 (0.00016–0.0049)** | **no** |
+| score Δ = +0.03 (20) | MORE ≥ 95% | MORE 20; NI′ MORE 20 | yes |
+| score Δ = −0.03 (20) | LESS ≥ 95% | LESS 20; NI′ LESS 20 | yes |
+| score Δ = 0 (20) | SAME ≥ 95% | SAME 20; **NI′ SAME 18, SEEDS DISAGREE 2** | primary yes; **NI′ no** |
+| score Δ = +0.02 (power) | — | MORE 18, LEANS MORE 1, SAME 1 | — |
+| shares Δ = 0 (2,000) | false calls ≤ 5% | 1.25% (τ 0.048) | yes |
+| shares Δ = +0.20 (2,000) | MORE | MORE 1,995 | yes |
+| lean up / down, Δ = ±S̄_J | LEANS MORE / LESS | LEANS MORE / LESS | yes |
+| thin: 600 galaxies, Δ = S̄/2 | UNRESOLVED | **UNRESOLVED**: CI 0.0017–0.0178 straddles MDD 0.0143 | **yes** (v2's failure, fixed by the straddle rule, as predicted) |
+| insufficient: 400 galaxies | INSUFFICIENT | INSUFFICIENT, all 7; NI′ likewise | yes |
+| NI′ lean up / down, Δ = ±S̄′ | LEANS MORE / LESS | LEANS MORE / LESS | yes |
+| NI′ thin | UNRESOLVED | UNRESOLVED: CI −0.0030–0.0128 straddles MDD′ 0.0054 | yes |
+
+### Open (D28): the two failures, diagnosed, fixes proposed and not applied
+
+`artifacts/distractor_v3_diag.py` measured both (independent RNG stream; 2,819 s, 2.4 GB).
+
+1. **The null plant is one draw judged on a 95% CI.** The CI is the test-split bootstrap with the
+   probe held fixed. v2's draw passed because SNR (0.494) sat below chance and pulled NI in; with sky
+   (0.501) in its place the same draw sits 2.05 standard errors out. Over **20 independent permutation
+   draws**: all 20 read every variable NEAR CHANCE; the NI CI contains 0 in **18 of 20**, the two misses
+   on opposite sides (+0.0027, −0.0030); mean NI +0.0002, sd 0.0013, against a bootstrap se of
+   about 0.0012. No bias; the miss is the CI's coverage, slightly short of nominal because the bootstrap
+   omits the probe's own fitting noise.
+   **Proposed:** the null plant runs 20 permutation draws and requires every variable NEAR CHANCE in
+   every draw, and the NI CI to contain 0 in ≥ 16 of 20. At the measured coverage (90%) it fails with
+   probability 0.043, at nominal (95%) 0.003; ≥ 17 would fail 13% of the time at 90%.
+2. **The secondary index's SEEDS DISAGREE bar is a single difference that cancels.** The bar is
+   2 s′_J, s′_J = |NI′_J1 − NI′_J2| = 0.00097: J1 − J2 per variable is −0.0009, −0.0037, +0.0011,
+   +0.0001, −0.0071 and +0.0162 over the six, and they nearly cancel. The plant's seed noise on each B
+   seed's d_e has sd 0.0022, so opposite signs both beyond 0.0019 is common. Over **200** Δ = 0
+   realisations: **9.0%** false SEEDS DISAGREE at 2 s′_J, **0%** at 2 S̄′_J (0.0097). The primary index
+   is not exposed (2 s_J = 0.0205 against PSF-dominated noise); it read SAME 20 of 20.
+   **Proposed:** SEEDS DISAGREE's margin becomes 2 max(s_J, S̄_J) (the pooled per-variable spread, which
+   cannot cancel), for both indices. The split plant (d_e ≈ ±0.25) still reaches it.
+
+## Plant results — v2 full run (2026-09-27), superseded, kept on record
+
+> **v2's run, kept on record; the v3 rerun is queued.** Everything in this section is v1's full run under
+> the v1 rules (`snr_r` as variable 7, no straddle rule, no secondary index, one untrained seed); its
+> output is `distractor_plants_v2.json`. The v3 rerun of all 17 plants (with the three secondary-only
+> plants), with `sky_r` as variable 7 and the straddle rule, is queued on the heavy-job lock
+> (2026-10-02 13:17; log `/Volumes/X10 Pro/galaxy-jepa/tmp/distractor_plants_v3.log`). v2's blocker,
+> `f0_preconditions.check` step 4, is gone: the check now reads `effect_floor_file` and passes
+> (2026-10-02).
 >
-> **Prediction by arithmetic, stated before the rerun:** the thin-n plant's RNG stream is unchanged by
-> the new code (the secondary reads and untrained seeds draw nothing), so it reproduces v1's CI
-> [0.0006, 0.0190], half-width **0.0092**. That is below MDD **0.0128**, so the width rule does not
-> apply and the plant reads **SAME** again. **It will not fire.** The rule compares the half-width; the
-> CI's full width, 0.0185, would exceed the MDD.
+> **Prediction, stated before the rerun:** on v2's own numbers the thin-n plant's CI [0.0006, 0.0190]
+> straddles MDD 0.0128, so it would read UNRESOLVED under the straddle rule. The rerun's RNG stream is
+> unchanged, but `sky_r` changes variable 7's scores and the MDD, so the prediction is not a result.
 
 **Full: 40,000 capped train and 34,829 test galaxies, 2,000 bootstrap draws, 20 realisations per score
 plant.** `artifacts/out/distractor_plants.json`, 947 s. The DEV subsample run (10,000 + 10,000) that

@@ -6,11 +6,13 @@ Pre-registration: `artifacts/distractor_sensitivity.md`. The JEPA pair is M (c2_
 untrained floor is O1's bank (M's architecture, seed 0; capped train + test, 74,829 galaxies), with Brief
 R's seeds 1 and 2 on the same galaxies (a range, no state). Every readability state is read twice: the
 primary index over the seven, and the secondary over the six without PSF, each with its own fixed MDD.
+Variable 7 is `sky_r` (PhotoObjAll, pulled once by `pull-sky`, pinned by its record); `snr_r` is reported.
 
 Measures (i) and (ii) read the DD cap (40,000 train, H5's stride) and the whole probe-test split, the
 galaxies N1's nuisance panel and criteria 1 and 3 read. (iii) is the headline protocol (full train,
 `aligned_c2.fit_scores`) and needs full-split banks, so it is not in the plants.
 
+  uv run python artifacts/distractor_plants.py pull-sky          # sky_r for the capped train + test, once
   uv run python artifacts/distractor_plants.py plants [--limit N] [--reps R] [--out DIR]
   uv run python artifacts/distractor_plants.py embed-untrained   # full-split untrained bank, for (iii)
   uv run python artifacts/distractor_plants.py morph [tag ...]    # (iii), context, no state
@@ -19,6 +21,7 @@ galaxies N1's nuisance panel and criteria 1 and 3 read. (iii) is the headline pr
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -38,10 +41,13 @@ from probe_bank import load_bank, untrained_descriptor, write_bank  # noqa: E402
 N_BOOT = 2_000  # criterion 2's paired Poisson bootstrap; the comparison needs draws shared across encoders
 MIN_TEST, MIN_CLASS = 500, 100  # criterion 1's INSUFFICIENT floor; the powered-answer class floor
 CHANCE_HALF, CI_BAND = 0.05, (0.40, 0.60)  # 1a's bounds, for the per-encoder readability label only
-CONTINUOUS = ("psf", "magnitude", "snr")  # median split, as N1's panel (`nuisance_label`)
-NUISANCE = OFFSETS + CONTINUOUS  # the seven the index averages; snr stands in for sky (no sky column)
+CONTINUOUS = ("psf", "magnitude", "sky")  # median split, as N1's panel (`nuisance_label`)
+NUISANCE = OFFSETS + CONTINUOUS  # the seven the index averages
 SECONDARY = tuple(n for n in NUISANCE if n != "psf")  # the secondary index: PSF carries JEPA's seed noise
-REPORTED = ("redshift", "size")  # N1's physical nuisances: reported, not in the index
+REPORTED = ("snr", "redshift", "size")  # snr: declared secondary (slot 7 before sky_r); N1's physical pair
+SKY_BATCH = 100  # IDs per SkyServer call: 400-ID IN-lists failed to connect on 2026-10-01, 100-ID ones went through
+SKY_SQL = "SELECT CAST(p.objID AS varchar(20)) AS objID, p.sky_r FROM PhotoObjAll p WHERE p.objID IN ({})"
+SKY_CSV, SKY_RECORD = OUT / "distractor_sky_r.csv", OUT / "distractor_sky_r.json"
 INJECT_SHARE, MORPH_SHARE = 0.50, 0.20  # embedding plants' variance shares (gross, by design: logic, not power)
 DELTA, DELTA_POWER = 0.03, 0.02  # score plants: required shift; the shift reported for power only
 DISAGREE_MARGIN = 2  # SEEDS DISAGREE: each seed beyond the JEPA mean by 2 s_m (1 s_m false-called the null)
@@ -52,14 +58,25 @@ STATE = {"BETTER": "MORE", "WORSE": "LESS", "SAME": "SAME", "UNRESOLVED": "UNRES
 
 # ── measure (i): readability ────────────────────────────────────────────────────────────────────────
 
+def _value(d: dict, name: str, ids) -> np.ndarray:
+    """A nuisance's raw value: `sky` from the pinned pull (NaN where missing or not positive), the rest
+    from the corpus's `LabelProvider`."""
+    if name == "sky":
+        return np.array([d["sky"].get(int(i), np.nan) for i in ids])
+    return d["s"].labels.nuisance_value(name, ids)
+
+
+def _valid(d: dict, name: str, ids) -> np.ndarray:
+    return np.ones(len(ids), bool) if name == "sky" else d["s"].labels.nuisance_valid(name, ids)
+
+
 def _median_arrays(d: dict, x_tr: np.ndarray, x_te: np.ndarray, name: str):
     """N1's median split (`LabelProvider.nuisance_label`): each split at its own median, over usable
     rows. Same return shape as `aligned_c13.c1_arrays`."""
-    lab = d["s"].labels
     out = []
     for ids, x in ((d["train"], x_tr), (d["test"], x_te)):
-        v = lab.nuisance_value(name, ids)
-        ok = lab.nuisance_valid(name, ids) & ~np.isnan(v)
+        v = _value(d, name, ids)
+        ok = _valid(d, name, ids) & ~np.isnan(v)
         out.append((x[ok], (v[ok] >= np.median(v[ok])).astype(int), v[ok], ok))
     (a, ya, _, _), (b, yb, vb, okb) = out
     return a, ya, b, yb, vb, okb
@@ -121,11 +138,16 @@ def min_detectable(rm: tuple[dict, dict], names=NUISANCE) -> dict:
     """The power check (criterion 2's realistic width), from the JEPA pair alone: J1 and J2 are two
     genuinely independent draws, so sd(D) ≈ bootstrap sd(NI_J1 − NI_J2)/√2, and the minimum detectable
     D = S_J + 1.96 sd(D), with S_J = mean_v |J1_v − J2_v|. Nothing from a baseline enters, so it is fixed
-    before any baseline is read; the UNRESOLVED-by-width rule compares every CI half-width against it."""
+    before any baseline is read; a CI that straddles ±it reads UNRESOLVED (`_straddles`)."""
     sd_pair = float((_nib(rm[0], names) - _nib(rm[1], names)).std())
     s_bar = float(np.mean([abs(rm[0]["per"][n]["auc"] - rm[1]["per"][n]["auc"]) for n in names]))
     return {"sd_NI_diff_independent_draws": sd_pair, "sd_D_approx": sd_pair / np.sqrt(2),
             "S_bar_assumed_JEPA": s_bar, "min_detectable_D": s_bar + Z95 * sd_pair / np.sqrt(2)}
+
+
+def _straddles(lo: float, hi: float, mdd: float) -> bool:
+    """The CI straddles the detectable threshold: lo < MDD < hi, or lo < −MDD < hi (user, 2026-09-28)."""
+    return lo < mdd < hi or lo < -mdd < hi
 
 
 def compare_readability(rb: list[dict], rm: tuple[dict, dict], mdd: float, names=NUISANCE) -> dict:
@@ -134,8 +156,8 @@ def compare_readability(rb: list[dict], rm: tuple[dict, dict], mdd: float, names
     Two seeds: criterion 2's statistic unchanged (`aligned_c2.statistic`, the variables in place of the
     answers): D̄ = mean_v D_v = NI_B − NI_JEPA, pooled bar S̄ = mean_v S_v, 95% CI from the shared Poisson
     bootstrap; per variable, the shrunk bar B_v = (S_v + S̄)/2 with BY at q = 0.05. Precedence, index and
-    per variable alike: INSUFFICIENT, then UNRESOLVED by width (CI half-width > `mdd`, the fixed minimum
-    detectable D, whatever the bar), then SEEDS DISAGREE, then the statistic's MORE / LESS / SAME, then
+    per variable alike: INSUFFICIENT, then UNRESOLVED when the CI straddles ±`mdd` (the fixed minimum
+    detectable D; `_straddles`), whatever the bar, then SEEDS DISAGREE, then the statistic's MORE / LESS / SAME, then
     LEANS MORE / LEANS LESS where the CI excludes 0 but is not beyond the bar, then UNRESOLVED.
     `names` is the index's variable set; per-variable states are the primary index's only."""
     thin = [n for n in names if any(r["per"][n]["n_test"] < MIN_TEST or r["per"][n]["min_class"] < MIN_CLASS
@@ -145,7 +167,7 @@ def compare_readability(rb: list[dict], rm: tuple[dict, dict], mdd: float, names
     d_e = [_ni(r, names) - m_mean for r in rb]
     auc_ = {n: [r["per"][n]["auc"] for r in (*rb, *rm)] for n in names}
     primary = tuple(names) == NUISANCE
-    wide_v: list[str] = []
+    straddle_v: list[str] = []
     if len(rb) == 1:  # JEPA's pooled spread alone is the bar; the baseline's own seed noise is unknown
         d = d_e[0]
         s = float(np.mean([abs(a[1] - a[2]) for a in auc_.values()]))
@@ -169,9 +191,9 @@ def compare_readability(rb: list[dict], rm: tuple[dict, dict], mdd: float, names
             a = auc_[n]
             dv = [a[0] - (a[2] + a[3]) / 2, a[1] - (a[2] + a[3]) / 2]
             lv, hv = st["per_answer"][n]["ci"]
-            if (hv - lv) / 2 > mdd:
+            if _straddles(lv, hv, mdd):
                 per[n] = "UNRESOLVED"
-                wide_v.append(n)
+                straddle_v.append(n)
             elif dv[0] * dv[1] < 0 and min(map(abs, dv)) > DISAGREE_MARGIN * abs(a[2] - a[3]):
                 per[n] = "SEEDS DISAGREE"
             else:
@@ -180,11 +202,11 @@ def compare_readability(rb: list[dict], rm: tuple[dict, dict], mdd: float, names
         fam = "LEANS MORE"
     elif fam == "UNRESOLVED" and hi < 0:
         fam = "LEANS LESS"
-    wide = (hi - lo) / 2 > mdd
+    straddle = _straddles(lo, hi, mdd)
     if thin:
         fam = "INSUFFICIENT"
         per |= dict.fromkeys(thin if primary else [], "INSUFFICIENT")
-    elif wide:
+    elif straddle:
         fam = "UNRESOLVED"
     elif len(rb) == 2 and d_e[0] * d_e[1] < 0 and min(map(abs, d_e)) > DISAGREE_MARGIN * s_m:
         fam = "SEEDS DISAGREE"
@@ -192,18 +214,17 @@ def compare_readability(rb: list[dict], rm: tuple[dict, dict], mdd: float, names
         fam += " (PROVISIONAL, one seed)"
     counter = [n for n, v in per.items() if (v == "LESS" and fam.startswith("MORE")) or (v == "MORE" and fam.startswith("LESS"))]
     return {"index": fam, "D": float(d), "S": float(s), "ci": [float(lo), float(hi)], "ci_half_width": (hi - lo) / 2,
-            "min_detectable_D": mdd, "unresolved_by_width": bool(wide and not thin),
-            "per_variable_unresolved_by_width": wide_v, "NI_B": [_ni(r, names) for r in rb],
+            "min_detectable_D": mdd, "unresolved_ci_straddles_mdd": bool(straddle and not thin),
+            "per_variable_unresolved_ci_straddles_mdd": straddle_v, "NI_B": [_ni(r, names) for r in rb],
             "per_variable": per, "counter_direction": counter, "insufficient": thin}
 
 
 # ── measure (ii): top-10 PC shares ──────────────────────────────────────────────────────────────────
 
 def nuisance_families(d: dict) -> dict:
-    """Criterion 3's families plus 'observing' (PSF, SNR): the nuisance family is offsets ∪ brightness ∪
+    """Criterion 3's families plus 'observing' (PSF, sky): the nuisance family is offsets ∪ brightness ∪
     observing, the seven of (i) plus criterion 3's total r flux."""
-    lab = d["s"].labels
-    return families(d) | {"observing": [lab.nuisance_value("psf", d["test"]), lab.nuisance_value("snr", d["test"])]}
+    return families(d) | {"observing": [_value(d, "psf", d["test"]), _value(d, "sky", d["test"])]}
 
 
 def shares(x: np.ndarray, fam: dict) -> dict:
@@ -271,8 +292,7 @@ def _z(v: np.ndarray) -> np.ndarray:
 
 
 def _targets(d: dict, ids: list[int], pan: dict) -> np.ndarray:
-    lab = d["s"].labels
-    return np.stack([_z(pan[n]) if n in OFFSETS else _z(lab.nuisance_value(n, ids)) for n in NUISANCE], 1)
+    return np.stack([_z(pan[n]) if n in OFFSETS else _z(_value(d, n, ids)) for n in NUISANCE], 1)
 
 
 def inject(x_tr, x_te, z_tr, z_te, share: float, rng) -> tuple[np.ndarray, np.ndarray]:
@@ -300,15 +320,11 @@ def erase(x_tr, x_te, y_tr) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _binary_targets(d: dict, ids: list[int], pan: dict) -> np.ndarray:
-    lab = d["s"].labels
     cols = []
     for n in NUISANCE:
-        if n in OFFSETS:
-            v = pan[n]
-            cols.append(np.where(np.isnan(v), np.nan, (v > 0).astype(float)))
-        else:
-            v = lab.nuisance_value(n, ids)
-            cols.append((v >= np.median(v)).astype(float))
+        v = pan[n] if n in OFFSETS else _value(d, n, ids)
+        b = v > 0 if n in OFFSETS else v >= np.nanmedian(v)  # PSF and magnitude have no NaN: nanmedian = median
+        cols.append(np.where(np.isnan(v), np.nan, b.astype(float)))
     return np.stack(cols, 1)
 
 
@@ -359,6 +375,7 @@ def plants(limit: int, reps: int, out_dir: Path) -> dict:
         d["train"], d["test"] = _capped_train(d["train"], limit), _capped_train(d["test"], limit)
         d["pan_train"], d["pan_test"] = _panel(np.array(d["train"])), _panel(np.array(d["test"]))
     d["r_flux"] = _r_flux_pread(d)
+    d["sky"], sky_rec = _sky()
     fam = nuisance_families(d)
     rng = np.random.default_rng(SEED)
     w, _ = weights(d["test"], b=N_BOOT)
@@ -378,6 +395,8 @@ def plants(limit: int, reps: int, out_dir: Path) -> dict:
     del o1, us
     out: dict = {"mode": f"DEV (subsample: {len(d['train']):,} train, {len(d['test']):,} test)" if limit else "FULL",
                  "n_train": len(d["train"]), "n_test": len(d["test"]), "n_boot": N_BOOT, "untrained_seed_ids": ids_ok,
+                 "sky_r": {"output_sha1": sky_rec["output_sha1"],
+                           "missing_train_test": [int(np.isnan(_value(d, "sky", d[k])).sum()) for k in ("train", "test")]},
                  "encoders": {}, "plants": {}}
 
     # the three real encoders: M1, M2 (the JEPA pair) and the untrained floor; N1's reported pair on each
@@ -412,7 +431,7 @@ def plants(limit: int, reps: int, out_dir: Path) -> dict:
     s_bar, s_bar2 = out["power"]["S_bar_assumed_JEPA"], out["power_secondary"]["S_bar_assumed_JEPA"]
     # N1's panel (t01's rows = every capped-train and test galaxy): the same probe on the same galaxies
     n1 = json.loads((OUT / "n1_spread_controls.json").read_text())["features"][0]["nuisance_aucs"]
-    ours = {n: rd["m1"]["per"][n]["auc"] for n in CONTINUOUS} | {n: rep["m1"][n]["auc"] for n in REPORTED}
+    ours = {n: rd["m1"]["per"][n]["auc"] for n in ("psf", "magnitude")} | {n: rep["m1"][n]["auc"] for n in REPORTED}
     out["reconcile_n1"] = {n: {"n1": n1[n], "here": ours[n], "diff": ours[n] - n1[n]} for n in ours}
     print(f"  base encoders {time.perf_counter() - t0:6.0f}s", file=sys.stderr)
 
@@ -560,6 +579,69 @@ def plants(limit: int, reps: int, out_dir: Path) -> dict:
     return out
 
 
+# ── sky_r: the one pull, pinned ─────────────────────────────────────────────────────────────────────
+
+def _sql_retry(sql: str, tries: int = 12):
+    """`metadata.run_sql` (public SkyServer, no token) with backoff: the endpoint drops connections."""
+    from galaxy_jepa.data.metadata import run_sql
+    for k in range(tries):
+        try:
+            return run_sql(sql, timeout=120)
+        except Exception as exc:  # noqa: BLE001 — timeouts / 5xx / refused connections are transient
+            if k == tries - 1:
+                raise
+            print(f"  SkyServer call failed ({type(exc).__name__}); retry {k + 1} in {min(5 * 2 ** k, 120)} s",
+                  file=sys.stderr)
+            time.sleep(min(5 * 2 ** k, 120))
+
+
+def pull_sky() -> dict:
+    """`PhotoObjAll.sky_r` for variable 7's galaxies, the capped train + test (O1's bank ids, which every
+    plant run checks equal to them), by objID (= the probe's dr8objid) in 100-ID batches. Each batch is kept
+    as it lands, so a rerun resumes; made once, and `_sky` refuses a file that no longer matches its record."""
+    import pandas as pd
+    if SKY_RECORD.exists():
+        raise SystemExit(f"pull-sky: {SKY_RECORD} exists; the pull is made once and pinned")
+    t0 = time.time()
+    ids = sorted(str(int(i)) for i in load_bank(OUT / "o1_embeddings.npz")["ids"])
+    part = OUT / "distractor_sky_r.partial.json"
+    got = json.loads(part.read_text()) if part.exists() else {}
+    for k in range(0, len(ids), SKY_BATCH):
+        if str(k) in got:
+            continue
+        got[str(k)] = _sql_retry(SKY_SQL.format(",".join(ids[k:k + SKY_BATCH])))
+        part.write_text(json.dumps(got))
+        if k // SKY_BATCH % 50 == 0:
+            print(f"  {k + SKY_BATCH:,} / {len(ids):,} ids  {time.time() - t0:5.0f}s", file=sys.stderr)
+    df = pd.DataFrame([r for k in sorted(got, key=int) for r in got[k]]).rename(columns={"objID": "object_id"})
+    dup = int(df.object_id.duplicated().sum())
+    df = df.drop_duplicates("object_id").sort_values("object_id").reset_index(drop=True)
+    df.to_csv(SKY_CSV, index=False)
+    v = pd.to_numeric(df.sky_r, errors="coerce")
+    rec = {"when": time.strftime("%Y-%m-%d %H:%M:%S"), "service": "public SkyServer SQL (metadata.run_sql, DR17), no token",
+           "query_template": SKY_SQL, "batch": SKY_BATCH, "galaxies": "capped train (40,000, H5's stride) + whole test",
+           "ids_sha1": hashlib.sha1(",".join(ids).encode()).hexdigest(), "ids_requested": len(ids),
+           "rows_returned": len(df), "duplicate_rows_dropped": dup, "ids_missing": len(set(ids) - set(df.object_id)),
+           "sentinel_le_minus_9000": int((v <= -9000).sum()), "non_positive": int((v <= 0).sum()),
+           "unparseable": int(v.isna().sum()),
+           "quantiles_valid": {q: float(np.quantile(v[v > 0], q)) for q in (0, 0.01, 0.5, 0.99, 1)},
+           "output": "artifacts/out/" + SKY_CSV.name, "output_sha1": hashlib.sha1(SKY_CSV.read_bytes()).hexdigest(),
+           "seconds": round(time.time() - t0)}
+    SKY_RECORD.write_text(json.dumps(rec, indent=1))
+    return rec
+
+
+def _sky() -> tuple[dict, dict]:
+    """objID → sky_r from the pinned pull; a sentinel or a non-positive value is missing (NaN)."""
+    import pandas as pd
+    rec = json.loads(SKY_RECORD.read_text())
+    if hashlib.sha1(SKY_CSV.read_bytes()).hexdigest() != rec["output_sha1"]:
+        raise SystemExit(f"{SKY_CSV} does not match its record {SKY_RECORD}")
+    df = pd.read_csv(SKY_CSV, dtype={"object_id": str})
+    v = pd.to_numeric(df.sky_r, errors="coerce").to_numpy(float)
+    return dict(zip(df.object_id.astype(int), np.where(v > 0, v, np.nan), strict=True)), rec
+
+
 # ── (iii) and the full-split untrained bank, for scoring ────────────────────────────────────────────
 
 def embed_untrained() -> dict:
@@ -592,12 +674,12 @@ def morph(tags: list[str]) -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("plants", "embed-untrained", "morph"))
+    ap.add_argument("cmd", choices=("plants", "pull-sky", "embed-untrained", "morph"))
     ap.add_argument("tags", nargs="*", default=["m1", "m2"])
     ap.add_argument("--limit", type=int, default=0, help="dev: stride-subsample train and test to N each")
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--out", type=Path, default=OUT)
     a = ap.parse_args()
-    r = (plants(a.limit, a.reps, a.out) if a.cmd == "plants" else embed_untrained() if a.cmd == "embed-untrained"
-         else morph(a.tags))
+    r = (plants(a.limit, a.reps, a.out) if a.cmd == "plants" else pull_sky() if a.cmd == "pull-sky"
+         else embed_untrained() if a.cmd == "embed-untrained" else morph(a.tags))
     print(json.dumps(r, indent=1, default=float))
