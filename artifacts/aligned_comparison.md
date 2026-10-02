@@ -26,10 +26,24 @@ embedding is read**.
   - **Corpus.** pretrain_v2's target list is identical to v1's pretrain corpus (826,968 object IDs;
     none on one side only). Training starts only after `artifacts/pretrain_v2_validate.py` confirms
     all 826,968 stamps landed, or lists any that did not.
+    - **Validated (2026-10-01):** all 826,968 landed, 0 failed, the ID set identical to v1's.
+    - **Declared: one blank stamp is kept.** Object 1237666310706430371 sits at a frame edge where
+      the three bands' valid regions do not intersect (cut-log `valid_frac` 0), so the v2 cutter pads
+      the whole stamp to zero, as designed. It stays in pretrain_v2 so that the corpus matches M's ID
+      set exactly; one stamp in 826,968 (0.0001%).
   - **Normalisation.** The v2 freeze is fitted only on the complete pretrain_v2 corpus, by v1's
     procedure (`e5_corpus_moments.py`, `e5_fit_normalisation.py`), under v1's stability gate: 200
     disjoint half-splits, tolerance 1% relative, at most 5% of splits may breach (v1: median
     0.314%, worst 0.861%, 0% breaching). If the gate fails, nothing trains and the user decides.
+    - **Fitted (2026-10-01): passes.** Median 0.320%, worst 0.941%, 0% breaching; content hash
+      `246d8de6…` (`configs/pretrain_v2.yaml`). Run 1000 again supplies most of the trim (543 of
+      827, 108× the corpus rate; v1: 67.4%, 111×).
+    - **Reported, no state: v2's per-band std is about 1.6% above v1's, and the stamps carry it, not
+      the trims.** On the 826,122 stamps neither fit trimmed (the trims share 808 of 827), v2/v1 std
+      is 1.0171, 1.0166, 1.0154 (g, r, i), against 1.0172, 1.0168, 1.0155 between the freezes; the
+      means agree to 0.15% (`artifacts/v1_v2_std_common.py` → `artifacts/out/v1_v2_std_common.json`).
+      Each encoder is normalised by its own corpus's freeze, so the difference is absorbed, not
+      carried into training.
 - **Corpora.** Each encoder reads the corpus version it was trained on: M on probe (v1), the aligned
   encoders on probe_v2.
   - The object IDs are one-to-one, and the splits are identical (`assign_three_way` hashes objID

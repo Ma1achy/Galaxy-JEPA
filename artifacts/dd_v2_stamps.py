@@ -39,9 +39,21 @@ def main() -> None:
             raise SystemExit(f"dd_v2_stamps: {name}'s ID list no longer matches Step 0's SHA-256")
         lists[name] = ids
     cfg, cache = check(verbose=False)
-    missing = {n: len(set(ids) - set(cache._row_of)) for n, ids in lists.items()}
-    if any(missing.values()):
-        raise SystemExit(f"dd_v2_stamps: the v2 cache lacks Step 0 galaxies: {missing}")
+    # The 9 v1 probe galaxies whose GZ2 position is > 3″ from PhotoObj were dropped from probe_v2 and
+    # from every M-vs-v2 comparison (user, 2026-09-25; repull_findings.md). They are the only gap
+    # allowed: anything else missing from the v2 cache is an error.
+    import pandas as pd
+    excl = (set(pd.read_csv(V1.parents[1] / "data" / "probe" / "metadata.csv", usecols=["object_id"]).object_id.astype(int))
+            - set(pd.read_csv(V1.parents[1] / ".sciserver_work" / "probe_v2_all_targets.csv", usecols=[0]).iloc[:, 0].astype(int)))
+    if len(excl) != 9:
+        raise SystemExit(f"dd_v2_stamps: expected the 9 declared probe exclusions, found {len(excl)}")
+    dropped = {}
+    for n, ids in list(lists.items()):
+        gap = set(ids) - set(cache._row_of)
+        if gap - excl:
+            raise SystemExit(f"dd_v2_stamps: the v2 cache lacks {n} galaxies outside the declared 9: {sorted(gap - excl)}")
+        dropped[n] = sorted(gap)
+        lists[n] = [i for i in ids if i not in gap]
     V2.mkdir(parents=True, exist_ok=True)
     gb = {}
     for name, ids in lists.items():  # Step 0's copy, row-ordered reads, written to runs/dd_v2
@@ -57,7 +69,8 @@ def main() -> None:
         del dst
         gb[name] = round((V2 / f"{name}_stamps.npy").stat().st_size / 1e9, 2)
         print(f"  copied {name}: {len(ids):,} stamps, {gb[name]} GB", flush=True)
-    rec = {"lists": {n: {"n": len(ids), "sha256": Sample.digest(ids)} for n, ids in lists.items()},
+    rec = {"lists": {n: {"n": len(ids), "sha256": Sample.digest(ids), "dropped_declared_exclusions": dropped[n]}
+                     for n, ids in lists.items()},
            "local_gb": gb, "cache": str(cache.cache_dir), "pipeline_hash": cache.cache_dir.name,
            "normalisation_hash": cache.index.normalisation_hash,
            "freeze_corpus": cfg.normalisation.corpus if cfg.normalisation else None,
