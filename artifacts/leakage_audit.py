@@ -636,7 +636,9 @@ def synth(n: int, seed: int, corpus: str, size: int = 64, inject: float = 0.0, i
 
 # Sky is in the physics baseline, on principle: an observing condition, like PSF width (user,
 # 2026-09-28). The plan's literal baseline (no sky; sky a condition) is scored beside it and reported.
-SYN_PHYS_NOSKY = ["mag", "size", "snr", "gr", "ri", "sb", "zp", "psf"]
+# No redshift proxy (v4, user 2026-10-01): DR17's Photoz misses 21.2% of probe_v2's sample against
+# 2.3% of pretrain_v2's, so the proxy's gaps would separate the corpora. "zp" is still synthesised.
+SYN_PHYS_NOSKY = ["mag", "size", "snr", "gr", "ri", "sb", "psf"]
 SYN_PHYS, SYN_COND = SYN_PHYS_NOSKY + ["sky"], []
 SYN_ALT = (SYN_PHYS_NOSKY, ["sky"])
 CAMCOL_1HOT = tuple(f"camcol_{c}" for c in range(1, 7))
@@ -656,7 +658,7 @@ def _syn_pair(n, seed, **kw) -> dict:
 
 # ── real held-aside plant: v1 probe stamps (not probe_v2, not pretrain_v2) ───────────────────────────
 
-REAL_PHYS = ["modelMag_r", "snr_r", "petroRad_r", "sb_r", "psfWidth_r", "specz"]
+REAL_PHYS = ["modelMag_r", "snr_r", "petroRad_r", "sb_r", "psfWidth_r"]  # v4: no redshift proxy (specz dropped)
 
 
 def real_plant(n: int = 4_000, seed: int = SEED) -> dict:
@@ -948,7 +950,9 @@ def calibrate(alphas: list[float], n: int) -> dict:
 
 CORPORA = ("pretrain_v2", "probe_v2")
 WORK = REPO / ".sciserver_work"
-AUDIT_PHYS_NOSKY = ["modelMag_r", "snr_r", "petroR50_r", "gr", "ri", "sb50_r", "photoz", "psfWidth_r"]
+# v4 (user, 2026-10-01): no redshift proxy (see SYN_PHYS_NOSKY); petroRad_r added beside petroR50_r,
+# from each corpus's own metadata (the same PhotoObj value the pull targets carried), not the pull.
+AUDIT_PHYS_NOSKY = ["modelMag_r", "snr_r", "petroR50_r", "petroRad_r", "gr", "ri", "sb50_r", "psfWidth_r"]
 AUDIT_PHYS, AUDIT_COND = AUDIT_PHYS_NOSKY + ["sky_r"], []  # sky in the baseline (user, 2026-09-28)
 AUDIT_ALT = (AUDIT_PHYS_NOSKY, ["sky_r"])  # the plan's literal baseline, reported
 AUDIT_REPORTED = ("psfWidth_r", "sky_r", "valid_frac", "edge_dist") + CAMCOL_1HOT
@@ -1125,7 +1129,9 @@ def audit() -> None:
                          f"({got} vs {pinned and pinned['output_sha1']}); run `pull` once, before the hash")
     phys = _physics([o for c in CORPORA for o in samples[c].object_id])
     for c in CORPORA:
-        lg = samples[c].merge(phys, on="object_id", how="left")
+        md = pd.read_csv(REPO / "data" / c / "metadata.csv", usecols=["object_id", "petroRad_r"], dtype={"object_id": str})
+        md["petroRad_r"] = md.petroRad_r.where(md.petroRad_r > 0)  # SDSS −9999 / failed fits read as missing
+        lg = samples[c].merge(phys, on="object_id", how="left").merge(md, on="object_id", how="left")
         miss = float(lg[AUDIT_PHYS].isna().any(axis=1).mean())
         rep.setdefault("physics_missing", {})[c] = miss
         if miss > MAX_MISSING:

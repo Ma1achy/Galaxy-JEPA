@@ -3,10 +3,11 @@
 **Question.** Can the pixels of the re-pulled corpora (pretrain_v2, probe_v2) say how a stamp was
 processed, beyond what the galaxy's own physics already says?
 
-**Status.** Draft v3, 2026-10-01. v3 applies the user's 2026-09-28 decisions (see "Settled (user,
-2026-09-28)"): TRACE is reported, not blocking; sky is in the physics baseline, with the plan's
-baseline (no sky) reported beside it; the baseline's catalogue physics is pulled now and pinned. The
-plants were rerun under v3 (results at the end). Two plants failed as first written (v2), and the
+**Status.** Draft v4, 2026-10-02. v3 applied the user's 2026-09-28 decisions: TRACE is reported, not
+blocking; sky is in the physics baseline, with the plan's baseline (no sky) reported beside it; the
+baseline's catalogue physics is pulled now and pinned. v4 applies the 2026-10-01 decisions (see
+"Settled (user, 2026-10-01)"): the redshift proxy is dropped, `petroRad_r` joins the baseline, and
+S5's revised requirement is approved. The plants were rerun under v4 (results at the end). Two plants failed as first written (v2), and the
 fixes are declared in "Revised before the hash after a plant failed". The user approves before
 hashing. Once settled, the section from "## Pre-registration" through its last content line is
 hashed (SHA-1, trailing newline) **before any pretrain_v2 or probe_v2 pixel is read for the audit**.
@@ -141,13 +142,31 @@ Readable, reported only (no state; the pixels' own R², or AUC for camcol):
   | size | `petroR50_r` | pull (metadata has `petroRad_r` only) |
   | SNR | `snr_r` = f(`modelMagErr_r`) | the package's one derivation site (`with_derived_columns`) |
   | colour | g−r, r−i from `modelMag_{g,r,i}` | pull (neither metadata file has g or i) |
+  | size (Petrosian radius) | `petroRad_r` | each corpus's own `metadata.csv` (v4; ≤ 0 or −9999 read as missing) |
   | surface brightness | `modelMag_r` + 5 log₁₀ `petroR50_r` | derived |
-  | redshift proxy | `Photoz.z` | pull (pretrain has no specz; probe has it for every galaxy, so specz would differ by corpus in kind) |
+  | ~~redshift proxy~~ | ~~`Photoz.z`~~ | **dropped (v4)**: see below |
   | PSF width | `Field.psfWidth_r` | pull (pretrain metadata has none) |
   | sky level | `sky_r` (PhotoObjAll) | pull; **added to the plan's list** (below) |
 
   **INSUFFICIENT** if more than 2% of either corpus's sample lacks any baseline input. Missing
   values are SDSS's −9999, read as missing.
+- **No redshift proxy (v4; user, 2026-10-01). This departs from the plan's list.** The pull returned
+  every object, but DR17's `Photoz` has no usable `z` for 21.2% of probe_v2's sample and 2.3% of
+  pretrain_v2's, which fails the 2% gate. `Photoz.z` stays in the pinned pull (the query is
+  unchanged) and is not read.
+  - **Why dropping is the safe direction.** A weaker baseline can only cause a false alarm on corpus
+    membership (more of the corpus difference is left for the pixels to explain); it can never hide
+    a leak. The shift variables do not depend on redshift.
+  - **Why not keep it with the gaps.** The missingness pattern itself (21.2% against 2.3%) would
+    separate the corpora, so a baseline allowed to read it would gain corpus information from the
+    catalogue's holes and could absorb a real corpus leak.
+  - **Not filled from specz.** Every probe_v2 galaxy has one and pretrain_v2 has none, so the input
+    would differ by corpus in kind.
+  - With the proxy dropped, the baseline misses 0% of pretrain_v2's sample and 0.03% of probe_v2's
+    (6 galaxies without `petroR50_r`), inside the 2% gate.
+- **Magnitude and size, confirmed (v4).** Apparent magnitude is `modelMag_r`. Angular size was in as
+  `petroR50_r` (the Petrosian half-light radius); `petroRad_r` (the Petrosian radius itself) was not,
+  and is **added** in v4 from the corpora's metadata. The synthetic plants keep their single `size`.
 - **Sky is in the baseline, stated on principle.** Sky level is an observing condition, like PSF
   width, which the plan's baseline already holds: it is not something the cutter did. A corpus
   difference in sky is therefore physics-explained, not a leak.
@@ -331,7 +350,8 @@ the shared lock.
 - g is Fourier-shifted by t_g ~ U(−0.5, 0.5]². t_r and t_i are drawn and **not** injected.
 - phys_mix = z(modelMag_r) + z(log petroRad_r) + N(0, 1).
 - The baseline uses the probe metadata's physics (modelMag_r, snr_r, petroRad_r, the surface
-  brightness from them, psfWidth_r, specz). **No colour**: v1 metadata has none.
+  brightness from them, psfWidth_r). **No colour**: v1 metadata has none. **No redshift** (v4: specz
+  dropped with the audit's proxy).
 - **Must read:** t_g x and y LEAK; t_r and t_i CLEAN; phys_mix CLEAN and PHYSICS-EXPLAINED.
 - **Declared:** at n = 4,000 plant R tests the logic on real pixels, not the audit's power.
 - **Declared (v3):** v1 probe metadata has no sky column, so R's baseline has no sky and R has no
@@ -379,17 +399,18 @@ the audit has not run.
 
 ## Plant evidence (pinned)
 
-SHA-1 of each file as it stands after the 2026-10-01 v3 plant runs. Re-pin if anything changes
+SHA-1 of each file as it stands after the 2026-10-02 v4 plant runs. Re-pin if anything changes
 before the hash.
 
 | file | role | SHA-1 |
 |---|---|---|
-| `artifacts/out/leakage/plants.json` | v3: I, S0, S1, S3b, R, S4, S5, S2 (each scored with and without sky); S5 relabelled | `8832345f8be73f5c9939825cdbebc244f116a4ed` |
+| `artifacts/out/leakage/plants.json` | v4: I, S0, S1, S3b, R, S4, S5, S2 (each scored with and without sky) | `eccf15b9a6df0e30d4bc7ede91d10fe5b8b6a6ad` |
+| `artifacts/out/leakage/plants_v3.json` | v3's plants (2026-10-01), kept: S5's first-written failure lives here | `8832345f8be73f5c9939825cdbebc244f116a4ed` |
 | `artifacts/out/leakage/plants_v2.json` | v2's plants (2026-09-28), kept: S3's failure lives here | `33e5b0cd09713a3141702aa0ac9d0fee4721efbb` |
 | `artifacts/out/leakage/calibrate.json` | S3's dose sweep (v2; not re-run) | `a153b9f7261f44385309ece23b75261b56f16631` |
 | `artifacts/out/leakage/audit_physics.csv` | the baseline's physics for the audit's 40,000 sampled objects | `c04df4ee52d7df0289f2f326705bda39526653cb` |
 | `artifacts/out/leakage/audit_physics.json` | the pull's record: query, batch size, sample SHA-1s, output SHA-1, missingness | `0a2687f3a40c54eb49496af0bc1e7dd7bf01fe3e` |
-| `artifacts/leakage_audit.py` | the script, as it stands after the runs | `1b25e6e289c92ef796836dc1ac6ce0ae1b6573ed` |
+| `artifacts/leakage_audit.py` | the script, as it stands after the v4 runs | `c309121f85740333736b4f10f610618df4788502` |
 
 **The physics pull** (`leakage_audit.py pull`, 2026-10-01, public SkyServer DR17 `SqlSearch`, no
 token, batches of 100 IDs): the query is `PHYS_SQL` in the script and in the record. 40,000 IDs
@@ -401,31 +422,36 @@ The plants ran on successive revisions of the script. The revisions differ only 
 - the S3b entry and the calibration's per-variable field;
 - the conditions-label rule, applied to S2 and S5 by recomputation.
 
-## Plant results (v3, run 2026-10-01, before the hash)
+## Plant results (v4, run 2026-10-02, before the hash)
 
-Everything below ran under `artifacts/_heavy.sh` (`out/leakage/chain_v3.sh`; detail log
-`chain_v3_detail.log`). Each plant is scored twice from the same pixel predictions: with sky in the
-baseline (gating) and without (the plan's, reported). v2's results (2026-09-28) are in
-`plants_v2.json`; S3 and the calibration were not re-run (S3 failed and was superseded by S3b in v2).
+Everything below ran under `artifacts/_heavy.sh` (`out/leakage/chain_v4.sh`; detail log
+`chain_v4_detail.log`). v4's baselines: no redshift proxy; `petroRad_r` in the audit's (the synthetic
+plants keep one size). Each plant is scored with sky (gating) and without (reported) from the same
+pixel predictions. v3's results are in `plants_v3.json`, v2's in `plants_v2.json`.
 
 | plant | n | required (with sky) | result with sky | without sky | fires |
 |---|---|---|---|---|---|
 | I identity | 5,000 probe, ~20,000 pretrain | clean CLEAN; near-dups NEAR-DUPLICATES (7); shared IDs raise | as required | (no baseline) | yes |
-| S0 clean | 2 × 20,000 | all CLEAN; corpus PHYSICS-EXPLAINED | all 21 CLEAN; corpus ridge Δ +0.0006 (bound −0.0007), PHYSICS-EXPLAINED | all CLEAN; corpus Δ +0.0011, PHYSICS-EXPLAINED | yes / yes |
+| S0 clean | 2 × 20,000 | all CLEAN; corpus PHYSICS-EXPLAINED | 20 CLEAN, **B i_sy TRACE** (ridge Δ 0.0041, bound +0.0003); corpus CLEAN, PHYSICS-EXPLAINED (ridge Δ +0.0008, bound −0.0004) | all CLEAN | **no** / yes |
 | S1 v1 re-injected | 2 × 10,000 | 20 shift LEAK; UNSTRUCTURED; corpus CLEAN | 20 LEAK; both UNSTRUCTURED; corpus CLEAN | the same | yes / yes |
 | S3b threshold | 2 × 20,000 | at-threshold variables not CLEAN | 19 LEAK, 1 TRACE; corpus CLEAN | the same states | yes / yes |
 | S4 camcol 3 only | 2 × 10,000 | LEAK/TRACE; CAMCOL-STRUCTURED (3) only | 20 LEAK; both CAMCOL-STRUCTURED at camcol 3 only | the same | yes / yes |
-| S5 sky pedestal | 2 × 10,000 | corpus not blocking (revised); shifts CLEAN | corpus TRACE (Δ 1.35 × 10⁻⁵, bound 2.7 × 10⁻⁶; physics AUC 0.999987), CONDITIONS-EXPLAINED; shifts CLEAN | corpus LEAK (Δ 0.133), CONDITIONS-EXPLAINED | yes (revised) / yes |
-| S2 B bilinear | 2 × 10,000 | corpus LEAK, NOT CONDITIONS-EXPLAINED; A CLEAN | corpus LEAK (Δ 0.136, bound 0.129), NOT CONDITIONS-EXPLAINED; A all CLEAN | the same | yes / yes |
-| R real v1 probe | 4,000 (256²) | t_g LEAK; t_r, t_i CLEAN; phys_mix CLEAN, PHYSICS-EXPLAINED | t_g x, y LEAK (ridge Δ 0.41, 0.38); t_r, t_i CLEAN; phys_mix CLEAN, PHYSICS-EXPLAINED | (no sky in v1 metadata) | yes |
+| S5 sky pedestal | 2 × 10,000 | corpus not blocking; shifts CLEAN | corpus TRACE (physics AUC 0.99999), CONDITIONS-EXPLAINED; **B gr_v1y TRACE** (ridge Δ 0.0087, bound +0.0012) | corpus LEAK (Δ 0.133), CONDITIONS-EXPLAINED; shifts CLEAN | **no** / yes |
+| S2 B bilinear | 2 × 10,000 | corpus LEAK, NOT CONDITIONS-EXPLAINED; A CLEAN | corpus LEAK (Δ 0.135, bound 0.128), NOT CONDITIONS-EXPLAINED; A all CLEAN | the same | yes / yes |
+| R real v1 probe | 4,000 (256²) | t_g LEAK; t_r, t_i CLEAN; phys_mix CLEAN, PHYSICS-EXPLAINED | t_g x, y LEAK (ridge Δ 0.40, 0.37); t_r, t_i CLEAN; phys_mix CLEAN, PHYSICS-EXPLAINED | (no sky in v1 metadata) | yes |
 
-- **Sky changes only S5**, as it should: no other plant has a corpus difference in sky, and every
-  other plant reads the same states with and without it.
-- **Every state and label was reached:** CLEAN, TRACE, LEAK, PHYSICS-EXPLAINED, CONDITIONS-EXPLAINED,
-  NOT CONDITIONS-EXPLAINED, CAMCOL-STRUCTURED, UNSTRUCTURED, NEAR-DUPLICATES. UNRESOLVED was reached
-  in v2 only (the CNN inside S4); INSUFFICIENT and INVALID are gates on the audit's own data.
-- **The corpus-membership null still sits near TRACE** (S0: ridge Δ +0.0006, bound −0.0007). Under v3
-  a TRACE there is reported and does not block.
+**Two plants fail as written under the gating baseline (open for the user, below).** In each, one
+shift variable with nothing planted reads TRACE: significant, below ε, by the ridge only. Neither
+reads TRACE without sky, and neither did in v3.
+- **Mechanism.** On a target with no signal the trees overfit: the physics-only out-of-fold R² of the
+  shift variables runs −0.016 to −0.039 across the plants. The excess compares trees on physics ⊕
+  the pixel prediction against trees on physics alone, so a difference in how the two overfit leaks
+  into it. Sky, a ninth input carrying nothing about the shift, makes the baseline overfit slightly
+  more on some variables (B gr_v1y: −0.039 with sky, −0.032 without), and the excess grows by about
+  that much (0.0087 against 0.0048). The two TRACEs measure that, not pixel information.
+- **What it costs.** TRACE does not block, so no state that gates changes. But a null shift variable
+  reads TRACE in 2 of the 51 the plants require CLEAN (S0's 21, S5's 20, S2's A-side 10), so a TRACE
+  on the real audit would mean little.
 
 **Findings that bear on the audit's design (open below):**
 - **The audit is very sensitive.** At α = 0.01 (1% of v1's offsets, about 0.003 px rms) 19 of 20
@@ -452,25 +478,29 @@ baseline (gating) and without (the plan's, reported). v2's results (2026-09-28) 
    R50, SNR and sky from the same query) for the 40,000 sampled objects, from public SkyServer, with
    the query and the output's SHA-1 recorded.
 
+## Settled (user, 2026-10-01)
+
+1. **The redshift proxy is dropped** (was open item 0 in v3), with the reasons under "The physics
+   baseline and the excess".
+2. **Magnitude and angular size are confirmed in the baseline**; `petroRad_r` is added beside
+   `petroR50_r`.
+3. **S5's requirement revised to "not blocking" is approved**, with v3's failed version kept on
+   record (`plants_v3.json`, `S5.first_written_v3`).
+
 ## Open for the user before the hash
 
-0. **The redshift proxy fails the 2% gate, so the audit as written would read INSUFFICIENT.** The
-   pull (above) returned every object, but DR17's `Photoz` has no usable `z` (no row, or −9999) for
-   **21.2% of the probe_v2 sample and 2.27% of pretrain_v2's** (4,242 and 453 galaxies). Every other
-   input misses at most 0.03%.
-   - In probe_v2 the gaps look like holes in the table: the missing galaxies match the rest in
-     magnitude (median r 16.52 against 16.47) and size (R50 2.80″ against 2.86″). In pretrain_v2 they
-     are larger than typical (median R50 4.09″ against 2.62″).
-   - Every probe_v2 galaxy has a specz; pretrain_v2 has none. Filling from specz would make the input
-     differ by corpus in kind, which the corpus-membership baseline would read.
-   - Options: (a) **drop the redshift proxy** from the baseline (the substitute this draft named if
-     the pull were declined). A weaker baseline can only make corpus membership read LEAK more
-     readily, never hide a leak; the shift variables do not depend on redshift. (b) Keep `Photoz.z`,
-     let the trees take a missing value natively, and exempt it from the 2% gate (declared). The
-     missingness differs by corpus (21% against 2%), so the baseline would gain corpus information
-     from the catalogue's gaps, which can absorb a real corpus leak. (c) Another photo-z source,
-     which needs a new query and its own check.
-   - **Recommended: (a)**, because its failure mode is a false alarm rather than a missed leak.
+0. **v4's S0 and S5 fail as written: a null shift variable reads TRACE under the sky baseline**
+   (mechanism above). Options:
+   - (a) **Matched base** (recommended): measure the excess against trees on physics ⊕ a *permuted*
+     copy of the pixel prediction, so both models have the same inputs and the same room to overfit;
+     only the pixel prediction's alignment with the galaxy differs. It removes the mechanism rather
+     than the symptom. Every plant reruns (about 2 h 10 min).
+   - (b) Regularise the trees (larger leaves or fewer iterations) until a null target's out-of-fold
+     R² sits at about 0. It shrinks the mechanism without removing it, and changes the baseline's
+     power on the real corpus-membership target. Every plant reruns.
+   - (c) Revise S0 and S5 to "no blocking state", consistent with TRACE being non-blocking, and
+     report the null TRACE rate (2 of 51). Cheapest, but it leaves TRACE uninformative.
+
 1. **The identity criterion is in, as a separate criterion that does not gate.** Should
    NEAR-DUPLICATES gate, or exclude those targets from pretrain_v2? That would cost the aligned
    comparison its "M's corpus, aligned" symmetry.
