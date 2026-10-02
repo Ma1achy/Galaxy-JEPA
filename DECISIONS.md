@@ -411,7 +411,7 @@ exists to make. The MAE recipe is to be checked for the same (flip in its defaul
 
 ---
 
-## D12 — Cross-objective ladder — *decided (scratchpad): JEPA vs MAE vs contrastive*
+## D12 — Cross-objective ladder — *decided (scratchpad): JEPA vs MAE vs contrastive; MAE recipe AMENDED (2026-10-02): 16×16 patches, matching M*
 
 - [x] **Same probe ladder across JEPA, MAE, contrastive** — the **Rung-3
   control**, attributing a rung to the *objective* vs the *images*.
@@ -422,12 +422,26 @@ exists to make. The MAE recipe is to be checked for the same (flip in its defaul
   exactly what the control isolates. This **resolves the earlier "train ours vs
   adapt published" sub-decision → train ours on SDSS.**
 
-**MAE:** reproduce the **Wu & Walmsley (arXiv 2510.23749)** recipe — a ViT, ~30M
+> The original MAE recipe is kept below, struck through, **as the record of what was amended**.
+> The live recipe is "D12 amended" directly after it.
+
+**MAE:** ~~reproduce the **Wu & Walmsley (arXiv 2510.23749)** recipe — a ViT, ~30M
 params, 3-layer decoder, **8×8 patches** (same patch size as the D11 Rung-4
-control) — on our SDSS corpus. Their **released Euclid MAE is a reference / a way
+control) — on our SDSS corpus.~~ Their **released Euclid MAE is a reference / a way
 to validate the reimplementation, *not* the controlled baseline** (it is
 Euclid-trained). Byline verified and **unchanged**: John F. Wu & Michael Walmsley,
 two co-first authors (see `docs/related-work.md`).
+
+**D12 amended (2026-10-02; the user's decision of 2026-09-28, Kickoff F).** The MAE arm uses
+**M's 16×16 patches on M's backbone** (ViT-S/16, 21.6M params), not Wu & Walmsley's 8×8 patches on
+a ~30M ViT. Reason: D12's own principle. The Rung-3 control varies only the objective; an MAE on a
+different tokenisation and a different-sized encoder varies those too. The same decision fixes the
+decoder at He et al. 2022's standard **8 blocks × 512 wide**, not Wu & Walmsley's 3 layers, for the
+linear-probe read-out, accepting the extra cost: 30–35 h per seed against 17–18 h, about +12–18 h
+per seed (`artifacts/baselines.md` §5.2, F2). The arm is therefore He et al. 2022 MAE on M's
+backbone; the Euclid MAE's role as a validation of the reimplementation shrinks to a loose sanity
+reference. The 8×8 tokenisation stays where D11 puts it, as the Rung-4 control; the MAE no longer
+shares its patch size. `docs/spec/objectives.md` §2 states the amended recipe.
 
 **Contrastive: MoCo — *sub-decision resolved (signed off)*, trained on the SDSS corpus.** BYOL is negative-free +
 EMA-target — *too architecturally close to JEPA* for a clean Rung-3 contrast; MoCo's
@@ -691,7 +705,7 @@ All of D1–D15 are now resolved. The table records what was chosen.
 | D5 | Masking | **Bounding-box-biased** (`docs/masking.md`) |
 | D6 | Pretraining vs probing corpus | **Decouple** — pretrain on large unlabelled SDSS, probe on GZ2 ~250k (both single-survey) |
 | D8 | Reliable-label filter | **SUPERSEDED — run unfiltered.** Probe-target noise is conservative (attenuates, never manufactures); v1's filter was a dataset-analysis choice (§5.2.1), not a training safeguard. Frozen at **1**, the minimum where a fraction is defined (GZ2 stores an unreached question as a literal 0.0). Sweep {1,5,11,21,37} pre-registered as robustness, not selection |
-| D12 | Cross-objective baselines | **All trained on the same SDSS corpus** (MAE = reproduce Wu & Walmsley recipe on SDSS; Euclid MAE is reference only) |
+| D12 | Cross-objective baselines | **All trained on the same SDSS corpus**; MAE **amended 2026-10-02**: He et al. 2022 MAE on M's ViT-S/16 (16×16 patches, matching M), decoder 8×512 — ~~reproduce Wu & Walmsley recipe (8×8) on SDSS~~; Euclid MAE is reference only |
 | D12 (sub) | Contrastive choice | **MoCo** (SDSS-trained) — explicit negatives = clean contrast vs JEPA; established galaxy baseline (Hayat) |
 | D13 | Confound taxonomy + inclination | **Axis ratio (b/a) as the non-circular inclination proxy**; taxonomy is the Framing-B interpretive layer, held pending results |
 | D14 | Feature scope | **Two schemes as configs on one harness** (full-37 first, then reduced); conditional population as a **comparison**, never a mask; BY family per-scheme |

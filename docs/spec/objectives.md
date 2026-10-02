@@ -31,8 +31,10 @@ All inside `objectives/jepa.py`, **not** on the encoder:
 
 MAE adds a decoder + pixel-reconstruction loss; contrastive adds a projection head +
 the contrastive loss (and its augmentation policy). Each reproduced **on the SDSS
-corpus** (D12) — the MAE per the Wu & Walmsley recipe (ViT ~30M, 3-layer decoder, 8×8
-patches), the released Euclid MAE used only to validate the reimplementation.
+corpus** (D12) — the MAE as He et al.'s on M's backbone: ViT-S/16 with M's **16×16 patches**
+and an 8-block × 512 decoder (D12 amended 2026-10-02; Wu & Walmsley's ~30M ViT, 3-layer decoder
+and 8×8 patches were the original recipe), the released Euclid MAE used only to validate the
+reimplementation.
 
 ---
 

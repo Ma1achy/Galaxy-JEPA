@@ -1,7 +1,9 @@
 # Baselines — MoCo and MAE, matched to M (Kickoff F)
 
-*Status: draft for sign-off, 2026-09-27. Nothing hashed, nothing trained. Design sources:
-`DECISIONS.md` D10 revised (`:377`), D12 (`:414`), `docs/spec/objectives.md`, `TODO.md` Epic G
+*Status: draft, 2026-10-02 (first draft 2026-09-27). Nothing hashed, nothing trained. **Settled
+(user, 2026-09-28):** 16×16 patches for MAE (D12 amended), F2 (MAE decoder 8×512) and the MoCo
+settings of F3 (K = 65,536, m = 0.999, τ = 0.2). F1, F4–F9 and the residue of F3 await review.
+Design sources: `DECISIONS.md` D10 revised (`:377`), D12 (`:414`), `docs/spec/objectives.md`, `TODO.md` Epic G
 (`:467`). A choice is recorded as decided only once the user has signed it off; every open fork is
 in §8. Claims marked *verify* are from memory of the primary papers and are checked against the
 PDFs before sign-off.*
@@ -105,7 +107,7 @@ the read-out input.
 | momentum | 0.999 constant | 0.99 → 1 cosine |
 | galaxy precedent | Hayat et al. 2021 (MoCo v2 on SDSS, ResNet) | none known |
 
-**Recommendation: v2's queue on M's ViT-S.** The queue exists to decouple the number of negatives
+**Recommendation: v2's queue on M's ViT-S** (the queue settings are decided, §3.2). The queue exists to decouple the number of negatives
 from the batch (MoCo v1, He et al. 2020, §3.2); batch 32 is the case it was built for. v3 at batch
 32 has 31 negatives and an InfoNCE ceiling of log 32 ≈ 3.5 nats: a starved MoCo, a straw man. v2 is
 also the variant of the galaxy precedent D12 cites.
@@ -118,22 +120,44 @@ rehearsal (§6) is where it would first show.
 
 | setting | value | source / justification |
 |---|---|---|
-| queue K | **8,192** | v2 used 65,536 at batch 256, so each key is 256 steps old. Holding staleness at 256 steps at batch 32 gives 8,192; with momentum 0.999 that is 0.26 of the key encoder's time constant, as in v2. 65,536 here would make keys 8× staler. |
-| τ | **0.2** | v2 §3 (MLP head, τ = 0.2); v3 the same. 0.07 is v1. |
+| queue K | **65,536** (decided, user, 2026-09-28) | MoCo v1's queue (He et al. 2020, arXiv 1911.05722, *verify the section*), kept unchanged in v2. Replaces the draft's 8,192; the consequence is below. |
+| τ | **0.2** (decided, user, 2026-09-28) | v2 (MLP head, τ = 0.2; *verify the table*); v3 the same. 0.07 is v1. |
 | projector | Linear(384 → 2048), ReLU, Linear(2048 → 128) | v2's MLP head |
-| predictor | **none** | v2. v3's predictor adds a BYOL-like path; D12 rejected BYOL as too close to JEPA (`DECISIONS.md:428-431`). |
+| predictor | **none** | v2. v3's predictor adds a BYOL-like path; D12 rejected BYOL as too close to JEPA (`DECISIONS.md:446-449`). |
 | BatchNorm in the head | none | v2's head; the ViT uses LayerNorm only, so shuffle-BN is not needed |
 | loss | asymmetric InfoNCE: query = view 1, key = view 2, positive at index 0, K queue negatives | v2; symmetrising is fork F4 |
 | projector input | mean over the final block's tokens, after the final norm | no CLS token (`vit.py` docstring); v2's global-average-pool analogue |
 | read-out | `encode()`: block index 10, before the norm, mean-pooled over the full 256-token grid | `core/encoder.py:20-25` |
 
+**The settings are v2's, decided by the user (2026-09-28): queue K = 65,536, momentum 0.999,
+τ = 0.2.** Sources: MoCo v2 is Chen, Fan, Girshick & He 2020, "Improved Baselines with Momentum
+Contrastive Learning" (arXiv:2003.04297), which adds to MoCo the MLP projection head, τ = 0.2, the
+aug+ augmentation (adding blur) and a cosine LR schedule; K = 65,536 and m = 0.999 come from MoCo
+v1, He, Fan, Wu, Xie & Girshick 2020, "Momentum Contrast for Unsupervised Visual Representation
+Learning" (CVPR 2020, arXiv:1911.05722), and v2 keeps them. v2 was run at batch 256 on 8 GPUs
+(*verify*); it is the small-batch member of the family, which is why it is the template here.
+
+**Known consequence, not a reason to deviate: key staleness at batch 32.** The draft proposed
+K = 8,192 to hold v2's key age. v2 at batch 256 enqueues 256 keys per step, so the oldest key is
+256 steps old. Here at batch 32 the oldest is 65,536 / 32 = **2,048 steps** old (mean 1,024), 8×
+v2's. At m = 0.999 the key encoder's time constant is about 1,000 steps, so the oldest keys are
+about two time constants stale, against about 0.26 in v2; under the ramp (§3.3) the time constant
+is about 1,540 steps at the stop, about 1.3 time constants. The decision keeps the published
+values; the rehearsal (§6) and the InfoNCE trace are where an effect of stale negatives would first
+show.
+
 ### 3.3 Momentum encoder
 
-**0.999 → 1.0, cosine over 253,270 steps (0.99935 at the stop).** The start is v2's (MoCo v1
-Table 4: about 0.999 best with a queue, 0.9 failing; *verify*); the ramp shape is M's. M's 0.996 is
-I-JEPA's value and has no queue behind it: at 0.996 the time constant is 250 steps, so K = 8,192
-would be one full time constant stale. The departure is driven by queue consistency. The matched
-alternative is 0.996 with K = 2,048 (fork F3).
+**m = 0.999, decided (user, 2026-09-28).** The value is v1's, kept in v2 (MoCo v1 Table 4: about
+0.999 best with a queue, 0.9 failing; *verify*). M's 0.996 is I-JEPA's value and has no queue behind
+it: at 0.996 the time constant is 250 steps, so 65,536 keys at batch 32 (2,048 steps) would be
+about eight time constants stale. The draft's matched alternative (0.996 with K = 2,048) is not
+taken.
+
+**Still open (F3 residue): the schedule around 0.999.** The draft proposed **0.999 → 1.0, cosine
+over 253,270 steps (0.99935 at the stop)**, i.e. v2's start on M's ramp shape. v1 and v2 hold m
+constant at 0.999 (*verify*). The decision fixes the value; whether it ramps as M's EMA does or
+stays constant as in v2 is for review.
 
 ### 3.4 Augmentation: minimal, objective-intrinsic, no flips or rotations, no resampling
 
@@ -164,13 +188,15 @@ Default (F6): measure, not mitigate. Probe the band offsets from the MoCo encode
 
 ## 4. MAE (reconstructive)
 
-### 4.1 D12 must be amended before this is hashed
+### 4.1 D12 amended: 16×16 patches, matching M
 
-D12 says reproduce Wu & Walmsley: ViT ~30M, 3-layer decoder, **8×8 patches** (`DECISIONS.md:425-427`,
-`docs/spec/objectives.md` §2). The user has chosen M's 16×16 patches, and matching M means ViT-S
-(21.6M). With both, the arm is **He et al. 2022 MAE on M's backbone**, with the decoder under fork
-F2. The released Euclid MAE's role as a way to validate the reimplementation (`:427-430`) shrinks to
-a loose sanity reference. This needs a D-entry amending D12 and a line in `docs/spec/objectives.md`.
+D12 said reproduce Wu & Walmsley: ViT ~30M, 3-layer decoder, **8×8 patches** (`DECISIONS.md` D12,
+`docs/spec/objectives.md` §2). The user decided (2026-09-28) on M's 16×16 patches, and matching M
+means ViT-S (21.6M); D12 now carries the amendment ("D12 amended", 2026-10-02), with the original
+struck through beside it. With both, the arm is **He et al. 2022 MAE on M's backbone**, with the
+decoder at 8×512 (F2, settled). The released Euclid MAE's role as a way to validate the
+reimplementation shrinks to a loose sanity reference. `docs/spec/objectives.md` §2 still says 8×8
+and needs its line.
 
 ### 4.2 Settings
 
@@ -178,7 +204,7 @@ a loose sanity reference. This needs a D-entry amending D12 and a line in `docs/
 |---|---|---|
 | mask ratio | **0.75**, uniform random per sample (64 visible, 192 masked, exact) | He et al. 2022 (arXiv 2111.06377) §4, Table 1b |
 | encoder input | visible tokens only: `patch_embed_tokens` → gather → `run_tokens` | He §3; mask tokens live in the decoder only, so the saved encoder is a plain `VisionTransformer` |
-| decoder | **8 blocks × 512 wide, 16 heads** (recommended); alternative 3 blocks (F2) | He's default. He Table 1a: linear-probe accuracy rises with decoder depth (*verify*: about 65.5 at depth 1, 73.5 at 8), because a deep decoder absorbs the pixel specialisation. The read-out here is a frozen linear probe, so a shallow decoder would handicap MAE exactly where it is measured. |
+| decoder | **8 blocks × 512 wide, 16 heads** (decided, user, 2026-09-28; F2) | He's default. He Table 1a: linear-probe accuracy rises with decoder depth (*verify*: about 65.5 at depth 1, 73.5 at 8), because a deep decoder absorbs the pixel specialisation. The read-out here is a frozen linear probe, so a shallow decoder would handicap MAE exactly where it is measured. |
 | decoder build | Linear(384 → 512), mask token, 2-D sin-cos positions, `_Block`s, norm, Linear(512 → 16·16·3 = 768) | JEPA's `Predictor` structure (`jepa.py:59-96`) with a pixel head over all 256 positions |
 | target | the cached normalised stamp, patchified; **norm-pix** (per-patch mean and variance, eps 1e-6) | He Table 1c (default, better); the sky hazard is below |
 | loss | MSE on masked patches only | He §3 |
@@ -209,7 +235,9 @@ tokens** (5–95% range 61–102), 180 target tokens.
 | MAE, decoder 3×512 | | 24.5 | 0.86 |
 | MAE, decoder 3×256 | | 13.1 | 0.46 |
 
-The projector, the queue logits (128 × 8,192) and the EMA update are negligible or common to M.
+The projector, the queue logits (128 × 65,536: about 17 MFLOP forward per image, under 0.1% of
+26.7 GFLOP) and the EMA update are negligible or common to M. The queue itself is 65,536 × 128 fp32,
+32 MiB.
 
 ### 5.2 Wall-clock on this M3 Pro (MPS, fp32, batch 32)
 
@@ -223,12 +251,17 @@ bracketed in [0, 0.3].
 | M (measured) | 1.42–1.45 | 19.3–19.8 |
 | **MoCo asymmetric, windows** (recommended) | 1.48–1.54 | 18.3–19.0, **+5–15% for on-device augmentation → ~19–22 h** |
 | MoCo symmetrised | 0.76–0.90 | 31–37 |
-| **MAE 8×512** (recommended) | 0.80–0.93 | **30–35** |
-| MAE 3×512 | 1.57–1.68 | 17–18 |
+| **MAE 8×512** (decided, F2) | 0.80–0.93 | **30–35** |
+| MAE 3×512 (not taken) | 1.57–1.68 | 17–18 |
+
+The accepted cost of the 8×512 decoder: 30–35 h per seed against 17–18 h for 3×512, **about +12–18 h
+per seed** (the "~15 h" of the decision), before the ±30% model uncertainty; about +25–35 h over the
+two MAE seeds.
 
 **Four runs, serial** (one heavy process at a time on this 18 GB machine):
-- recommended pair: 2 × (19–22) + 2 × (30–35) = **98–114 h ≈ 4.1–4.8 days**, plus probe pauses;
-- with a 3-layer MAE decoder: **72–80 h ≈ 3–3.3 days**;
+- the settled pair (MoCo asymmetric, MAE 8×512): 2 × (19–22) + 2 × (30–35) = **98–114 h ≈ 4.1–4.8
+  days**, plus probe pauses;
+- for the record, a 3-layer MAE decoder would have been **72–80 h ≈ 3–3.3 days**;
 - model uncertainty **±30%**.
 
 Uncertainty sources:
@@ -248,14 +281,14 @@ subprocess, `smoke: true`, into a scratch `out_dir`, with no bake or pull runnin
 
 1. **Reference:** M's exact recipe for 500 steps in the same session, so ratios are against today's
    machine state.
-2. **MoCo** (recommended settings), 500 steps.
-3. **MAE 8×512**, 500 steps; also **MAE 3×512** while F2 is open.
+2. **MoCo** (the settled settings, §3.2), 500 steps.
+3. **MAE 8×512**, 500 steps.
 4. **Resume identity per baseline:** 250 steps, stop, resume to 500 in a second process; losses
    must match the straight run step for step (this exercises the queue in the checkpoint).
 
 **Record:** median steps/s over steps 100–500; peak RSS and MPS allocation; per-phase timing
 (augment/mask, forward, backward, optimiser, EMA); collapse-monitor readings; MoCo's InfoNCE against
-log(K + 1) = 9.01 and its contrastive top-1; MAE's sky/galaxy loss split.
+log(K + 1) = 11.09 and its contrastive top-1; MAE's sky/galaxy loss split.
 
 All 500 steps sit inside the 1,250-step warm-up, so the rehearsal measures timing and plumbing, not
 learning. Cost: about 6–12 min per arm, under 1 h in all.
@@ -268,13 +301,13 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 | # | what | why it cannot match | proposed |
 |---|---|---|---|
 | 1 | MoCo needs augmentation; M has none | contrastive learning without views is undefined | the minimal objective-intrinsic set (§3.4); no flips, rotations or resampling |
-| 2 | negatives at batch 32 | v3's in-batch design gives 31 | v2's queue, K = 8,192 (§3.1–3.2) |
-| 3 | MoCo momentum start | M's 0.996 has no queue behind it | 0.999 → 1.0 on M's ramp; alternative 0.996 with K = 2,048 (F3) |
+| 2 | negatives at batch 32 | v3's in-batch design gives 31 | v2's queue, K = 65,536 (decided; keys 2,048 steps old at the oldest, §3.2) |
+| 3 | MoCo momentum | M's 0.996 has no queue behind it | 0.999 (decided); constant as v2 or on M's ramp to 1.0 still open (F3) |
 | 4 | view size | MoCo trains on 100–196-token windows, reads out 256 | grid-aligned windows, positions a subset of the read-out grid (M trains on ~81 tokens and reads 256; MAE trains on 64) |
 | 5 | pooling into the loss | v3 uses a CLS token; there is none | mean-pooled final block into the projector |
-| 6 | MAE decoder capacity | M has no decoder; its predictor is 192×6 | He 8×512 (recommended) vs 3 layers (F2) |
+| 6 | MAE decoder capacity | M has no decoder; its predictor is 192×6 | He 8×512 (decided, F2) |
 | 7 | masking distribution | M's bbox-biased multi-block masking belongs to its objective | uniform (published); log the sky share of the loss (F5) |
-| 8 | patch size / encoder vs D12 | D12 specifies 8×8, ~30M | 16×16 ViT-S by the user's decision; **D12 amendment needed** (§4.1) |
+| 8 | patch size / encoder vs D12 | D12 specified 8×8, ~30M | 16×16 ViT-S by the user's decision; **D12 amended** (§4.1) |
 | 9 | MAE augmentation | He's default uses resized crops and flips | none, as M (D10, no-rebin); He's linear-probe cost named |
 | 10 | optimiser details | MAE: β2 0.95, wd 0.05, blr 1.5e-4·bs/256; v3: wd 0.1. At batch 32 those give 1.9e-5 (linear scaling) to ~2.1e-4 (sqrt from 4,096) | M's 1.25e-4, wd 0.04, β2 0.999: within the published family; stability checked at rehearsal (F7) |
 | 11 | FLOPs / wall-clock | objectives differ in cost per image | exposure and schedule matched instead (§1.1); reported "per image seen" |
@@ -286,9 +319,16 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 
 - **F1** — `smoke: true` for both baselines, as for M (**recommended**): the D12 comparison on M is
   exploratory until a headline run exists.
-- **F2** — MAE decoder: **8×512 (recommended**; He's default, stronger linear probe, about +15 h
-  per seed) vs 3 layers (D12 / Wu & Walmsley, about M's cost).
-- **F3** — MoCo momentum and queue: **0.999 and K 8,192 (recommended)** vs M's 0.996 with K 2,048.
+- **F2** — *Settled (user, 2026-09-28):* MAE decoder **8 blocks × 512 wide, 16 heads**, He's
+  standard configuration, which matters for the linear-probe read-out; the extra cost is accepted
+  (30–35 h per seed against 17–18 h for 3 layers, about +12–18 h per seed, §5.2). The 3-layer
+  alternative (D12 / Wu & Walmsley, about M's cost) is not taken.
+- **F3** — *Settled (user, 2026-09-28):* MoCo v2-style settings for a small batch on one GPU,
+  **queue K = 65,536, momentum 0.999, τ = 0.2** (Chen, Fan, Girshick & He 2020, arXiv:2003.04297;
+  K and m from He et al. 2020, arXiv:1911.05722; §3.2). This replaces the draft's K = 8,192 and the
+  0.996 / K 2,048 alternative; keys up to 2,048 steps old at batch 32 are a known consequence
+  (§3.2). *Open residue:* m constant at 0.999 as in v2, or 0.999 → 1.0 on M's cosine ramp as the
+  draft proposed (§3.3).
 - **F4** — MoCo loss: **asymmetric (v2, recommended)** vs symmetrised (v3, about 2× the cost).
 - **F5** — MAE target: **norm-pix (recommended)** vs plain-pixel MSE.
 - **F6** — band-offset shortcut: **measure only (recommended)** vs an integer ±1 px per-band shift
@@ -315,7 +355,7 @@ No MoCo or MAE code exists under `src/`. Estimates in working days of build and 
 | 8 | Driver `artifacts/baseline_run.py` reusing m2's `Run`, segmenting, `keep` and the k2 probe subprocess; fixed stop 101,308; probes at 0.5/1/2/4 epochs for trajectories only | new artefact | 0.5 d | out-dir guard as in m2 (`m2_long_run.py:205`) |
 | 9 | Rehearsal (§6) | `rehearsal_run.py` pattern | 0.25 d + ~1 h machine | |
 | 10 | Tests (below) | `tests/test_objectives_moco.py`, `test_objectives_mae.py`, `test_objective_loop.py` | 1 d | |
-| 11 | D-entries: D12 amendment (16×16, ViT-S, decoder); the MoCo recipe; `docs/spec/objectives.md` §2 | docs | 0.25 d | |
+| 11 | D-entries: D12 amendment (16×16, ViT-S, decoder; done 2026-10-02); the MoCo recipe; `docs/spec/objectives.md` §2 | docs | 0.25 d | |
 
 **Total: about 5.5–7 working days of build**, then about 4–5 machine-days for the four runs.
 
