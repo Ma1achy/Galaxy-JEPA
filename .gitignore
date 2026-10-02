@@ -51,3 +51,4 @@ galjep.zip
 
 # Generated investigation output (contact sheets, survey dumps) — regenerable, often large
 artifacts/out/
+/artifacts/out
