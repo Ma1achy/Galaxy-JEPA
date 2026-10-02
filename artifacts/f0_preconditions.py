@@ -27,6 +27,8 @@ EXPECTED_NORM_PREFIX = __import__("os").environ.get("F0_NORM_PREFIX", "75100066b
 # D22's floor and the write-once record that carries it (configs/effect_floor.json)
 EXPECTED_FLOOR = 0.7267
 EXPECTED_FLOOR_PREFIX = "0c048dc8dd35"
+# GJ_CONFIG points check() at another pretrain config (the v2 rehearsal); REPO-relative or absolute
+CONFIG = __import__("os").environ.get("GJ_CONFIG", "configs/pretrain.yaml")
 
 
 def _load(name: str) -> dict[str, Any]:
@@ -35,10 +37,10 @@ def _load(name: str) -> dict[str, Any]:
 
 def check(verbose: bool = True) -> tuple[HarnessConfig, TensorCache]:
     say = print if verbose else (lambda *a, **k: None)
-    cfg = HarnessConfig(**_load("pretrain.yaml")).with_resolved_device()
+    cfg = HarnessConfig(**yaml.safe_load((REPO / CONFIG).read_text())).with_resolved_device()
     freeze = cfg.normalisation
     if freeze is None:
-        raise SystemExit("F0: configs/pretrain.yaml carries no normalisation freeze")
+        raise SystemExit(f"F0: {CONFIG} carries no normalisation freeze")
 
     # 1. the freeze loads, is intact, and the pipeline takes its constants FROM the record
     freeze.assert_intact()

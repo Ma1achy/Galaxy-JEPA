@@ -20,6 +20,7 @@ Investigation code: terse, excluded from lint/CI.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -82,7 +83,8 @@ def main() -> None:
     pilot = len(sys.argv) > 1 and sys.argv[1] == "pilot"
     n_pilot = int(sys.argv[2]) if pilot and len(sys.argv) > 2 else 3000
 
-    with open("configs/pretrain.yaml") as fh:
+    # GJ_CONFIG bakes for another pretrain config (the v2 rehearsal); the default is unchanged
+    with open(os.environ.get("GJ_CONFIG", "configs/pretrain.yaml")) as fh:
         config = HarnessConfig(**yaml.safe_load(fh))
     pipeline = _build_pipeline(q=config.q, freeze=config.normalisation)
     key = pipeline_hash(pipeline)
