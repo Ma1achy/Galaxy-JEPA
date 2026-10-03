@@ -53,10 +53,12 @@ N_SHUFFLE = 5  # matched base: pixel predictors retrained on shuffled labels (us
 # fit's metric noise σ is measured by the spread of the K shuffled-label bases, pooled over the block's
 # stated variables per predictor, and added in quadrature:
 #   bootstrap — galaxies only (v5 as first written);
-#   shuffle   — + the matched base's own noise, σ/√K (user, 2026-10-02: gating);
-#   fit       — + the trained side's fit noise too, σ·√(1 + 1/K) (proposed, reported).
+#   shuffle   — + the matched base's own noise, σ/√K (user, 2026-10-02; gated v5b);
+#   fit       — + the trained side's fit noise too, σ·√(1 + 1/K): gating from v6 (user, 2026-10-03).
+#               The trained predictor is one fit with the same noise as each base; with it the
+#               predicted null sd (≈ 0.0017) matches the observed (0.0018).
 BOUNDS = ("bootstrap", "shuffle", "fit")
-BOUND = "shuffle"
+BOUND = "fit"
 TREE_JOBS = 5  # tree fits in worker processes (one OpenMP thread each); identical numbers, one-fifth the wall time
 ORDER = ("LEAK", "UNRESOLVED", "TRACE", "CLEAN")  # worst first; INSUFFICIENT precedes all
 
@@ -812,6 +814,9 @@ def _unit(ra, dec):
     return np.column_stack([np.cos(d) * np.cos(r), np.cos(d) * np.sin(r), np.sin(d)])
 
 
+NEAR_DUP_FLAG = 0.01
+
+
 def identity(pre_ids, pre_ra, pre_dec, pro_ids, pro_ra, pro_dec, pro_split) -> dict:
     """resolve_corpora (raises LeakError if the dedup failed); near-duplicates within 1″ (state) and
     1–3″ (reported); probe galaxies inside a pretrain stamp's footprint (reported, no state)."""
@@ -841,7 +846,9 @@ def identity(pre_ids, pre_ra, pre_dec, pro_ids, pro_ra, pro_dec, pro_split) -> d
               "close_1_3": int((close & (pro_split == s)).sum()),
               "in_footprint": int((inside & (pro_split == s)).sum())} for s in np.unique(pro_split)}
     return {"raw_shared_ids": raw, "removed_by_dedup": int((~keep).sum()), "per_split": by,
-            "state": "NEAR-DUPLICATES" if near.any() else "CLEAN", "near_dup_total": int(near.sum())}
+            "state": "NEAR-DUPLICATES" if near.any() else "CLEAN", "near_dup_total": int(near.sum()),
+            # reported prominently above 1% of probe_v2 (user, 2026-10-03); it does not gate
+            "near_dup_rate": float(near.mean()), "near_dup_over_1pct": bool(near.mean() > NEAR_DUP_FLAG)}
 
 
 def identity_plants(seed: int = SEED) -> dict:
@@ -909,12 +916,14 @@ def _required(tag: str, res: dict, which: str = "primary") -> tuple[bool, str]:
     if tag == "S3":
         ok = all(s in ("LEAK", "TRACE") for s in sh.values())
         return ok, "every shift variable LEAK or TRACE (never CLEAN); the split is reported"
-    if tag == "S3b":
-        near = [f"{c}:{t}" for c in "AB" for t in STATED
-                if 0.5 * FLOOR <= max(b[c][t][m]["excess"] for m in ("ridge", "cnn")) <= 2 * FLOOR]
-        ok = all(s in ("LEAK", "TRACE") for s in sh.values()) and bool(near) and all(sh[v] != "CLEAN" for v in near)
-        return ok, ("no shift variable CLEAN; at least one variable at the threshold (larger excess in "
-                    "[ε/2, 2ε]), and every such variable LEAK or TRACE")
+    if tag == "S3b":  # v6 (user, 2026-10-03), revised after v5b: below ε the audit cannot resolve TRACE
+        ex = {f"{c}:{t}": max(b[c][t][m]["excess"] for m in ("ridge", "cnn")) for c in "AB" for t in STATED}
+        near = [v for v, e in ex.items() if 0.5 * FLOOR <= e <= 2 * FLOOR]
+        over = [v for v, e in ex.items() if e >= FLOOR]
+        ok = bool(near) and any(FLOOR <= ex[v] <= 2 * FLOOR for v in near) and all(sh[v] != "CLEAN" for v in over)
+        return ok, ("every shift variable with Δ ≥ ε LEAK or TRACE (never CLEAN); at least one variable at the "
+                    "threshold (Δ in [ε/2, 2ε]), at least one of them with Δ ≥ ε; those with ε/2 ≤ Δ < ε "
+                    "reported only")
     if tag == "S4":
         ok = all(s in ("LEAK", "TRACE") for s in sh.values()) and all(
             b[c]["_camcol"]["where"] == ["camcol3"] for c in "AB")
@@ -1000,6 +1009,40 @@ def plants(only: list[str], n: int, n_real: int) -> dict:
         print(f"[{tag}] fires={done[tag]['fires']} ({done[tag]['seconds']}s)", flush=True)
         _summary(tag, done[tag])
         out_path.write_text(json.dumps(done, indent=1, default=float))
+    return done
+
+
+def rescore() -> dict:
+    """Read the stored plants under the gating BOUND and the current requirements, without refitting
+    (v6: the fit bound gates, S3b restated). Each plant's previous scoring is kept under "scored_v5b".
+    The camcol test is the stored run's; `camcol_hit_sets_equal` records whether the bound changes the
+    set of variables it tested."""
+    path = OUT / "plants.json"
+    done = json.loads(path.read_text())
+    for tag, d in done.items():
+        if tag == "I" or "blocks" in d and "scored_v5b" in d:
+            continue
+        prev = {k: d[k] for k in ("required", "fires", "verdict", "without_sky", "by_bound") if k in d}
+        res = {"blocks": d["blocks"], "verdict": d["verdict"]}
+        if "without_sky" in d:
+            res["verdict_alt"] = d["without_sky"]["verdict"]
+        rb = restate(res, BOUND)
+        shifts = REAL_STATED[:6] if tag == "R" else STATED
+        same = all(sorted(t for t in shifts if t in blk and blk[t]["state"] != "CLEAN") == sorted(blk["_camcol"]["tested"])
+                   for blk in rb["blocks"].values() if "_camcol" in blk)
+        ok, req = _required(tag, rb)
+        new = {"required": req, "fires": ok, "bound": BOUND, **_slim(rb), "camcol_hit_sets_equal": same,
+               "scored_v5b": prev}
+        if "without_sky" in d:
+            ok_alt, req_alt = _required(tag, rb, "alt")
+            new["without_sky"] = {"required": req_alt, "fires": ok_alt, "verdict": rb["verdict_alt"]}
+        new["by_bound"] = {b: {"fires": _required(tag, x := restate(res, b))[0], "verdict": x["verdict"]["state"],
+                               **({"fires_without_sky": _required(tag, x, "alt")[0], "verdict_alt": x["verdict_alt"]["state"]}
+                                  if "without_sky" in d else {})} for b in BOUNDS}
+        done[tag] = {k: v for k, v in d.items() if k not in new and k not in ("blocks", "verdict")} | new
+        print(f"[{tag}] {BOUND}: fires={ok}" + (f", without sky {new['without_sky']['fires']}" if "without_sky" in new else "")
+              + f"; verdict {rb['verdict']['state']}; camcol hit sets equal {same}", flush=True)
+    path.write_text(json.dumps(done, indent=1, default=float))
     return done
 
 
@@ -1231,6 +1274,10 @@ def audit() -> None:
                      np.where(pro.object_id.astype(int).isin(sp.val), "val", "test"))
     rep["identity"] = identity(pre.object_id.astype(np.int64), pre.ra.to_numpy(float), pre.dec.to_numpy(float),
                                pro.object_id.astype(np.int64), pro.ra.to_numpy(float), pro.dec.to_numpy(float), split)
+    if rep["identity"]["near_dup_over_1pct"]:
+        rep["NEAR_DUPLICATES_OVER_1PCT"] = rep["identity"]["near_dup_rate"]
+        print(f"*** NEAR-DUPLICATES: {rep['identity']['near_dup_rate']:.2%} of probe_v2 (over 1%); reported, "
+              "not gating ***", flush=True)
     samples = _samples(logs)
     corpora = {}
     pinned = json.loads(PHYS_RECORD.read_text()) if PHYS_RECORD.exists() else None
@@ -1280,6 +1327,7 @@ def main() -> None:
     c = sub.add_parser("calibrate")
     c.add_argument("--alphas", default=",".join(map(str, CALIB_ALPHAS)))
     c.add_argument("--n", type=int, default=N_PER_CORPUS)
+    sub.add_parser("rescore")
     sub.add_parser("pull")
     sub.add_parser("audit")
     a = ap.parse_args()
@@ -1287,6 +1335,8 @@ def main() -> None:
         plants(a.only.split(","), a.n, a.n_real)
     elif a.cmd == "calibrate":
         calibrate([float(x) for x in a.alphas.split(",")], a.n)
+    elif a.cmd == "rescore":
+        rescore()
     elif a.cmd == "pull":
         pull()
     else:
