@@ -3,7 +3,8 @@
 *Status: draft, 2026-10-02 (first draft 2026-09-27). Nothing hashed, nothing trained. **Settled
 (user, 2026-09-28):** 16×16 patches for MAE (D12 amended), F2 (MAE decoder 8×512) and the MoCo
 settings of F3 (K = 65,536, m = 0.999, τ = 0.2); **F3's residue settled (user, 2026-10-01 evening):
-m constant at 0.999, v2-style.** F1 and F4–F9 await review.
+m constant at 0.999, v2-style.** **F1, F4–F8 settled (user, 2026-10-02); F9 not decided** (§8). F7
+leaves one question for the user: MoCo v2's published recipe is SGD (§8, F7).
 Design sources: `DECISIONS.md` D10 revised (`:377`), D12 (`:414`), `docs/spec/objectives.md`, `TODO.md` Epic G
 (`:467`). A choice is recorded as decided only once the user has signed it off; every open fork is
 in §8. Claims marked *verify* are from memory of the primary papers and are checked against the
@@ -24,9 +25,9 @@ keeps everything in M's recipe that is not intrinsic to its objective. The match
 | batch | 32, `drop_last` (`:80`) | 32 | 32 |
 | `steps` (schedule length) | 253,270 (`:73`) | 253,270 | 253,270 |
 | stop | 101,308 via `stop_after` (`objectives/jepa.py:447`) | 101,308 | 101,308 |
-| optimiser | AdamW, torch default betas (0.9, 0.999), wd 0.04 constant, no grad clip (`jepa.py:326`) | same | same |
-| LR | peak 1.25e-4, warmup 1,250, cosine to 1.25e-7 (`:86-90`, `jepa.py:250`) | same | same |
-| LR at the stop | 8.24e-5 (65.9% of peak) | same, by construction | same |
+| optimiser | AdamW, torch default betas (0.9, 0.999), wd 0.04 constant, no grad clip (`jepa.py:326`) | **the method's published recipe (F7)**: SGD, momentum 0.9, wd 1e-4 — *open, see F7* | **AdamW, betas (0.9, 0.95), wd 0.05** (F7, He et al.'s recipe) |
+| LR | peak 1.25e-4, warmup 1,250, cosine to 1.25e-7 (`:86-90`, `jepa.py:250`) | **peak by the published rule at batch 32 (F7)**; M's warmup and cosine shape | **peak 1.875e-5** = 1.5e-4 × 32/256 (F7); M's warmup and cosine shape |
+| LR at the stop | 8.24e-5 (65.9% of peak) | 65.9% of its own peak, by construction | 65.9% of its own peak |
 | EMA | 0.996 → 1.0 cosine over 253,270 (`:91-92`, `jepa.py:265`); 0.99738 at the stop | momentum encoder 0.999, constant (v2; §3.3) | none (objective-intrinsic) |
 | precision | fp32 (`autocast: null`, `:34`) | fp32 | fp32 |
 | SIGReg | off, λ = 0 (`:121`, D21) | n/a | n/a |
@@ -274,6 +275,32 @@ Uncertainty sources:
 
 The rehearsal replaces all of these with measurements.
 
+### 5.3 Total compute and order after A1 and A2 (user, 2026-10-02)
+
+Serial, one heavy process at a time. Rates as §5.2 (±30% model uncertainty until the rehearsal
+measures them). A1 and A2 are M's recipe on the v2 cache, so they cost M's 19.3–19.8 h each.
+
+| # | job | steps | h (range) | why here |
+|---|---|---|---|---|
+| — | A1, A2 (aligned v2, seeds 0 and 1) | 2 × 101,308 | 39–40 | already queued behind the two hashes and a CLEAN audit; not part of this budget |
+| 1 | rehearsal (§6): M reference, MoCo, MAE, resume identity | 3 × 500 + resumes | ~1 | timing and plumbing; the top-1 shortcut gate before anything long |
+| 2 | F7 check, MoCo: 1/3×, 1×, 3× the rule's rate | 3 × 5,000 | ~2.8 (at ~1.5 steps/s) | fixes MoCo's LR before its seed runs; cheaper arm first |
+| 3 | F7 check, MAE: the same three rates | 3 × 5,000 | ~4.8 (at ~0.87 steps/s) | fixes MAE's LR |
+| 4 | **MoCo seed 0** (pairs with M) | 101,308 | 19–22 | first full D12 contrast at the earliest point; the cheaper arm, so a fault shows early |
+| 5 | **MAE seed 0** (pairs with M) | 101,308 | 30–35 | completes the seed-0 ladder (M, MoCo, MAE) |
+| 6 | **MoCo seed 1** (pairs with O2) | 101,308 | 19–22 | second seed: the J1–J2-style spread for MoCo |
+| 7 | **MAE seed 1** (pairs with O2) | 101,308 | 30–35 | second seed for MAE |
+
+- **Baselines in all (rows 1–7): about 107–123 h, ≈ 4.5–5.1 days** of machine time (±30%), plus probe
+  pauses (the k2 probe subprocess at 0.5/1/2/4 epochs per run, §9 item 8).
+- **With A1 and A2 first: about 146–163 h, ≈ 6.1–6.8 days.**
+- **Build time is separate:** about 5.5–7 working days (§9), which can run while A1 and A2 train;
+  the F7 checks need build items 1–8, so the rows above start when both A2 and the build are done.
+- **Order rule:** seed-0 pair before seed-1 pair, so one complete objective ladder exists before any
+  second seed is spent; within a pair, MoCo before MAE (cheaper, and its rehearsal gate is the one
+  that can stop a run). If F7's open MoCo question is answered (b), MoCo's rates in row 2 change, not
+  the order.
+
 ## 6. The 500-step timing rehearsal (proposed, not run)
 
 Modelled on `artifacts/rehearsal_run.py`, on the **v1** cache and freeze. Each arm is its own
@@ -309,7 +336,7 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 | 7 | masking distribution | M's bbox-biased multi-block masking belongs to its objective | uniform (published); log the sky share of the loss (F5) |
 | 8 | patch size / encoder vs D12 | D12 specified 8×8, ~30M | 16×16 ViT-S by the user's decision; **D12 amended** (§4.1) |
 | 9 | MAE augmentation | He's default uses resized crops and flips | none, as M (D10, no-rebin); He's linear-probe cost named |
-| 10 | optimiser details | MAE: β2 0.95, wd 0.05, blr 1.5e-4·bs/256; v3: wd 0.1. At batch 32 those give 1.9e-5 (linear scaling) to ~2.1e-4 (sqrt from 4,096) | M's 1.25e-4, wd 0.04, β2 0.999: within the published family; stability checked at rehearsal (F7) |
+| 10 | optimiser details | each method's recipe is tuned with its own optimiser and LR rule | **each method's published LR rule at batch 32, with its own optimiser form** (F7, settled): MAE AdamW (0.9, 0.95), wd 0.05, 1.875e-5; MoCo per F7's open question. A 5,000-step check at 1/3×, 1× and 3× the rule's rate, judged on pretext loss only |
 | 11 | FLOPs / wall-clock | objectives differ in cost per image | exposure and schedule matched instead (§1.1); reported "per image seen" |
 | 12 | schedule completion | published recipes anneal to completion; M stopped at 65.9% of peak LR | inherit M's truncation; P4 applies to all arms |
 | 13 | collapse kill criterion | the soft floor 2.5 is grounded on JEPA traces only (`pretrain.yaml` `collapse_floor`) | F8 |
@@ -317,7 +344,10 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 
 ## 8. Forks for the user
 
-- **F1** — `smoke: true` for both baselines, as for M (**recommended**): the D12 comparison on M is
+**Settled by the user, 2026-10-02** (F2 and F3 earlier). Every arm carries these; they are fixed before
+any baseline trains, and no probe number enters any of them.
+
+- **F1** — *Settled:* `smoke: true` for both baselines, as for M. The D12 comparison on M is
   exploratory until a headline run exists.
 - **F2** — *Settled (user, 2026-09-28):* MAE decoder **8 blocks × 512 wide, 16 heads**, He's
   standard configuration, which matters for the linear-probe read-out; the extra cost is accepted
@@ -329,15 +359,49 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
   0.996 / K 2,048 alternative; keys up to 2,048 steps old at batch 32 are a known consequence
   (§3.2). *Residue settled (user, 2026-10-01 evening):* m **constant** at 0.999 as in v2, not M's
   cosine ramp to 1.0 (§3.3).
-- **F4** — MoCo loss: **asymmetric (v2, recommended)** vs symmetrised (v3, about 2× the cost).
-- **F5** — MAE target: **norm-pix (recommended)** vs plain-pixel MSE.
-- **F6** — band-offset shortcut: **measure only (recommended)** vs an integer ±1 px per-band shift
-  in MoCo's views.
-- **F7** — LR: **M's 1.25e-4 (recommended)** vs the published scaling rules.
-- **F8** — collapse criterion: reuse M's floors with their JEPA-only grounding stated (recommended)
-  vs the hard floor only, stamping the forfeit.
-- **F9** — test-time D4 averaging (`TODO.md` P2): whatever is chosen applies to all encoders alike;
-  not decided here.
+- **F4** — *Settled:* MoCo loss **asymmetric** (v2): query = view 1, key = view 2. Not v3's
+  symmetrised loss (about 2× the cost, §5.1).
+- **F5** — *Settled:* MAE target **norm-pix** (He et al. 2022, Table 1c). The sky hazard (§4.2) is
+  accepted; the rehearsal logs the loss's sky/galaxy split.
+- **F6** — *Settled:* **measure only**; no anti-offset augmentation. Every encoder faces the same
+  nuisance (v1's band misregistration), so none is given a remedy the others lack. The rehearsal's
+  top-1 gate (§6) and the distractor pre-registration measure the shortcut.
+- **F7** — *Settled:* **each method's published learning-rate scaling rule at our batch size (32)**,
+  stated with its source, in the method's own optimiser form; M's warmup (1,250 steps) and cosine
+  shape over 253,270 steps, stopped at 101,308, for every arm (§1).
+  - **MAE** (He et al. 2022, arXiv:2111.06377, App. A.1; code `facebookresearch/mae`, `PRETRAIN.md`
+    and `main_pretrain.py`): AdamW, betas (0.9, 0.95), weight decay 0.05 (0 on biases and norms, as
+    the code does), base lr 1.5e-4, rule **lr = blr × batch / 256**. At batch 32: **1.875e-5**.
+    (The code's default `--blr` is 1e-3; the recipe passes 1.5e-4 explicitly. Verified 2026-10-03:
+    code and `PRETRAIN.md` verbatim; the paper's table through a summary only.)
+  - **MoCo (v2): the published recipe is SGD, not AdamW.** MoCo v2 reuses MoCo v1's
+    hyper-parameters ("the same hyper-parameters … and codebase as MoCo"); MoCo v1 (He et al. 2020,
+    arXiv:1911.05722, §4): SGD, momentum 0.9, weight decay 1e-4, lr 0.03 at batch 256; v2 adds the
+    cosine schedule. **Neither paper states a scaling rule for the recipe:** v1 invokes linear scaling
+    only for its end-to-end ablation, though its IG-1B run (0.12 at batch 1,024) is consistent with
+    it. The official repository could not be read (its contents return empty through the API, its
+    pages 404), so the README's command line is unverified. Linear scaling at batch 32 gives
+    **0.00375 (SGD)**.
+    - **Open for the user** (the rule's literal reading needs one choice): (a) MoCo v2's recipe as
+      published, **SGD at 0.00375** on a ViT — the recipe F3 chose, though MoCo v3 (Chen, Xie & He
+      2021, arXiv:2104.02057) moved ViTs to AdamW because SGD-era recipes trained ViTs unstably; or
+      (b) **MoCo v3's ViT rule, AdamW, base lr 1.5e-4 × batch/256 = 1.875e-5, weight decay 0.1**
+      (betas unstated; the code uses torch's (0.9, 0.999)), the published rule for this backbone but
+      not for the v2 objective F3 settled. (a) follows "the method" literally; (b) follows "the AdamW
+      form" for a ViT. Not settled here.
+  - **Sanity check** (per arm, before any seed run): about **5,000 steps** at the rule's rate, at
+    **3×** and at **1/3×**, from the seed-0 init and data order, `smoke: true`, scratch `out_dir`.
+    **Chosen by pretext loss only** (MAE's masked-patch loss; MoCo's InfoNCE), **never probe AUC**.
+    The run departs from the rule's rate **only if that rate is unstable** (divergence, NaN, or a
+    collapse-floor breach under F8); then the nearest stable of the three, stated. Recorded: the
+    loss curves, the final 500-step mean loss at each rate, any instability, and the choice.
+    **Results: not run** (no baseline code exists yet, §9); they are written here before the seed runs.
+    About 7.6 h of machine time in all (§5.2).
+- **F8** — *Settled:* **the method-agnostic hard floor gates** a run (a collapse that stops it);
+  M's JEPA-grounded soft floors (`collapse_floor`, 2.5) are **reported descriptively, not gating**:
+  they were fitted to JEPA traces only.
+- **F9** — **Not decided.** Test-time D4 averaging (`TODO.md` P2): whatever is chosen later applies to
+  all encoders alike.
 
 ## 9. Build list
 
