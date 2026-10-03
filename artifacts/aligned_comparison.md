@@ -66,8 +66,9 @@ embedding is read**.
   i−r x, i−r y (the misregistration M saw). v2's applied shifts s_b are reported alongside, with no
   state.
 - **Precondition.** The leakage audit (`artifacts/leakage_audit.md`, SHA-1 <to be filled at hash
-  time>) reads CLEAN on v2. If it reads LEAK,
-  nothing below is scored.
+  time>) reads **CLEAN or TRACE** on v2 (TRACE is reported, not blocking; user, 2026-09-28). If it
+  reads **LEAK, UNRESOLVED, INVALID or INSUFFICIENT**, nothing trains and nothing below is scored
+  (the audit's blocking states, `leakage_audit.md` "States").
 
 ### 1. Fix check — is the offset gone from the aligned representation?
 
