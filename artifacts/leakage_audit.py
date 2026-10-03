@@ -34,7 +34,7 @@ from sciserver_cut_v2 import bilinear_shift, fourier_shift  # noqa: E402
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "artifacts" / "out" / "leakage"
 PREREG = Path(__file__).with_name("leakage_audit.md")
-PREREG_SHA1: str | None = None  # filled at hash time; `audit` refuses until the section matches it
+PREREG_SHA1: str | None = "98d67f7258fe0d7cf936acf9f2d2bb4b4a0d529c"  # filled at hash time; `audit` refuses until the section matches it
 
 SEED, N_FOLDS, N_PER_CORPUS = 0, 5, 20_000
 N_BOOT, ALPHA, FLOOR = 20_000, 0.05, 0.01  # FLOOR: ΔR² 0.01 ≈ |ρ| 0.1, the pilot checks' bound

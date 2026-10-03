@@ -3,7 +3,7 @@
 **Question.** Can the pixels of the re-pulled corpora (pretrain_v2, probe_v2) say how a stamp was
 processed, beyond what the galaxy's own physics already says?
 
-**Status.** Draft v6, 2026-10-03, **for final approval.** v6 applies the user's 3 October decision
+**Status.** **Hashed 2026-10-03**: the Pre-registration section's SHA-1 is `98d67f7258fe0d7cf936acf9f2d2bb4b4a0d529c` (in `PREREG_SHA1`; `audit` refuses on any change). Approved by the user 2026-10-03 (final approval). Draft v6, 2026-10-03. v6 applies the user's 3 October decision
 (option (a)): the **fit bound gates**, and S3b's requirement is restated against the audit's measured
 resolution (declared as revised after v5b's result; v5b's scoring is kept). Every plant was re-scored
 from the stored v5b numbers, without a re-run: **all fire**, with and without sky (results at the
@@ -490,7 +490,8 @@ Re-pin if anything changes before the hash.
 | `artifacts/out/leakage/calibrate.json` | S3's dose sweep (v2; not re-run) | `a153b9f7261f44385309ece23b75261b56f16631` |
 | `artifacts/out/leakage/audit_physics.csv` | the baseline's physics for the audit's 40,000 sampled objects | `c04df4ee52d7df0289f2f326705bda39526653cb` |
 | `artifacts/out/leakage/audit_physics.json` | the pull's record: query, batch size, sample SHA-1s, output SHA-1, missingness | `0a2687f3a40c54eb49496af0bc1e7dd7bf01fe3e` |
-| `artifacts/leakage_audit.py` | the script: v6 (BOUND = "fit", S3b restated, `rescore`) plus the near-duplicate flag | `962901aeae62f3b40e85e3958dd64d05c7de4123` |
+| `artifacts/leakage_audit.py` | the script: v6 (BOUND = "fit", S3b restated, `rescore`) plus the near-duplicate flag, `PREREG_SHA1` filled (the script `audit` runs) | `e1c1a16c01c23d2bc41f646b9091b5a27b85b755` |
+| `artifacts/leakage_audit.py` before `PREREG_SHA1` | v6 plus the near-duplicate flag, as committed (`c5d569d`) | `962901aeae62f3b40e85e3958dd64d05c7de4123` |
 | `artifacts/leakage_audit.py` at the v6 re-score | before the near-duplicate flag | `b0958b69d456851ede6e32fd4f37f212ef222d19` |
 | `artifacts/leakage_datacheck.py` | the loaders' data check | `4a4bfad671863005c144ac56623554548cd115bc` |
 | `artifacts/out/leakage/datacheck.json` | its output | `393ab8f52ced3ee0bc6abec8cdc700a487da0df3` |
