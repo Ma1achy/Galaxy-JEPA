@@ -3,7 +3,11 @@
 **Question.** Can the pixels of the re-pulled corpora (pretrain_v2, probe_v2) say how a stamp was
 processed, beyond what the galaxy's own physics already says?
 
-**Status.** Draft v4, 2026-10-02. v3 applied the user's 2026-09-28 decisions: TRACE is reported, not
+**Status.** Draft v5, 2026-10-03. v5 applies the user's 2026-10-01 evening decision (option (a)): the
+excess is measured against a **matched base**, trees on physics ⊕ the same pixel predictor retrained
+on shuffled labels (5 shuffles), so a null variable's TRACE from the trees' extra flexibility (v4's S0
+and S5 failures) cancels. Every plant is rerun under both baselines (results at the end); v4's output
+is kept as `plants_v4.json`. Draft v4, 2026-10-02: v3 applied the user's 2026-09-28 decisions: TRACE is reported, not
 blocking; sky is in the physics baseline, with the plan's baseline (no sky) reported beside it; the
 baseline's catalogue physics is pulled now and pinned. v4 applies the 2026-10-01 decisions (see
 "Settled (user, 2026-10-01)"): the redshift proxy is dropped, `petroRad_r` joins the baseline, and
@@ -180,12 +184,33 @@ Readable, reported only (no state; the pixels' own R², or AUC for camcol):
   15 leaves, ≥ 100 per leaf, no early stopping, seed 0), cross-fitted on the same 5 folds. The
   selection that separates the corpora is non-linear (magnitude and size cuts), so a linear
   baseline would under-absorb it and hand the difference to the pixels.
-- **Excess.** Per variable and pixel predictor: the out-of-fold predictions of trees on
-  **physics ⊕ the pixel predictor's out-of-fold prediction**, against trees on physics alone:
-  ΔR² (ΔAUC for corpus membership).
-  - This is the information in the pixels beyond physics. The literal "pixel R² minus physics R²"
-    would go negative whenever physics predicts the variable better than pixels, and would hide a
-    leak.
+- **Excess (v5: against a matched base).** Per variable and pixel predictor: the out-of-fold
+  predictions of trees on **physics ⊕ the pixel predictor's out-of-fold prediction**, against the
+  **matched base**: ΔR² (ΔAUC for corpus membership).
+  - **The matched base.** The same pixel predictor (ridge or CNN), on the same folds, is retrained on
+    the target rows **shuffled jointly** across galaxies (for corpus membership, the corpus labels
+    shuffled), **5 times** (shuffle seeds 500–504). Its out-of-fold prediction is then a column with
+    the predictor's own form and noise but no information about the target. Trees on physics ⊕ that
+    column are fitted per shuffle, and the base is their metric **averaged over the 5 shuffles**.
+    Both sides of the comparison then have the same inputs, the same predictor and the same room to
+    overfit; only whether the pixel predictor learned from the true labels differs. The excess is the
+    pixels' advantage beyond what the model's flexibility alone gives.
+  - **Why (v4).** Against trees on physics alone, a null shift variable read TRACE in 2 of the 51
+    the plants require CLEAN (S0 B i_sy, S5 B gr_v1y; v4 results below): on a target with no signal
+    the trees overfit, and one more input column changes how much. The matched base holds that
+    fixed.
+  - **Reported, no state:** the v4 comparison, trees on physics ⊕ pixels against physics alone
+    (`excess_vs_physics`, its bound and the state it would give), beside each matched excess.
+  - **Why the 5 shuffles average the metric.** Each shuffle is one draw of a null column; averaging
+    the 5 metrics lowers the base's own noise about √5-fold. The bootstrap draws are shared across
+    all of them (paired by galaxy), so the bound covers the base's galaxy sampling; the 5 shuffles'
+    fit-to-fit spread is reported (`matched_base_per_shuffle`), as the declared limitation below.
+  - The literal "pixel R² minus physics R²" would go negative whenever physics predicts the
+    variable better than pixels, and would hide a leak; the second stage avoids that.
+  - **Conditions** (the CONDITIONS-EXPLAINED label) use the same construction: trees on physics ⊕
+    conditions ⊕ pixels against physics ⊕ conditions ⊕ the shuffled-label column.
+  - **The camcol test** uses the matched base too: its per-camcol R² takes the base's squared error
+    averaged over the 5 shuffles, which is exactly the averaged metric.
 - **Bootstrap.** 20,000 Poisson galaxy-bootstrap draws of the out-of-fold predictions, shared
   across the models being compared (paired by galaxy).
   - The bound: the one-sided lower bound of Δ at α = 0.05 / 42 (Bonferroni over the family).
@@ -194,8 +219,8 @@ Readable, reported only (no state; the pixels' own R², or AUC for camcol):
   - **Resolution** (`assert_resolution`): 20,000 × 0.05/42 = 23.8 draws lie beyond the bound (the
     floor is 10). With fewer, every variable would read CLEAN by construction, so the audit refuses
     to run.
-  - **Declared:** the bootstrap resamples galaxies around fixed fits, so fit-to-fit variance is not
-    in the bound.
+  - **Declared:** the bootstrap resamples galaxies around fixed fits, so fit-to-fit variance (of the
+    pixel predictors, the trees and the shuffles) is not in the bound.
 - **Magnitude floor ε = 0.01** (ΔR² or ΔAUC). ΔR² 0.01 is |ρ| ≈ 0.1, the bound every pilot check
   used (`repull_findings.md`).
 
@@ -487,19 +512,17 @@ reads TRACE without sky, and neither did in v3.
 3. **S5's requirement revised to "not blocking" is approved**, with v3's failed version kept on
    record (`plants_v3.json`, `S5.first_written_v3`).
 
-## Open for the user before the hash
+## Settled (user, 2026-10-01 evening)
 
-0. **v4's S0 and S5 fail as written: a null shift variable reads TRACE under the sky baseline**
-   (mechanism above). Options:
-   - (a) **Matched base** (recommended): measure the excess against trees on physics ⊕ a *permuted*
-     copy of the pixel prediction, so both models have the same inputs and the same room to overfit;
-     only the pixel prediction's alignment with the galaxy differs. It removes the mechanism rather
-     than the symptom. Every plant reruns (about 2 h 10 min).
-   - (b) Regularise the trees (larger leaves or fewer iterations) until a null target's out-of-fold
-     R² sits at about 0. It shrinks the mechanism without removing it, and changes the baseline's
-     power on the real corpus-membership target. Every plant reruns.
-   - (c) Revise S0 and S5 to "no blocking state", consistent with TRACE being non-blocking, and
-     report the null TRACE rate (2 of 51). Cheapest, but it leaves TRACE uninformative.
+1. **Option (a), the matched base** (was open item 0 in v4: S0 and S5 failed as written, a null shift
+   variable reading TRACE under the sky baseline). Built as the user specified: the comparison is a
+   pixel predictor trained on **shuffled labels**, 5 shuffles, not the v4 draft's permuted copy of
+   the trained prediction. A permuted copy keeps the trained predictor's distribution but not its
+   fitting noise; retraining on shuffled labels keeps both. Defined under "The physics baseline and
+   the excess". v4's failures stay on record (`plants_v4.json`); options (b) regularised trees and
+   (c) relaxed requirements are not taken. Every plant is rerun under both baselines.
+
+## Open for the user before the hash
 
 1. **The identity criterion is in, as a separate criterion that does not gate.** Should
    NEAR-DUPLICATES gate, or exclude those targets from pretrain_v2? That would cost the aligned

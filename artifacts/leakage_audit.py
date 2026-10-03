@@ -4,7 +4,9 @@ Pre-registration: `artifacts/leakage_audit.md`. Data only: no encoder is involve
 variable, a ridge on image statistics and a small CNN are fitted to recover it from the pixels. A
 physics-only baseline (gradient-boosted trees on catalogue physics) is fitted beside them, and a
 second stage on physics ⊕ the pixel prediction measures what the pixels add. The leak is that
-held-out excess (ΔR², or ΔAUC for corpus membership), with a family-corrected bootstrap bound.
+held-out excess (ΔR², or ΔAUC for corpus membership), with a family-corrected bootstrap bound, over a
+matched base: the same second stage on the same predictor retrained on shuffled labels (v5), so the
+excess is the pixels' advantage beyond what one more column of the trees' flexibility gives.
 
 The identity criterion (shared objIDs, near-duplicates, stamp-footprint overlap across the two
 corpora) reads coordinates only.
@@ -45,6 +47,8 @@ STATED = SHIFTS + V1_REL  # per corpus; plus corpus membership on the pooled pai
 FAMILY = 2 * (2 * len(STATED) + 1)  # (2 corpora × 10 + corpus) × 2 predictors = 42
 CAMCOL_FAMILY = 6
 CALIB_ALPHAS = (0.01, 0.02)  # the threshold plant's sweep; α* read off it by the rule in `calibrate`
+N_SHUFFLE = 5  # matched base: pixel predictors retrained on shuffled labels (user, 2026-10-01 evening, option (a))
+TREE_JOBS = 5  # tree fits in worker processes (one OpenMP thread each); identical numbers, one-fifth the wall time
 ORDER = ("LEAK", "UNRESOLVED", "TRACE", "CLEAN")  # worst first; INSUFFICIENT precedes all
 
 
@@ -263,6 +267,13 @@ def _oof_hgb(x: np.ndarray, y: np.ndarray, folds: np.ndarray, kind: str) -> np.n
     return out
 
 
+def _oof_many(xs: list[np.ndarray], y: np.ndarray, folds: np.ndarray, kind: str) -> list[np.ndarray]:
+    """`_oof_hgb` over several feature sets in worker processes. Each fit is seeded and single-threaded,
+    so the result equals the serial loop's."""
+    from joblib import Parallel, delayed
+    return Parallel(n_jobs=TREE_JOBS, backend="loky")(delayed(_oof_hgb)(x, y, folds, kind) for x in xs)
+
+
 # ── metrics under shared Poisson weights ────────────────────────────────────────────────────────────
 
 def _r2(w: np.ndarray, y: np.ndarray, p: np.ndarray) -> np.ndarray:
@@ -327,6 +338,20 @@ def score_block(st, rows: np.ndarray, feats: np.ndarray, phys: np.ndarray, targe
         pix["cnn"][te] = _cnn(st, rows[tr], y[tr], rows[te], kind, scale, SEED + k)
         _free_mps()
         log(f"    fold {k}: {time.time() - t0:.0f}s")
+    # The matched base: the same predictors, same folds, trained on the target rows shuffled jointly (the
+    # corpus labels, for membership). Their out-of-fold predictions carry no information about y, so the
+    # trees on physics ⊕ them measure the flexibility of one more column alone (v4's S0/S5 null TRACE).
+    nulls = []
+    for s in range(N_SHUFFLE):
+        yn = y[np.random.default_rng(SEED + 500 + s).permutation(len(y))]
+        pn = {"ridge": np.full(y.shape, np.nan), "cnn": np.full(y.shape, np.nan)}
+        for k in range(N_FOLDS):
+            tr, te = folds != k, folds == k
+            pn["ridge"][te] = _ridge(feats[tr], yn[tr], feats[te])
+            pn["cnn"][te] = _cnn(st, rows[tr], yn[tr], rows[te], kind, scale, SEED + 1000 * (s + 1) + k)
+            _free_mps()
+        nulls.append(pn)
+        log(f"    shuffle {s}: {time.time() - t0:.0f}s")
     q = ALPHA / family
     res = {}
     for j, t in enumerate(names):
@@ -340,47 +365,67 @@ def score_block(st, rows: np.ndarray, feats: np.ndarray, phys: np.ndarray, targe
                           for a, m in enumerate(("ridge", "cnn"))}
             res[t] = r
             continue
-        sec, base, both = _second_stage(phys, cond, pix, j, yt, folds, kind, seed, q)
+        sec, e_base, both = _second_stage(phys, cond, pix, nulls, j, yt, folds, kind, seed, q)
         r.update(sec)
         if alt is not None:  # the same pixel predictions over the other baseline (user, 2026-09-28: sky)
-            r["alt"] = _second_stage(alt[0], alt[1], pix, j, yt, folds, kind, seed, q)[0]
+            r["alt"] = _second_stage(alt[0], alt[1], pix, nulls, j, yt, folds, kind, seed, q)[0]
         if kind == "reg":  # kept for the corpus-level camcol test; stripped before writing
             m = max(("ridge", "cnn"), key=lambda k: r[k]["excess"])
-            r["_pred"] = (yt, base, both[m])
+            r["_pred"] = (yt, e_base[m], both[m])
         res[t] = r
     return res
 
 
-def _second_stage(phys, cond, pix, j, yt, folds, kind, seed, q) -> tuple[dict, np.ndarray, dict]:
-    """Trees on physics alone and on physics ⊕ each pixel prediction (⊕ conditions if given), paired
-    bootstrap, per-predictor states. The bootstrap seed is the variable's, so two baselines scored
-    over the same pixel predictions share their draws."""
-    base = _oof_hgb(phys, yt, folds, kind)
-    both = {m: _oof_hgb(np.column_stack([phys, pix[m][:, j]]), yt, folds, kind) for m in pix}
-    rows_p = [base, both["ridge"], both["cnn"], pix["ridge"][:, j], pix["cnn"][:, j]]
+def _second_stage(phys, cond, pix, nulls, j, yt, folds, kind, seed, q) -> tuple[dict, dict, dict]:
+    """Trees on physics ⊕ each pixel prediction (⊕ conditions if given), against the matched base: the
+    same trees on physics ⊕ that predictor's shuffled-label predictions, the metric averaged over the
+    N_SHUFFLE shuffles. Paired bootstrap; per-predictor states on the matched excess. Physics alone is
+    fitted and its excess reported (v4's comparison). The bootstrap seed is the variable's, so two
+    baselines scored over the same pixel predictions share their draws."""
+    ms, K = ("ridge", "cnn"), len(nulls)
+    xs = [phys] + [np.column_stack([phys, pix[m][:, j]]) for m in ms]
+    xs += [np.column_stack([phys, nl[m][:, j]]) for m in ms for nl in nulls]
     if cond is not None:
-        cb = _oof_hgb(np.column_stack([phys, cond]), yt, folds, kind)
-        rows_p += [cb] + [_oof_hgb(np.column_stack([phys, cond, pix[m][:, j]]), yt, folds, kind) for m in pix]
+        pc = np.column_stack([phys, cond])
+        xs += [pc] + [np.column_stack([pc, pix[m][:, j]]) for m in ms]
+        xs += [np.column_stack([pc, nl[m][:, j]]) for m in ms for nl in nulls]
+    fit = _oof_many(xs, yt, folds, kind)
+    # rows: 0 physics | 1–2 both | 3–(2+2K) matched base, m-major | then the pixels alone | then conditions
+    rows_p = fit[:3 + 2 * K] + [pix[m][:, j] for m in ms] + fit[3 + 2 * K:]
     pt, bt = boot(yt, np.stack(rows_p), kind, seed)
+    ipx, ic = 3 + 2 * K, 5 + 2 * K  # the pixels alone; the conditions block
     chance = 0.0 if kind == "reg" else 0.5
-    r: dict = {"physics": float(pt[0])}
-    for a, m in enumerate(("ridge", "cnn")):
-        d, db = pt[1 + a] - pt[0], bt[:, 1 + a] - bt[:, 0]
-        r[m] = {"pixel": float(pt[3 + a]), "pixel_lo": float(np.quantile(bt[:, 3 + a], q)),
-                "readable": bool(np.quantile(bt[:, 3 + a], q) > chance),
-                "both": float(pt[1 + a]), "excess": float(d), "lo": float(np.quantile(db, q)),
-                "state": _state(float(d), float(np.quantile(db, q)))}
+    r: dict = {"physics": float(pt[0]), "n_shuffle": K}
+    e_base, both = {}, {}
+    for a, m in enumerate(ms):
+        nb = slice(3 + a * K, 3 + (a + 1) * K)
+        base_pt, base_bt = pt[nb].mean(), bt[:, nb].mean(1)
+        d, db = pt[1 + a] - base_pt, bt[:, 1 + a] - base_bt
+        dp, dpb = pt[1 + a] - pt[0], bt[:, 1 + a] - bt[:, 0]
+        r[m] = {"pixel": float(pt[ipx + a]), "pixel_lo": float(np.quantile(bt[:, ipx + a], q)),
+                "readable": bool(np.quantile(bt[:, ipx + a], q) > chance),
+                "both": float(pt[1 + a]), "matched_base": float(base_pt),
+                "matched_base_per_shuffle": [float(v) for v in pt[nb]],
+                "excess": float(d), "lo": float(np.quantile(db, q)),
+                "excess_vs_physics": float(dp), "lo_vs_physics": float(np.quantile(dpb, q)),
+                "state": _state(float(d), float(np.quantile(db, q))),
+                "state_vs_physics": _state(float(dp), float(np.quantile(dpb, q)))}
         if cond is not None:
-            dc, dcb = pt[6 + a] - pt[5], bt[:, 6 + a] - bt[:, 5]
+            cb = slice(ic + 3 + a * K, ic + 3 + (a + 1) * K)
+            dc, dcb = pt[ic + 1 + a] - pt[cb].mean(), bt[:, ic + 1 + a] - bt[:, cb].mean(1)
             r[m]["cond_excess"], r[m]["cond_lo"] = float(dc), float(np.quantile(dcb, q))
             r[m]["cond_state"] = _state(float(dc), float(np.quantile(dcb, q)))
+            r[m]["cond_excess_vs_physics_conditions"] = float(pt[ic + 1 + a] - pt[ic])
+        if kind == "reg":  # the camcol test's base: mean over shuffles of the squared error ≡ mean R²
+            e_base[m] = np.mean([(yt - fit[3 + a * K + s]) ** 2 for s in range(K)], 0)
+        both[m] = fit[1 + a]
     r["state"] = _worst([r["ridge"]["state"], r["cnn"]["state"]])
     r["label"] = []
     if r["state"] == "CLEAN" and (r["ridge"]["readable"] or r["cnn"]["readable"]):
         r["label"].append("PHYSICS-EXPLAINED")
     if cond is not None and r["state"] in ("LEAK", "TRACE", "UNRESOLVED"):
         r["label"].append(_conditions_label(r))
-    return r, base, both
+    return r, e_base, both
 
 
 def _conditions_label(r: dict) -> str:
@@ -404,9 +449,9 @@ def camcol_structure(res: dict, camcol: np.ndarray, shifts: tuple, seed: int) ->
     g = np.stack([camcol == c for c in range(1, 7)], 1).astype(np.float32)  # n × 6
     d = np.zeros((len(w), 6))
     for t in hit:
-        y, base, both = res[t]["_pred"]
-        ok = (np.isfinite(y) & np.isfinite(base) & np.isfinite(both)).astype(np.float32)
-        y0, e0, e1 = (np.nan_to_num(v).astype(np.float32) for v in (y, (y - base) ** 2, (y - both) ** 2))
+        y, e_base, both = res[t]["_pred"]  # e_base: the matched base's squared error, mean over shuffles
+        ok = (np.isfinite(y) & np.isfinite(e_base) & np.isfinite(both)).astype(np.float32)
+        y0, e0, e1 = (np.nan_to_num(v).astype(np.float32) for v in (y, e_base, (y - both) ** 2))
         cols = [ok, ok * y0, ok * y0 * y0, ok * e0, ok * e1]
         sums_in = np.stack([w @ (c[:, None] * g) for c in cols])  # 5 × B × 6
         sums_all = np.stack([w @ c for c in cols])[:, :, None]  # 5 × B × 1
@@ -911,6 +956,7 @@ def _summary(tag: str, d: dict) -> None:
                 continue
             print(f"  {blk}:{t} {r['state']:<10} phys {r['physics']:.3f}  " + "  ".join(
                 f"{m} pix {r[m]['pixel']:.3f} Δ {r[m]['excess']:+.4f} (lo {r[m]['lo']:+.4f}) {r[m]['state']}"
+                f" [vs phys {r[m]['excess_vs_physics']:+.4f} {r[m]['state_vs_physics']}]"
                 for m in ("ridge", "cnn")) + ("  " + ",".join(r["label"]) if r["label"] else ""))
     print(f"  verdict: {d['verdict']['state']}")
     if "without_sky" in d:
