@@ -3,7 +3,12 @@
 **Question.** Can the pixels of the re-pulled corpora (pretrain_v2, probe_v2) say how a stamp was
 processed, beyond what the galaxy's own physics already says?
 
-**Status.** Draft v5, 2026-10-03. v5 applies the user's 2026-10-01 evening decision (option (a)): the
+**Status.** Draft v5b, 2026-10-03: every plant rerun (results at the end). The bound now carries
+fit-to-fit noise (user, 2026-10-02): three bounds are scored from one run, and **no plant's blocking
+state differs between them**. Under the gating bound S0 still fails as written (two null TRACEs);
+under the fit-noise bound S0 fires and S3b fails (one at-threshold variable CLEAN). **Open for the
+user before the hash:** which bound gates, and what S0/S3b require (item 0 below). Draft v5,
+2026-10-03: v5 applies the user's 2026-10-01 evening decision (option (a)): the
 excess is measured against a **matched base**, trees on physics ⊕ the same pixel predictor retrained
 on shuffled labels (5 shuffles), so a null variable's TRACE from the trees' extra flexibility (v4's S0
 and S5 failures) cancels. Every plant is rerun under both baselines (results at the end); v4's output
@@ -219,8 +224,20 @@ Readable, reported only (no state; the pixels' own R², or AUC for camcol):
   - **Resolution** (`assert_resolution`): 20,000 × 0.05/42 = 23.8 draws lie beyond the bound (the
     floor is 10). With fewer, every variable would read CLEAN by construction, so the audit refuses
     to run.
-  - **Declared:** the bootstrap resamples galaxies around fixed fits, so fit-to-fit variance (of the
-    pixel predictors, the trees and the shuffles) is not in the bound.
+  - **Fit-to-fit noise in the bound (v5b; user, 2026-10-02).** The bootstrap resamples galaxies
+    around fixed fits. In v5's S0 the null excesses spread with sd 0.0018 against a bootstrap sd of
+    about 0.00115, so the bootstrap alone is too narrow. One fit's metric noise σ is measured by the
+    spread of the 5 shuffled-label bases (sd per variable, pooled as an RMS over the block's stated
+    variables per predictor; a one-variable block uses its own, 4 df). At full n σ is 0.0012–0.0027
+    for the shift variables (S0: ridge 0.00119, CNN 0.0021). It enters in quadrature with the
+    bootstrap margin, lo = Δ − √((Δ − lo_boot)² + (z_q σ f)²), z_q = Φ⁻¹(1 − α/42), under three
+    readings scored from the same run:
+    - **bootstrap**, f = 0: galaxies only (v5 as first written);
+    - **shuffle**, f = 1/√5: the matched base's own noise. The 5-shuffle mean's sd is about 0.00054,
+      half the bootstrap sd, so not negligible: **included, and gating**, as the user directed;
+    - **fit**, f = √(1 + 1/5): the trained side is one fit too, with the same σ. Then the predicted
+      null sd, √(0.00115² + (0.0012 × 1.1)²) ≈ 0.0017, matches the observed 0.0018. **Reported,
+      not gating**: it goes beyond the user's direction (item 0 below).
 - **Magnitude floor ε = 0.01** (ΔR² or ΔAUC). ΔR² 0.01 is |ρ| ≈ 0.1, the bound every pilot check
   used (`repull_findings.md`).
 
@@ -424,18 +441,20 @@ the audit has not run.
 
 ## Plant evidence (pinned)
 
-SHA-1 of each file as it stands after the 2026-10-02 v4 plant runs. Re-pin if anything changes
+SHA-1 of each file as it stands after the 2026-10-03 v5b plant runs. Re-pin if anything changes
 before the hash.
 
 | file | role | SHA-1 |
 |---|---|---|
-| `artifacts/out/leakage/plants.json` | v4: I, S0, S1, S3b, R, S4, S5, S2 (each scored with and without sky) | `eccf15b9a6df0e30d4bc7ede91d10fe5b8b6a6ad` |
+| `artifacts/out/leakage/plants.json` | v5b: I, S0, S1, S3b, R, S4, S5, S2; with and without sky; three bounds | `019084dc982efecae6ae7306baaf09a1a259aa9b` |
+| `artifacts/out/leakage/plants_v5a.json` | v5 as first written (bootstrap bound): I, S0 only, cut short by a macOS access loss | `2c870837971b36ca8fc6d45ec580ded117895716` |
+| `artifacts/out/leakage/plants_v4.json` | v4's plants (2026-10-02), kept: the null TRACEs against physics alone | `eccf15b9a6df0e30d4bc7ede91d10fe5b8b6a6ad` |
 | `artifacts/out/leakage/plants_v3.json` | v3's plants (2026-10-01), kept: S5's first-written failure lives here | `8832345f8be73f5c9939825cdbebc244f116a4ed` |
 | `artifacts/out/leakage/plants_v2.json` | v2's plants (2026-09-28), kept: S3's failure lives here | `33e5b0cd09713a3141702aa0ac9d0fee4721efbb` |
 | `artifacts/out/leakage/calibrate.json` | S3's dose sweep (v2; not re-run) | `a153b9f7261f44385309ece23b75261b56f16631` |
 | `artifacts/out/leakage/audit_physics.csv` | the baseline's physics for the audit's 40,000 sampled objects | `c04df4ee52d7df0289f2f326705bda39526653cb` |
 | `artifacts/out/leakage/audit_physics.json` | the pull's record: query, batch size, sample SHA-1s, output SHA-1, missingness | `0a2687f3a40c54eb49496af0bc1e7dd7bf01fe3e` |
-| `artifacts/leakage_audit.py` | the script, as it stands after the v4 runs | `c309121f85740333736b4f10f610618df4788502` |
+| `artifacts/leakage_audit.py` | the script, as it stands after the v5b runs | `26179731c58d939ebdb04eb78a381e0d34934e0b` |
 
 **The physics pull** (`leakage_audit.py pull`, 2026-10-01, public SkyServer DR17 `SqlSearch`, no
 token, batches of 100 IDs): the query is `PHYS_SQL` in the script and in the record. 40,000 IDs
@@ -446,6 +465,39 @@ The plants ran on successive revisions of the script. The revisions differ only 
 - where the MPS cache is released (after S0, S1, S3 and R);
 - the S3b entry and the calibration's per-variable field;
 - the conditions-label rule, applied to S2 and S5 by recomputation.
+
+## Plant results (v5b, run 2026-10-03, before the hash)
+
+`out/leakage/chain_v5b.sh` under `_heavy.sh`, 14:16–18:13 (detail log `chain_v5b_detail.log`). Matched
+base from 5 shuffled-label pixel predictors; each plant scored with sky (gating) and without
+(reported), and under all three bounds. "fires" is the plant's requirement as written.
+
+| plant | n | bootstrap | **shuffle (gating)** | fit (proposed) | without sky (shuffle) |
+|---|---|---|---|---|---|
+| I identity | 5,000 / ~20,000 | yes | **yes** | yes | — |
+| S0 clean | 2 × 20,000 | no: TRACE B i_sy, gr_v1y, ir_v1y | **no: TRACE B i_sy, gr_v1y** | yes: all CLEAN | yes |
+| S1 v1 re-injected | 2 × 10,000 | yes | **yes**: 20 LEAK, UNSTRUCTURED, corpus CLEAN | yes | yes |
+| S3b threshold | 2 × 20,000 | yes | **yes** | no: A g_sy (Δ 0.0078) CLEAN | yes |
+| R real v1 probe | 4,000 | yes | **yes**: t_g LEAK; t_r, t_i, phys_mix CLEAN | yes | — |
+| S4 camcol 3 | 2 × 10,000 | yes | **yes**: CAMCOL-STRUCTURED at camcol 3 only | yes | yes |
+| S5 sky pedestal | 2 × 10,000 | no: TRACE B i_sx | **yes**: corpus TRACE, CONDITIONS-EXPLAINED | yes | yes |
+| S2 B bilinear | 2 × 10,000 | yes | **yes**: corpus LEAK (Δ 0.127, bound 0.111), NOT CONDITIONS-EXPLAINED; A CLEAN | yes | yes |
+
+- **No blocking state differs between the bounds, in any plant.** Every LEAK plant reads LEAK under
+  all three; no null variable reads LEAK or UNRESOLVED under any. The bounds disagree only on TRACE
+  versus CLEAN, which does not gate.
+- **The null side (S0).** The two null TRACEs under the gating bound have Δ 0.0039–0.0040 and bounds
+  +0.0001 / +0.0002. The fit bound clears them (bounds −0.0013).
+- **The planted side (S3b).** A g_sy carries 1% of v1's offsets and reads Δ 0.0078: TRACE under the
+  gating bound (lo +0.0018), CLEAN under the fit bound (lo −0.0002). The other at-threshold variables
+  (A g_sx Δ 0.0122, B g_sx 0.0173) read LEAK under all three.
+- **What the two failures say together.** With fit noise counted, null excesses reach about 0.004 and
+  a planted 0.0078 sits at the edge: the audit's honest resolution is about 0.008 in ΔR², a little
+  under ε (0.01). Below it, TRACE versus CLEAN cannot be read reliably either way, which is why TRACE
+  was made non-blocking.
+- **R's camcol test** again reads CAMCOL-STRUCTURED at camcol 2 on a uniform injection (open item 2).
+- Per shuffle, the matched base's spread and the pooled σ are in `plants.json`
+  (`matched_base_per_shuffle`, `sigma_fit_pooled`, `lo_by_bound`, `state_by_bound`).
 
 ## Plant results (v4, run 2026-10-02, before the hash)
 
@@ -522,7 +574,27 @@ reads TRACE without sky, and neither did in v3.
    the excess". v4's failures stay on record (`plants_v4.json`); options (b) regularised trees and
    (c) relaxed requirements are not taken. Every plant is rerun under both baselines.
 
+## Settled (user, 2026-10-02)
+
+1. **The matched base's shuffle-to-shuffle variation is reported at full n and, being not negligible
+   (sd of the 5-shuffle mean ≈ 0.00054 against a bootstrap sd ≈ 0.00115), is included in the bound**
+   (the "shuffle" reading above, gating).
+
 ## Open for the user before the hash
+
+0. **(v5b) Which bound gates, and what S0 and S3b require.** Neither bound makes every plant fire as
+   written; no blocking state depends on the choice. Options:
+   - (a) **The fit bound gates; S3b's at-threshold window is stated against the measured resolution**
+     (variables with Δ ≥ ε must not read CLEAN; those in [ε/2, ε) are reported). Honest about the
+     noise, and S0 fires; but S3b's requirement is revised after its result, so it is declared as
+     post hoc and v5b's S3b stays on record.
+   - (b) **The shuffle bound gates (as now); S0 is revised to "no blocking state"**, reporting the
+     null TRACE rate (2 of 51). Keeps S3b; leaves TRACE weakly informative near ε/2.
+   - (c) **Shrink the fit noise rather than choose:** average the trained side over several fits
+     (pixel predictor seeds) as the base already is, so f falls towards √(2/5). Both plants might then
+     fire as written; costs about another 1–2 h of plants per extra fit and a rerun.
+   Recommended: **(a)** if TRACE is to stay descriptive (it gates nothing either way); (c) if TRACE
+   near ε/2 should carry meaning.
 
 1. **The identity criterion is in, as a separate criterion that does not gate.** Should
    NEAR-DUPLICATES gate, or exclude those targets from pretrain_v2? That would cost the aligned
