@@ -3,8 +3,8 @@
 *Status: draft, 2026-10-02 (first draft 2026-09-27). Nothing hashed, nothing trained. **Settled
 (user, 2026-09-28):** 16×16 patches for MAE (D12 amended), F2 (MAE decoder 8×512) and the MoCo
 settings of F3 (K = 65,536, m = 0.999, τ = 0.2); **F3's residue settled (user, 2026-10-01 evening):
-m constant at 0.999, v2-style.** **F1, F4–F8 settled (user, 2026-10-02); F9 not decided** (§8). F7
-leaves one question for the user: MoCo v2's published recipe is SGD (§8, F7).
+m constant at 0.999, v2-style.** **F1, F4–F8 settled (user, 2026-10-02); F9 not decided** (§8). **F7's MoCo
+question settled (user, 2026-10-03): option (b)**, MoCo v3's ViT optimiser rule on v2's objective.
 Design sources: `DECISIONS.md` D10 revised (`:377`), D12 (`:414`), `docs/spec/objectives.md`, `TODO.md` Epic G
 (`:467`). A choice is recorded as decided only once the user has signed it off; every open fork is
 in §8. Claims marked *verify* are from memory of the primary papers and are checked against the
@@ -25,8 +25,8 @@ keeps everything in M's recipe that is not intrinsic to its objective. The match
 | batch | 32, `drop_last` (`:80`) | 32 | 32 |
 | `steps` (schedule length) | 253,270 (`:73`) | 253,270 | 253,270 |
 | stop | 101,308 via `stop_after` (`objectives/jepa.py:447`) | 101,308 | 101,308 |
-| optimiser | AdamW, torch default betas (0.9, 0.999), wd 0.04 constant, no grad clip (`jepa.py:326`) | **the method's published recipe (F7)**: SGD, momentum 0.9, wd 1e-4 — *open, see F7* | **AdamW, betas (0.9, 0.95), wd 0.05** (F7, He et al.'s recipe) |
-| LR | peak 1.25e-4, warmup 1,250, cosine to 1.25e-7 (`:86-90`, `jepa.py:250`) | **peak by the published rule at batch 32 (F7)**; M's warmup and cosine shape | **peak 1.875e-5** = 1.5e-4 × 32/256 (F7); M's warmup and cosine shape |
+| optimiser | AdamW, torch default betas (0.9, 0.999), wd 0.04 constant, no grad clip (`jepa.py:326`) | **AdamW, torch default betas (0.9, 0.999), wd 0.1** (F7 (b): MoCo v3's ViT recipe) | **AdamW, betas (0.9, 0.95), wd 0.05** (F7, He et al.'s recipe) |
+| LR | peak 1.25e-4, warmup 1,250, cosine to 1.25e-7 (`:86-90`, `jepa.py:250`) | **peak 1.875e-5** = 1.5e-4 × 32/256 (F7 (b), MoCo v3); M's warmup and cosine shape | **peak 1.875e-5** = 1.5e-4 × 32/256 (F7); M's warmup and cosine shape |
 | LR at the stop | 8.24e-5 (65.9% of peak) | 65.9% of its own peak, by construction | 65.9% of its own peak |
 | EMA | 0.996 → 1.0 cosine over 253,270 (`:91-92`, `jepa.py:265`); 0.99738 at the stop | momentum encoder 0.999, constant (v2; §3.3) | none (objective-intrinsic) |
 | precision | fp32 (`autocast: null`, `:34`) | fp32 | fp32 |
@@ -298,8 +298,8 @@ measures them). A1 and A2 are M's recipe on the v2 cache, so they cost M's 19.3�
   the F7 checks need build items 1–8, so the rows above start when both A2 and the build are done.
 - **Order rule:** seed-0 pair before seed-1 pair, so one complete objective ladder exists before any
   second seed is spent; within a pair, MoCo before MAE (cheaper, and its rehearsal gate is the one
-  that can stop a run). If F7's open MoCo question is answered (b), MoCo's rates in row 2 change, not
-  the order.
+  that can stop a run). Row 2's rates are MoCo v3's ViT rule (F7 (b), settled 2026-10-03):
+  6.25e-6, 1.875e-5 and 5.625e-5.
 
 ## 6. The 500-step timing rehearsal (proposed, not run)
 
@@ -336,7 +336,7 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 | 7 | masking distribution | M's bbox-biased multi-block masking belongs to its objective | uniform (published); log the sky share of the loss (F5) |
 | 8 | patch size / encoder vs D12 | D12 specified 8×8, ~30M | 16×16 ViT-S by the user's decision; **D12 amended** (§4.1) |
 | 9 | MAE augmentation | He's default uses resized crops and flips | none, as M (D10, no-rebin); He's linear-probe cost named |
-| 10 | optimiser details | each method's recipe is tuned with its own optimiser and LR rule | **each method's published LR rule at batch 32, with its own optimiser form** (F7, settled): MAE AdamW (0.9, 0.95), wd 0.05, 1.875e-5; MoCo per F7's open question. A 5,000-step check at 1/3×, 1× and 3× the rule's rate, judged on pretext loss only |
+| 10 | optimiser details | each method's recipe is tuned with its own optimiser and LR rule | **each method's published LR rule at batch 32, with its own optimiser form** (F7, settled): MAE AdamW (0.9, 0.95), wd 0.05, 1.875e-5; MoCo AdamW (MoCo v3's ViT rule), wd 0.1, 1.875e-5. A 5,000-step check at 1/3×, 1× and 3× the rule's rate, judged on pretext loss only |
 | 11 | FLOPs / wall-clock | objectives differ in cost per image | exposure and schedule matched instead (§1.1); reported "per image seen" |
 | 12 | schedule completion | published recipes anneal to completion; M stopped at 65.9% of peak LR | inherit M's truncation; P4 applies to all arms |
 | 13 | collapse kill criterion | the soft floor 2.5 is grounded on JEPA traces only (`pretrain.yaml` `collapse_floor`) | F8 |
@@ -382,13 +382,18 @@ any baseline trains, and no probe number enters any of them.
     it. The official repository could not be read (its contents return empty through the API, its
     pages 404), so the README's command line is unverified. Linear scaling at batch 32 gives
     **0.00375 (SGD)**.
-    - **Open for the user** (the rule's literal reading needs one choice): (a) MoCo v2's recipe as
-      published, **SGD at 0.00375** on a ViT — the recipe F3 chose, though MoCo v3 (Chen, Xie & He
-      2021, arXiv:2104.02057) moved ViTs to AdamW because SGD-era recipes trained ViTs unstably; or
-      (b) **MoCo v3's ViT rule, AdamW, base lr 1.5e-4 × batch/256 = 1.875e-5, weight decay 0.1**
-      (betas unstated; the code uses torch's (0.9, 0.999)), the published rule for this backbone but
-      not for the v2 objective F3 settled. (a) follows "the method" literally; (b) follows "the AdamW
-      form" for a ViT. Not settled here.
+    - **Settled (user, 2026-10-03): option (b), a declared hybrid.** MoCo's optimiser and LR follow
+      **MoCo v3's rule for ViTs** (Chen, Xie & He 2021, arXiv:2104.02057; `facebookresearch/moco-v3`
+      `CONFIG.md` and `main_moco.py`): **AdamW, base lr 1.5e-4 × batch/256 = 1.875e-5 at batch 32,
+      weight decay 0.1**, betas torch's default (0.9, 0.999), which is what MoCo v3's code uses (it
+      passes none; the paper states none). The **objective stays v2's** (F3): queue K = 65,536,
+      momentum 0.999 constant, τ = 0.2, asymmetric loss (F4), no predictor.
+      - **Why the hybrid.** v2's own recipe is SGD at batch 256 on ResNets. SGD-era recipes train
+        ViTs unstably, which is why MoCo v3 moved ViTs to AdamW (v3 §4–5); our backbone is a ViT-S.
+        The objective is v2's because at batch 32 the queue is what gives MoCo negatives (§3.1).
+      - **Not taken:** (a) SGD at 0.00375 (MoCo v1/v2's 0.03 at batch 256, scaled linearly).
+      - The F7 sanity check stands for both baselines: MoCo's three rates are 6.25e-6, 1.875e-5 and
+        5.625e-5; MAE's the same three (its rule gives the same 1.875e-5).
   - **Sanity check** (per arm, before any seed run): about **5,000 steps** at the rule's rate, at
     **3×** and at **1/3×**, from the seed-0 init and data order, `smoke: true`, scratch `out_dir`.
     **Chosen by pretext loss only** (MAE's masked-patch loss; MoCo's InfoNCE), **never probe AUC**.
