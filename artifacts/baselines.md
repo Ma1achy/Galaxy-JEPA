@@ -2,7 +2,8 @@
 
 *Status: draft, 2026-10-02 (first draft 2026-09-27). Nothing hashed, nothing trained. **Settled
 (user, 2026-09-28):** 16×16 patches for MAE (D12 amended), F2 (MAE decoder 8×512) and the MoCo
-settings of F3 (K = 65,536, m = 0.999, τ = 0.2). F1, F4–F9 and the residue of F3 await review.
+settings of F3 (K = 65,536, m = 0.999, τ = 0.2); **F3's residue settled (user, 2026-10-01 evening):
+m constant at 0.999, v2-style.** F1 and F4–F9 await review.
 Design sources: `DECISIONS.md` D10 revised (`:377`), D12 (`:414`), `docs/spec/objectives.md`, `TODO.md` Epic G
 (`:467`). A choice is recorded as decided only once the user has signed it off; every open fork is
 in §8. Claims marked *verify* are from memory of the primary papers and are checked against the
@@ -26,7 +27,7 @@ keeps everything in M's recipe that is not intrinsic to its objective. The match
 | optimiser | AdamW, torch default betas (0.9, 0.999), wd 0.04 constant, no grad clip (`jepa.py:326`) | same | same |
 | LR | peak 1.25e-4, warmup 1,250, cosine to 1.25e-7 (`:86-90`, `jepa.py:250`) | same | same |
 | LR at the stop | 8.24e-5 (65.9% of peak) | same, by construction | same |
-| EMA | 0.996 → 1.0 cosine over 253,270 (`:91-92`, `jepa.py:265`); 0.99738 at the stop | momentum encoder 0.999 → 1.0 on the same ramp (§3.3) | none (objective-intrinsic) |
+| EMA | 0.996 → 1.0 cosine over 253,270 (`:91-92`, `jepa.py:265`); 0.99738 at the stop | momentum encoder 0.999, constant (v2; §3.3) | none (objective-intrinsic) |
 | precision | fp32 (`autocast: null`, `:34`) | fp32 | fp32 |
 | SIGReg | off, λ = 0 (`:121`, D21) | n/a | n/a |
 | status | `smoke: true` (`:30`), so not a headline | `smoke: true` (§8, F1) | `smoke: true` |
@@ -141,8 +142,8 @@ Learning" (CVPR 2020, arXiv:1911.05722), and v2 keeps them. v2 was run at batch 
 K = 8,192 to hold v2's key age. v2 at batch 256 enqueues 256 keys per step, so the oldest key is
 256 steps old. Here at batch 32 the oldest is 65,536 / 32 = **2,048 steps** old (mean 1,024), 8×
 v2's. At m = 0.999 the key encoder's time constant is about 1,000 steps, so the oldest keys are
-about two time constants stale, against about 0.26 in v2; under the ramp (§3.3) the time constant
-is about 1,540 steps at the stop, about 1.3 time constants. The decision keeps the published
+about two time constants stale, against about 0.26 in v2; m is held constant (§3.3), so this holds
+throughout the run. The decision keeps the published
 values; the rehearsal (§6) and the InfoNCE trace are where an effect of stale negatives would first
 show.
 
@@ -154,10 +155,9 @@ it: at 0.996 the time constant is 250 steps, so 65,536 keys at batch 32 (2,048 s
 about eight time constants stale. The draft's matched alternative (0.996 with K = 2,048) is not
 taken.
 
-**Still open (F3 residue): the schedule around 0.999.** The draft proposed **0.999 → 1.0, cosine
-over 253,270 steps (0.99935 at the stop)**, i.e. v2's start on M's ramp shape. v1 and v2 hold m
-constant at 0.999 (*verify*). The decision fixes the value; whether it ramps as M's EMA does or
-stays constant as in v2 is for review.
+**Schedule: constant, decided (user, 2026-10-01 evening).** m stays at 0.999 for the whole run, as
+in v1 and v2 (*verify*). The draft's alternative, 0.999 → 1.0 cosine over 253,270 steps (0.99935 at
+the stop, v2's start on M's ramp shape), is not taken.
 
 ### 3.4 Augmentation: minimal, objective-intrinsic, no flips or rotations, no resampling
 
@@ -302,7 +302,7 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 |---|---|---|---|
 | 1 | MoCo needs augmentation; M has none | contrastive learning without views is undefined | the minimal objective-intrinsic set (§3.4); no flips, rotations or resampling |
 | 2 | negatives at batch 32 | v3's in-batch design gives 31 | v2's queue, K = 65,536 (decided; keys 2,048 steps old at the oldest, §3.2) |
-| 3 | MoCo momentum | M's 0.996 has no queue behind it | 0.999 (decided); constant as v2 or on M's ramp to 1.0 still open (F3) |
+| 3 | MoCo momentum | M's 0.996 has no queue behind it | 0.999, constant as v2 (decided, F3) |
 | 4 | view size | MoCo trains on 100–196-token windows, reads out 256 | grid-aligned windows, positions a subset of the read-out grid (M trains on ~81 tokens and reads 256; MAE trains on 64) |
 | 5 | pooling into the loss | v3 uses a CLS token; there is none | mean-pooled final block into the projector |
 | 6 | MAE decoder capacity | M has no decoder; its predictor is 192×6 | He 8×512 (decided, F2) |
@@ -327,8 +327,8 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
   **queue K = 65,536, momentum 0.999, τ = 0.2** (Chen, Fan, Girshick & He 2020, arXiv:2003.04297;
   K and m from He et al. 2020, arXiv:1911.05722; §3.2). This replaces the draft's K = 8,192 and the
   0.996 / K 2,048 alternative; keys up to 2,048 steps old at batch 32 are a known consequence
-  (§3.2). *Open residue:* m constant at 0.999 as in v2, or 0.999 → 1.0 on M's cosine ramp as the
-  draft proposed (§3.3).
+  (§3.2). *Residue settled (user, 2026-10-01 evening):* m **constant** at 0.999 as in v2, not M's
+  cosine ramp to 1.0 (§3.3).
 - **F4** — MoCo loss: **asymmetric (v2, recommended)** vs symmetrised (v3, about 2× the cost).
 - **F5** — MAE target: **norm-pix (recommended)** vs plain-pixel MSE.
 - **F6** — band-offset shortcut: **measure only (recommended)** vs an integer ±1 px per-band shift
