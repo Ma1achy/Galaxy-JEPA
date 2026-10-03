@@ -14,6 +14,7 @@ galaxies N1's nuisance panel and criteria 1 and 3 read. (iii) is the headline pr
 
   uv run python artifacts/distractor_plants.py pull-sky          # sky_r for the capped train + test, once
   uv run python artifacts/distractor_plants.py plants [--limit N] [--reps R] [--out DIR]
+  uv run python artifacts/distractor_plants.py null-coverage    # 200 shuffles: the CI's coverage of 0
   uv run python artifacts/distractor_plants.py embed-untrained   # full-split untrained bank, for (iii)
   uv run python artifacts/distractor_plants.py morph [tag ...]    # (iii), context, no state
 """
@@ -50,7 +51,9 @@ SKY_SQL = "SELECT CAST(p.objID AS varchar(20)) AS objID, p.sky_r FROM PhotoObjAl
 SKY_CSV, SKY_RECORD = OUT / "distractor_sky_r.csv", OUT / "distractor_sky_r.json"
 INJECT_SHARE, MORPH_SHARE = 0.50, 0.20  # embedding plants' variance shares (gross, by design: logic, not power)
 DELTA, DELTA_POWER = 0.03, 0.02  # score plants: required shift; the shift reported for power only
-DISAGREE_MARGIN = 2  # SEEDS DISAGREE: each seed beyond the JEPA mean by 2 s_m (1 s_m false-called the null)
+DISAGREE_MARGIN = 2  # SEEDS DISAGREE: each seed beyond the JEPA mean by 2 max(s_m, S̄_J) (1 s_m false-called the null)
+NULL_DRAWS, NULL_COVER_MIN = 20, 16  # the null plant: 20 shuffles, CI ∋ 0 in ≥ 16 (v3: one draw missed; user, 2026-10-01)
+COVERAGE_DRAWS = 200  # the separate coverage check of the NI CI under the null
 MATERIAL = 0.10  # (ii): |D| on a top-10 share must reach 10 points (the seed-range rule alone false-calls 1/3)
 Z95 = 1.96  # the power check's multiplier: minimum detectable D = S_J + 1.96 sd(D)
 STATE = {"BETTER": "MORE", "WORSE": "LESS", "SAME": "SAME", "UNRESOLVED": "UNRESOLVED"}
@@ -164,6 +167,10 @@ def compare_readability(rb: list[dict], rm: tuple[dict, dict], mdd: float, names
                                     for r in (*rb, *rm))]
     ni_m = (_ni(rm[0], names), _ni(rm[1], names))
     m_mean, s_m = sum(ni_m) / 2, abs(ni_m[0] - ni_m[1])
+    # s_m is one difference of means and cancels across variables (secondary: 0.00097 against per-variable
+    # spreads to 0.016, so the Δ = 0 plant false-called 9% of 200); S̄_J cannot cancel (user, 2026-10-01)
+    s_j = float(np.mean([abs(rm[0]["per"][n]["auc"] - rm[1]["per"][n]["auc"]) for n in names]))
+    disagree_bar = DISAGREE_MARGIN * max(s_m, s_j)
     d_e = [_ni(r, names) - m_mean for r in rb]
     auc_ = {n: [r["per"][n]["auc"] for r in (*rb, *rm)] for n in names}
     primary = tuple(names) == NUISANCE
@@ -208,13 +215,13 @@ def compare_readability(rb: list[dict], rm: tuple[dict, dict], mdd: float, names
         per |= dict.fromkeys(thin if primary else [], "INSUFFICIENT")
     elif straddle:
         fam = "UNRESOLVED"
-    elif len(rb) == 2 and d_e[0] * d_e[1] < 0 and min(map(abs, d_e)) > DISAGREE_MARGIN * s_m:
+    elif len(rb) == 2 and d_e[0] * d_e[1] < 0 and min(map(abs, d_e)) > disagree_bar:
         fam = "SEEDS DISAGREE"
     if len(rb) == 1 and fam != "INSUFFICIENT":
         fam += " (PROVISIONAL, one seed)"
     counter = [n for n, v in per.items() if (v == "LESS" and fam.startswith("MORE")) or (v == "MORE" and fam.startswith("LESS"))]
     return {"index": fam, "D": float(d), "S": float(s), "ci": [float(lo), float(hi)], "ci_half_width": (hi - lo) / 2,
-            "min_detectable_D": mdd, "unresolved_ci_straddles_mdd": bool(straddle and not thin),
+            "min_detectable_D": mdd, "disagree_bar": disagree_bar, "unresolved_ci_straddles_mdd": bool(straddle and not thin),
             "per_variable_unresolved_ci_straddles_mdd": straddle_v, "NI_B": [_ni(r, names) for r in rb],
             "per_variable": per, "counter_direction": counter, "insufficient": thin}
 
@@ -482,12 +489,22 @@ def plants(limit: int, reps: int, out_dir: Path) -> dict:
     rec("morphology: featured-or-disk direction, 20% of variance", None, mor, None, {"morphology_share": "MORE"})
 
     # the null does not saturate: every target permuted across galaxies (train and test alike)
-    perm_tr, perm_te = rng.permutation(len(d["train"])), rng.permutation(len(d["test"]))
-    xm = (x["m1"][0][perm_tr], x["m1"][1][perm_te])  # embeddings permuted against the fixed targets
-    null = readout(probe(d, *xm), w)
-    P["null: M1 embeddings permuted against the targets"] = _public(null) | {
-        "must_read": "every variable NEAR CHANCE; NI CI contains 0",
-        "fires": all(p["label_1a"] == "NEAR CHANCE" for p in null["per"].values()) and null["NI_ci"][0] <= 0 <= null["NI_ci"][1]}
+    # Draw 1 is v3's draw from the main stream (so every later plant's stream is unchanged); draws 2–20
+    # come from their own stream. One draw judged on a 95% CI misses 1 time in 20 by construction.
+    rng_null = np.random.default_rng(SEED + 2)
+    draws = []
+    for k in range(NULL_DRAWS):
+        g = rng if k == 0 else rng_null
+        perm_tr, perm_te = g.permutation(len(d["train"])), g.permutation(len(d["test"]))
+        null = readout(probe(d, x["m1"][0][perm_tr], x["m1"][1][perm_te]), w)  # embeddings permuted against the targets
+        draws.append({"NI": null["NI"], "NI_ci": null["NI_ci"], "contains_0": null["NI_ci"][0] <= 0 <= null["NI_ci"][1],
+                      "all_near_chance": all(p["label_1a"] == "NEAR CHANCE" for p in null["per"].values()),
+                      "auc": {n: p["auc"] for n, p in null["per"].items()}})
+    cover = sum(r["contains_0"] for r in draws)
+    P[f"null: M1 embeddings permuted against the targets, {NULL_DRAWS} shuffles"] = {
+        "must_read": f"every variable NEAR CHANCE in every shuffle; NI CI contains 0 in ≥ {NULL_COVER_MIN} of {NULL_DRAWS}",
+        "draws": draws, "ci_contains_0": cover, "all_near_chance": sum(r["all_near_chance"] for r in draws),
+        "fires": all(r["all_near_chance"] for r in draws) and cover >= NULL_COVER_MIN}
     print(f"  embed plants  {time.perf_counter() - t0:6.0f}s", file=sys.stderr)
 
     # score plants — criterion 2's construction, through the identical comparison
@@ -577,6 +594,41 @@ def plants(limit: int, reps: int, out_dir: Path) -> dict:
     path.write_text(json.dumps(out, indent=1, default=float))
     print(f"  wrote {path}", file=sys.stderr)
     return out
+
+
+def null_coverage(draws: int = COVERAGE_DRAWS) -> dict:
+    """The NI CI's coverage of 0 under the null, over `draws` independent shuffles, with its own 95%
+    (Clopper–Pearson) interval: a measurement, no requirement (user, 2026-10-01, item 2b). If coverage is
+    clearly below 95%, widened analysis intervals are proposed, not applied."""
+    from scipy.stats import beta
+    t0 = time.perf_counter()
+    d = setup()
+    d["r_flux"] = _r_flux_pread(d)
+    d["sky"], _ = _sky()
+    g = np.random.default_rng(SEED + 3)  # independent of the plants' streams
+    w, _ = weights(d["test"], b=N_BOOT)
+    x = (_load("m1", d["train"]), _load("m1", d["test"]))
+    rows = []
+    for k in range(draws):
+        pt, pe = g.permutation(len(d["train"])), g.permutation(len(d["test"]))
+        r = readout(probe(d, x[0][pt], x[1][pe]), w)
+        rows.append({"NI": r["NI"], "NI_ci": r["NI_ci"], "contains_0": r["NI_ci"][0] <= 0 <= r["NI_ci"][1],
+                     "all_near_chance": all(p["label_1a"] == "NEAR CHANCE" for p in r["per"].values()),
+                     "NI_boot_sd": float(r["_NIb"].std())})
+        if (k + 1) % 10 == 0:
+            print(f"  null-coverage {k + 1}/{draws}: {sum(q['contains_0'] for q in rows)} cover", file=sys.stderr, flush=True)
+    c, n = sum(q["contains_0"] for q in rows), len(rows)
+    ni = np.array([q["NI"] for q in rows])
+    out = {"draws": n, "covered": c, "coverage": c / n,
+           "coverage_ci95_clopper_pearson": [float(beta.ppf(0.025, c, n - c + 1)) if c else 0.0,
+                                             float(beta.ppf(0.975, c + 1, n - c)) if c < n else 1.0],
+           "misses_above": int(sum(q["NI_ci"][0] > 0 for q in rows)), "misses_below": int(sum(q["NI_ci"][1] < 0 for q in rows)),
+           "all_near_chance": int(sum(q["all_near_chance"] for q in rows)),
+           "NI_mean": float(ni.mean()), "NI_sd_across_shuffles": float(ni.std(ddof=1)),
+           "NI_boot_sd_mean": float(np.mean([q["NI_boot_sd"] for q in rows])),
+           "seconds": time.perf_counter() - t0, "rows": rows}
+    (OUT / "distractor_null_coverage.json").write_text(json.dumps(out, indent=1, default=float))
+    return {k: v for k, v in out.items() if k != "rows"}
 
 
 # ── sky_r: the one pull, pinned ─────────────────────────────────────────────────────────────────────
@@ -674,12 +726,13 @@ def morph(tags: list[str]) -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("plants", "pull-sky", "embed-untrained", "morph"))
+    ap.add_argument("cmd", choices=("plants", "null-coverage", "pull-sky", "embed-untrained", "morph"))
     ap.add_argument("tags", nargs="*", default=["m1", "m2"])
     ap.add_argument("--limit", type=int, default=0, help="dev: stride-subsample train and test to N each")
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--out", type=Path, default=OUT)
     a = ap.parse_args()
-    r = (plants(a.limit, a.reps, a.out) if a.cmd == "plants" else pull_sky() if a.cmd == "pull-sky"
+    r = (plants(a.limit, a.reps, a.out) if a.cmd == "plants" else null_coverage() if a.cmd == "null-coverage"
+         else pull_sky() if a.cmd == "pull-sky"
          else embed_untrained() if a.cmd == "embed-untrained" else morph(a.tags))
     print(json.dumps(r, indent=1, default=float))

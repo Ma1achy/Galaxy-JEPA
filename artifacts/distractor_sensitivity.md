@@ -14,11 +14,12 @@ the secondary index, the per-variable states and the one-seed read; (2) `sky_r` 
 pinned) and is variable 7; `snr_r` is a declared secondary, reported with no state; (3) all 17 plants
 are rerun once with `sky_r` under the new rule; v2's output on record is kept as
 `distractor_plants_v2.json`. (A stray duplicate of the v1 status paragraph, which opened with a
-second "## Pre-registration" line, is removed.) **v3 rerun done (2026-10-02 19:28):** every plant
-fires but two, the thin-n plant now reads UNRESOLVED, and MDD = 0.014257, MDD′ = 0.005435 (see "Plant
-results — v3"). **Not hashable yet:** two plants fail as written: the null (one draw's NI CI misses 0)
-and the secondary index's Δ = 0 plant (SEEDS DISAGREE 2 of 20). Both are diagnosed and their fixes
-proposed, not applied (D28: kept on record beside the fix); the user decides, then one rerun.
+second "## Pre-registration" line, is removed.) **v3 plants: all fire (v3b, 2026-10-03 01:17).** The first v3
+run (v3a, 2026-10-02) failed two plants as written: the one-draw null and the secondary index's Δ = 0.
+Both were diagnosed, the fixes approved (user, 2026-10-01 evening), applied, and every plant rerun
+once; v3a's output and script are kept beside the fixes. MDD = 0.014257, MDD′ = 0.005435. The NI CI's
+coverage under the null was checked over 200 shuffles: 95.5% (91.6–97.9%), consistent with nominal,
+so the analysis intervals are unchanged. Sent to the user for approval; **not hashed.**
 
 ## Pre-registration
 
@@ -145,9 +146,13 @@ proposed, not applied (D28: kept on record beside the fix); the user decides, th
      the CI ran across it. It stands above SEEDS DISAGREE because that state reads the two B seeds'
      point NIs, which such a CI does not resolve either.
   3. **SEEDS DISAGREE:** the two B seeds lie on opposite sides of the JEPA mean NI, each by more than
-     2 s_J, where s_J = |NI_J1 − NI_J2|. The baseline's two seeds disagree in direction beyond JEPA's
-     own seed noise, so the objective does not decide it at two seeds. (The margin is 2 s_J, not
-     s_J: at 1 s_J the Δ = 0 plant false-called, see the plant results.)
+     **2 max(s_J, S̄_J)**, where s_J = |NI_J1 − NI_J2| and S̄_J = mean_v |J1_v − J2_v|. The baseline's
+     two seeds disagree in direction beyond JEPA's own seed noise, so the objective does not decide it
+     at two seeds. (The margin is 2, not 1: at 1 s_J the DEV Δ = 0 plant false-called. S̄_J joins s_J
+     in v3b: s_J is one difference of means and can cancel across variables, as it did on the
+     secondary index (s′_J 0.00097 against S̄′_J 0.0048; 9% false SEEDS DISAGREE over 200 Δ = 0
+     realisations at 2 s′_J, 0% at 2 S̄′_J); the per-variable spread cannot cancel. User, 2026-10-01
+     evening.)
   4. **MORE:** CI(D̄) lies wholly above +S̄.
   5. **LESS:** CI(D̄) lies wholly below −S̄.
   6. **SAME:** CI(D̄) lies inside [−S̄, +S̄].
@@ -176,9 +181,9 @@ proposed, not applied (D28: kept on record beside the fix); the user decides, th
   seed noise (J1 and J2 differ by 0.066 on PSF and by at most 0.007 elsewhere), so it sets most of
   the primary bar, and NI′ asks the question at the resolution the other six allow.
   - NI′ has its own states, by the same rules and the same precedence, with every quantity taken over
-    the six: D̄′, S̄′ = mean over the six of S_v, s_J′ = |NI′_J1 − NI′_J2| for SEEDS DISAGREE, INSUFFICIENT
-    over the six, and its own MDD′ = S̄′_J + 1.96 sd_boot(NI′_J1 − NI′_J2)/√2, fixed from M and O2 in
-    the same run (value *(from the rerun; not yet run)*).
+    the six: D̄′, S̄′ = mean over the six of S_v, the margin 2 max(s′_J, S̄′_J) for SEEDS DISAGREE,
+    INSUFFICIENT over the six, and its own MDD′ = S̄′_J + 1.96 sd_boot(NI′_J1 − NI′_J2)/√2, fixed from M
+    and O2 in the same run: **MDD′ = 0.005435** (S̄′_J 0.004834, sd 0.000307).
   - NI′ carries index states only. The per-variable states are the primary's (BY across the seven)
     and are not recomputed over six.
   - It is reported beside the primary and qualifies it; it never replaces it. A primary SAME with a
@@ -210,7 +215,8 @@ encoder.
 - **Top 10 PCs.** Each PC's variance share, and its galaxy-level |Spearman| with four families:
   - offsets: the four above;
   - brightness: `modelMag_r` and the total r flux (criterion 3's);
-  - observing: `psfWidth_r` and `sky_r` (`snr_r` until v3, with variable 7);
+  - observing: `psfWidth_r` and `sky_r` (`snr_r` until v3, with variable 7; settled, user 2026-10-01
+    evening: `snr_r` stays the declared secondary, reported with no state);
   - morphology: the 37 raw vote fractions (not debiased), each on its eligible galaxies.
 
   A PC **tracks** the family with its largest |ρ| if that |ρ| ≥ 0.3 (criterion 3's rule); otherwise
@@ -290,16 +296,18 @@ seen.
 ### Plant evidence (pinned)
 
 SHA-1 of each file as it stands after the full plant run. The hash of this section covers these pins.
-*(Provisional until the two v3 failures are settled and the plants rerun: the first three pins are then
-replaced.)*
+v3b is the run of record; v3a's failed output and script are pinned beside it (D28).
 
 | file | role | SHA-1 |
 |---|---|---|
-| `artifacts/out/distractor_plants.json` | criteria 1 and 2 plants, v3 full run | `84464a45d305d8ac3b495ecd23b53b682bea02f5` |
+| `artifacts/out/distractor_plants.json` | criteria 1 and 2 plants, v3b full run (all fire) | `ebd392dadf759ac09a8bda3d0a568795a2ef2564` |
+| `artifacts/out/distractor_null_coverage.json` | the NI CI's coverage of 0 over 200 null shuffles | `c1aa43839aad50e9dacf95977f3d06dfdca4dbde` |
+| `artifacts/out/distractor_plants_v3a.json` | v3a's output on record (two plants fail as written) | `84464a45d305d8ac3b495ecd23b53b682bea02f5` |
 | `artifacts/out/distractor_v3_diag.json` | diagnosis of v3's two failures (20 null draws, 200 secondary Δ = 0) | `ed399a8840f399247820b8f8e52be3a45d37ae7c` |
 | `artifacts/distractor_v3_diag.py` | its script | `9c0af22003864b2bb16691cd5795eca1ef9864c3` |
 | `artifacts/out/distractor_plants_v2.json` | v2's output on record (v1's run, `snr_r`, half-width rule not yet in it) | `b042f29fa8a0ff96a112a1e7046fadb645e71e9a` |
-| `artifacts/distractor_plants.py` | the plant script, as run for v3 | `b4d1041a347b6121195fa6114236f63e653e425a` |
+| `artifacts/distractor_plants.py` | the plant script, as run for v3b (20-shuffle null, `null-coverage`, the max margin) | `4afa8cdddf8c5bc4ab9ec3cf82aa2deb9bd92144` |
+| `artifacts/distractor_plants.py` at v3a | the script v3a ran (commit `453ab8d`) | `b4d1041a347b6121195fa6114236f63e653e425a` |
 | `artifacts/out/distractor_sky_r.csv` | variable 7, the `sky_r` pull | `6fa39dbb9a36e254b160c937a76f4012132dd24d` |
 | `artifacts/out/distractor_sky_r.json` | the pull's record (query, batch, n, output SHA-1) | `ecc144debb3b4c533fb62789875bc75419362803` |
 | `artifacts/aligned_c2.py` | criterion 2's statistic, imported | `5428d679770696f9a4ddfbc037961a11c1864b9f` (as pinned in `aligned_comparison.md`) |
@@ -336,7 +344,43 @@ replaced.)*
 - **Pull `sky_r` now**, recording the query and the output's hash; rerun all 17 plants once with
   `sky_r`; keep `snr_r` as a declared secondary.
 
-## Plant results — v3 full run (2026-10-02, before the hash)
+## Settled (user, 2026-10-01 evening)
+
+- **The null plant** runs 20 independent shuffles and requires every variable NEAR CHANCE in every
+  shuffle and the NI CI to contain 0 in ≥ 16 of 20 (at 90% coverage it fails with probability 0.043,
+  at 95% 0.003). Draw 1 is v3a's draw, from the main stream, so every later plant's stream is
+  unchanged; draws 2–20 have their own.
+- **A separate coverage check** of the NI CI under the null, 200 shuffles, with its own 95% interval.
+  Rule: if clearly below 95%, propose widened analysis intervals (e.g. 97.5%), declared; if
+  consistent, keep the intervals and record the check. **Result: consistent; intervals unchanged.**
+- **SEEDS DISAGREE's margin is 2 max(s_J, S̄_J)**, both indices (per-variable SEEDS DISAGREE already
+  uses the variable's own spread and is unchanged).
+- **The observing family is PSF and `sky_r`**; `snr_r` stays the declared secondary.
+- Both failed versions stay on record beside their fixes; every plant reran once (v3b). Not hashed.
+
+## Plant results — v3b full run (2026-10-03, before the hash): all fire
+
+`artifacts/out/distractor_plants.json` (4,592 s, max RSS 2.1 GB; slower than v3a because it shared the
+machine with a leakage smoke test). Identical to v3a everywhere except the two fixed plants: the
+encoders, MDD, MDD′ and every other plant's state are v3a's (the RNG stream is unchanged), so v3a's
+table below stands for them.
+
+| plant | required | v3a (as first written) | v3b (fixed) |
+|---|---|---|---|
+| null: J1 permuted | v3a: all NEAR CHANCE, NI CI ∋ 0 in one draw. v3b: all NEAR CHANCE in each of 20; CI ∋ 0 in ≥ 16 | one draw, CI 0.00016–0.0049: **did not fire** | 20 of 20 all NEAR CHANCE; CI ∋ 0 in **18 of 20**: fires |
+| score Δ = 0, NI′ (20) | SAME ≥ 95% | SAME 18, SEEDS DISAGREE 2: **did not fire** | SAME 20: fires |
+| split, both indices | SEEDS DISAGREE | SEEDS DISAGREE | SEEDS DISAGREE (the larger margin is still reached: d_e ≈ ±0.25) |
+| score Δ = 0, primary (20) | SAME ≥ 95% | SAME 20 | SAME 20 |
+
+**Coverage check** (`null-coverage`, 200 shuffles of J1 against the targets, independent stream;
+`distractor_null_coverage.json`, 7,544 s): the NI CI contains 0 in **191 of 200 = 95.5%**
+(Clopper–Pearson 95%: 91.6–97.9%); the misses are 6 above and 3 below; every variable NEAR CHANCE in
+all 200. Mean NI +0.000004; sd across shuffles 0.00120 against a mean bootstrap sd of 0.00121, so the
+bootstrap carries the null's full spread (the probe's fitting noise adds nothing visible). The 18 of
+20 in both the plant and the diagnosis are within this. **Consistent with 95%: the analysis intervals
+are kept.**
+
+## Plant results — v3a full run (2026-10-02, before the hash)
 
 `sky_r` as variable 7, the straddle rule, the secondary index (without PSF), three untrained seeds. 40,000
 capped train and 34,829 test galaxies, 2,000 bootstrap draws, 20 realisations per score plant;
@@ -375,7 +419,7 @@ redshift, size).
 | NI′ lean up / down, Δ = ±S̄′ | LEANS MORE / LESS | LEANS MORE / LESS | yes |
 | NI′ thin | UNRESOLVED | UNRESOLVED: CI −0.0030–0.0128 straddles MDD′ 0.0054 | yes |
 
-### Open (D28): the two failures, diagnosed, fixes proposed and not applied
+### v3a's two failures, as diagnosed before the fix (D28: kept on record)
 
 `artifacts/distractor_v3_diag.py` measured both (independent RNG stream; 2,819 s, 2.4 GB).
 
@@ -386,7 +430,7 @@ redshift, size).
    on opposite sides (+0.0027, −0.0030); mean NI +0.0002, sd 0.0013, against a bootstrap se of
    about 0.0012. No bias; the miss is the CI's coverage, slightly short of nominal because the bootstrap
    omits the probe's own fitting noise.
-   **Proposed:** the null plant runs 20 permutation draws and requires every variable NEAR CHANCE in
+   **Proposed (approved, applied in v3b):** the null plant runs 20 permutation draws and requires every variable NEAR CHANCE in
    every draw, and the NI CI to contain 0 in ≥ 16 of 20. At the measured coverage (90%) it fails with
    probability 0.043, at nominal (95%) 0.003; ≥ 17 would fail 13% of the time at 90%.
 2. **The secondary index's SEEDS DISAGREE bar is a single difference that cancels.** The bar is
@@ -395,25 +439,21 @@ redshift, size).
    seed's d_e has sd 0.0022, so opposite signs both beyond 0.0019 is common. Over **200** Δ = 0
    realisations: **9.0%** false SEEDS DISAGREE at 2 s′_J, **0%** at 2 S̄′_J (0.0097). The primary index
    is not exposed (2 s_J = 0.0205 against PSF-dominated noise); it read SAME 20 of 20.
-   **Proposed:** SEEDS DISAGREE's margin becomes 2 max(s_J, S̄_J) (the pooled per-variable spread, which
+   **Proposed (approved, applied in v3b):** SEEDS DISAGREE's margin becomes 2 max(s_J, S̄_J) (the pooled per-variable spread, which
    cannot cancel), for both indices. The split plant (d_e ≈ ±0.25) still reaches it.
 
 ## Plant results — v2 full run (2026-09-27), superseded, kept on record
 
-> **v2's run, kept on record; the v3 rerun is queued.** Everything in this section is v1's full run under
-> the v1 rules (`snr_r` as variable 7, no straddle rule, no secondary index, one untrained seed); its
-> output is `distractor_plants_v2.json`. The v3 rerun of all 17 plants (with the three secondary-only
-> plants), with `sky_r` as variable 7 and the straddle rule, is queued on the heavy-job lock
-> (2026-10-02 13:17; log `/Volumes/X10 Pro/galaxy-jepa/tmp/distractor_plants_v3.log`). v2's blocker,
-> `f0_preconditions.check` step 4, is gone: the check now reads `effect_floor_file` and passes
-> (2026-10-02).
+> **v2's run, kept on record; superseded by v3a and v3b above.** Everything in this section is v1's
+> full run under the v1 rules (`snr_r` as variable 7, no straddle rule, no secondary index, one
+> untrained seed); its output is `distractor_plants_v2.json`.
 >
-> **Prediction, stated before the rerun:** on v2's own numbers the thin-n plant's CI [0.0006, 0.0190]
-> straddles MDD 0.0128, so it would read UNRESOLVED under the straddle rule. The rerun's RNG stream is
-> unchanged, but `sky_r` changes variable 7's scores and the MDD, so the prediction is not a result.
+> **Prediction, stated before the v3 rerun:** on v2's own numbers the thin-n plant's CI [0.0006,
+> 0.0190] straddles MDD 0.0128, so it would read UNRESOLVED under the straddle rule. **Borne out:** v3a's
+> thin-n plant read UNRESOLVED (CI 0.0017–0.0178 against MDD 0.0143).
 
 **Full: 40,000 capped train and 34,829 test galaxies, 2,000 bootstrap draws, 20 realisations per score
-plant.** `artifacts/out/distractor_plants.json`, 947 s. The DEV subsample run (10,000 + 10,000) that
+plant.** Its output, now `artifacts/out/distractor_plants_v2.json`, 947 s. The DEV subsample run (10,000 + 10,000) that
 preceded it is superseded; its rule corrections are recorded below.
 
 J1 = `runs/m/encoder.pt` and J2 = `runs/o2/encoder.pt` (c2 banks). U = O1's untrained bank (seed 0).
