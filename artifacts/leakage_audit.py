@@ -48,6 +48,15 @@ FAMILY = 2 * (2 * len(STATED) + 1)  # (2 corpora × 10 + corpus) × 2 predictors
 CAMCOL_FAMILY = 6
 CALIB_ALPHAS = (0.01, 0.02)  # the threshold plant's sweep; α* read off it by the rule in `calibrate`
 N_SHUFFLE = 5  # matched base: pixel predictors retrained on shuffled labels (user, 2026-10-01 evening, option (a))
+# The bound (v5b). The bootstrap resamples galaxies around fixed fits; v5's S0 showed null excesses
+# spreading ~1.5× wider than it (sd 0.0018 against 0.00115), the rest being fit-to-fit noise. Each
+# fit's metric noise σ is measured by the spread of the K shuffled-label bases, pooled over the block's
+# stated variables per predictor, and added in quadrature:
+#   bootstrap — galaxies only (v5 as first written);
+#   shuffle   — + the matched base's own noise, σ/√K (user, 2026-10-02: gating);
+#   fit       — + the trained side's fit noise too, σ·√(1 + 1/K) (proposed, reported).
+BOUNDS = ("bootstrap", "shuffle", "fit")
+BOUND = "shuffle"
 TREE_JOBS = 5  # tree fits in worker processes (one OpenMP thread each); identical numbers, one-fifth the wall time
 ORDER = ("LEAK", "UNRESOLVED", "TRACE", "CLEAN")  # worst first; INSUFFICIENT precedes all
 
@@ -373,6 +382,9 @@ def score_block(st, rows: np.ndarray, feats: np.ndarray, phys: np.ndarray, targe
             m = max(("ridge", "cnn"), key=lambda k: r[k]["excess"])
             r["_pred"] = (yt, e_base[m], both[m])
         res[t] = r
+    finalise(res)
+    if alt is not None:
+        finalise(res, key="alt")
     return res
 
 
@@ -406,26 +418,72 @@ def _second_stage(phys, cond, pix, nulls, j, yt, folds, kind, seed, q) -> tuple[
                 "readable": bool(np.quantile(bt[:, ipx + a], q) > chance),
                 "both": float(pt[1 + a]), "matched_base": float(base_pt),
                 "matched_base_per_shuffle": [float(v) for v in pt[nb]],
-                "excess": float(d), "lo": float(np.quantile(db, q)),
+                "excess": float(d), "lo_boot": float(np.quantile(db, q)),
+                "sd_shuffle": float(np.std(pt[nb], ddof=1)) if K > 1 else 0.0,
                 "excess_vs_physics": float(dp), "lo_vs_physics": float(np.quantile(dpb, q)),
-                "state": _state(float(d), float(np.quantile(db, q))),
                 "state_vs_physics": _state(float(dp), float(np.quantile(dpb, q)))}
         if cond is not None:
             cb = slice(ic + 3 + a * K, ic + 3 + (a + 1) * K)
             dc, dcb = pt[ic + 1 + a] - pt[cb].mean(), bt[:, ic + 1 + a] - bt[:, cb].mean(1)
-            r[m]["cond_excess"], r[m]["cond_lo"] = float(dc), float(np.quantile(dcb, q))
-            r[m]["cond_state"] = _state(float(dc), float(np.quantile(dcb, q)))
+            r[m]["cond_excess"], r[m]["cond_lo_boot"] = float(dc), float(np.quantile(dcb, q))
+            r[m]["cond_sd_shuffle"] = float(np.std(pt[cb], ddof=1)) if K > 1 else 0.0
             r[m]["cond_excess_vs_physics_conditions"] = float(pt[ic + 1 + a] - pt[ic])
         if kind == "reg":  # the camcol test's base: mean over shuffles of the squared error ≡ mean R²
             e_base[m] = np.mean([(yt - fit[3 + a * K + s]) ** 2 for s in range(K)], 0)
         both[m] = fit[1 + a]
-    r["state"] = _worst([r["ridge"]["state"], r["cnn"]["state"]])
-    r["label"] = []
-    if r["state"] == "CLEAN" and (r["ridge"]["readable"] or r["cnn"]["readable"]):
-        r["label"].append("PHYSICS-EXPLAINED")
-    if cond is not None and r["state"] in ("LEAK", "TRACE", "UNRESOLVED"):
-        r["label"].append(_conditions_label(r))
+    r["q"] = q
     return r, e_base, both
+
+
+def _lo(d: float, lo_boot: float, sigma: float, q: float, mode: str, k: int) -> float:
+    """The one-sided bound under `mode`: the bootstrap's margin and the fit noise in quadrature."""
+    from scipy.stats import norm
+    f = {"bootstrap": 0.0, "shuffle": 1 / np.sqrt(k), "fit": np.sqrt(1 + 1 / k)}[mode]
+    return d - float(np.hypot(d - lo_boot, norm.ppf(1 - q) * sigma * f))
+
+
+def finalise(res: dict, mode: str = BOUND, key: str | None = None) -> None:
+    """States and labels of every scored variable in one block, in place, under `mode`. σ per
+    predictor is the RMS of the variables' shuffle spreads (one variable: its own, 4 df). `key` =
+    "alt" finalises the reported baseline's entries instead."""
+    rs = [r[key] if key else r for t, r in res.items() if not t.startswith("_") and (key is None or key in r)]
+    rs = [r for r in rs if "lo_boot" in r.get("ridge", {})]
+    if not rs:
+        return
+    sig = {m: float(np.sqrt(np.mean([r[m]["sd_shuffle"] ** 2 for r in rs]))) for m in ("ridge", "cnn")}
+    has_c = "cond_lo_boot" in rs[0]["ridge"]
+    sigc = {m: float(np.sqrt(np.mean([r[m]["cond_sd_shuffle"] ** 2 for r in rs]))) for m in ("ridge", "cnn")} if has_c else {}
+    for r in rs:
+        k, q = r["n_shuffle"], r["q"]
+        for m in ("ridge", "cnn"):
+            x = r[m]
+            x["sigma_fit_pooled"] = sig[m]
+            x["lo_by_bound"] = {b: _lo(x["excess"], x["lo_boot"], sig[m], q, b, k) for b in BOUNDS}
+            x["state_by_bound"] = {b: _state(x["excess"], v) for b, v in x["lo_by_bound"].items()}
+            x["lo"], x["state"] = x["lo_by_bound"][mode], x["state_by_bound"][mode]
+            if has_c:
+                x["cond_lo"] = _lo(x["cond_excess"], x["cond_lo_boot"], sigc[m], q, mode, k)
+                x["cond_state"] = _state(x["cond_excess"], x["cond_lo"])
+        r["bound"] = mode
+        r["state"] = _worst([r["ridge"]["state"], r["cnn"]["state"]])
+        r["label"] = []
+        if r["state"] == "CLEAN" and (r["ridge"]["readable"] or r["cnn"]["readable"]):
+            r["label"].append("PHYSICS-EXPLAINED")
+        if has_c and r["state"] in ("LEAK", "TRACE", "UNRESOLVED"):
+            r["label"].append(_conditions_label(r))
+
+
+def restate(res: dict, mode: str) -> dict:
+    """The whole run read under another bound (the camcol test stays the gating run's)."""
+    import copy
+    out = copy.deepcopy(res)
+    for blk in out["blocks"].values():
+        finalise(blk, mode)
+        finalise(blk, mode, "alt")
+    out["verdict"] = verdict(out["blocks"])
+    if "verdict_alt" in out:
+        out["verdict_alt"] = view(out)["verdict"]
+    return out
 
 
 def _conditions_label(r: dict) -> str:
@@ -922,14 +980,20 @@ def plants(only: list[str], n: int, n_real: int) -> dict:
             res = run(real_plant(n_real), REAL_PHYS, [], stated=REAL_STATED, shifts=REAL_STATED[:6],
                       log=lambda s: print(s, flush=True))
             ok, req = _required(tag, res)
-            done[tag] = {"required": req, "fires": ok, "n": n_real, **_slim(res)}
+            done[tag] = {"required": req, "fires": ok, "n": n_real, **_slim(res),
+                         "by_bound": {b: {"fires": _required(tag, rb := restate(res, b))[0],
+                                          "verdict": rb["verdict"]["state"]} for b in BOUNDS}}
         else:
             seed = SEED + 100 * int(tag[1]) + (50 if tag == "S3b" else 0)
             res = _syn_run(tag, n, seed, log=lambda s: print(s, flush=True))
             ok, req = _required(tag, res)
             ok_alt, req_alt = _required(tag, res, "alt")
             done[tag] = {"required": req, "fires": ok, "n": n, **_slim(res),
-                         "without_sky": {"required": req_alt, "fires": ok_alt, "verdict": res["verdict_alt"]}}
+                         "without_sky": {"required": req_alt, "fires": ok_alt, "verdict": res["verdict_alt"]},
+                         "by_bound": {b: {"fires": _required(tag, rb := restate(res, b))[0],
+                                          "fires_without_sky": _required(tag, rb, "alt")[0],
+                                          "verdict": rb["verdict"]["state"], "verdict_alt": rb["verdict_alt"]["state"]}
+                                      for b in BOUNDS}}
             if tag == "S3":
                 done[tag]["alpha"] = json.loads((OUT / "calibrate.json").read_text())["alpha_star"]
         done[tag]["seconds"] = round(time.time() - t0)
@@ -958,7 +1022,8 @@ def _summary(tag: str, d: dict) -> None:
                 f"{m} pix {r[m]['pixel']:.3f} Δ {r[m]['excess']:+.4f} (lo {r[m]['lo']:+.4f}) {r[m]['state']}"
                 f" [vs phys {r[m]['excess_vs_physics']:+.4f} {r[m]['state_vs_physics']}]"
                 for m in ("ridge", "cnn")) + ("  " + ",".join(r["label"]) if r["label"] else ""))
-    print(f"  verdict: {d['verdict']['state']}")
+    print(f"  verdict: {d['verdict']['state']}" + (
+        "  by bound: " + ", ".join(f"{b} fires={v['fires']}" for b, v in d["by_bound"].items()) if "by_bound" in d else ""))
     if "without_sky" in d:
         w = d["without_sky"]
         pooled = d["blocks"].get("pooled", {}).get("corpus", {}).get("alt")
