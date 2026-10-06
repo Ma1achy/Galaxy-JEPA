@@ -13,6 +13,7 @@ export F0_NORM_PREFIX=246d8de6ba9a
 export TMPDIR="$SSD/tmp"               # torch / tempfile scratch
 export MPLCONFIGDIR="$SSD/tmp/mpl"
 export PYTHONUNBUFFERED=1              # a detached log is block-buffered otherwise
+export GJ_CHECKPOINT_EVERY=2000        # run-time only, not hashed: a checkpoint every ~22 min (user, 2026-10-06)
 LOGDIR="$REPO/runs"                    # runs -> $SSD/runs
 out_of() { case $1 in A1) echo runs/m_v2;; A2) echo runs/m_v2_s1;; *) echo "";; esac; }
 

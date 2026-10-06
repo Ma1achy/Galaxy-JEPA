@@ -45,6 +45,7 @@ import gc
 import json
 import logging
 import math
+import os
 import subprocess
 import sys
 import time
@@ -197,6 +198,10 @@ def main(run: Run = M) -> None:
         log.warning(f"{L} --test: 60 steps to runs/m_test. PLUMBING ONLY, not a measurement.")
     if total % per_epoch:
         log.warning("budget is %.4f epochs, not a whole number", total / per_epoch)
+    # How often a run checkpoints is observation, not recipe: set at run time, never in the hashed
+    # config, where `checkpoint_every` would hash apart (user, 2026-10-06: A1/A2 every 2,000, not
+    # the config's 6,331). A save reads the RNG state and writes state dicts; it changes nothing.
+    every = int(os.environ.get("GJ_CHECKPOINT_EVERY") or obj.checkpoint_every)
 
     if run.out_dir:
         cfg = cfg.model_copy(update={"paths": cfg.paths.model_copy(
@@ -207,7 +212,7 @@ def main(run: Run = M) -> None:
     # checkpointer's hash guard cannot tell them apart and the directory is the only separator.
     if run.expect_dir and out.name != run.expect_dir:
         raise SystemExit(f"{L}: out_dir is {out} but this run must write to {run.expect_dir!r}")
-    scheduled = total // obj.checkpoint_every
+    scheduled = total // every
     # `keep` must cover the scheduled checkpoints AND the one each segment lands where it stops,
     # or the earliest would be pruned — which is exactly how `keep=3` destroyed a trajectory
     # mid-measurement once. The harness derives `scheduled + 2`, which is short by one per segment.
@@ -226,7 +231,7 @@ def main(run: Run = M) -> None:
     print(f"{L} seeds       : train={train_seed} (weights, data order, masker)  "
           f"split={split_seed} (pretrain/monitor AND the probe three-way)"
           f"{'  — SAME, as M ran it' if train_seed == split_seed else '  — DELIBERATELY DIFFERENT'}")
-    print(f"{L} checkpoints : every {obj.checkpoint_every:,} -> {scheduled} scheduled + "
+    print(f"{L} checkpoints : every {every:,} -> {scheduled} scheduled + "
           f"{len(points)} segment-end, keep={keep} ({keep * 381 / 1024:.1f} GiB)")
     print(f"{L} stopping    : |ΔAUC| < {FLAT_DELTA} on both intervals = FLAT; latest interval "
           f"below -{FLAT_DELTA} = DECLINING. Both stop; they are different findings")
@@ -257,7 +262,7 @@ def main(run: Run = M) -> None:
     ch = config_hash(cfg.determining_dump())
     checkpointer = TrainCheckpointer(
         out / "checkpoints",
-        every=obj.checkpoint_every,
+        every=every,
         keep=keep,
         config_hash=ch,
         normalisation_hash=cfg.normalisation.content_hash,  # F0 refuses a config without it
