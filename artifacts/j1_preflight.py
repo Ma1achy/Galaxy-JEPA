@@ -64,6 +64,18 @@ class Expect:
     #: hash — the chain gains a LINK rather than losing its anchors, and each strip still names
     #: exactly one thing that moved.
     stock_budget: dict[str, int] | None = None
+    #: The third consumer, the aligned encoders A1/A2 (user, 2026-10-06), runs M's recipe on another
+    #: corpus. Each input below defaults to what J and M check, so their pre-flights are unchanged.
+    #: The config this run's driver loads (its GJ_CONFIG); None -> configs/pretrain.yaml, unasserted.
+    config_path: str | None = None
+    #: (config path, its shipped hash, keys): swapping those keys in from that config must land on its
+    #: hash. A1 swaps in M's normalisation and must hash to M's: the freeze is the ONLY difference.
+    #: The chain then continues on M's links, through D17.
+    via: tuple[str, str, tuple[str, ...]] | None = None
+    #: The corpus sizes from the manifests of the corpora the config names, not v1's constants.
+    counts_from_manifests: bool = False
+    #: The overfit gate's record for this recipe; None -> o3's default (M's recipe).
+    gate_record: str | None = None
 
 
 J = Expect(
@@ -87,10 +99,18 @@ def _git(*args: str) -> str:
     ).stdout.strip()
 
 
+def _counts(cfg) -> tuple[int, int]:
+    import json
+
+    return tuple(int(json.loads((REPO / d / "manifest.json").read_text())["n"])
+                 for d in (cfg.paths.pretrain_dir, cfg.paths.probe_dir))
+
+
 def main(expect: Expect = J) -> None:
     cfg, cache = check()  # the F0 four; raises on any of them
     obj = cfg.objective
     lb = expect.label
+    pretrain_n, probe_n = _counts(cfg) if expect.counts_from_manifests else (PRETRAIN_STAMPS, PROBE_STAMPS)
     print()
 
     # 1. provenance: what code_sha will say, and what it will NOT say
@@ -104,7 +124,15 @@ def main(expect: Expect = J) -> None:
           f"{expect.decisions} are HERE, not on main. NOT merged; code_sha is the provenance.")
 
     # 2. the hash chain
-    shipped = HarnessConfig(**yaml.safe_load((REPO / "configs/pretrain.yaml").read_text()))
+    shipped = HarnessConfig(**yaml.safe_load((REPO / (expect.config_path or "configs/pretrain.yaml")).read_text()))
+    if expect.config_path is not None:
+        mine = config_hash(shipped.with_resolved_device().determining_dump())
+        driver = config_hash(cfg.with_resolved_device().determining_dump())
+        if mine != driver:
+            raise SystemExit(f"{lb}: {expect.config_path} hashes {mine[:16]}, the driver's config "
+                             f"{driver[:16]} — this would check a config the run does not use")
+        print(f"{lb} config              : {expect.config_path} — the driver's own (GJ_CONFIG), "
+              f"asserted equal")
     # The CONFIG-FILE chain, device unresolved — this is what D17/D18 recorded and what
     # `tests/test_configs_load.py` pins. It is NOT what lands on the artefact: `_make_stamp`
     # resolves the backend first (MPS/CPU/CUDA differ numerically and must hash apart), so the
@@ -112,6 +140,11 @@ def main(expect: Expect = J) -> None:
     d = shipped.determining_dump()
     keys = {"sigreg_lambda", "sigreg_slices", "sigreg_quad_points", "sigreg_domain"}
     links = [(f"this run ({expect.decisions}+smoke)", d, expect.shipped_hash)]
+    if expect.via is not None:
+        other, other_hash, swap = expect.via
+        od = HarnessConfig(**yaml.safe_load((REPO / other).read_text())).determining_dump()
+        d = dict(d, **{k: od[k] for k in swap})
+        links.append((f"with {other}'s {'+'.join(swap)} -> {other}", d, other_hash))
     if expect.stock_budget is not None:
         d = dict(d, objective={**d["objective"], **expect.stock_budget})
         links.append(("minus budget -> recipe+smoke", d, expect.smoke_hash))
@@ -179,12 +212,12 @@ def main(expect: Expect = J) -> None:
 
     # 7. the cache is complete and dense — no gaps to top up mid-run
     ids = cache.index.object_ids
-    if len(ids) != PRETRAIN_STAMPS + PROBE_STAMPS:
+    if len(ids) != pretrain_n + probe_n:
         raise SystemExit(f"{lb}: cache holds {len(ids):,}, expected "
-                         f"{PRETRAIN_STAMPS + PROBE_STAMPS:,} — it is partial")
+                         f"{pretrain_n + probe_n:,} — it is partial")
     columns = load_probe_columns(cache.cache_dir, cache.index)  # refuses on a digest mismatch
-    print(f"{lb} cache               : {len(ids):,} stamps ({PRETRAIN_STAMPS:,} pretrain + "
-          f"{PROBE_STAMPS:,} probe), dense; probe sidecar {len(cache.index.probe_columns)} columns, "
+    print(f"{lb} cache               : {len(ids):,} stamps ({pretrain_n:,} pretrain + "
+          f"{probe_n:,} probe{', from the manifests' if expect.counts_from_manifests else ''}), dense; probe sidecar {len(cache.index.probe_columns)} columns, "
           f"digest verified")
     del columns
 
@@ -200,7 +233,7 @@ def main(expect: Expect = J) -> None:
     samples = obj.steps * obj.batch_size
     # An epoch is a pass over what the model TRAINS on, which is the corpus less the monitor
     # slice — dividing by the whole corpus reports 9.80 epochs for a 10-epoch budget.
-    train_n = PRETRAIN_STAMPS - round(PRETRAIN_STAMPS * cfg.monitor_frac)
+    train_n = pretrain_n - round(pretrain_n * cfg.monitor_frac)
     print(f"{lb} budget              : {obj.steps:,} steps at {expect.steps_per_s} steps/s "
           f"= {hours:.1f} h; {samples:,} samples = {samples / train_n:.2f} epochs "
           f"({train_n:,} train, corpus less the {cfg.monitor_frac:.0%} monitor slice); "
@@ -216,7 +249,7 @@ def main(expect: Expect = J) -> None:
     # which a pre-flight has no other reason to build.
     from o3_overfit_gate import assert_gate_passed  # noqa: PLC0415
 
-    assert_gate_passed(cfg, label=lb)
+    assert_gate_passed(cfg, label=lb, **({"record": REPO / expect.gate_record} if expect.gate_record else {}))
 
     print(f"\n{lb} PASS — every fact checked, nothing assumed")
 

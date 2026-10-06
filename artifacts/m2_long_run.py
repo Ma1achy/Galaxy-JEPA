@@ -95,6 +95,9 @@ class Run:
     #: seeds are then genuinely different numbers and the artefact must record BOTH — see `main`.
     train_seed: int | None = None
     out_dir: str | None = None  # `None` -> cfg.paths.out_dir
+    #: The pre-flight's answers (`j1_preflight.Expect`); `None` -> M's (`m1_preflight`). A1/A2 run
+    #: M's recipe on pretrain_v2, so M's answers (v1's config and counts) cannot pass for them.
+    expect: object | None = None
 
     @property
     def expect_dir(self) -> str | None:
@@ -247,7 +250,12 @@ def main(run: Run = M) -> None:
         return
 
     if not args.skip_preflight:
-        preflight()  # raises on the first unchecked fact
+        if run.expect is None:
+            preflight()  # raises on the first unchecked fact
+        else:
+            from j1_preflight import main as preflight_as  # noqa: PLC0415
+
+            preflight_as(run.expect)
 
     device = cfg.runtime.resolved_device()
     # JepaConfig is a dataclass, not a pydantic model — replace(), not model_copy()

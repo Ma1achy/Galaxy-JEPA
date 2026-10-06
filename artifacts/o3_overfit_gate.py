@@ -80,7 +80,7 @@ def _recipe_hash(cfg) -> str:
     return config_hash(cfg.determining_dump())
 
 
-def assert_gate_passed(cfg, *, label: str) -> None:
+def assert_gate_passed(cfg, *, label: str, record: Path = RECORD) -> None:
     """Refuse to start a long job without a passing overfit gate for this recipe.
 
     Raises on a missing record, a failing one, or one taken against a different recipe. A code
@@ -89,12 +89,12 @@ def assert_gate_passed(cfg, *, label: str) -> None:
     gate mandatory per commit would mean it gets disabled rather than run. Naming the drift is not
     the same as skipping the check.
     """
-    if not RECORD.exists():
+    if not record.exists():
         raise SystemExit(
-            f"{label}: no overfit-gate record at {RECORD}. The training path has never been shown "
+            f"{label}: no overfit-gate record at {record}. The training path has never been shown "
             f"to memorise a batch. Run `uv run python artifacts/o3_overfit_gate.py` first."
         )
-    rec = json.loads(RECORD.read_text())
+    rec = json.loads(record.read_text())
     if not rec.get("passed"):
         raise SystemExit(f"{label}: the overfit gate FAILED ({rec.get('verdict')}) — fix the "
                          f"training path before spending hours on it")
@@ -150,6 +150,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--steps", type=int, default=STEPS)
     ap.add_argument("--batch", type=int, default=BATCH)
+    ap.add_argument("--record", type=Path, default=RECORD,
+                    help="one record per recipe: A1/A2's must not overwrite M's (user, 2026-10-06)")
     args = ap.parse_args()
 
     print(f"O3 pre-registered pass condition (fixed before running):\n"
@@ -219,7 +221,7 @@ def main() -> None:
         "first_last_prediction": [pred[0], pred[-1]] if pred else None,
         "real_runs_for_comparison": {k: v for k, v in REAL_RUNS},
     }
-    RECORD.write_text(json.dumps(record, indent=2))
+    args.record.write_text(json.dumps(record, indent=2))
 
     print(f"\nO3 {verdict}")
     print(f"O3 LOSS FLOOR          : {floor:.6f} at step {floor_step} "
@@ -229,7 +231,7 @@ def main() -> None:
     print("O3 against the record  : the real runs' prediction-loss minima")
     for name, v in REAL_RUNS:
         print(f"   {name:44s} {v:.4f}   ({v / floor:>6.1f}x the overfit floor)")
-    print(f"\nrecord written to {RECORD}")
+    print(f"\nrecord written to {args.record}")
     if not passed:
         raise SystemExit("O3 FAILED — a broken training path outranks every downstream analysis")
 

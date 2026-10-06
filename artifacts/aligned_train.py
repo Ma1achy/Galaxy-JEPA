@@ -15,18 +15,34 @@ the SSD and points GJ_CONFIG at configs/pretrain_v2.yaml (written at the v2 free
 
 from __future__ import annotations
 
+import dataclasses
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from m1_preflight import M as M_EXPECT  # noqa: E402
 from m2_long_run import Run, main as long_run  # noqa: E402
 
 STOP_EPOCHS = (4.0,)  # round(4.0 × 25,327) = 101,308: the one segment end, where M and O2 stopped
 
+# The pre-flight's answers (user, 2026-10-06). M's recipe, so M's chain, reached through a link that
+# swaps in M's normalisation and must land on M's shipped hash: the v2 freeze is the only difference
+# (aligned_comparison.md, Common ground). The counts come from the v2 manifests, and the overfit gate
+# has its own record for this recipe so it never overwrites M's.
+EXPECT = dataclasses.replace(
+    M_EXPECT,
+    shipped_hash="2e2f2877221e1356",  # configs/pretrain_v2.yaml as written
+    config_path="configs/pretrain_v2.yaml",
+    via=("configs/pretrain.yaml", M_EXPECT.shipped_hash, ("normalisation",)),
+    counts_from_manifests=True,
+    gate_record="artifacts/out/o3_overfit_gate_v2.json",
+)
+
 RUNS = {
-    "A1": Run(label="A1", tag="m_v2", probe_epochs=STOP_EPOCHS, train_seed=0, out_dir="runs/m_v2"),
+    "A1": Run(label="A1", tag="m_v2", probe_epochs=STOP_EPOCHS, train_seed=0, out_dir="runs/m_v2",
+              expect=dataclasses.replace(EXPECT, label="A1")),
     "A2": Run(label="A2", tag="m_v2_s1", probe_epochs=STOP_EPOCHS, train_seed=1,
-              out_dir="runs/m_v2_s1"),
+              out_dir="runs/m_v2_s1", expect=dataclasses.replace(EXPECT, label="A2")),
 }
 
 
