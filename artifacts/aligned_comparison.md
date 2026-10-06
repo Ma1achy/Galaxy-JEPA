@@ -469,3 +469,46 @@ F_PR = 2.79.
 
 Each test's own hashed plants are rerun on the aligned encoder before it is scored, as recorded in
 `interp_tooling.md`. Nothing new is needed before this hash.
+
+## Declared (user, 2026-10-06): one identical 230,349-galaxy probe set for all four encoders
+
+Outside the hashed section; a declaration of the set every reading uses, not a change to any test.
+
+- **M, O2, A1 and A2 are all probed on the identical 230,349 galaxies of probe_v2.** The 9 that
+  v1's probe corpus holds and probe_v2 does not are excluded from M's and O2's probe readings
+  too. They were dropped on 2026-09-25 because GZ2's position lies more than 3″ from the PhotoObj
+  source, so the volunteers' votes may describe a different object (`repull_findings.md`, "Probe
+  exclusion"; list `.sciserver_work/probe_v2_excluded_gz2_sep.csv`).
+- The 9, with their v1 split (`assign_three_way`, seed 0):
+
+  | objID | GZ2 → PhotoObj | split |
+  |---|---|---|
+  | 1237651273510813752 | 7.18″ | train |
+  | 1237655472895099027 | 8.21″ | train |
+  | 1237658423543595058 | 4.51″ | **test** |
+  | 1237658802034900998 | 3.62″ | train |
+  | 1237661976553652249 | 43.14″ | train |
+  | 1237662263251042419 | 3.71″ | train |
+  | 1237662264854904841 | 6.10″ | train |
+  | 1237662528990674970 | 4.67″ | train |
+  | 1237665329849958421 | 3.46″ | train |
+
+- **The split sizes on the identical set:** probe-train 160,849 (v1: 160,857), val 34,672
+  (unchanged), probe-test 34,828 (v1: 34,829). Where the text above quotes 160,857 or 34,829,
+  those are v1's counts, and the readings use the identical-set counts.
+- **Criterion 4's pinned M reference values against the 9** (`runs/dd_v4ref`, checked 2026-10-06
+  by object ID):
+  - **S1:** 4,999 galaxies, the sae_eval set minus …3595058, which has no probe_v2 offset. **The 9
+    are excluded.**
+  - **S3** (`M_b11_x8.eval.json`): computed on all 5,000 sae_eval galaxies, **including
+    …3595058**.
+  - **4b** (`part4b.json`) and **the card flags** (`flags.npz`, `part4b_stats.npz`): the
+    activation statistics span all 5,000 (`abar` 5,000 × 3,072; 1,280,000 tokens), **including
+    …3595058**. Only the offset correlations use 4,999.
+  - **V3′:** its 794 galaxies include none of the 9.
+  - The SAE's 20,000 training galaxies include none of the 9.
+  - Not pinned, but noted: `sae/l2336_scan.npz` spans all 230,358 v1 galaxies (all 9), and
+    `runs/dd/gz3d_positions.csv` names two of them (…5099027, …2900998).
+  - So S3, 4b and the card flags include one of the 9: one galaxy in 5,000, in the test split.
+    **Whether to recompute those three references on the 4,999 is open for the user.**
+
