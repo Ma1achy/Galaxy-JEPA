@@ -5,7 +5,7 @@ processed, beyond what the galaxy's own physics already says?
 
 **Status.** **v7, 2026-10-06: a declared post-hoc revision**, made after the hashed v6 audit read
 **INVALID** (user, 2026-10-05). The in-situ plant now scores each shift variable against the shift
-it actually injected; the injection is unchanged. Re-hashed: the new SHA-1 is in `PREREG_SHA1`.
+it actually injected; the injection is unchanged. **Re-hashed 2026-10-06: the Pre-registration section's SHA-1 is `f2fe917d7c65fd8f36b40118a5ab56a0ee64e543`** (in `PREREG_SHA1`).
 Revision 6 gives the diagnosis and the lesson; "Audit v6 (run 2026-10-03 → 05): INVALID" gives v6's
 reading. Re-scored by `rescore-check` (probe_v2's check block only), behind an acceptance test.
 v6's record is kept, read-only. *Earlier:* **Hashed 2026-10-03** (v6): the Pre-registration section's SHA-1 is `98d67f7258fe0d7cf936acf9f2d2bb4b4a0d529c` (in `PREREG_SHA1`; `audit` refuses on any change). Approved by the user 2026-10-03 (final approval). Draft v6, 2026-10-03. v6 applies the user's 3 October decision
@@ -557,7 +557,8 @@ Re-pin if anything changes before the hash.
 | `artifacts/out/leakage/calibrate.json` | S3's dose sweep (v2; not re-run) | `a153b9f7261f44385309ece23b75261b56f16631` |
 | `artifacts/out/leakage/audit_physics.csv` | the baseline's physics for the audit's 40,000 sampled objects | `c04df4ee52d7df0289f2f326705bda39526653cb` |
 | `artifacts/out/leakage/audit_physics.json` | the pull's record: query, batch size, sample SHA-1s, output SHA-1, missingness | `0a2687f3a40c54eb49496af0bc1e7dd7bf01fe3e` |
-| `artifacts/leakage_audit.py` | the script: v6 (BOUND = "fit", S3b restated, `rescore`) plus the near-duplicate flag, `PREREG_SHA1` filled (the script `audit` runs) | `e1c1a16c01c23d2bc41f646b9091b5a27b85b755` |
+| `artifacts/leakage_audit.py` | **v7**: `check_targets`, `rescore-check` and its acceptance test, `PREREG_SHA1` = v7 (the script `rescore-check` and `audit` run) | `68eaeb0d4fcb45393b95b5bef4896b735e35b9b5` |
+| `artifacts/leakage_audit.py` at v6 | the script v6's audit ran (`PREREG_SHA1` = v6) | `e1c1a16c01c23d2bc41f646b9091b5a27b85b755` |
 | `artifacts/leakage_audit.py` before `PREREG_SHA1` | v6 plus the near-duplicate flag, as committed (`c5d569d`) | `962901aeae62f3b40e85e3958dd64d05c7de4123` |
 | `artifacts/leakage_audit.py` at the v6 re-score | before the near-duplicate flag | `b0958b69d456851ede6e32fd4f37f212ef222d19` |
 | `artifacts/out/leakage/audit_v6.json` | **v6's audit record (INVALID)**: a read-only copy of `audit.json` as v6 wrote it; `rescore-check` refuses any other | `e469c1d7165c4f608217bd6342bc0f2be4808f04` |

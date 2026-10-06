@@ -3,7 +3,7 @@
 **Question.** With the band misregistration fixed, does the encoder spend the freed capacity on
 morphology?
 
-**Status.** **Hashed 2026-10-03**: the Pre-registration section's SHA-1 is `3c7ae3b70918ae68480257f3a37b72eb2b77463a`, after the leakage audit's SHA-1 was written into its precondition. Draft v5, 2026-10-01 (v4, 2026-09-27, plus criterion 3's plant sweep, user 2026-09-28). The user's settlements are folded in; the plants run before the
+**Status.** **Re-hashed 2026-10-06**: the Pre-registration section's SHA-1 is `637ddddaa0e07e5907687d64441eb1b5c41a0b5d`. The only change from the 2026-10-03 hash (`3c7ae3b7…`) is the precondition's reference to the leakage audit, now v7 (`f2fe917d…`): a change of reference only. Draft v5, 2026-10-01 (v4, 2026-09-27, plus criterion 3's plant sweep, user 2026-09-28). The user's settlements are folded in; the plants run before the
 hash (D28), and the user approves before hashing. Once settled, the section from "## Pre-registration"
 through its last content line is hashed (SHA-1, trailing newline), **before any aligned-encoder
 embedding is read**.
@@ -65,7 +65,7 @@ embedding is read**.
 - **Offsets.** v1's recorded per-band in-stamp offsets from probe_v2's `cut_log.csv`: g−r x, g−r y,
   i−r x, i−r y (the misregistration M saw). v2's applied shifts s_b are reported alongside, with no
   state.
-- **Precondition.** The leakage audit (`artifacts/leakage_audit.md`, SHA-1 `98d67f7258fe0d7cf936acf9f2d2bb4b4a0d529c`) reads **CLEAN or TRACE** on v2 (TRACE is reported, not blocking; user, 2026-09-28). If it
+- **Precondition.** The leakage audit (`artifacts/leakage_audit.md`, SHA-1 `f2fe917d7c65fd8f36b40118a5ab56a0ee64e543`, v7; it was `98d67f72…` (v6) until 2026-10-06, and the change is of reference only: the audit was revised post hoc after v6 read INVALID, and nothing in this document changed) reads **CLEAN or TRACE** on v2 (TRACE is reported, not blocking; user, 2026-09-28). If it
   reads **LEAK, UNRESOLVED, INVALID or INSUFFICIENT**, nothing trains and nothing below is scored
   (the audit's blocking states, `leakage_audit.md` "States").
 
