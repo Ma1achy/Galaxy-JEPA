@@ -561,6 +561,7 @@ Re-pin if anything changes before the hash.
 | `artifacts/leakage_audit.py` at v6 | the script v6's audit ran (`PREREG_SHA1` = v6) | `e1c1a16c01c23d2bc41f646b9091b5a27b85b755` |
 | `artifacts/leakage_audit.py` before `PREREG_SHA1` | v6 plus the near-duplicate flag, as committed (`c5d569d`) | `962901aeae62f3b40e85e3958dd64d05c7de4123` |
 | `artifacts/leakage_audit.py` at the v6 re-score | before the near-duplicate flag | `b0958b69d456851ede6e32fd4f37f212ef222d19` |
+| `artifacts/out/leakage/audit_v7.json` | **v7's audit record (TRACE)**: `rescore-check`, probe_v2's check block re-run, the rest from v6 | `78b87ff953686d071fa854e75096695dd5b76b84` |
 | `artifacts/out/leakage/audit_v6.json` | **v6's audit record (INVALID)**: a read-only copy of `audit.json` as v6 wrote it; `rescore-check` refuses any other | `e469c1d7165c4f608217bd6342bc0f2be4808f04` |
 | `artifacts/leakage_diag_invalid.py` | v6's INVALID diagnosed, data only (run 2026-10-06 from the scratchpad; filed with its output path set) | `46281d54e71d381221f21dbb84ed109c1dda9778` |
 | `artifacts/out/leakage/diag_invalid.json` | its output | `5135207f6910ac3e296e5a48e493ee1b6cba73a7` |
@@ -800,3 +801,27 @@ check run. Its record is `audit_v6.json`.
 5. CLEAN or TRACE: the user restarts Terminal, then A1 (with the watchdog) and A2, after confirming
    nothing heavy holds memory. LEAK, UNRESOLVED, INVALID or INSUFFICIENT: stop and report. The
    stamp memmaps may be deleted once the re-score has read its verdict.
+
+## Audit v7 (re-score, run 2026-10-06 11:07 → 15:49): TRACE
+
+`rescore-check` under the v7 hash (`f2fe917d…`, script `68eaeb0d…`). It ran 4 h 41 min, in one
+process. Its record is `audit_v7.json`.
+
+- **Pre-fit checks:** v6's record matched its pin; both sample SHA-1s matched v6's; 50 stored
+  re-injected stamps were byte-identical to a fresh re-injection; the common CNN scale equalled
+  the mean of v6's two logged scales.
+- **The acceptance test passed.**
+  - **Ridge side: within ACCEPT_FP, not bit-identical.** The largest |Δ| over gr_v1x/y and ir_v1x/y
+    was 2.7 × 10⁻¹⁵ (in the matched base per shuffle and in pixel_lo): floating-point noise, as
+    declared.
+  - **CNN side: all four stayed LEAK.** As anticipated, none came within the 0.0075 reference. The
+    shared network, now trained on the per-band injected shifts, reads the v1 colour offsets much
+    better: excess up by 0.15 (gr_v1x), 0.41 (gr_v1y), 0.15 (ir_v1x) and 0.50 (ir_v1y).
+- **The check run fired: all 20 shift variables LEAK.** In probe_v2, the s variables' excesses
+  were 0.70–0.81 (ridge) and 0.37–0.72 (CNN), with every lower limit at or above +0.35. The block
+  is UNSTRUCTURED by camcol.
+- **The state is the stored main run's: TRACE**, under both the gating and the reported baseline.
+  - The only non-CLEAN variable is pooled corpus membership: the CNN's excess was 0.0049 AUC with
+    lower limit +0.0026, below ε.
+  - All 20 per-corpus shift variables read CLEAN.
+- **TRACE is reported, not blocking:** A1/A2 proceed under `aligned_comparison.md` (`637dddda…`).
