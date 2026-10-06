@@ -15,6 +15,7 @@ corpora) reads coordinates only.
   uv run python artifacts/leakage_audit.py calibrate --alphas 0.1,0.2   # the threshold plant's dose
   uv run python artifacts/leakage_audit.py pull                          # the baseline's physics, once, pinned
   uv run python artifacts/leakage_audit.py audit                         # refuses until hashed
+  uv run python artifacts/leakage_audit.py rescore-check                 # v7: probe_v2's check block only
 """
 
 from __future__ import annotations
@@ -551,6 +552,14 @@ def view(res: dict, which: str = "alt") -> dict:
     return {"blocks": blocks, "verdict": verdict(blocks)}
 
 
+def border_scale(st) -> np.ndarray:
+    """Per-band median border σ (MAD of the 8-px ring) over ~2,000 stamps: the CNN's asinh scale."""
+    ring = np.ones(st.shape[-2:], bool)
+    ring[8:-8, 8:-8] = False
+    sub = np.asarray(st[:: max(1, len(st) // 2000)], dtype=np.float64)[:, :, ring]
+    return np.median(1.4826 * np.median(np.abs(sub - np.median(sub, -1, keepdims=True)), -1), 0)
+
+
 def run(corpora: dict, phys_cols: list[str], cond_cols: list[str], stated: tuple = STATED,
         reported: tuple = (), shifts: tuple = STATED, log=print,
         alt: tuple[list[str], list[str]] | None = None) -> dict:
@@ -563,10 +572,7 @@ def run(corpora: dict, phys_cols: list[str], cond_cols: list[str], stated: tuple
     for name, c in corpora.items():
         t0 = time.time()
         feats[name] = features(c["st"])
-        ring = np.ones(c["st"].shape[-2:], bool)
-        ring[8:-8, 8:-8] = False
-        sub = np.asarray(c["st"][:: max(1, len(c["st"]) // 2000)], dtype=np.float64)[:, :, ring]
-        scale[name] = np.median(1.4826 * np.median(np.abs(sub - np.median(sub, -1, keepdims=True)), -1), 0)
+        scale[name] = border_scale(c["st"])
         log(f"  {name}: features {feats[name].shape} in {time.time() - t0:.0f}s; scale {np.round(scale[name], 4)}")
     common = np.mean(list(scale.values()), 0)
     for name, c in corpora.items():
@@ -1246,6 +1252,34 @@ def _stamps(corpus: str, ids: list[str], tag: str, off: np.ndarray | None = None
     return np.load(path, mmap_mode="r")
 
 
+def _table(corpus: str, sample, phys) -> tuple:
+    """One corpus's audit table: its sample joined to the pinned physics and the metadata (left joins,
+    the sample's order kept), the cut-log targets, the baseline's columns and the folds."""
+    import pandas as pd
+
+    from galaxy_jepa.data.splits import assignment_unit
+    md = pd.read_csv(REPO / "data" / corpus / "metadata.csv", usecols=["object_id", "petroRad_r"],
+                     dtype={"object_id": str})
+    md["petroRad_r"] = md.petroRad_r.where(md.petroRad_r > 0)  # SDSS −9999 / failed fits read as missing
+    lg = sample.merge(phys, on="object_id", how="left").merge(md, on="object_id", how="left")
+    tb = _targets(lg)
+    tb.update({k: lg[k].to_numpy(float) for k in AUDIT_PHYS + AUDIT_COND})
+    tb["fold"] = np.array([int(assignment_unit(int(o), SEED, salt="leakage-fold") * N_FOLDS) for o in lg.object_id])
+    return lg, tb
+
+
+def check_targets(tb: dict) -> dict:
+    """v7 (post hoc, after v6 read INVALID; user, 2026-10-05): on the re-injected copy each s_b is
+    scored against the shift actually injected, −(v1_rel_b − 127.5), not the cut log's s_b. The
+    injection is unchanged. The two agree to 1e-14 on pretrain_v2, whose v1 position was taken at v2's
+    own coordinates; on probe_v2, v1 was centred on GZ2's 4-decimal ra/dec, so they correlate at only
+    r ≈ −0.19 (y) and −0.64 (x). gr_v1 and ir_v1 are already the injected offsets' differences."""
+    out = dict(tb)
+    for i, b in enumerate(BANDS):
+        out[f"{b}_sy"], out[f"{b}_sx"] = -tb["_v1_off"][:, i, 0], -tb["_v1_off"][:, i, 1]
+    return out
+
+
 def audit() -> None:
     """Refuses until the pre-registration is hashed. Then, in order: completeness (INSUFFICIENT),
     identity, sample, physics pull (INSUFFICIENT), the audit, the re-injected plant (INVALID if it
@@ -1254,7 +1288,6 @@ def audit() -> None:
     import pandas as pd
 
     from galaxy_jepa.data.orchestrate import assign_three_way
-    from galaxy_jepa.data.splits import assignment_unit
     OUT.mkdir(parents=True, exist_ok=True)
     rep: dict = {"prereg_sha1": PREREG_SHA1, "code_sha1": hashlib.sha1(Path(__file__).read_bytes()).hexdigest()}
 
@@ -1287,16 +1320,11 @@ def audit() -> None:
                          f"({got} vs {pinned and pinned['output_sha1']}); run `pull` once, before the hash")
     phys = _physics([o for c in CORPORA for o in samples[c].object_id])
     for c in CORPORA:
-        md = pd.read_csv(REPO / "data" / c / "metadata.csv", usecols=["object_id", "petroRad_r"], dtype={"object_id": str})
-        md["petroRad_r"] = md.petroRad_r.where(md.petroRad_r > 0)  # SDSS −9999 / failed fits read as missing
-        lg = samples[c].merge(phys, on="object_id", how="left").merge(md, on="object_id", how="left")
+        lg, tb = _table(c, samples[c], phys)
         miss = float(lg[AUDIT_PHYS].isna().any(axis=1).mean())
         rep.setdefault("physics_missing", {})[c] = miss
         if miss > MAX_MISSING:
             done("INSUFFICIENT")
-        tb = _targets(lg)
-        tb.update({k: lg[k].to_numpy(float) for k in AUDIT_PHYS + AUDIT_COND})
-        tb["fold"] = np.array([int(assignment_unit(int(o), SEED, salt="leakage-fold") * N_FOLDS) for o in lg.object_id])
         for t in STATED:
             if np.isfinite(tb[t]).sum() < MIN_ROWS:
                 done("INSUFFICIENT")
@@ -1309,12 +1337,123 @@ def audit() -> None:
     rep["audit"] = res
     for c in CORPORA:
         corpora[c]["st"] = _stamps(c, corpora[c]["ids"], "_reinjected", corpora[c]["table"]["_v1_off"])
+        corpora[c]["table"] = check_targets(corpora[c]["table"])  # v7
     plant = run(corpora, AUDIT_PHYS, AUDIT_COND, reported=AUDIT_REPORTED, log=lambda s: print(s, flush=True),
               alt=AUDIT_ALT)
     rep["plant"] = plant
     fired = all(plant["blocks"][c][t]["state"] == "LEAK" for c in CORPORA for t in STATED)
     rep["plant_fired"] = fired
     done(res["verdict"]["state"] if fired else "INVALID")
+
+
+# ── v7: re-score probe_v2's check block against v6's stored run ─────────────────────────────────────
+
+V6_RECORD = OUT / "audit_v6.json"  # v6's audit.json, kept read-only: the main run and the stored check blocks
+V6_SHA1 = "e469c1d7165c4f608217bd6342bc0f2be4808f04"
+V6_PREREG_SHA1, V6_CODE_SHA1 = "98d67f7258fe0d7cf936acf9f2d2bb4b4a0d529c", "e1c1a16c01c23d2bc41f646b9091b5a27b85b755"
+# The acceptance test (leakage_audit.md, "The re-injected plant"). Ridge-side numbers of gr_v1 / ir_v1
+# are fitted per target with seeded single-threaded trees and seeded bootstraps, so they must come back
+# bit-identical; up to ACCEPT_FP is accepted and declared as floating-point noise. The CNN is one
+# multi-output network over the block's 20 targets: revising six of them changes its shared fit, so its
+# gr_v1 / ir_v1 numbers cannot reproduce by design. They are reported against 3·√2·σ_fit and must stay LEAK.
+ACCEPT_FP = 1e-9
+ACCEPT_KEYS = ("pixel", "pixel_lo", "both", "matched_base", "matched_base_per_shuffle", "excess", "lo_boot",
+               "sd_shuffle", "excess_vs_physics", "lo_vs_physics")
+
+
+def _acceptance(old: dict, new: dict) -> dict:
+    out: dict = {"variables": {}}
+    worst = 0.0
+    for t in V1_REL:
+        a, b = old[t], new[t]
+        d = {"physics": abs(a["physics"] - b["physics"])}
+        for k in ACCEPT_KEYS:
+            d[f"ridge.{k}"] = float(np.max(np.abs(np.subtract(a["ridge"][k], b["ridge"][k]))))
+        worst = max(worst, *d.values())
+        tol = 3 * np.sqrt(2) * a["cnn"]["sigma_fit_pooled"]
+        cnn = {"d_pixel": b["cnn"]["pixel"] - a["cnn"]["pixel"], "d_excess": b["cnn"]["excess"] - a["cnn"]["excess"],
+               "reference_3sqrt2_sigma": float(tol), "state_v6": a["cnn"]["state"], "state_v7": b["cnn"]["state"]}
+        cnn["within_reference"] = bool(abs(cnn["d_pixel"]) <= tol and abs(cnn["d_excess"]) <= tol)
+        out["variables"][t] = {"ridge_side_max_abs_diff": d, "cnn": cnn}
+    out["ridge_side_max_abs_diff"] = worst
+    out["ridge_side"] = "bit-identical" if worst == 0 else ("within ACCEPT_FP" if worst <= ACCEPT_FP else "DIFFERS")
+    out["cnn_states_leak"] = all(v["cnn"]["state_v7"] == "LEAK" for v in out["variables"].values())
+    out["passed"] = out["ridge_side"] != "DIFFERS" and out["cnn_states_leak"]
+    return out
+
+
+def rescore_check() -> None:
+    """v7: probe_v2's check block only, re-run with the revised targets (`check_targets`). The main run,
+    pretrain_v2's check block (s_b ≡ the injected shift there, to 1e-14) and the pooled corpus block
+    (no shift target) are read from v6's record. The stored re-injected stamps are verified against the
+    FITS before use. Writes audit_v7.json; the state is the stored main run's if every check variable
+    reads LEAK, else INVALID. If the acceptance test fails, no state is written."""
+    assert_hashed()
+    import pandas as pd
+    got = hashlib.sha1(V6_RECORD.read_bytes()).hexdigest()
+    v6 = json.loads(V6_RECORD.read_text())
+    if got != V6_SHA1 or v6["prereg_sha1"] != V6_PREREG_SHA1 or v6["code_sha1"] != V6_CODE_SHA1:
+        raise SystemExit(f"leakage_audit rescore-check: v6's record is not the pinned one ({got})")
+    log = lambda m: print(m, flush=True)  # noqa: E731
+    rep: dict = {"prereg_sha1": PREREG_SHA1, "code_sha1": hashlib.sha1(Path(__file__).read_bytes()).hexdigest(),
+                 "revision": "v7", "rescored_from": {"record": V6_RECORD.name, "sha1": got, "state": v6["state"]},
+                 **{k: v6[k] for k in ("completeness", "identity", "NEAR_DUPLICATES_OVER_1PCT", "physics_missing",
+                                       "sample_sha1") if k in v6}}
+    path = OUT / "audit_v7.json"
+
+    def write(state: str | None) -> None:
+        rep["state"] = state
+        path.write_text(json.dumps(rep, indent=1, default=float))
+        print(json.dumps({"state": state}, indent=1), flush=True)
+
+    logs = {c: pd.read_csv(REPO / "data" / c / "cut_log.csv", dtype={"object_id": str}, low_memory=False)
+            for c in CORPORA}
+    samples = _samples(logs)
+    for c in CORPORA:
+        if hashlib.sha1(",".join(samples[c].object_id).encode()).hexdigest() != v6["sample_sha1"][c]:
+            raise SystemExit(f"leakage_audit rescore-check: {c}'s sample differs from v6's")
+    phys = _physics([o for c in CORPORA for o in samples[c].object_id])
+    c = "probe_v2"
+    lg, tb = _table(c, samples[c], phys)
+    ids = lg.object_id.tolist()
+    st = {k: np.load(OUT / f"audit_{k}_reinjected.f16", mmap_mode="r") for k in CORPORA}
+    if st[c].shape != (len(ids), 3, 256, 256):
+        raise SystemExit(f"leakage_audit rescore-check: stored stamps {st[c].shape} do not match the sample")
+    from astropy.io import fits
+    probe = np.sort(np.random.default_rng(SEED + 70).choice(len(ids), 50, replace=False))
+    for k in probe:  # the stored copy is v6's re-injection, byte for byte
+        with fits.open(REPO / "data" / c / f"{ids[k]}.fits") as h:
+            x = np.asarray(h[0].data, dtype=np.float64)
+        if not np.array_equal(reinject(x, tb["_v1_off"][k]).astype(np.float16), st[c][k]):
+            raise SystemExit(f"leakage_audit rescore-check: stored re-injected stamp {k} differs from the FITS")
+    rep["stored_stamps_verified"] = {"rows": len(probe), "byte_identical": True}
+    log(f"  stored re-injected stamps: {len(probe)} rows byte-identical to a fresh re-injection")
+    t0 = time.time()
+    common = np.mean([border_scale(st[k]) for k in CORPORA], 0)
+    feats = features(st[c])
+    log(f"  {c}: features {feats.shape} in {time.time() - t0:.0f}s; common scale {np.round(common, 4)}")
+    tbv = check_targets(tb)
+    tg = {t: tbv[t] for t in STATED + AUDIT_REPORTED if t in tbv and np.nanstd(tbv[t]) > 0}
+    alt_c = (np.column_stack([tbv[k] for k in AUDIT_ALT[0]]), None)
+    log(f"  {c}: {len(tg)} targets (check run, v7 targets)")
+    blk = score_block(st[c], np.arange(len(ids)), feats, np.column_stack([tbv[k] for k in AUDIT_PHYS]), tg, "reg",
+                      tbv["fold"], common, tbv["camcol"], STATED, log=log, alt=alt_c)
+    blk["_camcol"] = camcol_structure(blk, tbv["camcol"], STATED, SEED + 7)
+    for r in blk.values():
+        r.pop("_pred", None)
+    rep["acceptance"] = acc = _acceptance(v6["plant"]["blocks"][c], blk)
+    log(f"  acceptance: ridge side {acc['ridge_side']} (max |Δ| {acc['ridge_side_max_abs_diff']:.3g}); "
+        f"CNN states LEAK: {acc['cnn_states_leak']}")
+    rep["probe_v2_check_block"] = blk
+    if not acc["passed"]:
+        write(None)  # no state: the rescore path is not shown faithful; fall back to the full run
+        raise SystemExit("leakage_audit rescore-check: acceptance test FAILED; no state written")
+    plant = {"blocks": {**v6["plant"]["blocks"], c: blk}}
+    plant["verdict"] = verdict(plant["blocks"])
+    plant["verdict_alt"] = view(plant)["verdict"]
+    rep["audit"], rep["plant"] = v6["audit"], plant
+    rep["plant_fired"] = fired = all(plant["blocks"][k][t]["state"] == "LEAK" for k in CORPORA for t in STATED)
+    write(v6["audit"]["verdict"]["state"] if fired else "INVALID")
 
 
 def main() -> None:
@@ -1330,6 +1469,7 @@ def main() -> None:
     sub.add_parser("rescore")
     sub.add_parser("pull")
     sub.add_parser("audit")
+    sub.add_parser("rescore-check")
     a = ap.parse_args()
     if a.cmd == "plants":
         plants(a.only.split(","), a.n, a.n_real)
@@ -1339,6 +1479,8 @@ def main() -> None:
         rescore()
     elif a.cmd == "pull":
         pull()
+    elif a.cmd == "rescore-check":
+        rescore_check()
     else:
         audit()
 
