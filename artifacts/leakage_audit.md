@@ -1,9 +1,14 @@
-# Layer 2 leakage audit — pre-registration (DRAFT, not hashed)
+# Layer 2 leakage audit — pre-registration (v7, hashed)
 
 **Question.** Can the pixels of the re-pulled corpora (pretrain_v2, probe_v2) say how a stamp was
 processed, beyond what the galaxy's own physics already says?
 
-**Status.** **Hashed 2026-10-03**: the Pre-registration section's SHA-1 is `98d67f7258fe0d7cf936acf9f2d2bb4b4a0d529c` (in `PREREG_SHA1`; `audit` refuses on any change). Approved by the user 2026-10-03 (final approval). Draft v6, 2026-10-03. v6 applies the user's 3 October decision
+**Status.** **v7, 2026-10-06: a declared post-hoc revision**, made after the hashed v6 audit read
+**INVALID** (user, 2026-10-05). The in-situ plant now scores each shift variable against the shift
+it actually injected; the injection is unchanged. Re-hashed: the new SHA-1 is in `PREREG_SHA1`.
+Revision 6 gives the diagnosis and the lesson; "Audit v6 (run 2026-10-03 → 05): INVALID" gives v6's
+reading. Re-scored by `rescore-check` (probe_v2's check block only), behind an acceptance test.
+v6's record is kept, read-only. *Earlier:* **Hashed 2026-10-03** (v6): the Pre-registration section's SHA-1 is `98d67f7258fe0d7cf936acf9f2d2bb4b4a0d529c` (in `PREREG_SHA1`; `audit` refuses on any change). Approved by the user 2026-10-03 (final approval). Draft v6, 2026-10-03. v6 applies the user's 3 October decision
 (option (a)): the **fit bound gates**, and S3b's requirement is restated against the audit's measured
 resolution (declared as revised after v5b's result; v5b's scoring is kept). Every plant was re-scored
 from the stored v5b numbers, without a re-run: **all fire**, with and without sky (results at the
@@ -367,10 +372,53 @@ Read from both cut logs' `object_id`, `ra` and `dec`; the probe splits come from
 
 ### The re-injected plant (the plan's, run inside the audit)
 
+> **Revised in v7 (2026-10-05/06), post hoc: after the hashed v6 audit read INVALID.** v6's text
+> is kept beside each change, marked superseded. Why, and what v6 read: revision 6
+> under "Revised before the hash after a plant failed", and "Audit v6 (run 2026-10-03 → 05):
+> INVALID" after the pins.
+
 - A copy of each corpus's sample, with v1's recorded per-band offsets re-injected: each band moves
   by (v1_rel − 127.5) px (`reinject`: reflect-pad to odd P, the cutter's Fourier shift, crop).
+  **Unchanged in v7:** the injection is M's real v1 misregistration.
 - It goes through the identical path, with the same folds, seeds and family.
+- **v7: what each shift variable is scored against.** On the re-injected copy, each s_b (per band,
+  per axis) is scored against **the shift actually injected, −(v1_rel_b − 127.5)**, not the cut
+  log's s_b (`check_targets`). gr_v1 and ir_v1 are unchanged: they are already the injected offsets'
+  differences. The two definitions agree to 1.4 × 10⁻¹⁴ px on pretrain_v2, whose v1 position was
+  taken at v2's own coordinates. They differ by up to 1 px on probe_v2, whose v1 was centred on
+  GZ2's 4-decimal ra/dec.
+  - *v6, superseded:* scored against the cut log's s_b, which assumed injection ≡ −s_b.
 - **Must read LEAK on all 20 shift variables.** Otherwise the audit is **INVALID**.
+- **v7: the re-score path** (`leakage_audit.py rescore-check`). Only probe_v2's check block is
+  re-run, with the v7 targets. Everything else is read from v6's record (`audit_v6.json`, SHA-1
+  pinned; it refuses any other):
+  - the main run, which does not touch the injection;
+  - pretrain_v2's check block, where v7's targets equal v6's to 1.4 × 10⁻¹⁴;
+  - the pooled corpus block, which has no shift target.
+
+  Before any fit, the sample's SHA-1 must equal v6's, and 50 stored re-injected stamps (fixed
+  seed) must be byte-identical to a fresh re-injection from the FITS. The CNN's scale is the mean
+  border σ over both corpora's stored re-injected copies, as in `run`.
+- **v7: the acceptance test, before the re-score's result counts.** In the re-scored probe_v2
+  check block, gr_v1x, gr_v1y, ir_v1x and ir_v1y (which v7 does not touch) are compared with v6's
+  stored values.
+  - **Ridge side: must be bit-identical.** This covers physics alone, and the ridge's pixel,
+    pixel_lo, both, matched base (per shuffle and mean), excess, lo_boot, sd_shuffle and the
+    excess over physics with its bound. The ridge is fitted per target, the trees are seeded and
+    single-threaded, and the bootstrap seed is the variable's own. A difference up to 10⁻⁹ is
+    accepted and declared as floating-point noise; anything larger fails.
+  - The ridge's fit bound and state are **not** compared. They use σ pooled over the block's ten
+    variables, and v7 changes six of those.
+  - **CNN side: not reproducible by design.** One multi-output network is fitted per fold over the
+    block's 20 targets. Revising six of them changes the shared fit, so gr_v1's and ir_v1's CNN
+    numbers change in any v7 run, the full run included. Their changes in pixel R² and excess are
+    reported against 3·√2·σ_fit (v6's pooled CNN σ for the block: 0.0076), but do not gate. **Their
+    CNN states must stay LEAK.**
+  - **If the test fails, no state is written**: the result does not count, and the fallback is the
+    full audit (`audit`), which applies `check_targets` in its check run.
+- **v7: the state.** If the test passes and every check variable reads LEAK, the audit's state is
+  the stored main run's; otherwise **INVALID**. The output is `audit_v7.json`; v6's record is
+  kept, read-only.
 
 ### Plants (D28; `leakage_audit.py plants`, run before the hash)
 
@@ -473,6 +521,25 @@ the audit has not run.
    threshold variable must have Δ ≥ ε (here A g_sx 0.0122 and B g_sx 0.0173, both LEAK). **This is a
    post hoc revision**, declared as such; v5b's result stays on record (`plants_v5b.json`;
    `S3b.scored_v5b` in `plants.json`).
+6. **v7: the hashed v6 audit read INVALID, and the in-situ plant's targets are revised after that
+   result** (user, 2026-10-05). **This is a post hoc revision, declared as such.**
+   - What v6 read: probe_v2's g_sy and i_sy were UNRESOLVED in the check run; the other 18 LEAK.
+   - The diagnosis was data only (`leakage_diag_invalid.py`, output `diag_invalid.json`; both
+     pinned).
+     - **The pixels carry the intended shift exactly** in both corpora: measured against intended,
+       slope 0.994–0.998, r = 1.000, residual 0.001–0.003 px RMS.
+     - **The rows align by objID**, and the cut logs predate the run.
+     - **The targets did not match the injection.** The plant injects v1's offsets but scored s_b,
+       assuming the two are equal. On pretrain_v2 they are (r = −1.000). On probe_v2, v1 was
+       centred on GZ2's 4-decimal ra/dec (`repull_targets.py`), so the injected offset correlates
+       with s_b at r ≈ −0.19 (y) and −0.64 (x).
+     - The readability this predicts (r² × the ridge's 0.9 on the injected offsets: 0.035 for y,
+       0.37 for x) matches what was observed (0.030–0.036 and 0.33–0.36).
+   - **The lesson.** Every planted positive before the hash was synthetic, with injection ≡ target
+     by construction (S1: "v1's offsets (−s_b)"), so none of them could catch a mismatch between
+     the shift injected and the target scored. A plant must also be checked on the real
+     corpora's own definitions: that the target it scores is the quantity it injects.
+   - v6's record (`audit_v6.json`, state INVALID) is kept on file, pinned and read-only.
 
 ## Plant evidence (pinned)
 
@@ -493,6 +560,9 @@ Re-pin if anything changes before the hash.
 | `artifacts/leakage_audit.py` | the script: v6 (BOUND = "fit", S3b restated, `rescore`) plus the near-duplicate flag, `PREREG_SHA1` filled (the script `audit` runs) | `e1c1a16c01c23d2bc41f646b9091b5a27b85b755` |
 | `artifacts/leakage_audit.py` before `PREREG_SHA1` | v6 plus the near-duplicate flag, as committed (`c5d569d`) | `962901aeae62f3b40e85e3958dd64d05c7de4123` |
 | `artifacts/leakage_audit.py` at the v6 re-score | before the near-duplicate flag | `b0958b69d456851ede6e32fd4f37f212ef222d19` |
+| `artifacts/out/leakage/audit_v6.json` | **v6's audit record (INVALID)**: a read-only copy of `audit.json` as v6 wrote it; `rescore-check` refuses any other | `e469c1d7165c4f608217bd6342bc0f2be4808f04` |
+| `artifacts/leakage_diag_invalid.py` | v6's INVALID diagnosed, data only (run 2026-10-06 from the scratchpad; filed with its output path set) | `46281d54e71d381221f21dbb84ed109c1dda9778` |
+| `artifacts/out/leakage/diag_invalid.json` | its output | `5135207f6910ac3e296e5a48e493ee1b6cba73a7` |
 | `artifacts/leakage_datacheck.py` | the loaders' data check | `4a4bfad671863005c144ac56623554548cd115bc` |
 | `artifacts/out/leakage/datacheck.json` | its output | `393ab8f52ced3ee0bc6abec8cdc700a487da0df3` |
 | `artifacts/leakage_audit.py` at v5b | the script the v5b plants ran (commit `8700b41`) | `26179731c58d939ebdb04eb78a381e0d34934e0b` |
@@ -690,3 +760,42 @@ read that column.
 Added with the check (user, 2026-10-03, item 1): `identity()` records `near_dup_rate`. Above 1% of
 probe_v2, `audit()` prints it prominently and writes `NEAR_DUPLICATES_OVER_1PCT` into the report. It
 does not gate. The script was re-pinned after this change.
+
+## Audit v6 (run 2026-10-03 → 05): INVALID
+
+The audit was run as hashed (SHA-1 `98d67f72…`, script `e1c1a16c…`) from 2026-10-03 23:03 to
+2026-10-05 06:54, in one uninterrupted process lasting 31 h 51 min: the main run, then the full
+check run. Its record is `audit_v6.json`.
+
+- **The main run read TRACE.**
+  - All 20 per-corpus variables read CLEAN under the ridge and the CNN. The largest fit-bound lower
+    limit was −0.0013, and no excess reached 0.004.
+  - Corpus membership read TRACE: the CNN's excess was 0.0049 AUC, with lower limit +0.0026, below
+    ε. The ridge read CLEAN.
+- **The check run read 18 of 20 LEAK.** probe_v2's **g_sy** (ridge excess 0.035, lower limit
+  −0.092) and **i_sy** (0.030, −0.096) read UNRESOLVED, so `plant_fired` was false: **INVALID**.
+  The bounds were wide because the ridge's pooled σ was 0.038, dominated by the v1 targets' shuffle
+  spread.
+- **Near-duplicates:** 11.94% of probe_v2 (within 1″, distinct objIDs), roughly uniform across the
+  splits (test 4,082 of 34,828; val 4,254 of 34,672; train 19,174 of 160,849). Reported
+  prominently; they do not gate (item 1).
+- The cause and the revision are in revision 6 and "The re-injected plant" (v7).
+
+## Settled (user, 2026-10-05): revision v7
+
+1. On the re-injected copy, each s_b is scored against the shift actually injected,
+   −(v1_rel − 127.5). The injection and gr_v1/ir_v1 are unchanged. Declared post hoc, with the
+   diagnosis and the lesson recorded. v6's record is kept, pinned.
+2. `rescore-check` re-runs only probe_v2's check block against the stored run, behind an acceptance
+   test on gr_v1/ir_v1. If it fails, stop and report, and fall back to the full run. **The
+   acceptance test as written (above) departs from the literal instruction ("reproduce exactly, or
+   within the documented fit-noise tolerance") on the CNN side.** The CNN's gr_v1/ir_v1 numbers
+   cannot reproduce in any v7 run, because its fit is shared with the revised targets. They are
+   therefore reported against 3·√2·σ_fit, and only their states (LEAK) gate. The ridge side must be
+   bit-identical.
+3. Commit, hash v7, update `aligned_comparison.md`'s precondition SHA-1 (a change of reference
+   only), re-hash it.
+4. Run the re-score with a low-memory waiter. Report the acceptance test, then the verdict.
+5. CLEAN or TRACE: the user restarts Terminal, then A1 (with the watchdog) and A2, after confirming
+   nothing heavy holds memory. LEAK, UNRESOLVED, INVALID or INSUFFICIENT: stop and report. The
+   stamp memmaps may be deleted once the re-score has read its verdict.
