@@ -3,7 +3,7 @@
 *Status: draft, 2026-10-02 (first draft 2026-09-27). Nothing hashed, nothing trained. **Settled
 (user, 2026-09-28):** 16×16 patches for MAE (D12 amended), F2 (MAE decoder 8×512) and the MoCo
 settings of F3 (K = 65,536, m = 0.999, τ = 0.2); **F3's residue settled (user, 2026-10-01 evening):
-m constant at 0.999, v2-style.** **F1, F4–F8 settled (user, 2026-10-02); F9 not decided** (§8). **F7's MoCo
+m constant at 0.999, v2-style.** **F1, F4–F8 settled (user, 2026-10-02); F9 settled (user, 2026-10-09): D4 averaging off** (§8). **F7's MoCo
 question settled (user, 2026-10-03): option (b)**, MoCo v3's ViT optimiser rule on v2's objective.
 Design sources: `DECISIONS.md` D10 revised (`:377`), D12 (`:414`), `docs/spec/objectives.md`, `TODO.md` Epic G
 (`:467`). A choice is recorded as decided only once the user has signed it off; every open fork is
@@ -405,8 +405,9 @@ any baseline trains, and no probe number enters any of them.
 - **F8** — *Settled:* **the method-agnostic hard floor gates** a run (a collapse that stops it);
   M's JEPA-grounded soft floors (`collapse_floor`, 2.5) are **reported descriptively, not gating**:
   they were fitted to JEPA traces only.
-- **F9** — **Not decided.** Test-time D4 averaging (`TODO.md` P2): whatever is chosen later applies to
-  all encoders alike.
+- **F9** — *Settled (user, 2026-10-09):* **test-time D4 averaging is off for every encoder** (`TODO.md`
+  P2). It may be run later as a sensitivity analysis, applied to every encoder alike, never to one
+  arm alone.
 
 ## 9. Build list
 

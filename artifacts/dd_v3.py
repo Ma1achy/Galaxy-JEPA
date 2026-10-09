@@ -11,6 +11,14 @@ chain stamp → frame → sky → GZ3D is exact up to v1's per-band snapping (�
   uv run python artifacts/dd_v3.py fetch      # test ∩ GZ3D files + r-frame headers (network, resumable)
   uv run python artifacts/dd_v3.py overlay    # 20-galaxy overlay figure — eyeball before selecting
   uv run python artifacts/dd_v3.py select     # the V3 list (≤ 500 bar, ≤ 500 spiral), hashed
+  uv run python artifacts/dd_v3.py relabel-v2 # the same list's labels in v2 geometry (A1, A2)
+
+v2 geometry (user, 2026-10-09: each encoder is read in its own geometry). The v2 cutter
+(`sciserver_cut_v2.py`) puts the target — PhotoObj's coordinate, not GZ2's — at (127.5, 127.5) in
+every band, r included, by a sub-pixel shift. So v2 stamp pixel (row, col) is r-frame pixel
+(r_y − 127.5 + row, r_x − 127.5 + col), (r_x, r_y) from probe_v2's cut_log: a float origin where
+v1's is the integer ceil(x − 128) at the GZ2 coordinate. The bands are aligned to r on the sky, so
+the r-frame chain serves all three.
 """
 
 from __future__ import annotations
@@ -158,12 +166,22 @@ def load_gz3d(t: dict):
     return w, rgb, masks, votes
 
 
-def reproject(t: dict) -> dict:
+def v2_origins() -> dict[int, tuple[float, float]]:
+    """Per probe_v2 object, the v2 stamp's float origin on the r frame: (r_x − 127.5, r_y − 127.5)."""
+    with open(REPO / "data" / "probe_v2" / "cut_log.csv") as fh:
+        return {int(r["object_id"]): (float(r["r_x"]) - STAMP / 2 + 0.5, float(r["r_y"]) - STAMP / 2 + 0.5)
+                for r in csv.DictReader(fh)}
+
+
+def reproject(t: dict, origin: tuple[float, float] | None = None) -> dict:
     """Per-pixel volunteer counts on the stamp grid (256², via SUPER² sub-samples, nearest GZ3D
     pixel, then the sub-sample mean of the thresholded mask per stamp pixel) and the footprint:
-    stamp pixels whose sub-samples all land inside the GZ3D image."""
+    stamp pixels whose sub-samples all land inside the GZ3D image. `origin`: the stamp's (x0, y0) on
+    the r frame; None is v1's."""
     fw = _frame_wcs(t)
     x0, y0, x, y = stamp_origin(t, fw)
+    if origin is not None:
+        x0, y0 = origin
     gw, rgb, masks, votes = load_gz3d(t)
     s = (np.arange(STAMP * SUPER) + 0.5) / SUPER - 0.5  # sub-sample centres in stamp pixel coords
     cc, rr = np.meshgrid(s, s)
@@ -258,6 +276,41 @@ def _stamps_for(ids: list[int]) -> np.ndarray:
     return np.stack([np.asarray(cache.data[cache._row_of[i]], np.float32) for i in ids])
 
 
+def label_rec(rp: dict) -> dict:
+    """One galaxy's patch labels, every vote threshold and the 25% sensitivity, and its domain."""
+    rec = {"footprint": rp["footprint"].reshape(GRID, PATCH, GRID, PATCH).all(axis=(1, 3))}
+    for k in ("bar", "spiral"):
+        for th in VOTES:
+            rec[f"{k}_{th}"] = patch_labels(rp[k][th], rp["footprint"])[0]
+        rec[f"{k}_{VOTES[0]}_f25"] = patch_labels(rp[k][VOTES[0]], rp["footprint"], PATCH_FRAC_SENS)[0]
+    return rec
+
+
+def relabel_v2(out: Path = REPO / "runs" / "dd_local_v2" / "v3_patch_labels.npz") -> dict:
+    """V3's list unchanged; each galaxy's labels re-projected onto its v2 stamp (A1, A2's geometry).
+    Written over `out` (in the v2 panel a symlink to v1's labels, which stay untouched)."""
+    lst = json.loads((LOCAL / "v3_list.json").read_text())["lists"]
+    union = sorted(set().union(*map(set, lst.values())))
+    ts = {t["id"]: t for t in json.loads((LOCAL / "v3_targets.json").read_text())}
+    org = v2_origins()
+    v1 = np.load(LOCAL / "v3_patch_labels.npz")
+    arrays, lost = {}, []
+    for oid in union:
+        rec = label_rec(reproject(ts[oid], org[oid]))
+        arrays |= {f"{oid}__{k}": v for k, v in rec.items()}
+        for name, key in {"bar": "bar_3", "spiral": "spiral_3"}.items():
+            if oid in lst[name] and not (rec[key][rec["footprint"]].any() and (~rec[key][rec["footprint"]]).any()):
+                lost.append((oid, name))  # reported: the list is fixed, so the galaxy stays
+    if set(arrays) != set(v1.files):
+        raise SystemExit("relabel-v2: the v2 label keys differ from v1's")
+    if out.is_symlink():
+        out.unlink()
+    np.savez_compressed(out, **arrays)
+    changed = sum(not np.array_equal(arrays[k], v1[k]) for k in v1.files)
+    return {"n": len(union), "arrays": len(arrays), "arrays_changed_vs_v1": changed,
+            "lost_positive_negative_mix": lost, "out": str(out)}
+
+
 # ── selection ────────────────────────────────────────────────────────────────────────────────────
 
 def select() -> dict:
@@ -272,13 +325,8 @@ def select() -> dict:
     for t in ts:
         if t["id"] in bad:
             continue
-        rp = reproject(t)
-        dom = rp["footprint"].reshape(GRID, PATCH, GRID, PATCH).all(axis=(1, 3))
-        rec = {"footprint": dom}
-        for k in ("bar", "spiral"):
-            for th in VOTES:
-                rec[f"{k}_{th}"] = patch_labels(rp[k][th], rp["footprint"])[0]
-            rec[f"{k}_{VOTES[0]}_f25"] = patch_labels(rp[k][VOTES[0]], rp["footprint"], PATCH_FRAC_SENS)[0]
+        rec = label_rec(reproject(t))
+        dom = rec["footprint"]
         for name, key in keys.items():
             if rec[key][dom].any() and (~rec[key][dom]).any():
                 elig[name].append(t["id"])
@@ -305,3 +353,5 @@ if __name__ == "__main__":
         print(overlay())
     elif cmd == "select":
         select()
+    elif cmd == "relabel-v2":
+        print(json.dumps(relabel_v2(), indent=1))

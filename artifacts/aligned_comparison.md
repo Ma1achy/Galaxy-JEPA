@@ -557,3 +557,57 @@ Outside the hashed section; a declaration of the set every reading uses, not a c
   | `runs/dd_local_4999/sae_eval_ids.npy` | `ba3c30e89c5dae5ff51d43fda0af12644b95b2d0` |
   | `runs/dd_local_4999/sae_eval_stamps.npy` | `51b982959bc2a8bb7fdfb82320fcc3ee624f9db8` |
   | `runs/dd_v4ref_4999/sae_tokens/M_b11_sae_eval.npy` | `0a31c5ef56b1896b79a4bbe57cede709390c7a91` |
+
+## Declared (user, 2026-10-09 evening): deviations made before any aligned result was read
+
+Outside the hashed section. Each was decided after the hash (`637dddda…`) and before any aligned
+encoder's criterion result was read; none changes a threshold, a state's meaning or a plant. Read at
+the time of declaring: only the powered-answer list (M1 and M2 alone; the same 33 as the plants,
+`artifacts/out/aligned/powered.json`, `285cdc4e…`) and O2's flag fraction on the 4,999 (0.5036,
+unchanged).
+
+- **4b: INAPPLICABLE, implemented.** The hash names the state (criterion 4: INAPPLICABLE if no latent
+  reaches |ρ| ≥ 0.5), but `dd_part4b.py` had no such branch: an empty offset set gave a 0/0 energy
+  target and `run` and `plants` crashed on an empty list. Now both read `score.json`
+  (`S1.b11.n_candidates == 0`) and write `{"state": "INAPPLICABLE"}` with the best |ρ|. **Reason:** the
+  hashed state was unreachable in code, and under FIXED it is the expected one (D28: a state must be
+  reachable).
+- **S3: only powered answers can trip UNEVEN, for all four encoders.** The recorded pre-rerun amendment
+  (`interp_tooling.md`, "S3 — pre-rerun amendment") was never coded; `s3_state` counted every answer.
+  It is now the rule for every encoder: UNEVEN needs a breach (> 0.05) on an answer with smaller class
+  ≥ 100 and baseline AUC ≥ 0.6 on that encoder's own evaluation galaxies; the mean, and so FAIL, still
+  counts every answer. The evaluation now records each answer's positives (`n_pos`), and a file
+  without them is refused. A new plant (one unpowered answer collapsing must read PASS) fires beside
+  the three old ones. **Reason:** an unpowered per-answer bound fires on noise (Part 4's four-arms
+  breach). **Re-scoring M gives identical output:** with `n_pos` supplied from the labels on the
+  4,999, all eight of M's S3 rows (M and untrained, blocks 11 and 6, 8× and 16×) keep their states —
+  M b11 8× FAIL (the reference), M b6 8× and 16× UNEVEN (their largest drops, 0.052 and 0.054, are
+  on powered answers), every untrained row FAIL; only the reported fields `max_drop_powered` and
+  `n_powered` are added.
+- **4b refuses any width other than 8×.** `dd_part4b.py` reads the 8× SAE (`MULT = 8`) for the flags,
+  the statistics and the ablation, while the offset set comes from `score.json` at the chosen width.
+  It now stops if `score.json`'s chosen width is not 8×. **Reason:** a 16× choice would otherwise read
+  8× latents under 16× indices, silently; the hash's width rule could choose 16× for an aligned
+  encoder (8× fails and 16× does not). If it fires, the run stops and the user decides.
+- **V3′: each encoder read in its own geometry.** M and O2 keep the original labels (v1 geometry, the
+  integer origin ceil(x − 128) at the GZ2 coordinate) on v1 stamps. A1 and A2 read labels re-projected
+  by `dd_v3.reproject` onto the v2 stamp: the r-frame float origin (r_x − 127.5, r_y − 127.5) from
+  probe_v2's cut log, where the v2 cutter puts the PhotoObj coordinate (`dd_v3.py relabel-v2`). The
+  galaxy list is unchanged. **Reason:** the v2 origin differs from v1's by up to about 2 px against
+  16-px patches, and misregistration is the variable under study. **Validation before any aligned
+  V3′ map** (`artifacts/v3_relabel_check.py`, criteria fixed before the run): synthetic per-band
+  shifts must be recovered within 0.2 px; on 500 real galaxies the re-projected labels must align
+  with the v2 stamps' light at least as well as the originals. If either fails, V3′ stops for the
+  user. Results are recorded below when run.
+- **Also made explicit (no deviation, recorded so the run is reproducible):**
+  - Criteria 1 and 3 keep the DD cap: the 40,000-stride is taken on the v1 split, then the 9 are
+    dropped, as the hashed confound floor did, so the stride never shifts. Criterion 2's full split
+    drops them directly (160,849 / 34,828).
+  - The flag quantity is the offset-flagged fraction of live latents (density ≥ 1e-4): flagged, and the
+    strongest nuisance is a band offset — the rule that gave the hashed M1 0.2747 and M2 0.5036.
+  - M1 on probe_v2 (reported, no state) reads probe_v2's pixels through M's own freeze
+    (`aligned_c13._V2Stamps`, its v1 parity check included), so only the pixels change.
+  - The untrained baseline for A1 and A2's SAE tests is recomputed once on the v2 panel (user,
+    2026-10-09); A2 reads A1's.
+  - The scoring driver is `artifacts/aligned_score.py`; every statistic is the hashed scripts' own.
+

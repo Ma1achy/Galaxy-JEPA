@@ -25,6 +25,7 @@ SEED = 20260925
 S1_RHO, S1_MATCH_MAX, S1_MIN_N = 0.5, 0.2, 500
 S2_FRAC, S2_PREC, S2_RECALL = 0.02, 0.8, 0.2
 S3_MEAN, S3_MAX = 0.02, 0.05
+POWER_MIN_CLASS, POWER_MIN_AUC = 100, 0.6
 OFFSETS = ("g-r x", "g-r y", "i-r x", "i-r y")
 
 
@@ -141,14 +142,29 @@ def s2_stat(fires_trail: np.ndarray, fires_total: np.ndarray, n_trail: int) -> d
 
 # ── S3 ───────────────────────────────────────────────────────────────────────────────────────────
 
-def s3_state(faith: dict) -> dict:
+def s3_state(faith: dict, powered_only: bool = True) -> dict:
     """PASS (mean AUC drop ≤ 0.02 and no single answer > 0.05) > UNEVEN (mean ≤ 0.02, some answer
     > 0.05) > FAIL (mean > 0.02). The chosen dictionary is the smaller one (8×) at block 11 unless 8×
-    fails and 16× does not."""
-    drops = np.array([v["drop"] for v in faith["per_answer"].values()])
+    fails and 16× does not.
+
+    Only powered answers (smaller class ≥ 100 and baseline AUC ≥ 0.6) can trip UNEVEN: the aligned
+    rerun's amendment (interp_tooling.md, "S3 — pre-rerun amendment"), stated as the rule for all four
+    encoders (aligned_comparison.md, declared 2026-10-09; M's eight rows keep their states under it).
+    The mean, and so FAIL, still counts every answer. `powered_only=False` is the pre-amendment rule,
+    kept to show the identity."""
+    per = faith["per_answer"]
+    drops = np.array([v["drop"] for v in per.values()])
     mean, mx = float(drops.mean()), float(drops.max())
-    state = "FAIL" if mean > S3_MEAN else ("UNEVEN" if mx > S3_MAX else "PASS")
-    return {"mean_drop": mean, "max_drop": mx, "n_answers": len(drops), "state": state}
+    out = {"mean_drop": mean, "max_drop": mx, "n_answers": len(drops)}
+    if powered_only:
+        if any("n_pos" not in v for v in per.values()):
+            raise SystemExit("s3_state: the powered-UNEVEN amendment needs n_pos; re-evaluate the SAE")
+        pw = [v["drop"] for v in per.values() if min(v["n_pos"], v["n"] - v["n_pos"]) >= POWER_MIN_CLASS
+              and v["auc"] >= POWER_MIN_AUC]
+        mx = float(max(pw)) if pw else 0.0
+        out |= {"max_drop_powered": mx, "n_powered": len(pw)}
+    out["state"] = "FAIL" if mean > S3_MEAN else ("UNEVEN" if mx > S3_MAX else "PASS")
+    return out
 
 
 # ── plants ───────────────────────────────────────────────────────────────────────────────────────
@@ -176,18 +192,22 @@ def plants() -> dict:
     t2[11], f2[11] = 0.6 * n_trail, 0.6 * n_trail / 0.9
     out["S2 plant"] = s2_stat(t2, f2, n_trail)["state"]
     out["S2 null"] = s2_stat(tr, tot, n_trail)["state"]
-    # S3: identity reconstruction → PASS; a lossy one → FAIL; one answer collapsing → UNEVEN
-    per = {f"a{i}": {"drop": 0.0} for i in range(37)}
+    # S3: identity reconstruction → PASS; a lossy one → FAIL; one powered answer collapsing → UNEVEN;
+    # one unpowered answer collapsing → PASS (only powered answers trip UNEVEN)
+    pw = {"auc": 0.9, "n": 1000, "n_pos": 500}
+    per = {f"a{i}": {"drop": 0.0, **pw} for i in range(37)}
     out["S3 identity"] = s3_state({"per_answer": per})["state"]
-    out["S3 lossy"] = s3_state({"per_answer": {k: {"drop": 0.05} for k in per}})["state"]
-    out["S3 one collapses"] = s3_state({"per_answer": {**per, "a0": {"drop": 0.2}}})["state"]
+    out["S3 lossy"] = s3_state({"per_answer": {k: {**v, "drop": 0.05} for k, v in per.items()}})["state"]
+    out["S3 one collapses"] = s3_state({"per_answer": {**per, "a0": {**pw, "drop": 0.2}}})["state"]
+    out["S3 one unpowered collapses"] = s3_state({"per_answer": {**per, "a0": {**pw, "n_pos": 40, "drop": 0.2}}})["state"]
     # S2 injection geometry: the trail patches of a real stamp are a line of patches
     _, st = D.stamps("sae_eval")
     img, core = inject_trail(st[0], np.random.default_rng(1))
     out["S2 geometry: trail patches in one stamp"] = int(core.sum())
     expect = {"S1 plant": "PASS", "S1 null": "FAIL", "S1 untrained also tracks": "NOT-SPECIFIC",
               "S1 thin": "INSUFFICIENT", "S2 plant": "DETECTED", "S2 null": "NOT DETECTED",
-              "S3 identity": "PASS", "S3 lossy": "FAIL", "S3 one collapses": "UNEVEN"}
+              "S3 identity": "PASS", "S3 lossy": "FAIL", "S3 one collapses": "UNEVEN",
+              "S3 one unpowered collapses": "PASS"}
     out["all_fire_as_expected"] = all(out[k] == v for k, v in expect.items())
     (OUT / "plants.json").write_text(json.dumps(out, indent=1))
     return out

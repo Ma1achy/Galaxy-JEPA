@@ -96,7 +96,18 @@ def stats() -> dict:
 
 def _offset_set() -> list[int]:
     score = json.loads((OUT / "score.json").read_text())
+    if score.get("chosen", MULT) != MULT:
+        raise SystemExit(f"dd_part4b: the chosen SAE is {score['chosen']}×, but 4b and the flags read {MULT}×")
     return sorted({t["latent"] for t in score["S1"]["b11"]["top"]})
+
+
+def _inapplicable() -> dict | None:
+    """4b on an encoder with no offset latent (aligned_comparison.md, criterion 4): INAPPLICABLE if no
+    latent reaches |ρ| ≥ 0.5 — nothing to remove, and an empty set has no energy to match."""
+    s1 = json.loads((OUT / "score.json").read_text())["S1"]["b11"]
+    if s1["n_candidates"]:
+        return None
+    return {"state": "INAPPLICABLE", "max_abs_rho": s1["max_abs_rho"], "n_candidates": 0}
 
 
 def _energy(c: np.ndarray, s) -> float:
@@ -261,6 +272,9 @@ def plants() -> dict:
     band on both statistics. (2) GENERIC plant: each random set in turn tested against the other 49;
     the SPECIFIC rate must stay ≤ 10% (nominal ≤ 5% per criterion; joint lower). (3) Saturation: the
     random sets' statistics must not sit at 0, and the offset probe must stay above chance at baseline."""
+    if (na := _inapplicable()) is not None:
+        (OUT / "part4b_plants.json").write_text(json.dumps(na | {"fire_as_expected": None}, indent=1))
+        return na
     b = Bench()
     base_auc = b.aucs(b.base)
     es = energy_sets()
@@ -286,6 +300,9 @@ def plants() -> dict:
 
 
 def run() -> dict:
+    if (na := _inapplicable()) is not None:
+        (OUT / "part4b.json").write_text(json.dumps(na, indent=1))
+        return na
     b = Bench()
     base_auc = b.aucs(b.base)
     off = _offset_set()

@@ -234,7 +234,8 @@ def faithfulness(orig: np.ndarray, rec: np.ndarray, readout) -> dict:
             continue
         r = [row[o] for o in el]
         a0, a1 = roc_auc_score(y, so[r, j]), roc_auc_score(y, sr[r, j])
-        per[f] = {"auc": float(a0), "auc_rec": float(a1), "drop": float(a0 - a1), "n": len(el)}
+        per[f] = {"auc": float(a0), "auc_rec": float(a1), "drop": float(a0 - a1), "n": len(el),
+                  "n_pos": int(y.sum())}  # the aligned rerun's powered-UNEVEN amendment reads it
     return {"per_answer": per, "mean_drop": float(np.mean([v["drop"] for v in per.values()]))}
 
 
