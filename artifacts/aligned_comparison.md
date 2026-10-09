@@ -511,4 +511,49 @@ Outside the hashed section; a declaration of the set every reading uses, not a c
     `runs/dd/gz3d_positions.csv` names two of them (…5099027, …2900998).
   - So S3, 4b and the card flags include one of the 9: one galaxy in 5,000, in the test split.
     **Whether to recompute those three references on the 4,999 is open for the user.**
+    Settled 2026-10-09: recomputed (next section).
 
+## Declared (user, 2026-10-09): M's S3, 4b and card-flag references recomputed on the 4,999
+
+- **A data-alignment change, not a change of rules.** …3595058 is absent from probe_v2, so the
+  four encoders must be read on the same set. Every rule, threshold, seed and script is unchanged;
+  only the sae_eval panel loses one galaxy. The hashed section (`637dddda…`) is untouched, and its
+  pinned table above stays as the record of what was hashed. Criterion 4 reads against the values
+  below.
+- **The panel.** `runs/dd_local_4999`: `runs/dd` with `sae_eval_ids.npy` and
+  `sae_eval_stamps.npy` rewritten without …3595058 (index 1,505 of 5,000; order otherwise kept;
+  checked by ID). `artifacts/dd_core.py` reads it through `DD_LOCAL` (default `runs/dd`, so every
+  earlier run is unchanged). M's sae_eval tokens were filtered row-for-row (1,279,744 of 1,280,000
+  per file), not re-embedded. The SAE is M's, copied unchanged from `runs/dd_v4ref/sae`.
+- **The chain:** dd_v4ref's own steps (`dd_sae.py evaluate M 11 8`, `dd_sae_score.py score`,
+  `dd_part4b.py flags / stats / pools / run`), with `DD_OUT=runs/dd_v4ref_4999`
+  (`artifacts/dd_v4ref_4999_chain.sh`). V3′ is not rerun: its 794 galaxies include none of the 9.
+  All steps exited 0 (2026-10-09, ALLDONE 14:06); the `runs/dd_v4ref` originals were checked
+  unchanged afterwards.
+- **Old and new, side by side:**
+
+  | test | 5,000 (pinned in the hash) | 4,999 (read from here on) |
+  |---|---|---|
+  | S1 (control; already on 4,999) | PASS; 40 latents; top 328, ρ +0.9100 | PASS; 40 latents; top 328, ρ +0.9100 (identical) |
+  | S3 | FAIL; mean drop 0.02932; max 0.09328; dead 37.24%; VE 0.96532 | FAIL; mean drop 0.02934; max 0.09324; dead 37.24%; VE 0.96515 |
+  | 4b | GENERIC; max 0.03339 vs p95 0.17050; mean 0.01049 vs p95 0.06050; offset probe 0.6905; Jaccard 0.0921 | GENERIC; max 0.03342 vs p95 0.17054; mean 0.01048 vs p95 0.06003; offset probe 0.6905; Jaccard 0.0918 |
+  | card flags | 972 live; flagged 0.9259; offset-flagged 0.2747 (267); other 0.6512 | 972 live; flagged 0.9259; offset-flagged 0.2757 (268); other 0.6502 |
+
+  Every state is unchanged. In the card flags no latent's flag changes; one live latent's
+  strongest nuisance moves from another variable to a band offset.
+- **A consequence for criterion 3's floor.** `c3_floor` is computed at scoring time from M1 and
+  M2, so with M1's offset-flagged fraction at 0.2757 the flag floor reads
+  F_flag = 1.1096 · |0.2757 − 0.5036| / √2 = 0.179 (the hashed table: 0.180, from 0.2747). k is
+  unchanged.
+- **New references, pinned:**
+
+  | file | SHA-1 |
+  |---|---|
+  | `runs/dd_v4ref_4999/sae/score.json` (S1, S3 states) | `a38355988261593404efe08a004c9edab366da89` |
+  | `runs/dd_v4ref_4999/sae/M_b11_x8.eval.json` (S3) | `a03184bfafcd472d7cff5ae373d7dcdffddf632c` |
+  | `runs/dd_v4ref_4999/sae/part4b.json` (4b) | `6b0b9c3a8ea41aa537cf6f74b1a88832843e130b` |
+  | `runs/dd_v4ref_4999/sae/flags.npz` (card flags) | `624f7b1c299c541ea9477c5d1ba62f48423c1b11` |
+  | `runs/dd_v4ref_4999/sae/part4b_stats.npz` (card flags, 4b) | `f6cd5b9930c96bd9e8d781571fc7f8352f0263c1` |
+  | `runs/dd_local_4999/sae_eval_ids.npy` | `ba3c30e89c5dae5ff51d43fda0af12644b95b2d0` |
+  | `runs/dd_local_4999/sae_eval_stamps.npy` | `51b982959bc2a8bb7fdfb82320fcc3ee624f9db8` |
+  | `runs/dd_v4ref_4999/sae_tokens/M_b11_sae_eval.npy` | `0a31c5ef56b1896b79a4bbe57cede709390c7a91` |

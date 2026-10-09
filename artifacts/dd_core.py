@@ -27,7 +27,9 @@ import torch
 sys.path.insert(0, str(Path(__file__).parent))
 
 REPO = Path(__file__).resolve().parents[1]
-LOCAL = REPO / "runs" / "dd"  # the samples (stamps, id lists, GZ3D labels): encoder-independent, shared
+# the samples (stamps, id lists, GZ3D labels): encoder-independent, shared. DD_LOCAL points a run at
+# another panel (user, 2026-10-09: M's references on 4,999, without the galaxy probe_v2 lacks).
+LOCAL = REPO / os.environ.get("DD_LOCAL", "runs/dd")
 OUT = REPO / "artifacts" / "out" / "dd"
 # The encoder under test (criterion 4 reruns DD on other encoders). Unset, each is M's literal; a
 # relative value is taken from the repo root. TAG names the encoder's files and selects it wherever
