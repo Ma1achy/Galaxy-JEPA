@@ -598,7 +598,7 @@ unchanged).
   V3′ map** (`artifacts/v3_relabel_check.py`, criteria fixed before the run): synthetic per-band
   shifts must be recovered within 0.2 px; on 500 real galaxies the re-projected labels must align
   with the v2 stamps' light at least as well as the originals. If either fails, V3′ stops for the
-  user. Results are recorded below when run.
+  user. Result and decision: next section.
 - **Also made explicit (no deviation, recorded so the run is reproducible):**
   - Criteria 1 and 3 keep the DD cap: the 40,000-stride is taken on the v1 split, then the 9 are
     dropped, as the hashed confound floor did, so the stride never shifts. Criterion 2's full split
@@ -610,4 +610,38 @@ unchanged).
   - The untrained baseline for A1 and A2's SAE tests is recomputed once on the v2 panel (user,
     2026-10-09); A2 reads A1's.
   - The scoring driver is `artifacts/aligned_score.py`; every statistic is the hashed scripts' own.
+
+## Settled (user, 2026-10-09 late): V3′ re-projection accepted; check (b)'s absolute bound failed on the reference
+
+Outside the hashed section. `artifacts/v3_relabel_check.py` → `artifacts/out/aligned/v3_relabel_check.json`
+(SHA-1 `9519b47acfd81aa3827436610ea86b167df2c87b`), run 2026-10-09 22:01–22:07, before any aligned V3′ map.
+
+- **Consistency (all 794): passed.** dd_v3's v1 origin equals the cutter's logged `r_v1_ox/oy` for
+  every galaxy; the cut log's v2 coordinate through dd_v3's r header gives the logged `r_x/r_y` within
+  2e-10 px; the code reproduces the stored v1 labels. Origin shift v2 − v1: x −2.08 to +1.25 px,
+  y −1.29 to +1.75 px, median |shift| 0.25 px per axis.
+- **(a) Synthetic (50 galaxies, known per-band shifts through the v2 cutter's own `aligned`): passed.**
+  Re-projected labels land on the feature within 0.127 px (median 0.013; bar ≤ 0.2); the original
+  labels miss by up to 0.81 px (median 0.41).
+- **(b) Real (500 galaxies; GZ3D's own image through each label geometry, phase-correlated with the
+  v2 stamps' g+r+i light over the GZ3D footprint):**
+  - where the origin moved ≥ 0.5 px (195 galaxies): median improvement +0.18 px, re-projected better
+    in 68% — passed;
+  - where it moved < 0.1 px (12): median |difference| 0.031 px (bar 0.05) — passed;
+  - **re-projected median |offset| ≤ 0.25 px: failed, 0.70 px.**
+- **Diagnosis.** The GZ3D reference image sits about 0.67 px off the SDSS stamps in every pairing:
+  median offset (y, x) (−0.23, +0.63) px for re-projected labels on v2 stamps, (−0.24, +0.62) for
+  original labels on v2 stamps, and (−0.21, +0.63) for M's own pairing, original labels on v1
+  stamps. The difference between the two label versions tracks the origin shift (r −0.98 on both
+  axes). The failed bound therefore measured the reference's registration, not the re-projection;
+  the bound assumed the GZ3D image registered to its WCS, which it does not to about 0.3″.
+- **Decision (user):** the re-projection is accepted (option 1). The shared offset applies equally to
+  all four encoders, so M's hashed V3′ reference stands unchanged. `dd_v3.py relabel-v2` writes A1 and
+  A2's labels (`runs/dd_local_v2/v3_patch_labels.npz`), and V3′ is appended to the chain for A1 and A2.
+- **relabel-v2, run 2026-10-09:** `runs/dd_local_v2/v3_patch_labels.npz` (SHA-1
+  `4bf189b535b720f8879ecce913907661e5f053e5`; v1's `runs/dd/v3_patch_labels.npz`, `271f03d3…`,
+  untouched). Same 7,146 arrays for the 794 galaxies; 926 change. The list is fixed, so every galaxy
+  stays; reported: in v2 geometry the ≥3-vote label of 8 of 165 bar, 5 of 500 spiral and 5 of 426
+  bar_f25 galaxies no longer has both a positive and a negative patch in the footprint (spiral_f25:
+  0 of 500).
 
