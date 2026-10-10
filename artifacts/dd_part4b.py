@@ -175,6 +175,8 @@ def jaccard(sets: list[list[int]]) -> float:
 
 
 def pool_report() -> dict:
+    if (na := _inapplicable()) is not None:  # no offset set: no pools to match against it
+        return na
     primary, secondary = pools()
     es, ds = energy_sets(), density_sets()
     return {"primary_pool": len(primary), "secondary_pool": len(secondary), "offset_set": len(_offset_set()),

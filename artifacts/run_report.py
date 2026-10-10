@@ -88,6 +88,7 @@ def main() -> None:
     ap.add_argument("--every", type=float, default=5.0)
     a = ap.parse_args()
     report(a.name, status="running", pid=a.pid)
+    gone = False
     while True:
         text = _tail(a.log)
         if a.mode == "sae":
@@ -109,9 +110,12 @@ def main() -> None:
         if done:
             report(a.name, **f, status="done")
             return
-        if not _alive(a.pid):
+        if gone:
             report(a.name, **f)  # status stays running: the status line shows `stopped?`
             return
+        if not _alive(a.pid):
+            gone = True  # the job may have written its last line after this pass's read: read once more
+            continue
         report(a.name, **f, status="running", pid=a.pid)
         time.sleep(a.every)
 
