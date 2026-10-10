@@ -100,9 +100,13 @@ def losses(sae: TopKSAE, x: torch.Tensor, seen: int) -> tuple[torch.Tensor, dict
     dead = (seen - sae.last_fired) > DEAD_TOKENS
     aux = torch.zeros((), device=x.device)
     if dead.any():
-        ka = int(min(K_AUX, int(dead.sum())))
+        # One topk shape whatever the dead count (2026-10-10): k = min(K_AUX, dead) made each new dead
+        # count a new Metal graph, cached and never freed under macOS 27.0.1, until MPS ran out (~0.1
+        # GiB a shape). Picks beyond the dead latents are −inf; relu takes them to exactly 0 before
+        # anything multiplies them, so za, the loss and every gradient are those of the old code
+        # (artifacts/sae_auxk_identity.py). Nothing downstream depends on k.
         hd = h.masked_fill(~dead, float("-inf"))
-        va, ia = hd.topk(ka, dim=-1)
+        va, ia = hd.topk(min(K_AUX, h.shape[-1]), dim=-1)
         za = torch.zeros_like(h).scatter_(-1, ia, torch.relu(va))
         aux = (err.detach() - za @ sae.W_dec.T).pow(2).sum(-1).mean() / var
     loss = mse / var + AUX_COEF * aux

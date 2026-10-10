@@ -645,3 +645,34 @@ Outside the hashed section. `artifacts/v3_relabel_check.py` → `artifacts/out/a
   bar_f25 galaxies no longer has both a positive and a negative patch in the footprint (spiral_f25:
   0 of 500).
 
+## Declared (user, 2026-10-10): SAE AuxK fixed-shape top-k — an implementation change before any aligned result was read
+
+Outside the hashed section. No threshold, state, plant or statistic changes; the SAE's arithmetic is
+shown identical.
+
+- **Cause.** A1's block-11 8× SAE training ran out of MPS memory at epoch 6–7 three times with the same
+  signature ("other allocations" ≈ 21.6 GiB of 22.64). Diagnosed (`artifacts/sae_mem_diag.py A1 8`,
+  `artifacts/out/aligned/sae_mem_diag_A1_8_original.json`, SHA-1 `b30d9d24…`): the MPS driver's
+  allocation rose about 0.1 GiB with each new dead-latent count (1.4 → 21.9 GiB as the distinct counts
+  went 1 → 213) while PyTorch's own allocator stayed at 0.14–0.38 GiB. AuxK called `topk(k)` with
+  k = min(256, dead), so every new dead count was a new tensor shape, and under macOS 27.0.1 (installed
+  2026-10-05) Metal compiles and keeps a graph per shape. M's and O2's SAEs trained on 2026-09-25/27,
+  before that update (O2 peaked at 3.0 GB through 358 dead counts).
+- **Fix** (`artifacts/dd_sae.py`, `losses`): `topk(256)` every step over the dead-masked
+  pre-activations (non-dead = −inf); `relu` takes the extra picks to exactly 0 before anything
+  multiplies them. The aux loss has no normalisation on k (it is divided by the batch variance only),
+  so nothing downstream changes; dead count 0 keeps its guard (aux is a constant 0 with no graph).
+- **Identity evidence** (`artifacts/sae_auxk_identity.py` → `artifacts/out/aligned/sae_auxk_identity.json`,
+  SHA-1 `c4ac55209a9c2869e9ea800cde14b8931d9e8d08`): real A1 block-11 batches, an A1 SAE after 300
+  steps, dead counts 0, 1, 50, 193 and 300. Old (verbatim) and new loss and every parameter gradient
+  are **bit-identical on CPU and on MPS** (max difference 0.0; the tolerance fixed before the run,
+  1e-6 abs / 1e-5 rel, was not needed); no NaN or inf in the aux reconstruction, loss or gradients;
+  at dead count 0 aux is exactly 0 with no graph in both.
+- **Training evidence** (`artifacts/out/aligned/sae_mem_diag_A1_8.json`, SHA-1
+  `241cf852e36df80d8ae3593222ff732d778143ce`): the full 8-epoch A1 training with the fix completes
+  (990 s); driver memory stays at 1.38–1.57 GiB through 221 distinct dead counts; epochs 0–6 are
+  bit-identical to the failing run's logged values (tokens seen, nmse, aux, dead fraction).
+- **Comparability.** M's and O2's SAEs (and the untrained baselines already trained) were trained with
+  the original code; A1 and A2's are trained with the fix. The identity tests — same loss and
+  gradients at every dead count, so the same optimiser trajectory — are what keep them comparable.
+
