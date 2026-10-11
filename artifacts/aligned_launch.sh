@@ -3,8 +3,14 @@
 #   artifacts/aligned_launch.sh --resolve     print the resolved paths, launch nothing
 #   artifacts/aligned_launch.sh --check       the cache-vs-freeze check alone, launch nothing
 #   artifacts/aligned_launch.sh A1 [--plan]   then A2; each runs under the one-heavy-job lock
+# The repo is the checkout this script sits in, so a run launched from a git worktree (A3, user
+# 2026-10-11) executes that worktree's code: its own src/ goes first on PYTHONPATH, ahead of the
+# shared .venv's editable install of the main checkout, and code_sha stamps the worktree's commit.
 set -euo pipefail
-REPO=/Users/malachy/Documents/Galaxy-JEPA
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+export PYTHONPATH="$REPO/src${PYTHONPATH:+:$PYTHONPATH}"
+PY="$REPO/.venv/bin/python"
+[ -x "$PY" ] || PY=/Users/malachy/Documents/Galaxy-JEPA/.venv/bin/python   # a worktree shares the main venv
 SSD="/Volumes/X10 Pro/galaxy-jepa"
 export GJ_CONFIG=configs/pretrain_v2.yaml
 # The v2 cache and freeze (user, 2026-10-01). Without these F0 reads M's v1 cache and refuses.
@@ -15,12 +21,12 @@ export MPLCONFIGDIR="$SSD/tmp/mpl"
 export PYTHONUNBUFFERED=1              # a detached log is block-buffered otherwise
 export GJ_CHECKPOINT_EVERY=2000        # run-time only, not hashed: a checkpoint every ~22 min (user, 2026-10-06)
 LOGDIR="$REPO/runs"                    # runs -> $SSD/runs
-out_of() { case $1 in A1) echo runs/m_v2;; A2) echo runs/m_v2_s1;; *) echo "";; esac; }
+out_of() { case $1 in A1) echo runs/m_v2;; A2) echo runs/m_v2_s1;; A3) echo runs/m_v2_s2;; *) echo "";; esac; }
 
 resolve() {
   echo "TMPDIR       $(cd "$TMPDIR" && pwd -P)"
   echo "MPLCONFIGDIR $(cd "$MPLCONFIGDIR" && pwd -P)"
-  for r in A1 A2; do
+  for r in A1 A2 A3; do
     echo "$r log       $(cd "$LOGDIR" && pwd -P)/aligned_$r.log"
     echo "$r out_dir   $(cd "$REPO/runs" && pwd -P)/$(basename "$(out_of $r)")  (checkpoints/, encoder.pt, traces.json)"
   done
@@ -38,7 +44,7 @@ resolve() {
 # normalisation hash must equal the config's content_hash, F0_NORM_PREFIX must agree with both, and
 # the cache must hold every stamp of both corpora.
 check() {
-  .venv/bin/python - <<'PY'
+  "$PY" - <<'PY'
 import os, sys, yaml
 from galaxy_jepa.data.cache import TensorCache, pipeline_hash
 from galaxy_jepa.data.sources import DirectorySource
@@ -68,13 +74,15 @@ mkdir -p "$TMPDIR" "$MPLCONFIGDIR"
 cd "$REPO"
 if [ "${1:-}" = "--resolve" ]; then resolve; exit 0; fi
 if [ "${1:-}" = "--check" ]; then check; exit $?; fi
-run=${1:?A1 or A2}; shift
-[ -n "$(out_of "$run")" ] || { echo "run must be A1 or A2" >&2; exit 1; }
+run=${1:?A1, A2 or A3}; shift
+[ -n "$(out_of "$run")" ] || { echo "run must be A1, A2 or A3" >&2; exit 1; }
 [ -f "$GJ_CONFIG" ] || { echo "$GJ_CONFIG missing: the v2 freeze comes first (Kickoff E step 3)" >&2; exit 1; }
 resolve >/dev/null
 check || { echo "aligned_launch: refusing to start $run" >&2; exit 1; }
 # Kickoff E's disk precondition is on the external SSD, not the internal disk (user, 2026-09-28).
 free_gb=$(df -g "$SSD" | awk 'NR==2 {print $4}')
 [ "$free_gb" -ge 20 ] || { echo "external SSD has ${free_gb} GB free; Kickoff E needs >= 20" >&2; exit 1; }
-artifacts/_heavy.sh "aligned_$run" .venv/bin/python artifacts/aligned_train.py "$run" "$@" \
+{ echo "=== $run launch $(date '+%F %T'): checkout $REPO, commit $(git rev-parse HEAD)$( [ -n "$(git status --porcelain)" ] && echo ' (DIRTY)' ), python $PY"
+  echo "    galaxy_jepa from $("$PY" -c 'import galaxy_jepa; print(galaxy_jepa.__file__)')"; } | tee -a "$LOGDIR/aligned_$run.log"
+artifacts/_heavy.sh "aligned_$run" "$PY" artifacts/aligned_train.py "$run" "$@" \
   2>&1 | tee -a "$LOGDIR/aligned_$run.log"

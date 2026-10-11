@@ -1,4 +1,4 @@
-"""Kickoff E — the aligned encoders A1 and A2 (aligned_comparison.md, Common ground).
+"""Kickoff E — the aligned encoders A1 and A2 (and A3, exploratory) (aligned_comparison.md, Common ground).
 
 M's recipe on pretrain_v2: M's driver (`m2_long_run.main`, as O2 ran it), training seed 0 and 1,
 config and split seed 0, `steps` left at 253,270 so the LR and EMA schedules are M's and O2's
@@ -43,6 +43,10 @@ RUNS = {
               expect=dataclasses.replace(EXPECT, label="A1")),
     "A2": Run(label="A2", tag="m_v2_s1", probe_epochs=STOP_EPOCHS, train_seed=1,
               out_dir="runs/m_v2_s1", expect=dataclasses.replace(EXPECT, label="A2")),
+    # Exploratory follow-up (user, 2026-10-11; aligned_comparison.md "Declared … A3"): a third seed,
+    # outside the confirmatory comparison, launched from its own git worktree.
+    "A3": Run(label="A3", tag="m_v2_s2", probe_epochs=STOP_EPOCHS, train_seed=2,
+              out_dir="runs/m_v2_s2", expect=dataclasses.replace(EXPECT, label="A3")),
 }
 
 

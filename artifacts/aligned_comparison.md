@@ -816,3 +816,31 @@ No state depends on either resolution.
 | `runs/dd_a1/part1/v3b_score.json` | `335ef79aaf62857e803b68bb2a013d91f1b79d2a` |
 | `runs/dd_a2/part1/v3b_score.json` | `65eeb37bc1170826e450df067f0f3dc6e534ef5c` |
 | `runs/dd_a{1,2}/part1/v3b_plants.json` | `d98f278597d92e1bbed3eb32946d4019b2847bab` |
+
+## Declared (user, 2026-10-11): A3, an exploratory third aligned seed
+
+Outside the hashed section, after the scoring above. **Exploratory: not part of the confirmatory
+comparison.** No criterion is rescored, no state is added, and nothing below can change a state or
+the reading recorded in "Results".
+
+- **Why.** The aligned seeds differ about five times more than M's (mean |A1 − A2| = 0.030 against
+  |M1 − M2| = 0.006, with A2 > A1 on all 37 answers; Results, unexpected item 1). A third seed shows
+  whether A1 or A2 is the outlier, or whether the aligned recipe's seed spread is simply wide.
+- **Recipe.** A1's and A2's exactly (`artifacts/aligned_train.py`, M's driver `m2_long_run.main`):
+  pretrain_v2 and its freeze (`246d8de6…`), config and split seed 0, **training seed 2**, `steps`
+  left at 253,270 so the LR and EMA schedules match, **fixed stop at 101,308**, checkpoints every
+  2,000 (`GJ_CHECKPOINT_EVERY`, run-time only), no probe between segments. Out dir `runs/m_v2_s2`;
+  launched by `artifacts/aligned_launch.sh A3` under the one-heavy-job lock, with
+  `artifacts/train_watchdog.sh A3` (process, stale log, memory alarm; never restarts).
+- **Isolation.** A3 runs from its own git worktree at the commit that adds this declaration; the
+  launch log records the worktree path, the commit and where `galaxy_jepa` was imported from (the
+  worktree's `src/`, ahead of the shared venv's editable install). Nothing in that worktree is edited
+  while A3 runs. The baseline build proceeds on a branch in the main checkout.
+- **Reported when it finishes, and nothing else:**
+  1. the final checkpoint's SHA-1 (and `encoder.pt`'s);
+  2. A3's AUC on each of the 37 answers, by criterion 2's protocol unchanged (block 11 mean-pooled,
+     the full identical-set split 160,849 / 34,828, the same `_fit` probes and C), beside A1, A2, M1
+     and M2;
+  3. the three-way aligned spread: per answer, the mean of |A1 − A2|, |A1 − A3| and |A2 − A3|, and
+     its mean over the 37 and over the 33 powered answers, beside M's |M1 − M2| on the same answers;
+     and how many answers each aligned seed ranks highest and lowest of the three.
