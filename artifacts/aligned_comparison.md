@@ -761,9 +761,7 @@ concentrated beyond the floor.
 3. **M read on probe_v2 also reads NEAR CHANCE on all four offsets**, and its mean powered AUC is
    slightly higher on v2 than on v1 (0.732 against 0.728).
 4. **1b's untrained reference.** The hashed text gives the untrained encoder's best |ρ| over all
-   latents as 0.23; the aligned `score.json` records the activation-matched untrained latents' best per
-   offset as 0.043–0.057. The two may be different quantities; the aligned maxima (0.059, 0.044) sit
-   at the latter.
+   latents as 0.23; the aligned `score.json` records 0.043–0.057. *Resolved below (2026-10-11).*
 5. **Mo is split by seed.** A2 has a morphology-tracking PC (PC2, 8.5% of variance); A1 has none, so
    the rule (both seeds) reads SAME.
 6. **Flags moved from offsets to other nuisances.** Offset-flagged fell to ~0.1–0.3%, but
@@ -771,8 +769,31 @@ concentrated beyond the floor.
    barely moved. A1 has ~1.5× M's live latents (1,444).
 7. **Block 6 differs from block 11 in S3.** Both aligned encoders' block-6 SAEs PASS S3 at 8× and 16×;
    block 11 FAILs. Block 6 is not in the reading.
-8. **A1's and A2's plant files are byte-identical** (SAE plants `0d0ee9c9…`, V3′ plants `d98f2785…`):
-   both plants are built from labels, brightness and synthetic latents, not from the encoder.
+8. **A1's and A2's plant files are byte-identical** (SAE plants `0d0ee9c9…`, V3′ plants `d98f2785…`).
+   *Resolved below (2026-10-11).*
+
+### Checks on the flagged items (user, 2026-10-11; no reruns)
+
+No state depends on either resolution.
+
+- **Item 4: the same statistic on different stamps.** Both figures are `S1.b11.untrained_best_abs_rho`
+  (`dd_sae_score.s1_stat`): per offset, the largest galaxy-level |Spearman| over **all** latents of the
+  untrained encoder's SAE, with no activation matching (item 4 as first committed, `439076a`, called
+  it "activation-matched"; that was wrong). The hashed 0.23 is its maximum over the four offsets in M's run
+  (`runs/dd/sae/score.json`, 3,116 galaxies: 0.210, 0.199, 0.232, 0.221; on the 4,999 reference
+  `runs/dd_v4ref`: 0.209, 0.201, 0.246, 0.217), where the untrained encoder reads **v1** stamps
+  (`interp_tooling.md`, S1: "matching-free: untrained best 0.23"). The aligned runs' 0.055, 0.057, 0.050,
+  0.043 (identical for A1 and A2, which share one untrained SAE) are the same statistic with the
+  untrained encoder reading **probe_v2** stamps. A random encoder therefore reads the misregistration
+  off v1 pixels at ~0.2 and not off v2's. Criterion 1b's test is the absolute bar (no latent ≥ 0.5),
+  and S1's specificity step never ran (no candidates), so this reference enters no state.
+- **Item 8: both plant sets are built without the encoder.** In `dd_sae_score.plants` the S1, S2 and
+  S3 plants are seeded synthetic arrays (activations, offsets, fire counts) and synthetic per-answer
+  records; the one real input is the S2 geometry check's single `sae_eval` stamp, which is data (the
+  same v2 stamp for A1 and A2). In `dd_part1b.plants` the encoder's map is unpacked as `_m` and unused:
+  the oracle is the labels plus N(0, 0.5), the fake is the brightness map plus noise, and the
+  comparators are the untrained and brightness maps, the same for A1 and A2. Identical files are
+  therefore expected; the plants test the scoring path, which the aligned runs share.
 
 ### Record (SHA-1)
 
