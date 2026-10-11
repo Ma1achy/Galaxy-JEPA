@@ -219,7 +219,10 @@ class TestTheSoftFloorIsScopedNotRemoved:
         import inspect
 
         from galaxy_jepa.objectives import jepa as mod
+        from galaxy_jepa.objectives import loop
 
-        source = inspect.getsource(mod.train_jepa)
-        assert "soft_rank_floor = cfg.sigreg_lambda <= 0.0" in source
+        # the loop takes it from the objective, and JEPA's objective takes it from sigreg_lambda
+        source = inspect.getsource(loop.train_objective)
+        assert "soft_rank_floor = obj.soft_rank_floor" in source
         assert "soft_rank_floor=soft_rank_floor" in source
+        assert "return self.config.sigreg_lambda <= 0.0" in inspect.getsource(mod.Jepa)
