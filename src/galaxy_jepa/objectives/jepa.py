@@ -253,6 +253,14 @@ class Jepa(nn.Module):
             weight_decay=self.config.weight_decay,
         )
 
+    def checkpoint_modules(self) -> dict[str, nn.Module]:
+        """Training state by payload key — the keys schema 1 has always used."""
+        return {
+            "encoder": self.encoder,
+            "target_encoder": self.target_encoder,
+            "predictor": self.predictor,
+        }
+
     def momentum_update(self, step: int) -> None:
         cfg = self.config
         self.ema_update(ema_momentum(step, cfg.steps, cfg.ema_start, cfg.ema_end))

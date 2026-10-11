@@ -12,6 +12,12 @@ carries the online encoder, the target encoder, the predictor, the AdamW moments
 *is* the position in both the LR warmup and the EMA cosine ramp), the RNG states, and the two
 hashes that say which experiment and which normalisation statistic this was.
 
+**Any objective, not only JEPA** (baselines build, ``artifacts/baselines.md`` §9 item 3). The
+objective names the modules that are training state (``checkpoint_modules()``: JEPA's are
+``encoder``, ``target_encoder`` and ``predictor``, the payload's keys since schema 1, so M's
+checkpoints load unchanged) and any state that is not a module (``extra_state()``: MoCo's negative
+queue and its pointer — left out, a resume would train against different negatives).
+
 **The manifest is the commit point**, exactly as ``index.json`` is for the fp16 cache. A payload
 is written to a temp path, fsynced, renamed (atomic on POSIX), digested and read back; only then
 is the manifest rewritten to name it. A payload file the manifest does not vouch for is
@@ -116,6 +122,21 @@ def _cpu_byte(t: Any) -> torch.Tensor:
     return t.detach().to(device="cpu", dtype=torch.uint8) if torch.is_tensor(t) else t
 
 
+def _modules(objective: Any) -> dict[str, torch.nn.Module]:
+    """The objective's training-state modules by payload key. JEPA's are fixed by schema 1."""
+    named = getattr(objective, "checkpoint_modules", None)
+    if named is None:
+        raise TypeError(f"{type(objective).__name__} does not name its checkpoint_modules()")
+    return dict(named())
+
+
+def _objective(objective: Any, jepa: Any) -> Any:
+    """``jepa=`` is the pre-baselines keyword, kept so existing callers need no edit."""
+    if (objective is None) == (jepa is None):
+        raise TypeError("pass exactly one of objective= or jepa=")
+    return objective if objective is not None else jepa
+
+
 def _set_rng_state(state: dict[str, Any]) -> None:
     torch.set_rng_state(_cpu_byte(state["torch"]))
     np.random.set_state(state["numpy"])
@@ -182,23 +203,24 @@ class TrainCheckpointer:
         self,
         *,
         step: int,
-        jepa: Any,
         optimiser: torch.optim.Optimizer,
         losses: list[float],
         collapse_history: list[dict[str, float]],
+        objective: Any = None,
+        jepa: Any = None,
     ) -> Path:
         """Write a checkpoint for ``step`` completed steps, then commit it in the manifest."""
+        obj = _objective(objective, jepa)
         t0 = time.perf_counter()
         path = self.dir / f"{_STEM}{step:09d}.pt"
-        payload = {
+        payload: dict[str, Any] = {
             "schema": CHECKPOINT_SCHEMA,
             "step": int(step),
-            "encoder_config": jepa.encoder.config,
-            "encoder": jepa.encoder.state_dict(),
-            # separate on purpose: re-deriving this from the online encoder would restart the
-            # EMA from a copy and change training while looking like a clean resume
-            "target_encoder": jepa.target_encoder.state_dict(),
-            "predictor": jepa.predictor.state_dict(),
+            "encoder_config": obj.encoder.config,
+            # every module that is training state, separately: for JEPA, re-deriving the target
+            # encoder from the online one would restart the EMA from a copy and change training
+            # while looking like a clean resume; for MoCo the key encoder is the same case
+            **{k: m.state_dict() for k, m in _modules(obj).items()},
             "optimiser": optimiser.state_dict(),
             "schedule": self.schedule,
             "rng": _rng_state(),
@@ -207,6 +229,9 @@ class TrainCheckpointer:
             "losses": list(losses),
             "collapse_history": [dict(r) for r in collapse_history],
         }
+        extra = getattr(obj, "extra_state", None)
+        if extra is not None:
+            payload["extra_state"] = extra()
         tmp = path.with_suffix(".pt.tmp")
         torch.save(payload, tmp)
         with tmp.open("rb") as fh:
@@ -280,9 +305,14 @@ class TrainCheckpointer:
     # --- resuming ------------------------------------------------------------------------
 
     def restore(
-        self, *, jepa: Any, optimiser: torch.optim.Optimizer, map_location: str = "cpu"
+        self,
+        *,
+        optimiser: torch.optim.Optimizer,
+        map_location: str = "cpu",
+        objective: Any = None,
+        jepa: Any = None,
     ) -> ResumeState | None:
-        """Load the newest committed checkpoint into ``jepa``/``optimiser``, or return ``None``.
+        """Load the newest committed checkpoint into the objective and optimiser, or ``None``.
 
         Every refusal here is loud. A resume that proceeds past a mismatch is the failure mode
         this whole module exists to prevent: it would look like the same run and not be one.
@@ -303,12 +333,27 @@ class TrainCheckpointer:
                 "manifest vouches for. The payload changed under a manifest that did not; this is "
                 "a torn or tampered checkpoint and it will not be loaded."
             )
+        obj = _objective(objective, jepa)
         payload = torch.load(path, map_location=map_location, weights_only=False)
         self._assert_compatible(payload, path)
 
-        jepa.encoder.load_state_dict(payload["encoder"])
-        jepa.target_encoder.load_state_dict(payload["target_encoder"])
-        jepa.predictor.load_state_dict(payload["predictor"])
+        modules = _modules(obj)
+        missing = [k for k in modules if k not in payload]
+        if missing:
+            raise RuntimeError(
+                f"{path.name} carries no {missing}: it was written by a different objective. "
+                "Loading the modules it does have would leave the rest at their initial weights."
+            )
+        has_extra = getattr(obj, "load_extra_state", None) is not None
+        if has_extra != ("extra_state" in payload):
+            raise RuntimeError(
+                f"{path.name} {'lacks' if has_extra else 'carries'} extra training state this "
+                f"objective {'needs' if has_extra else 'does not know'}; refusing a partial resume."
+            )
+        for k, m in modules.items():
+            m.load_state_dict(payload[k])
+        if has_extra:
+            obj.load_extra_state(payload["extra_state"])
         optimiser.load_state_dict(payload["optimiser"])
         _set_rng_state(payload["rng"])
         step = int(payload["step"])

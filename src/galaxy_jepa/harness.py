@@ -30,7 +30,7 @@ import statistics
 import time
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal, Self, overload
 
 import numpy as np
 import torch
@@ -61,6 +61,8 @@ from galaxy_jepa.data.sources import DirectorySource
 from galaxy_jepa.data.transforms import AsinhStretch, NormalisationFreeze, Pipeline
 from galaxy_jepa.models.vit import VisionTransformer, load_frozen_encoder
 from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, _to_device, train_jepa
+from galaxy_jepa.objectives.mae import Mae, MaeConfig
+from galaxy_jepa.objectives.moco import Moco, MocoConfig
 from galaxy_jepa.objectives.sigreg import DEFAULT_DOMAIN as SIGREG_DEFAULT_DOMAIN
 from galaxy_jepa.objectives.sigreg import DEFAULT_QUAD_POINTS as SIGREG_DEFAULT_QUAD_POINTS
 from galaxy_jepa.objectives.sigreg import DEFAULT_SLICES as SIGREG_DEFAULT_SLICES
@@ -272,8 +274,17 @@ class RuntimeConfig(RunConfig):
         return self.device or pick_device()
 
 
-class HarnessConfig(RunConfig):
-    """A complete, stamped run: data corpora + objective + model scale + probe + run knobs."""
+class RunBase(RunConfig):
+    """Everything a pretraining run carries except its objective: the corpora, the freezes, the
+    backbone, the read-out and the run knobs.
+
+    Lifted out of :class:`HarnessConfig` when the baselines arrived (``artifacts/baselines.md``
+    §9 item 1), so a baseline matched to M is M's config with one block swapped and nothing else
+    free to drift. ``config_hash`` sorts keys, so the lift moved no hash; the pins in
+    ``tests/test_configs_load.py`` hold that. The objective is deliberately **not** widened on
+    :class:`HarnessConfig`: every field is hashed, defaults included, so a MoCo field there would
+    move M's ``config_hash`` and M's checkpoints would refuse to resume.
+    """
 
     paths: PathsConfig
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
@@ -296,7 +307,6 @@ class HarnessConfig(RunConfig):
     monitor_frac: float = 0.02
     autocast: str | None = None  # None | "bf16" | "fp16"
     ratios: tuple[float, float, float] = (0.70, 0.15, 0.15)
-    objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     model: ModelConfig = Field(default_factory=ModelConfig)
     probe: ProbeConfig = Field(default_factory=ProbeConfig)
     probing: ProbingStageConfig = Field(default_factory=ProbingStageConfig)
@@ -320,16 +330,91 @@ class HarnessConfig(RunConfig):
             )
         return _AUTOCAST[self.autocast]
 
-    def to_jepa_config(self) -> JepaConfig:
-        return self.objective.to_jepa_config(seed=self.seed)
-
-    def with_resolved_device(self) -> HarnessConfig:
+    def with_resolved_device(self) -> Self:
         """A copy whose ``runtime.device`` is concrete, so the stamp records what actually ran."""
         if self.runtime.device:
             return self
         return self.model_copy(
             update={"runtime": RuntimeConfig(device=self.runtime.resolved_device())}
         )
+
+
+class HarnessConfig(RunBase):
+    """A complete, stamped run: data corpora + objective + model scale + probe + run knobs."""
+
+    objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
+
+    def to_jepa_config(self) -> JepaConfig:
+        return self.objective.to_jepa_config(seed=self.seed)
+
+
+class MocoObjectiveConfig(RunConfig):
+    """MoCo's block (``baselines.md`` §3): a flat mirror of :class:`MocoConfig` minus the seed,
+    which is the run's. ``name`` puts the objective into ``config_hash`` in words.
+
+    ``gain`` and ``noise_sigma`` are **not settled** (§3.4) and default to ``None``; the config
+    loads, so it can be read and hashed, but :class:`Moco` refuses to be built from it until
+    both are stated."""
+
+    name: Literal["moco"] = "moco"
+    steps: int = 253_270
+    batch_size: int = 32
+    lr: float = 1.875e-5
+    lr_final: float | None = 1.875e-8
+    weight_decay: float = 0.1
+    warmup_steps: int = 1250
+    queue: int = 65_536
+    momentum: float = 0.999
+    tau: float = 0.2
+    proj_hidden: int = 2048
+    proj_dim: int = 128
+    window_min: int = 10
+    window_max: int = 14
+    gain: float | None = None
+    blur_sigma: tuple[float, float] = (0.1, 2.0)
+    blur_p: float = 0.5
+    noise_sigma: float | None = None
+    monitor_every: int = 100
+    checkpoint_every: int = 6331
+
+    def to_moco_config(self, *, seed: int) -> MocoConfig:
+        return MocoConfig(**self.model_dump(exclude={"name"}), seed=seed)
+
+
+class MaeObjectiveConfig(RunConfig):
+    """MAE's block (``baselines.md`` §4): a flat mirror of :class:`MaeConfig` minus the seed."""
+
+    name: Literal["mae"] = "mae"
+    steps: int = 253_270
+    batch_size: int = 32
+    lr: float = 1.875e-5
+    lr_final: float | None = 1.875e-8
+    weight_decay: float = 0.05
+    betas: tuple[float, float] = (0.9, 0.95)
+    warmup_steps: int = 1250
+    mask_ratio: float = 0.75
+    dec_dim: int = 512
+    dec_depth: int = 8
+    dec_heads: int = 16
+    norm_pix: bool = True
+    norm_pix_eps: float = 1e-6
+    monitor_every: int = 100
+    checkpoint_every: int = 6331
+
+    def to_mae_config(self, *, seed: int) -> MaeConfig:
+        return MaeConfig(**self.model_dump(exclude={"name"}), seed=seed)
+
+
+class MocoRunConfig(RunBase):
+    """A MoCo baseline run: M's run configuration with MoCo's objective block (D12)."""
+
+    objective: MocoObjectiveConfig = Field(default_factory=MocoObjectiveConfig)
+
+
+class MaeRunConfig(RunBase):
+    """An MAE baseline run: M's run configuration with MAE's objective block (D12)."""
+
+    objective: MaeObjectiveConfig = Field(default_factory=MaeObjectiveConfig)
 
 
 # --- report ------------------------------------------------------------------------------
@@ -374,18 +459,30 @@ SliceReport = RunReport
 # --- objective seam ----------------------------------------------------------------------
 
 
-def build_objective(config: JepaConfig, encoder: VisionTransformer) -> Jepa:
-    """Construct the training objective for ``encoder``.
+@overload
+def build_objective(config: JepaConfig, encoder: VisionTransformer) -> Jepa: ...
+@overload
+def build_objective(config: MocoConfig, encoder: VisionTransformer) -> Moco: ...
+@overload
+def build_objective(config: MaeConfig, encoder: VisionTransformer) -> Mae: ...
+def build_objective(
+    config: JepaConfig | MocoConfig | MaeConfig, encoder: VisionTransformer
+) -> Jepa | Moco | Mae:
+    """Construct the training objective for ``encoder``: the objective switch point.
 
-    The objective switch point. Today there is one path — the latent-MSE JEPA. This is a
-    *partial* seam, not a one-line one: a future MAE / contrastive baseline adds its module
-    class and a branch here **and** must also widen the config type (``JepaConfig`` →
-    Protocol/union), add a second training loop (``train_jepa``'s EMA / latent-MSE loop is
-    JEPA-specific), and adjust ``calibrate``'s predictor-reach — so don't under-scope a
-    baseline as trivial. No name-keyed registry is built until that second consumer actually
-    lands (the repo's "second consumer" rule).
+    The config's type picks the objective. Three cases and a closed set, so a branch per case
+    rather than a name-keyed registry; every one trains through
+    :func:`~galaxy_jepa.objectives.loop.train_objective`. Build the encoder with
+    :func:`seed_init` *first*: each objective draws its own modules after it from the same seeded
+    stream, so a baseline's encoder init is byte-identical to M's for the same seed.
     """
-    return Jepa(encoder, config)
+    if isinstance(config, JepaConfig):
+        return Jepa(encoder, config)
+    if isinstance(config, MocoConfig):
+        return Moco(encoder, config)
+    if isinstance(config, MaeConfig):
+        return Mae(encoder, config)
+    raise TypeError(f"no objective is built from a {type(config).__name__}")
 
 
 def seed_init(seed: int, stamp_px: int, model_kwargs: dict[str, Any] | None) -> VisionTransformer:
@@ -1155,17 +1252,21 @@ class CalibrationResult:
 
 
 def calibrate(
-    jepa: Jepa,
+    objective: Jepa | Moco | Mae,
     loader: DataLoader,
     *,
     device: str | None = None,
     steps: int = 50,
     autocast_dtype: torch.dtype | None = None,
 ) -> CalibrationResult:
-    """Time the dataloader against the model step and classify the bottleneck (slice plan)."""
+    """Time the dataloader against the model step and classify the bottleneck (slice plan).
+
+    The step is the training loop's: the objective's own optimiser over its own trained
+    parameters, and its momentum update (JEPA's EMA, MoCo's key encoder; a no-op for MAE), which
+    is part of what a training step costs."""
     device = device or pick_device()
-    jepa.to(device)
-    opt = torch.optim.AdamW([*jepa.encoder.parameters(), *jepa.predictor.parameters()], lr=1e-3)
+    objective.to(device)
+    opt = objective.make_optimiser()
     data_times, step_times = [], []
     it = iter(loader)
     for i in range(steps):
@@ -1181,11 +1282,12 @@ def calibrate(
         opt.zero_grad(set_to_none=True)
         if autocast_dtype is not None:
             with torch.autocast(device_type=device.split(":")[0], dtype=autocast_dtype):
-                loss = jepa.loss_step(batch, seed=i)
+                loss = objective.loss_parts(batch, seed=i).total
         else:
-            loss = jepa.loss_step(batch, seed=i)
+            loss = objective.loss_parts(batch, seed=i).total
         loss.backward()
         opt.step()
+        objective.momentum_update(i)
         _sync(device)
         t2 = time.perf_counter()
         if i >= 2:  # skip warm-up iterations

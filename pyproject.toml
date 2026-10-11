@@ -50,6 +50,11 @@ src = ["src", "tests"]
 # remain fully linted.
 extend-exclude = ["artifacts"]
 
+[tool.ruff.format]
+# The pre-refactor training loop, kept verbatim as the identity test's reference (baselines build
+# 2a): reformatting it would make it no longer the code that trained M.
+exclude = ["tests/_legacy_jepa_loop.py"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]
 

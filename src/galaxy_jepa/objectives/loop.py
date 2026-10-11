@@ -73,6 +73,8 @@ class Objective(Protocol):
 
     def momentum_update(self, step: int) -> None: ...
 
+    def checkpoint_modules(self) -> dict[str, Any]: ...
+
     @property
     def soft_rank_floor(self) -> bool: ...
 
@@ -166,7 +168,7 @@ def train_objective(
                 "data order is not recoverable, so the resumed run would train on a different "
                 "sequence from the same step. A resume that runs but diverges is worse than none."
             )
-        state = checkpointer.restore(jepa=obj, optimiser=opt, map_location=device)
+        state = checkpointer.restore(objective=obj, optimiser=opt, map_location=device)
         if state is not None:
             assert isinstance(sampler, ResumableShuffle)  # guaranteed by the refusal above
             start_step, losses, restored = state.step, list(state.losses), state.collapse_history
@@ -252,7 +254,7 @@ def train_objective(
         if checkpointer is not None and (step + 1) % checkpointer.every == 0:
             checkpointer.save(
                 step=step + 1,
-                jepa=obj,
+                objective=obj,
                 optimiser=opt,
                 losses=losses,
                 collapse_history=monitor.history,
@@ -267,7 +269,7 @@ def train_objective(
         # land the checkpoint exactly where the loop stopped, or the resume would repeat work
         checkpointer.save(
             step=done,
-            jepa=obj,
+            objective=obj,
             optimiser=opt,
             losses=losses,
             collapse_history=monitor.history,
@@ -277,7 +279,7 @@ def train_objective(
         # thing a probe re-run would want and re-deriving it costs the whole job
         checkpointer.save(
             step=cfg.steps,
-            jepa=obj,
+            objective=obj,
             optimiser=opt,
             losses=losses,
             collapse_history=monitor.history,
