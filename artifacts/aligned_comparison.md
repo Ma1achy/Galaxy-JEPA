@@ -676,3 +676,122 @@ shown identical.
   the original code; A1 and A2's are trained with the fix. The identity tests — same loss and
   gradients at every dead count, so the same optimiser trajectory — are what keep them comparable.
 
+
+## Results (scored 2026-10-11, exactly as hashed)
+
+Outside the hashed section (`637dddda…`, verified unchanged before any result was read). Scored by
+`artifacts/aligned_score.py` through the chain (`runs/aligned_score/chain_resume3.sh`, all 36 steps
+exit 0, ALLDONE 03:04). Criteria read in order 1 → 4; criterion 1 was complete before 2–4 were opened.
+No threshold, state or statistic was changed after a result was seen.
+
+**Before scoring.** The ten plant-evidence pins match byte for byte; `powered.json` is
+`285cdc4e…` (33 powered answers). The hashed plants rerun on the aligned encoders fire as on M: the
+SAE plants (`all_fire_as_expected` true, A1 and A2), V3′'s spiral plants (oracle PASS,
+brightness-as-M FAIL, comparators < 0.95), 4b's plants INAPPLICABLE with the test.
+
+**Process note.** The chain stopped once at A1's `dd_part4b.py pools` (2026-10-10 17:51): the declared
+4b INAPPLICABLE guard (2026-10-09 evening) covered `plants()` and `run()` but not `pool_report()`,
+which the chain calls first, and an empty offset set gave `np.ix_` float indices. The guard was added
+there (commit `abf4862`, the same declared rule; user approved) and the chain resumed at that step. The
+traceback itself showed A1's offset set was empty; nothing else was read.
+
+### States
+
+| criterion | state |
+|---|---|
+| 1, fix | **FIXED** |
+| 2, morphology | **SAME** |
+| 3, representation | nuisance **CLEANER**; morphology share **SAME**; dimensionality **SAME**; flags **LOWER** |
+| 4, interpretability | S3 **SAME** (FAIL in both); V3′ spiral **REVERSED** in both (M: REVERSED); 4b **INAPPLICABLE** in both |
+
+### Reading
+
+FIXED + SAME: **the fix worked but probed morphology did not improve; 3 says where the capacity
+went.** Criterion 3 reads CLEANER + SAME Mo: the variance M spent on the offset moved to untracked
+directions, not to the probed morphology; PR reads SAME, so it neither clearly spread out nor
+concentrated beyond the floor.
+
+### Numbers
+
+- **1a** (40,000-capped train, 39,997 after the 9; 34,828 test; 10,000-draw bootstrap). All four
+  NEAR CHANCE in both seeds:
+
+  | offset | A1 AUC [95% CI] | A2 AUC [95% CI] | M1 on probe_v2 (reported) |
+  |---|---|---|---|
+  | g−r x | 0.500 [0.494, 0.507] | 0.501 [0.495, 0.507] | 0.501 |
+  | g−r y | 0.507 [0.501, 0.513] | 0.507 [0.501, 0.513] | 0.500 |
+  | i−r x | 0.499 [0.493, 0.505] | 0.501 [0.495, 0.507] | 0.501 |
+  | i−r y | 0.504 [0.498, 0.510] | 0.505 [0.498, 0.511] | 0.508 |
+- **1b.** Chosen width 8× in both (8× and 16× FAIL S3 at block 11). Largest galaxy-level |ρ| over all
+  latents with any offset, 4,999 sae_eval galaxies: A1 0.059, A2 0.044 (bar 0.5; M 0.910). S1
+  candidates 0 in both.
+- **2** (full split 160,849 / 34,828; 2,000-draw paired bootstrap; 33 powered answers).
+  D̄ = +0.0039, 95% CI [+0.0024, +0.0055]; S̄ = 0.0181. The CI lies inside [−S̄, +S̄]: SAME. Per
+  answer under B_j: 30 SAME, 3 UNRESOLVED (dust lane, 4 arms, more than 4 arms), none BETTER or
+  WORSE. Mean |A1 − A2| 0.0299 against mean |M1 − M2| 0.0063. M1 on probe_v2: mean powered AUC 0.732
+  (on v1, 0.728). Elongation group (exploratory) D_j: edge-on yes +0.0005, edge-on no +0.0014, cigar
+  +0.0020, completely round +0.0149.
+- **3** (test split, block 11 pooled).
+
+  | | A1 | A2 | M1 | M2 | floor F_q |
+  |---|---|---|---|---|---|
+  | N (top-10 share tracking offsets or brightness) | 0.261 | 0.365 | 0.541 | 0.480 | 0.048 |
+  | offset-tracking top-10 PC | none | none | PC1, PC2 | PC1, PC2 | |
+  | Mo | 0 | 0.085 | 0 | 0 | 0 |
+  | PR | 16.53 | 11.53 | 9.63 | 13.19 | 2.79 |
+  | live latents | 1,444 | 944 | 972 | 1,096 | |
+  | flagged | 0.922 | 0.863 | 0.926 | 0.979 | |
+  | offset-flagged | 0.0028 | 0.0011 | 0.276 | 0.504 | 0.179 |
+  | other-nuisance-flagged | 0.919 | 0.862 | 0.650 | 0.475 | |
+
+  Interpretable fraction (1 − flagged): A1 0.078, A2 0.137, M1 0.074, M2 0.021. PC1 tracks brightness
+  in both aligned seeds (A1 17.9%, A2 24.2% of variance).
+- **4.** S3 at the chosen 8×: A1 FAIL, mean drop 0.0229, held-out dead 23.3%; A2 FAIL, mean drop
+  0.0221, held-out dead 36.7% (M: FAIL, 0.029, 37%). V3′ spiral, m_drop1 v3: arm AUC [point, CI]
+  A1 0.667 [0.651, 0.676], A2 0.667 [0.667, 0.688] (M 0.665); ΔAUC against brightness −0.135 (A1),
+  −0.108 (A2), M −0.139; REVERSED in every sensitivity variant (votes 2/3/5, f25, drop2, noise1,
+  direct), as M. 4b: INAPPLICABLE (max |ρ| 0.059 and 0.044).
+
+### Unexpected, flagged (not interpreted)
+
+1. **The aligned seeds differ far more than M's.** Mean |A1 − A2| = 0.030 against |M1 − M2| = 0.006,
+   and A2 > A1 on all 37 answers (M1 > M2 on 28). S̄ pools both conditions, so the bar of criterion 2
+   is set mostly by the aligned spread.
+2. **D̄'s CI excludes zero** ([+0.0024, +0.0055]) while lying well inside ±S̄.
+3. **M read on probe_v2 also reads NEAR CHANCE on all four offsets**, and its mean powered AUC is
+   slightly higher on v2 than on v1 (0.732 against 0.728).
+4. **1b's untrained reference.** The hashed text gives the untrained encoder's best |ρ| over all
+   latents as 0.23; the aligned `score.json` records the activation-matched untrained latents' best per
+   offset as 0.043–0.057. The two may be different quantities; the aligned maxima (0.059, 0.044) sit
+   at the latter.
+5. **Mo is split by seed.** A2 has a morphology-tracking PC (PC2, 8.5% of variance); A1 has none, so
+   the rule (both seeds) reads SAME.
+6. **Flags moved from offsets to other nuisances.** Offset-flagged fell to ~0.1–0.3%, but
+   other-nuisance-flagged rose (0.92 and 0.86 against 0.65 and 0.48), so the total flagged fraction
+   barely moved. A1 has ~1.5× M's live latents (1,444).
+7. **Block 6 differs from block 11 in S3.** Both aligned encoders' block-6 SAEs PASS S3 at 8× and 16×;
+   block 11 FAILs. Block 6 is not in the reading.
+8. **A1's and A2's plant files are byte-identical** (SAE plants `0d0ee9c9…`, V3′ plants `d98f2785…`):
+   both plants are built from labels, brightness and synthetic latents, not from the encoder.
+
+### Record (SHA-1)
+
+| file | SHA-1 |
+|---|---|
+| `artifacts/out/aligned/c1a.json` | `c0a3e42ccc194cbe6723899c7a63b4f36f716283` |
+| `artifacts/out/aligned/c2.json` | `c7f144fccf47978669b0101d7ed8e5cb17f46f9d` |
+| `artifacts/out/aligned/c3.json` | `b258200aac911dba8191fed52092d10910f2dbc2` |
+| `artifacts/out/aligned/m1v2_embed.json` | `9b2e9d940808d6f9e9a36bb0068dc0e628a406ef` |
+| `artifacts/out/aligned/powered.json` | `285cdc4e42f2318f6ded6480e7e4326d5cf4addd` |
+| `runs/dd_a1/sae/score.json` | `5890d4493dbb9aafb0c106aec69de697bee482c6` |
+| `runs/dd_a2/sae/score.json` | `ad03a9ec13c265c620671d1a99a56ea2adb32638` |
+| `runs/dd_a1/sae/A1_b11_x8.eval.json` | `84c1c3491c837d9411e179aa1d508feb082d26dd` |
+| `runs/dd_a2/sae/A2_b11_x8.eval.json` | `bfb16cf965bbb6d1a20ae86705b1d226b720b363` |
+| `runs/dd_a1/sae/part4b.json` | `284ca0e821392cbd4050ce594b8dcad284647df0` |
+| `runs/dd_a2/sae/part4b.json` | `36b1e4b28a4bd0525285a8e9e810ed78ed3b2d31` |
+| `runs/dd_a1/sae/part4b_plants.json` | `78486bb3672f9804d801487267441c058c8cc942` |
+| `runs/dd_a2/sae/part4b_plants.json` | `60861070440426d57780f6c45a1135b1123fc237` |
+| `runs/dd_a{1,2}/sae/plants.json` | `0d0ee9c9a86b7534ee66dd19de0cfb91566f5a00` |
+| `runs/dd_a1/part1/v3b_score.json` | `335ef79aaf62857e803b68bb2a013d91f1b79d2a` |
+| `runs/dd_a2/part1/v3b_score.json` | `65eeb37bc1170826e450df067f0f3dc6e534ef5c` |
+| `runs/dd_a{1,2}/part1/v3b_plants.json` | `d98f278597d92e1bbed3eb32946d4019b2847bab` |
