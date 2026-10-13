@@ -9,12 +9,18 @@ negatives. AdamW, torch's default betas, weight decay 0.1 on every trained param
 
 **Views (§3.4): minimal, objective-intrinsic, no flips, no rotations, no resampling.** Per step one
 window side s ∈ {10, …, 14} tokens, shared by the batch; per image and view an independent window
-position. Each view is the image after a per-band gain, a Gaussian blur at p = 0.5 and additive
+position. Each view is the image after a gain, a Gaussian blur at p = 0.5 and additive
 Gaussian noise, then ``patch_embed_tokens`` and a gather of the window: the hook JEPA's context path
 uses, so positions are an exact subset of the fixed sin-cos grid and the full-grid read-out stays in
 distribution. Every draw comes from generators seeded with the loop's per-step seed, so a resume
-reproduces the views with no saved augmentation state. **The gain and noise magnitudes are not
-settled** (§3.4 leaves both open); they have no default here and a MoCo built without them refuses.
+reproduces the views with no saved augmentation state.
+
+**Gain and noise, settled (user, 2026-10-13; §3.4).** A global gain ×U(0.9, 1.1), the same for all
+bands (brightness, not colour); a per-band gain ×U(0.98, 1.02), independent per band, about SDSS's
+photometric calibration and small enough to keep colour; additive noise σ_aug = u × σ_sky per band,
+u ~ U(0, 1) per view, with σ_sky the normalised sky σ measured in M's v1 cache
+(``artifacts/sky_sigma.py``). Augmentation defines MoCo's invariances: a ±10% per-band gain would
+make it invariant to colour, a strong morphology signal, and handicap it on what is probed.
 
 The projector reads the mean of the window's final-block tokens after the final norm (there is no
 CLS token). The saved encoder is the query encoder, a plain :class:`VisionTransformer`, read by
@@ -52,14 +58,14 @@ class MocoConfig:
     proj_dim: int = 128
     window_min: int = 10  # tokens per side; 16 is the full grid
     window_max: int = 14
-    #: Per-band multiplicative gain, uniform in [1 − g, 1 + g] per band and view. NOT SETTLED
-    #: (§3.4: "proposed ±10%" pending Hayat et al.'s parameterisation); no default on purpose.
-    gain: float | None = None
+    gain_global: float = 0.1  # ×U(1 − g, 1 + g), one draw per image and view, all bands alike
+    gain_band: float = 0.02  # ×U(1 − g, 1 + g), independent per band, image and view
     blur_sigma: tuple[float, float] = (0.1, 2.0)  # px, uniform; v2's aug+
     blur_p: float = 0.5
-    #: Additive Gaussian noise σ in normalised units. NOT SETTLED (§3.4: "a fraction of the
-    #: normalised sky σ"); no default on purpose.
-    noise_sigma: float | None = None
+    #: The normalised sky σ per band (g, r, i): median over 2,000 train stamps' 16-px frames of a
+    #: 3σ-clipped MAD σ in M's v1 cache (``artifacts/sky_sigma.py``, 2026-10-13).
+    sky_sigma: tuple[float, float, float] = (0.414, 0.501, 0.612)
+    noise_u_max: float = 1.0  # σ_aug = u × sky_sigma, u ~ U(0, noise_u_max) per image and view
     monitor_every: int = 100
     checkpoint_every: int = 6331
     seed: int = 0
@@ -101,12 +107,6 @@ class Moco(nn.Module):
 
     def __init__(self, encoder: VisionTransformer, config: MocoConfig):
         super().__init__()
-        unset = [k for k in ("gain", "noise_sigma") if getattr(config, k) is None]
-        if unset:
-            raise ValueError(
-                f"MoCo's augmentation {unset} is not settled (baselines.md §3.4) and has no "
-                "default: state it in the config before any MoCo trains."
-            )
         if config.queue % config.batch_size:
             raise ValueError(
                 f"queue {config.queue} must be a multiple of batch {config.batch_size}"
@@ -135,22 +135,27 @@ class Moco(nn.Module):
         Every draw is from generators seeded by ``seed``: the side and positions on the CPU (small),
         the per-pixel noise on the images' device."""
         cfg = self.config
-        gain_mag, noise = float(cast(float, cfg.gain)), float(cast(float, cfg.noise_sigma))
-        b = images.shape[0]
+        b, c = images.shape[:2]
+        if len(cfg.sky_sigma) != c:
+            raise ValueError(f"sky_sigma has {len(cfg.sky_sigma)} bands, the images {c}")
+        sky = torch.tensor(cfg.sky_sigma, dtype=images.dtype).view(1, c, 1, 1)
         grid = self.encoder.grid_size
         g = torch.Generator().manual_seed(int(seed))
         side = int(torch.randint(cfg.window_min, cfg.window_max + 1, (1,), generator=g))
         gd = torch.Generator(device=images.device).manual_seed(int(seed) + 1)
         out = []
         for _view in range(2):
-            gain = 1.0 + gain_mag * (2.0 * torch.rand(b, images.shape[1], 1, 1, generator=g) - 1.0)
+            gain = (1.0 + cfg.gain_global * (2.0 * torch.rand(b, 1, 1, 1, generator=g) - 1.0)) * (
+                1.0 + cfg.gain_band * (2.0 * torch.rand(b, c, 1, 1, generator=g) - 1.0)
+            )
+            sd = cfg.noise_u_max * torch.rand(b, 1, 1, 1, generator=g) * sky
             on = torch.rand(b, generator=g) < cfg.blur_p
             lo, hi = cfg.blur_sigma
             sig = torch.where(on, lo + (hi - lo) * torch.rand(b, generator=g), torch.zeros(b))
             x = images * gain.to(images.device)
             if bool(on.any()):
                 x = blur(x, sig.to(images.device))
-            x = x + noise * torch.randn(x.shape, generator=gd, device=x.device)
+            x = x + sd.to(x.device) * torch.randn(x.shape, generator=gd, device=x.device)
             y0 = torch.randint(0, grid - side + 1, (b,), generator=g)
             x0 = torch.randint(0, grid - side + 1, (b,), generator=g)
             r = torch.arange(side)

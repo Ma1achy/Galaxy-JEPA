@@ -80,10 +80,14 @@ objective:                  # artifacts/baselines.md §3 (F3, F4, F7 (b))
   proj_dim: 128
   window_min: 10            # token-grid window side, tokens (§3.4 item 1)
   window_max: 14
-  gain: null                # NOT SETTLED (§3.4 item 2, "proposed ±10%"). MoCo refuses to build
-  blur_sigma: [0.1, 2.0]    #   until it is stated; so does noise_sigma below.
+  # Gain and noise settled (user, 2026-10-13; baselines.md §3.4): augmentation defines MoCo's
+  # invariances, and a ±10% per-band gain would make it invariant to colour.
+  gain_global: 0.1          # ×U(0.9, 1.1), all bands alike: brightness, not colour
+  gain_band: 0.02           # ×U(0.98, 1.02) per band: ~ SDSS photometric calibration
+  blur_sigma: [0.1, 2.0]
   blur_p: 0.5
-  noise_sigma: null         # NOT SETTLED (§3.4 item 4: a fraction of the normalised sky σ)
+  sky_sigma: [0.414, 0.501, 0.612]  # normalised sky σ (g, r, i), M's v1 cache (artifacts/sky_sigma.py)
+  noise_u_max: 1.0          # σ_aug = u × sky_sigma, u ~ U(0, 1) per image and view
   monitor_every: 100
   checkpoint_every: 6331
 

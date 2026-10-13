@@ -160,9 +160,9 @@ def main() -> None:
     print(f"{L} checkpoints : every {every:,}, keep={keep}")
     print(f"{L} probes      : {'none' if args.no_probe else ', '.join(f'{p:,}' for p in points)} "
           "(trajectories only, never a checkpoint choice)")
-    unset = [k for k in ("gain", "noise_sigma") if getattr(obj, k, 0.0) is None]
-    if unset:
-        print(f"{L} UNSETTLED   : {unset} (§3.4) — MoCo refuses to build until both are stated")
+    if arm.kind == "moco":
+        print(f"{L} views       : gain ×U(1±{obj.gain_global}) global, ×U(1±{obj.gain_band}) per band; "
+              f"noise u×σ_sky {obj.sky_sigma}, u~U(0,{obj.noise_u_max}); blur p {obj.blur_p}")
     if args.plan:
         print(f"\n{L} --plan: nothing launched")
         return

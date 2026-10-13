@@ -350,11 +350,7 @@ class HarnessConfig(RunBase):
 
 class MocoObjectiveConfig(RunConfig):
     """MoCo's block (``baselines.md`` §3): a flat mirror of :class:`MocoConfig` minus the seed,
-    which is the run's. ``name`` puts the objective into ``config_hash`` in words.
-
-    ``gain`` and ``noise_sigma`` are **not settled** (§3.4) and default to ``None``; the config
-    loads, so it can be read and hashed, but :class:`Moco` refuses to be built from it until
-    both are stated."""
+    which is the run's. ``name`` puts the objective into ``config_hash`` in words."""
 
     name: Literal["moco"] = "moco"
     steps: int = 253_270
@@ -370,10 +366,12 @@ class MocoObjectiveConfig(RunConfig):
     proj_dim: int = 128
     window_min: int = 10
     window_max: int = 14
-    gain: float | None = None
+    gain_global: float = 0.1
+    gain_band: float = 0.02
     blur_sigma: tuple[float, float] = (0.1, 2.0)
     blur_p: float = 0.5
-    noise_sigma: float | None = None
+    sky_sigma: tuple[float, float, float] = (0.414, 0.501, 0.612)
+    noise_u_max: float = 1.0
     monitor_every: int = 100
     checkpoint_every: int = 6331
 

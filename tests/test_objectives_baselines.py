@@ -68,8 +68,6 @@ def _moco(steps=20, **kw) -> Moco:
         "window_min": 2,
         "window_max": 3,
         "monitor_every": 5,
-        "gain": 0.1,
-        "noise_sigma": 0.05,
     }
     return Moco(seed_init(0, 64, TINY), MocoConfig(steps=steps, **{**base, **kw}))
 
@@ -198,17 +196,36 @@ def test_mae_loss_reads_only_the_masked_patches(monkeypatch):
 # ── MoCo ───────────────────────────────────────────────────────────────────────────────────────
 
 
-def test_moco_refuses_unsettled_augmentation():
-    with pytest.raises(ValueError, match="not settled"):
-        Moco(seed_init(0, 64, TINY), MocoConfig(gain=None, noise_sigma=0.1))
-    with pytest.raises(ValueError, match="not settled"):
-        Moco(seed_init(0, 64, TINY), MocoConfig(gain=0.1, noise_sigma=None))
+def _captured_view(moco, images, seed):
+    """The augmented image the query view tokenises (before the window gather)."""
+    seen = []
+    real = moco.encoder.patch_embed_tokens
+    moco.encoder.patch_embed_tokens = lambda x: (seen.append(x), real(x))[1]
+    moco.views(images, seed=seed)
+    moco.encoder.patch_embed_tokens = real
+    return seen[0]
+
+
+def test_moco_gain_is_global_plus_a_small_per_band_term_and_noise_follows_sky():
+    """The settled views (2026-10-13): colour ratios move by at most the per-band term, so colour
+    survives the gain; the noise σ follows each band's sky σ."""
+    img = torch.rand(8, 3, 64, 64) + 0.5
+    ratio = _captured_view(_moco(blur_p=0.0, noise_u_max=0.0), img, 3) / img
+    per = ratio[:, :, 0, 0]  # one gain per image and band
+    assert torch.allclose(ratio, per[:, :, None, None].expand_as(ratio), atol=1e-5)
+    colour = per / per[:, 1:2]  # relative to r: the global term cancels
+    assert ((colour > 0.98 / 1.02 - 1e-6) & (colour < 1.02 / 0.98 + 1e-6)).all()
+    assert ((per > 0.9 * 0.98 - 1e-6) & (per < 1.1 * 1.02 + 1e-6)).all()
+    assert per[:, 1].std() > 0.02  # the global term actually varies brightness
+    noisy = _moco(blur_p=0.0, gain_global=0.0, gain_band=0.0, sky_sigma=(0.1, 1.0, 10.0))
+    sd = _captured_view(noisy, torch.zeros(64, 3, 64, 64), 4).std(dim=(0, 2, 3))
+    assert torch.allclose(sd / sd[1], torch.tensor([0.1, 1.0, 10.0]), rtol=0.05)
 
 
 def test_moco_views_are_axis_aligned_windows_of_the_unflipped_image():
     """With every photometric augmentation off, a view is exactly a contiguous, axis-aligned
     sub-grid of the image's own tokens: no flip, rotation or transpose can produce that."""
-    moco = _moco(gain=0.0, noise_sigma=0.0, blur_p=0.0)
+    moco = _moco(gain_global=0.0, gain_band=0.0, noise_u_max=0.0, blur_p=0.0)
     x = _images()
     full = moco.encoder.patch_embed_tokens(x).detach()
     q, k, side = moco.views(x, seed=11)
@@ -338,7 +355,7 @@ def test_planted_positive_the_loss_can_be_driven_down(make):
 
 
 def test_configs_round_trip_settled_defaults():
-    mc, ac = MocoConfig(gain=0.1, noise_sigma=0.1), MaeConfig()
+    mc, ac = MocoConfig(), MaeConfig()
     assert (mc.queue, mc.momentum, mc.tau, mc.lr, mc.weight_decay) == (
         65_536,
         0.999,
@@ -400,16 +417,20 @@ def test_the_objective_block_mirrors_its_dataclass_field_for_field(block, settle
         assert getattr(converted, k) == getattr(default, k), k
 
 
-def test_moco_as_configured_refuses_until_its_augmentation_is_settled():
+def test_moco_as_configured_states_the_settled_views():
     yaml = pytest.importorskip("yaml")
     with open("configs/moco.yaml") as fh:
-        cfg = MocoRunConfig(**yaml.safe_load(fh))
-    with pytest.raises(ValueError, match="not settled"):
-        build_objective(cfg.objective.to_moco_config(seed=0), seed_init(0, 64, TINY))
+        o = MocoRunConfig(**yaml.safe_load(fh)).objective
+    assert (o.gain_global, o.gain_band, o.sky_sigma, o.noise_u_max) == (
+        0.1,
+        0.02,
+        (0.414, 0.501, 0.612),
+        1.0,
+    )
 
 
 def test_build_objective_dispatches_on_the_config_type():
-    moco = MocoObjectiveConfig(gain=0.1, noise_sigma=0.05, queue=64, batch_size=4)
+    moco = MocoObjectiveConfig(queue=64, batch_size=4)
     built = [
         build_objective(
             JepaConfig(pred_dim=16, pred_depth=1, pred_heads=2), seed_init(0, 64, TINY)

@@ -173,15 +173,39 @@ the device inside the loss step (the loader has `num_workers=0`).
    no new positional code**: positions are an exact subset of the fixed 16×16 sin-cos grid, so the
    full-grid read-out is positionally in-distribution, and M's tokenisation phase is kept. This
    replaces RandomResizedCrop, whose scale jitter resamples.
-2. **Per-band gain** on the normalised tensor, independent per band and view: the gri analogue of
-   v2's colour jitter and Hayat's reddening. *Magnitude to fix (proposed ±10%) once Hayat's
-   parameterisation is verified.*
+2. **Gain** on the normalised tensor, per image and view: a **global** gain ×U(0.9, 1.1), the same
+   for all bands, and a **per-band** gain ×U(0.98, 1.02), independent per band (settled 2026-10-13,
+   below).
 3. **Gaussian blur**, σ ∈ [0.1, 2.0] px at p = 0.5: v2's aug+ (from SimCLR), standing in for
    Hayat's varying PSF. SDSS seeing ≈ 1.4″ ≈ σ 1.5 px, so σ up to 2 px roughly doubles the PSF.
-4. **Additive Gaussian noise** (Hayat). *σ to fix as a fraction of the normalised sky σ.*
+4. **Additive Gaussian noise** (Hayat): σ_aug = u × σ_sky per band, u ~ U(0, 1) per image and view
+   (settled 2026-10-13, below).
 
 Dropped: flips and rotations (D10); grayscale (destroys colour); hue and saturation (meaningless for
 gri); resized crops (no-rebin).
+
+**Settled (user, 2026-10-13): gain and noise.**
+
+- Global gain ×U(0.9, 1.1), applied identically to all bands: it changes brightness, not colour.
+- Per-band gain ×U(0.98, 1.02), independent per band: about SDSS's photometric calibration, and small
+  enough to keep colour information.
+- Additive Gaussian noise σ_aug = u × σ_sky per band, u ~ U(0, 1).
+- No translation between bands and no offset augmentation (F6).
+- **Reason.** Augmentations define MoCo's invariances. A ±10% per-band gain (the earlier proposal)
+  would make MoCo invariant to colour, a strong morphology signal, and so handicap it on exactly what
+  is probed.
+- **σ_sky, measured** (`artifacts/sky_sigma.py` → `artifacts/out/sky_sigma_v1.json`): M's v1 fp16
+  cache (asinh q = 4, frozen Normalise `75100066…`); 2,000 stamps from M's pretrain train split
+  (numpy seed 20261013); each stamp's outer 16-px frame (≥ 44″ from the centre); per stamp and band a
+  1.4826 × MAD σ after iterative 3σ clipping; the median over stamps. **g 0.414, r 0.501, i 0.612**
+  normalised units (16th–84th percentiles 0.312–0.475, 0.387–0.550, 0.501–0.709); sky level −0.10 to
+  −0.13; about 1% of each frame clipped. The frozen Normalise std is dominated by sky pixels, so
+  σ_sky is a large fraction of a unit: at u = 1 a view carries √2 × the native sky noise.
+- **Held, not implemented: rotations by multiples of 90° and flips.** The decision lists them (citing
+  D4, which is the from-scratch decision), but D10 revised (2026-09-23) rules out rotation and
+  reflection for M and every D12 baseline, its reason 4 being one symmetry policy across the encoder
+  family; flips would also erase handedness. Awaiting the user's explicit call; the code has no flip
+  or rotation op, and a test pins that.
 
 **Known shortcut risk: band misregistration.** v1 stamps carry per-galaxy sub-pixel g/r/i offsets
 (AA3a; `TODO.md:447-455`). Crops preserve them, so instance discrimination could key on them.
