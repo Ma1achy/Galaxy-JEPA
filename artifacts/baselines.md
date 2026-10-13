@@ -201,11 +201,11 @@ gri); resized crops (no-rebin).
   normalised units (16th–84th percentiles 0.312–0.475, 0.387–0.550, 0.501–0.709); sky level −0.10 to
   −0.13; about 1% of each frame clipped. The frozen Normalise std is dominated by sky pixels, so
   σ_sky is a large fraction of a unit: at u = 1 a view carries √2 × the native sky noise.
-- **Held, not implemented: rotations by multiples of 90° and flips.** The decision lists them (citing
-  D4, which is the from-scratch decision), but D10 revised (2026-09-23) rules out rotation and
-  reflection for M and every D12 baseline, its reason 4 being one symmetry policy across the encoder
-  family; flips would also erase handedness. Awaiting the user's explicit call; the code has no flip
-  or rotation op, and a test pins that.
+- **No rotations and no flips: D10 revised stands (user, 2026-10-13).** The decision first listed
+  rotations by multiples of 90° and flips (citing D4, which is the from-scratch decision); asked
+  against D10 revised (2026-09-23), which rules out rotation and reflection for M and every D12
+  baseline (its reason 4: one symmetry policy across the encoder family) and whose flips would erase
+  handedness, the user kept D10. The code has no flip or rotation op, and a test pins that.
 
 **Known shortcut risk: band misregistration.** v1 stamps carry per-galaxy sub-pixel g/r/i offsets
 (AA3a; `TODO.md:447-455`). Crops preserve them, so instance discrimination could key on them.
