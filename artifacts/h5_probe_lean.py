@@ -36,7 +36,8 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from f0_preconditions import check  # noqa: E402
-from f1_loader_bench import OUT  # noqa: E402
+import ladder_env as L  # noqa: E402
+from f1_loader_bench import OUT as _OUT  # noqa: E402
 
 from galaxy_jepa.data.dataset import StampDataset  # noqa: E402
 from galaxy_jepa.data.orchestrate import assign_three_way  # noqa: E402
@@ -48,6 +49,7 @@ from galaxy_jepa.probing.logistic import (  # noqa: E402
 )
 
 RUNS = Path(__file__).resolve().parent.parent / "runs" / "h5"
+OUT = L.out(_OUT)  # ladder v2: the encoder's own directory, never M's append-only record
 PROBES = OUT / "h5_probes.jsonl"
 
 
@@ -55,7 +57,7 @@ def probe(arm: str, max_train: int, runs: Path = RUNS) -> dict:
     cfg, cache = check(verbose=False)
     pc = cfg.probe
     device = cfg.runtime.resolved_device()
-    ckpt = runs / arm / "encoder.pt"
+    ckpt = L.encoder(runs / arm / "encoder.pt")
 
     # only the id and the one label column this probe reads — not the other ~150
     meta = Path(cfg.paths.probe_dir) / "metadata.csv"
@@ -75,6 +77,9 @@ def probe(arm: str, max_train: int, runs: Path = RUNS) -> dict:
         stride = len(train_ids) / max_train
         train_ids = [train_ids[int(i * stride)] for i in range(max_train)]
     test_ids = sorted(split.test)
+    if L.identical_split():  # ladder v2, decision 1: the one split every ladder entry reads
+        from j4_spread_controls import _identical_split
+        train_ids, test_ids = _identical_split(cache.present(sorted(probe_ids)), max_train, cfg)
 
     frozen = load_frozen_encoder(ckpt)  # eval() + requires_grad_(False); assert_frozen downstream
     t0 = time.perf_counter()
