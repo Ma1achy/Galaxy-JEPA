@@ -97,17 +97,30 @@ PLATE_IDS = (
 # --- inputs -----------------------------------------------------------------------------------
 
 
+def _encoder_name() -> str:
+    import ladder_env as L
+    return L.tag("M") if L.active() else "M"
+
+
+def _bank_name() -> str:
+    import ladder_env as L
+    return f"c2_{L.tag('m1')}_embeddings.npz" if L.active() else "artifacts/out/c2_m1_embeddings.npz"
+
+
 def _bank() -> tuple[np.ndarray, np.memmap, str]:
     """M's embeddings, x memory-mapped out of the (uncompressed) npz — a --limit run reads only
     its own rows, and the full run never holds a second copy of the float32 block."""
     from numpy.lib import format as npf
 
+    import ladder_env as L
     from aligned_c2 import _bank as bank_path
     from probe_bank import load_bank
-    p = bank_path("m1")
-    with load_bank(p, expected_checkpoint="runs/m/encoder.pt") as b:  # M by SHA-1, not only by path
+    # M by default; under ladder v2 the encoder's own E1 bank (tag and checkpoint from ladder_env)
+    want = L.encoder("runs/m/encoder.pt")
+    p = bank_path(L.tag("m1") if L.active() else "m1")
+    with load_bank(p, expected_checkpoint=want) as b:  # by SHA-1, not only by path
         ids, ckpt = b["ids"].astype(np.int64), str(b["checkpoint"])
-    if not ckpt.endswith("runs/m/encoder.pt"):
+    if not L.active() and not ckpt.endswith("runs/m/encoder.pt"):
         raise SystemExit(f"plate: {p} is from {ckpt}, not M")
     if not np.all(np.diff(ids) > 0):
         raise SystemExit("plate: bank ids are not strictly ascending")
@@ -636,8 +649,8 @@ def export(a) -> dict:
     flags = (test.astype(np.uint8) | (reason.astype(np.uint8) << 1)).astype(np.uint8)
 
     header = {
-        "format": "almagest-plate", "version": FORMAT_VERSION, "n": n, "encoder": "M",
-        "provenance": {"checkpoint": ckpt, "embeddings": "artifacts/out/c2_m1_embeddings.npz (block-11 mean-pool)",
+        "format": "almagest-plate", "version": FORMAT_VERSION, "n": n, "encoder": _encoder_name(),
+        "provenance": {"checkpoint": ckpt, "embeddings": f"{_bank_name()} (block-11 mean-pool)",
                        "code": _git(), "seed": SEED, "pool": len(pool), "limit": int(sub["limit"]),
                        "votes": "GZ2 raw _fraction / _count (never _debiased)"},
         "layout": "little-endian; multi-column fields are PLANAR: shape [cols, n], value(i, j) = a[j*n + i]",
@@ -840,7 +853,9 @@ def sanity(a) -> dict:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=("subset", "pcasweep", "basiseval", "export", "testfile", "sanity"))
-    ap.add_argument("--out", default=str(Path(__file__).parent / "out" / "plate"))
+    import ladder_env as _L
+    from j4_spread_controls import OUT as _OUT  # artifacts/out by default; the encoder's dir in ladder v2
+    ap.add_argument("--out", default=str(_OUT / "plate" if _L.active() else Path(__file__).parent / "out" / "plate"))
     ap.add_argument("--limit", type=int, default=0, help="subset: seeded draw of N pool galaxies (dev)")
     ap.add_argument("--size", type=int, default=40_000)
     ap.add_argument("--clusters", type=int, default=400)
