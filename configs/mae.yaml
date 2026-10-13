@@ -1,12 +1,12 @@
-# MAE baseline (D12 amended; artifacts/baselines.md §4) — M's run configuration with ONE block
-# swapped. Everything outside `objective:` is configs/pretrain.yaml verbatim (the corpus, the
-# normalisation freeze, the backbone, the collapse floor, the probe), and
-# tests/test_configs_load.py pins that equality. No augmentation, exactly as M (§2).
+# MAE baseline (D12 amended; artifacts/baselines.md §4) — A1's run configuration with ONE block
+# swapped. Everything outside `objective:` is configs/pretrain_v2.yaml verbatim (the pretrain_v2
+# corpus, the v2 normalisation freeze, the backbone, the collapse floor, the probe), and
+# tests/test_objectives_baselines.py pins that equality. No augmentation, exactly as A1 (§2).
 # Load as `MaeRunConfig`; the driver is artifacts/baseline_run.py.
 
 paths:                        # WHERE it reads and writes. Not hashed into `config_hash`
-  pretrain_dir: data/pretrain #   (RunConfig.NON_DETERMINING), so relocating a corpus onto
-  probe_dir: data/probe           #   another disk is not a different experiment. Which galaxies
+  pretrain_dir: data/pretrain_v2 #   (RunConfig.NON_DETERMINING), so relocating a corpus onto
+  probe_dir: data/probe_v2       #   another disk is not a different experiment. Which galaxies
   out_dir: runs/mae           #   a run saw is RunStamp.data_snapshot's job, not a path's.
 #                             #   NOT runs/full — that is Brief J's 50,000-step run, and K2's
 #                             #   whole trajectory was probed from its checkpoints.
@@ -39,24 +39,24 @@ ratios: [0.70, 0.15, 0.15]  # probe train / val / test
 # `content_hash` covers every field above it that determines the numbers, so an edit here
 # without a re-fit is refused at load rather than believed — including a tidier rounding.
 normalisation:
-  derived_from: 'data/pretrain (826968 stamps; 827 excluded from the fit only, fitted on 826141). Stability over 200 disjoint halves: median 0.314%, worst 0.861%, 0.0% breaching the 1% tolerance'
-  frozen_at: '2026-09-11'
+  derived_from: 'data/pretrain_v2 (826968 stamps; 827 excluded from the fit only, fitted on 826141). Stability over 200 disjoint halves: median 0.320%, worst 0.941%, 0.0% breaching the 1% tolerance'
+  frozen_at: '2026-10-01'
   frozen_by: 'malachy'
   rationale: "fit once over valid pixels only, on the whole pretraining corpus less a 0.1% heaviest-stamp trim, and pinned — closing the per-run refit whose seeded subsample moved when the corpus grew 10k -> 827k. No draw was made, so seed is inert. The trim is not gate-passing: the census sigma is inflated by a small minority (top 1% of stamps carry 13.4/17.9/10.5% of sum-of-squares by channel), and normalising by an outlier-inflated sigma compresses the typical galaxy's post-normalisation range. The trimmed sigma reflects the typical stamp; bright stamps correctly extend beyond +-1. Constants are a preprocessing transform, not a population parameter needing an unbiased estimate. Trim applies to the FIT ONLY — every stamp stays in the corpus and in training"
-  mean: [0.009454908658610726, 0.01630844769710272, 0.02318442785313156]
-  std: [0.07904613852166308, 0.10820447247619723, 0.14095327215176595]
-  corpus: 'pretrain'
+  content_hash: '246d8de6ba9a511bbeaf6d5b887f6e3564d8612fb200eddb270442a336937feb'
+  mean: [0.009459646669173968, 0.01631342181788525, 0.023158476770099405]
+  std: [0.08040294415855574, 0.11002026825239317, 0.14313119765917692]
+  corpus: 'pretrain_v2'
   n_sample: 826141
   seed: 0
   stretch_q: 4.0
   valid_pixels_only: true
   detector: 'like-4-neighbour bit-identity, all channels, region >= 256px'
   trim_rank: 'total valid-pixel sum-of-squares across all channels, post-asinh'
-  trim_threshold: 36779.561450152854
+  trim_threshold: 37578.48239589256
   trim_excluded: 827
-  trim_ids_sha256: 'bf2a8d0bf1338304b08318e256f8bccae0efd11495ae90bbc4829bfec14127c1'
-  content_hash: '75100066b3e059b0a996af12d93d34870080f950da37c579599f3be73771bcf0'
-  code_sha: 'f9d668fc3863a14abc6fc80c6577f74a8d0776a5-dirty'
+  trim_ids_sha256: '7c8841fe54440d3733eebd80c477df7e01925017ce7d7f063b573e4675c975d1'
+  code_sha: 'ed876a4a4426a21fee236d81198a55ae3a7fc92c-dirty'
 
 model:                      # clean ViT-S/16 (D2) — no conv stem, so masking semantics stay
   patch_size: 16            # unambiguous. Stamp size comes from the baked cache, not from here.

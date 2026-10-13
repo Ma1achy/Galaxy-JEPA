@@ -279,8 +279,9 @@ class RunBase(RunConfig):
     backbone, the read-out and the run knobs.
 
     Lifted out of :class:`HarnessConfig` when the baselines arrived (``artifacts/baselines.md``
-    §9 item 1), so a baseline matched to M is M's config with one block swapped and nothing else
-    free to drift. ``config_hash`` sorts keys, so the lift moved no hash; the pins in
+    §9 item 1), so a baseline is its reference encoder's config with one block swapped and nothing
+    else free to drift (A1's ``configs/pretrain_v2.yaml`` since 2026-10-13; M's before).
+    ``config_hash`` sorts keys, so the lift moved no hash; the pins in
     ``tests/test_configs_load.py`` hold that. The objective is deliberately **not** widened on
     :class:`HarnessConfig`: every field is hashed, defaults included, so a MoCo field there would
     move M's ``config_hash`` and M's checkpoints would refuse to resume.
@@ -370,7 +371,7 @@ class MocoObjectiveConfig(RunConfig):
     gain_band: float = 0.02
     blur_sigma: tuple[float, float] = (0.1, 2.0)
     blur_p: float = 0.5
-    sky_sigma: tuple[float, float, float] = (0.414, 0.501, 0.612)
+    sky_sigma: tuple[float, float, float] = (0.395, 0.466, 0.598)
     noise_u_max: float = 1.0
     monitor_every: int = 100
     checkpoint_every: int = 6331

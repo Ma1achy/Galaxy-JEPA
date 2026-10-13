@@ -1,11 +1,14 @@
-"""The normalised sky σ in M's v1 cache, per band (user, 2026-10-13; baselines.md §3.4 item 4).
+"""The normalised sky σ in A1's v2 cache, per band (user, 2026-10-13; baselines.md §3.4 item 4).
 
 MoCo's additive noise is σ_aug = u × σ_sky (per band), u ~ U(0, 1), so σ_sky must be measured on the
-exact tensors training reads: M's fp16 cache (asinh stretch q = 4, then the frozen Normalise
-`75100066…`), through F0, so the cache is checked against the live freeze first.
+exact tensors training reads. The baselines are matched to A1 (user, 2026-10-13), so that is A1's
+fp16 cache (asinh stretch q = 4, then the frozen v2 Normalise `246d8de6…`), through F0 under
+baseline_run's environment, so the cache is checked against the live freeze first. The first
+measurement, on M's v1 cache (`75100066…`), wrote `sky_sigma_v1.json` and is superseded; the method
+is unchanged, only the cache and freeze differ.
 
-Method, fixed before running:
-- 2,000 stamps drawn uniformly (numpy seed 20261013) from M's pretrain **train** split.
+Method, fixed before running (the v1 measurement's, verbatim):
+- 2,000 stamps drawn uniformly (numpy seed 20261013) from the pretrain **train** split.
 - Sky pixels: each stamp's outer 16-px frame (256-px stamps, galaxy centred; the frame is
   ≥ 112 px = 44″ from the centre).
 - Per stamp and band: robust σ = 1.4826 × MAD after iterative 3σ clipping about the median (to
@@ -26,6 +29,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import baseline_run  # noqa: E402,F401  — A1's v2 config, cache and freeze, before F0 reads them
 from f0_preconditions import check  # noqa: E402
 from i2_sigreg_run import _split_ids  # noqa: E402
 from j4_spread_controls import OUT  # noqa: E402
@@ -68,7 +72,8 @@ def main() -> None:
             "sky_level_median": float(np.median(med[:, b])),
             "clipped_fraction_median": float(np.median(clip[:, b])),
         }
-    (OUT / "sky_sigma_v1.json").write_text(json.dumps(out, indent=1))
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "sky_sigma_v2.json").write_text(json.dumps(out, indent=1))
     print(json.dumps(out, indent=1))
 
 
