@@ -4,7 +4,7 @@
 to pretrain_v2 (user, 2026-10-13):** the baselines are matched to A1 (M's recipe on the aligned v2
 stamps, `configs/pretrain_v2.yaml`, freeze `246d8de6…`), not to M on v1; seed 0 pairs with A1, seed 1
 with A2; σ_sky re-measured on the v2 cache; trajectory probes on E2's protocol; F6 moot on aligned
-stamps; the rehearsal held (§1, §3.4, §5.3, §6, §7, §8). **Settled
+stamps; the rehearsal held (§1, §3.4, §5.3, §6, §7, §8). Ladder plan Task 5 (`docs/ladder_v2/plan.md`) was carried out on branch `baselines-v2`, commit `3767663`. **Settled
 (user, 2026-09-28):** 16×16 patches for MAE (D12 amended), F2 (MAE decoder 8×512) and the MoCo
 settings of F3 (K = 65,536, m = 0.999, τ = 0.2); **F3's residue settled (user, 2026-10-01 evening):
 m constant at 0.999, v2-style.** **F1, F4–F8 settled (user, 2026-10-02); F9 settled (user, 2026-10-09): D4 averaging off** (§8). **F7's MoCo
@@ -28,7 +28,7 @@ impossible.
 |---|---|---|---|
 | backbone | ViT-S/16: dim 384, depth 12, heads 6, mlp 4.0 (`:66-71`), 21.6M params, no CLS | same | same |
 | stamp / tokens | 256 px native, 16×16 = 256 tokens | same at read-out | same |
-| corpus | pretrain_v2, the aligned re-pull (826,968 stamps); train / monitor by `_split_ids` (split seed 0, `monitor_frac` 0.02) | same split | same |
+| corpus | pretrain_v2, the aligned re-pull (826,968 stamps, none shared with probe_v2); train / monitor by `split_pretrain` (`harness._prepare`; split seed 0, the config's, for every run, `monitor_frac` 0.02): **810,491 train / 16,477 monitor** (measured 2026-10-13 from the two corpora's `metadata.csv`) | same split | same |
 | normalisation | frozen v2 freeze, `content_hash 246d8de6ba9a…` (`:51`); the v2 fp16 cache under `runs/m_v2/cache` | the same block verbatim, so the same fp16 cache (`pipeline_hash` is keyed on the pipeline only, `data/cache.py:60`) | same |
 | batch | 32, `drop_last` (`:84`) | 32 | 32 |
 | `steps` (schedule length) | 253,270 (`:77`) | 253,270 | 253,270 |
