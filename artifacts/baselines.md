@@ -234,7 +234,7 @@ and needs its line.
 | target | the cached normalised stamp, patchified; **norm-pix** (per-patch mean and variance, eps 1e-6) | He Table 1c (default, better); the sky hazard is below |
 | loss | MSE on masked patches only | He §3 |
 | augmentation | **none** | §2. He Table 1e reports a linear-probe cost for dropping crops (*verify*): a named handicap. |
-| decoder init | PyTorch defaults; the mask token trunc-normal 0.02. **Differs from He's code** (xavier_uniform on every Linear, normal 0.02 for the mask token; review of PR #3, 2026-10-13), recorded as a small deviation. The encoder keeps M's init, byte-identical for the same seed | the decoder is discarded at read-out; a different init changes its optimisation start only |
+| decoder init | **He et al.'s** (user, 2026-10-13; replaces the earlier PyTorch-default deviation): xavier_uniform on every Linear with zero bias, LayerNorm weight 1 / bias 0, the mask token normal(0.02); fixed sin-cos decoder positions. The encoder keeps M's init, byte-identical for the same seed | `facebookresearch/mae` `models_mae.py`, `MaskedAutoencoderViT.initialize_weights` and `_init_weights` |
 | read-out | `encode()` over **all 256 tokens, unmasked**, block index 10, mean-pooled | He's linear probe uses all patches; `core/encoder.py:21-23` already expects MAE's final block to specialise |
 
 **Sky hazard.** M's target sampling is biased onto the galaxy (β = 0.5, `docs/masking.md`); MAE's

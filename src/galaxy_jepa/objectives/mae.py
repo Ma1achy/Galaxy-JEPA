@@ -15,7 +15,10 @@ so the saved encoder is a plain :class:`VisionTransformer`, and ``load_frozen_en
 (He §3, §4); decoder 8 × 512, 16 heads (He's default); norm-pix with ``var`` unbiased and eps 1e-6
 inside the root, as He's code computes it; AdamW betas (0.9, 0.95), weight decay 0.05 with none on
 biases or 1-D parameters, as the MAE code's ``add_weight_decay`` does (the mask token, 3-D, decays
-there too). No augmentation (§2).
+there too). The decoder is initialised as He's code initialises it (``models_mae.py``,
+``initialize_weights`` / ``_init_weights``): xavier_uniform on every Linear with zero bias,
+LayerNorm weight 1 and bias 0, the mask token ``normal_(std=0.02)``. The encoder keeps M's init. No
+augmentation (§2).
 """
 
 from __future__ import annotations
@@ -72,6 +75,16 @@ def uniform_mask(
     return np.sort(perm[:, :n_visible], axis=1), np.sort(perm[:, n_visible:], axis=1)
 
 
+def _he_init(m: nn.Module) -> None:
+    if isinstance(m, nn.Linear):
+        nn.init.xavier_uniform_(m.weight)
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+    elif isinstance(m, nn.LayerNorm):
+        nn.init.ones_(m.weight)
+        nn.init.zeros_(m.bias)
+
+
 class MaeDecoder(nn.Module):
     """Encoded visible tokens + mask tokens at the masked positions → per-patch pixels."""
 
@@ -90,12 +103,16 @@ class MaeDecoder(nn.Module):
         super().__init__()
         self.embed = nn.Linear(embed_dim, dim)
         self.mask_token = nn.Parameter(torch.zeros(1, 1, dim))
-        nn.init.trunc_normal_(self.mask_token, std=0.02)
         self.register_buffer("pos_embed", _sincos_2d(dim, grid_size).unsqueeze(0))
         self.blocks = nn.ModuleList([_Block(dim, heads, mlp_ratio) for _ in range(depth)])
         self.norm = nn.LayerNorm(dim)
         self.head = nn.Linear(dim, patch_px * patch_px * in_chans)
         self.n_tokens = grid_size * grid_size
+        # He's initialisation (models_mae.py): "timm's trunc_normal_(std=.02) is effectively
+        # normal_(std=0.02) as cutoff is too big (2.)", then xavier_uniform over every Linear. The
+        # fused qkv is one Linear(dim, 3·dim), as in timm's Block, so the fan matches.
+        nn.init.normal_(self.mask_token, std=0.02)
+        self.apply(_he_init)
 
     def forward(self, visible: torch.Tensor, vis_idx: torch.Tensor) -> torch.Tensor:
         b, _, _ = visible.shape
