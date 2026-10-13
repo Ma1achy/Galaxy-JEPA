@@ -150,9 +150,9 @@ class TestTheLearningRateSchedule:
         """The loop must use the shared function, not a second copy that could drift from it."""
         import inspect
 
-        from galaxy_jepa.objectives import jepa as mod
+        from galaxy_jepa.objectives import loop
 
-        assert "learning_rate(step, cfg)" in inspect.getsource(mod.train_jepa)
+        assert "learning_rate(step, cfg)" in inspect.getsource(loop.train_objective)
 
 
 class TestSigRegLandsInert:
@@ -265,11 +265,13 @@ class TestTheMpsPoolRelease:
     def test_it_is_guarded_and_outside_the_computation(self):
         import inspect
 
-        source = inspect.getsource(train_jepa)
+        from galaxy_jepa.objectives.loop import train_objective
+
+        source = inspect.getsource(train_objective)  # the loop train_jepa runs
         assert 'if device.startswith("mps") and step % cfg.monitor_every == 0:' in source
         assert "torch.mps.empty_cache()" in source
         release = source.index("torch.mps.empty_cache()")
-        for after in ("loss.backward()", "opt.step()", "jepa.ema_update("):
+        for after in ("loss.backward()", "opt.step()", "obj.momentum_update("):  # EMA, for JEPA
             assert source.index(after) < release, f"the release must come after {after}"
 
     @pytest.mark.integration

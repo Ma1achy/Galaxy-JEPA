@@ -6,8 +6,8 @@
 #   artifacts/train_watchdog.sh A1        launch detached via artifacts/_detach.py
 # The notification is a macOS one (osascript), so it does not depend on any Claude session surviving.
 # Its own record goes to ~/Library/Logs, outside the folders the access bug blocks.
-run=${1:?A1 or A2}
-LOG="/Users/malachy/Documents/Galaxy-JEPA/runs/aligned_$run.log"
+run=${1:?A1, A2 or A3}
+LOG="$(cd "$(dirname "$0")/.." && pwd)/runs/aligned_$run.log"
 REC="$HOME/Library/Logs/galaxy-jepa-watchdog-$run.log"
 TICK=60 PERIOD=300 STALE=900 MEM_FLOOR=15 MEM_FOR=600
 
@@ -26,7 +26,7 @@ while true; do
   if [ -n "$f" ] && [ "$f" -lt "$MEM_FLOOR" ]; then
     low_since=${low_since:-$now}
     if [ -z "$warned" ] && [ $(( now - low_since )) -ge "$MEM_FOR" ]; then
-      note "A1 under memory pressure: consider pausing the Docker tests (free ${f}% for $(( (now - low_since) / 60 )) min)."
+      note "$run under memory pressure: consider pausing the Docker tests (free ${f}% for $(( (now - low_since) / 60 )) min)."
       warned=1
     fi
   elif [ -n "$f" ]; then

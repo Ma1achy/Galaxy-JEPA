@@ -184,12 +184,17 @@ def main(expect: Expect = J) -> None:
           f"~{derived * 381 / 1024:.1f} GiB")
 
     # 5. the MPS pool release is in the production path, not only in the I2 driver
+    # (the loop that trains M is objectives/loop.py's train_objective since the baselines build;
+    # train_jepa is that loop with a Jepa, so the release must be in train_objective)
     from galaxy_jepa.objectives import jepa as jepa_mod
+    from galaxy_jepa.objectives import loop as loop_mod
 
-    src = inspect.getsource(jepa_mod.train_jepa)
+    src = inspect.getsource(loop_mod.train_objective)
     if "torch.mps.empty_cache()" not in src:
-        raise SystemExit(f"{lb}: train_jepa does not release the MPS pool — Brief I's OOM reopens")
-    print(f"{lb} MPS pool release    : present in train_jepa (monitor cadence)")
+        raise SystemExit(f"{lb}: the training loop does not release the MPS pool — Brief I's OOM reopens")
+    if "train_objective(jepa, loader" not in inspect.getsource(jepa_mod.train_jepa):
+        raise SystemExit(f"{lb}: train_jepa no longer runs the shared loop")
+    print(f"{lb} MPS pool release    : present in the training loop (monitor cadence)")
 
     # 6. the soft rank floor is INERT by design here; its silence must be understood, not assumed
     floor = cfg.collapse_floor

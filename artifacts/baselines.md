@@ -173,15 +173,39 @@ the device inside the loss step (the loader has `num_workers=0`).
    no new positional code**: positions are an exact subset of the fixed 16×16 sin-cos grid, so the
    full-grid read-out is positionally in-distribution, and M's tokenisation phase is kept. This
    replaces RandomResizedCrop, whose scale jitter resamples.
-2. **Per-band gain** on the normalised tensor, independent per band and view: the gri analogue of
-   v2's colour jitter and Hayat's reddening. *Magnitude to fix (proposed ±10%) once Hayat's
-   parameterisation is verified.*
+2. **Gain** on the normalised tensor, per image and view: a **global** gain ×U(0.9, 1.1), the same
+   for all bands, and a **per-band** gain ×U(0.98, 1.02), independent per band (settled 2026-10-13,
+   below).
 3. **Gaussian blur**, σ ∈ [0.1, 2.0] px at p = 0.5: v2's aug+ (from SimCLR), standing in for
    Hayat's varying PSF. SDSS seeing ≈ 1.4″ ≈ σ 1.5 px, so σ up to 2 px roughly doubles the PSF.
-4. **Additive Gaussian noise** (Hayat). *σ to fix as a fraction of the normalised sky σ.*
+4. **Additive Gaussian noise** (Hayat): σ_aug = u × σ_sky per band, u ~ U(0, 1) per image and view
+   (settled 2026-10-13, below).
 
 Dropped: flips and rotations (D10); grayscale (destroys colour); hue and saturation (meaningless for
 gri); resized crops (no-rebin).
+
+**Settled (user, 2026-10-13): gain and noise.**
+
+- Global gain ×U(0.9, 1.1), applied identically to all bands: it changes brightness, not colour.
+- Per-band gain ×U(0.98, 1.02), independent per band: about SDSS's photometric calibration, and small
+  enough to keep colour information.
+- Additive Gaussian noise σ_aug = u × σ_sky per band, u ~ U(0, 1).
+- No translation between bands and no offset augmentation (F6).
+- **Reason.** Augmentations define MoCo's invariances. A ±10% per-band gain (the earlier proposal)
+  would make MoCo invariant to colour, a strong morphology signal, and so handicap it on exactly what
+  is probed.
+- **σ_sky, measured** (`artifacts/sky_sigma.py` → `artifacts/out/sky_sigma_v1.json`): M's v1 fp16
+  cache (asinh q = 4, frozen Normalise `75100066…`); 2,000 stamps from M's pretrain train split
+  (numpy seed 20261013); each stamp's outer 16-px frame (≥ 44″ from the centre); per stamp and band a
+  1.4826 × MAD σ after iterative 3σ clipping; the median over stamps. **g 0.414, r 0.501, i 0.612**
+  normalised units (16th–84th percentiles 0.312–0.475, 0.387–0.550, 0.501–0.709); sky level −0.10 to
+  −0.13; about 1% of each frame clipped. The frozen Normalise std is dominated by sky pixels, so
+  σ_sky is a large fraction of a unit: at u = 1 a view carries √2 × the native sky noise.
+- **No rotations and no flips: D10 revised stands (user, 2026-10-13).** The decision first listed
+  rotations by multiples of 90° and flips (citing D4, which is the from-scratch decision); asked
+  against D10 revised (2026-09-23), which rules out rotation and reflection for M and every D12
+  baseline (its reason 4: one symmetry policy across the encoder family) and whose flips would erase
+  handedness, the user kept D10. The code has no flip or rotation op, and a test pins that.
 
 **Known shortcut risk: band misregistration.** v1 stamps carry per-galaxy sub-pixel g/r/i offsets
 (AA3a; `TODO.md:447-455`). Crops preserve them, so instance discrimination could key on them.
@@ -210,6 +234,7 @@ and needs its line.
 | target | the cached normalised stamp, patchified; **norm-pix** (per-patch mean and variance, eps 1e-6) | He Table 1c (default, better); the sky hazard is below |
 | loss | MSE on masked patches only | He §3 |
 | augmentation | **none** | §2. He Table 1e reports a linear-probe cost for dropping crops (*verify*): a named handicap. |
+| decoder init | PyTorch defaults; the mask token trunc-normal 0.02. **Differs from He's code** (xavier_uniform on every Linear, normal 0.02 for the mask token; review of PR #3, 2026-10-13), recorded as a small deviation. The encoder keeps M's init, byte-identical for the same seed | the decoder is discarded at read-out; a different init changes its optimisation start only |
 | read-out | `encode()` over **all 256 tokens, unmasked**, block index 10, mean-pooled | He's linear probe uses all patches; `core/encoder.py:21-23` already expects MAE's final block to specialise |
 
 **Sky hazard.** M's target sampling is biased onto the galaxy (β = 0.5, `docs/masking.md`); MAE's
@@ -336,7 +361,7 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 | 7 | masking distribution | M's bbox-biased multi-block masking belongs to its objective | uniform (published); log the sky share of the loss (F5) |
 | 8 | patch size / encoder vs D12 | D12 specified 8×8, ~30M | 16×16 ViT-S by the user's decision; **D12 amended** (§4.1) |
 | 9 | MAE augmentation | He's default uses resized crops and flips | none, as M (D10, no-rebin); He's linear-probe cost named |
-| 10 | optimiser details | each method's recipe is tuned with its own optimiser and LR rule | **each method's published LR rule at batch 32, with its own optimiser form** (F7, settled): MAE AdamW (0.9, 0.95), wd 0.05, 1.875e-5; MoCo AdamW (MoCo v3's ViT rule), wd 0.1, 1.875e-5. A 5,000-step check at 1/3×, 1× and 3× the rule's rate, judged on pretext loss only |
+| 10 | optimiser details | each method's recipe is tuned with its own optimiser and LR rule | **each method's published LR rule at batch 32, with its own optimiser form** (F7, settled): MAE AdamW (0.9, 0.95), wd 0.05, 1.875e-5; MoCo AdamW (MoCo v3's ViT rule), wd 0.1, 1.875e-5. A 5,000-step check at 1/3×, 1× and 3× the rule's rate, judged on pretext loss only. **Not taken from v3's ViT recipe** (review of PR #3, 2026-10-13): `--stop-grad-conv1`, v3's frozen random patch projection, its stability fix for ViTs (v3 §4–5); the patch embedding trains as M's does. v3's `--moco-m-cos` and 40-epoch warmup are replaced by F3 and M's schedule. If the F7 check shows instability, the frozen patch projection is the named lever |
 | 11 | FLOPs / wall-clock | objectives differ in cost per image | exposure and schedule matched instead (§1.1); reported "per image seen" |
 | 12 | schedule completion | published recipes anneal to completion; M stopped at 65.9% of peak LR | inherit M's truncation; P4 applies to all arms |
 | 13 | collapse kill criterion | the soft floor 2.5 is grounded on JEPA traces only (`pretrain.yaml` `collapse_floor`) | F8 |

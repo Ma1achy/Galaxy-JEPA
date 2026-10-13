@@ -816,3 +816,105 @@ No state depends on either resolution.
 | `runs/dd_a1/part1/v3b_score.json` | `335ef79aaf62857e803b68bb2a013d91f1b79d2a` |
 | `runs/dd_a2/part1/v3b_score.json` | `65eeb37bc1170826e450df067f0f3dc6e534ef5c` |
 | `runs/dd_a{1,2}/part1/v3b_plants.json` | `d98f278597d92e1bbed3eb32946d4019b2847bab` |
+
+## Declared (user, 2026-10-11): A3, an exploratory third aligned seed
+
+Outside the hashed section, after the scoring above. **Exploratory: not part of the confirmatory
+comparison.** No criterion is rescored, no state is added, and nothing below can change a state or
+the reading recorded in "Results".
+
+- **Why.** The aligned seeds differ about five times more than M's (mean |A1 − A2| = 0.030 against
+  |M1 − M2| = 0.006, with A2 > A1 on all 37 answers; Results, unexpected item 1). A third seed shows
+  whether A1 or A2 is the outlier, or whether the aligned recipe's seed spread is simply wide.
+- **Recipe.** A1's and A2's exactly (`artifacts/aligned_train.py`, M's driver `m2_long_run.main`):
+  pretrain_v2 and its freeze (`246d8de6…`), config and split seed 0, **training seed 2**, `steps`
+  left at 253,270 so the LR and EMA schedules match, **fixed stop at 101,308**, checkpoints every
+  2,000 (`GJ_CHECKPOINT_EVERY`, run-time only), no probe between segments. Out dir `runs/m_v2_s2`;
+  launched by `artifacts/aligned_launch.sh A3` under the one-heavy-job lock, with
+  `artifacts/train_watchdog.sh A3` (process, stale log, memory alarm; never restarts).
+- **Isolation.** A3 runs from its own git worktree at the commit that adds this declaration; the
+  launch log records the worktree path, the commit and where `galaxy_jepa` was imported from (the
+  worktree's `src/`, ahead of the shared venv's editable install). Nothing in that worktree is edited
+  while A3 runs. The baseline build proceeds on a branch in the main checkout.
+- **Reported when it finishes, and nothing else:**
+  1. the final checkpoint's SHA-1 (and `encoder.pt`'s);
+  2. A3's AUC on each of the 37 answers, by criterion 2's protocol unchanged (block 11 mean-pooled,
+     the full identical-set split 160,849 / 34,828, the same `_fit` probes and C), beside A1, A2, M1
+     and M2;
+  3. the three-way aligned spread: per answer, the mean of |A1 − A2|, |A1 − A3| and |A2 − A3|, and
+     its mean over the 37 and over the 33 powered answers, beside M's |M1 − M2| on the same answers;
+     and how many answers each aligned seed ranks highest and lowest of the three.
+
+### A3 report (recorded 2026-10-13; exploratory, outside the hash)
+
+**Nothing here changes a state or the reading in "Results": criterion 2 stays SAME.**
+
+- **Run.** 101,308 steps in 20.46 h (1.376 steps/s), no halt; launched from the worktree at
+  `a36994ff` (clean), `galaxy_jepa` imported from the worktree's `src/`. The watchdog recorded the clean
+  exit after the fixed stop.
+- **SHA-1.** `ckpt_000101308.pt` `49e547f99a9aace6ead066523fd31b59a63fcceb`; `encoder.pt`
+  `4c3e1c7e88f662a40cae07141b859db264ddac0a`.
+- **Protocol.** A3's bank by `aligned_c2.embed` under the v2 config, cache and freeze, as A1's and A2's
+  (195,677 stamps); probes by `aligned_c2.fit_scores` through `aligned_score`'s identical-set split
+  (160,849 / 34,828), C from probe.yaml, under M's config as the c2 step ran
+  (`artifacts/aligned_a3_report.py`). Refitting A1, A2, M1 and M2 in the same run reproduced the
+  stored `c2.json` AUCs exactly (largest difference 0.0). Output `artifacts/out/aligned/a3_report.json`.
+
+| | A1 | A2 | A3 | M1 | M2 |
+|---|---|---|---|---|---|
+| mean AUC, 33 powered | 0.7149 | 0.7449 | 0.7140 | 0.7282 | 0.7238 |
+| mean AUC, all 37 | 0.7037 | 0.7337 | 0.7035 | 0.7178 | 0.7138 |
+
+Seed spread over the 33 powered answers: three-way mean (|A1 − A2| + |A1 − A3| + |A2 − A3|)/3 =
+**0.0225** (all 37: 0.0223); |A1 − A2| 0.0299, **|A1 − A3| 0.0066**,
+|A2 − A3| 0.0309; M's |M1 − M2| on the same answers **0.0063**. Highest of the three aligned seeds:
+A2 on all 37 answers (A1 0, A3 0). Lowest: A1 on 21, A3 on 16, A2 on 0.
+
+**Reading (user, 2026-10-13).** A1 and A3 agree closely (|A1 − A3| = 0.0066, about M's own seed
+spread), and both sit below M on the powered mean (≈0.7144 against
+≈0.7260); A2 sits above all on every answer. With three seeds it is not settled
+whether A2 is an outlying basin or part of a wide spread, nor whether the aligned recipe sits
+slightly below M. The confirmatory state (SAME) is unchanged. **Possible later follow-up:** a fourth
+aligned seed.
+
+Per answer (`*` powered):
+
+| answer | | A1 | A2 | A3 | M1 | M2 | three-way | \|M1 − M2\| |
+|---|---|---|---|---|---|---|---|---|
+| t01_smooth_or_features_a01_smooth | * | 0.8758 | 0.8938 | 0.8781 | 0.8860 | 0.8791 | 0.0120 | 0.0070 |
+| t01_smooth_or_features_a02_features_or_disk | * | 0.8782 | 0.8953 | 0.8796 | 0.8868 | 0.8808 | 0.0114 | 0.0060 |
+| t01_smooth_or_features_a03_star_or_artifact |  | 0.7808 | 0.8216 | 0.7873 | 0.8183 | 0.8340 | 0.0272 | 0.0156 |
+| t02_edgeon_a04_yes | * | 0.7709 | 0.8419 | 0.7820 | 0.8038 | 0.8081 | 0.0473 | 0.0044 |
+| t02_edgeon_a05_no | * | 0.7951 | 0.8689 | 0.8029 | 0.8278 | 0.8335 | 0.0492 | 0.0057 |
+| t03_bar_a06_bar | * | 0.6653 | 0.6871 | 0.6571 | 0.6696 | 0.6645 | 0.0200 | 0.0051 |
+| t03_bar_a07_no_bar | * | 0.7083 | 0.7326 | 0.7041 | 0.7149 | 0.7072 | 0.0190 | 0.0078 |
+| t04_spiral_a08_spiral | * | 0.8095 | 0.8225 | 0.8127 | 0.8185 | 0.8096 | 0.0087 | 0.0089 |
+| t04_spiral_a09_no_spiral | * | 0.8387 | 0.8537 | 0.8422 | 0.8482 | 0.8392 | 0.0100 | 0.0090 |
+| t05_bulge_prominence_a10_no_bulge | * | 0.8296 | 0.8577 | 0.8237 | 0.8460 | 0.8415 | 0.0227 | 0.0045 |
+| t05_bulge_prominence_a11_just_noticeable | * | 0.6902 | 0.7040 | 0.6911 | 0.7049 | 0.7019 | 0.0092 | 0.0030 |
+| t05_bulge_prominence_a12_obvious | * | 0.7832 | 0.7978 | 0.7847 | 0.7949 | 0.7915 | 0.0097 | 0.0033 |
+| t05_bulge_prominence_a13_dominant | * | 0.7562 | 0.7733 | 0.7537 | 0.7602 | 0.7532 | 0.0131 | 0.0069 |
+| t06_odd_a14_yes | * | 0.7009 | 0.7381 | 0.7037 | 0.7169 | 0.7028 | 0.0248 | 0.0142 |
+| t06_odd_a15_no | * | 0.7001 | 0.7375 | 0.7030 | 0.7157 | 0.7004 | 0.0249 | 0.0154 |
+| t07_rounded_a16_completely_round | * | 0.7291 | 0.8022 | 0.7398 | 0.7516 | 0.7499 | 0.0487 | 0.0017 |
+| t07_rounded_a17_in_between | * | 0.6033 | 0.6628 | 0.6084 | 0.6085 | 0.6160 | 0.0396 | 0.0075 |
+| t07_rounded_a18_cigar_shaped | * | 0.8168 | 0.8958 | 0.8298 | 0.8511 | 0.8576 | 0.0527 | 0.0065 |
+| t08_odd_feature_a19_ring | * | 0.6986 | 0.7192 | 0.6963 | 0.7113 | 0.7037 | 0.0153 | 0.0076 |
+| t08_odd_feature_a20_lens_or_arc | * | 0.7181 | 0.7281 | 0.7158 | 0.7163 | 0.7180 | 0.0082 | 0.0018 |
+| t08_odd_feature_a21_disturbed | * | 0.6544 | 0.6688 | 0.6511 | 0.6607 | 0.6520 | 0.0118 | 0.0087 |
+| t08_odd_feature_a22_irregular | * | 0.7498 | 0.7623 | 0.7455 | 0.7519 | 0.7509 | 0.0112 | 0.0011 |
+| t08_odd_feature_a23_other | * | 0.6664 | 0.6712 | 0.6654 | 0.6694 | 0.6687 | 0.0038 | 0.0007 |
+| t08_odd_feature_a24_merger | * | 0.6542 | 0.6749 | 0.6648 | 0.6713 | 0.6660 | 0.0138 | 0.0053 |
+| t08_odd_feature_a38_dust_lane | * | 0.7220 | 0.7518 | 0.7026 | 0.7320 | 0.7282 | 0.0328 | 0.0039 |
+| t09_bulge_shape_a25_rounded | * | 0.6767 | 0.7006 | 0.6776 | 0.6868 | 0.6764 | 0.0159 | 0.0103 |
+| t09_bulge_shape_a26_boxy | * | 0.5905 | 0.6238 | 0.5968 | 0.6123 | 0.6119 | 0.0222 | 0.0004 |
+| t09_bulge_shape_a27_no_bulge | * | 0.7100 | 0.7325 | 0.7084 | 0.7167 | 0.7102 | 0.0161 | 0.0065 |
+| t10_arms_winding_a28_tight | * | 0.5866 | 0.6116 | 0.5845 | 0.6011 | 0.6023 | 0.0181 | 0.0012 |
+| t10_arms_winding_a29_medium |  | 0.5387 | 0.5432 | 0.5431 | 0.5390 | 0.5403 | 0.0030 | 0.0012 |
+| t10_arms_winding_a30_loose | * | 0.6433 | 0.6887 | 0.6460 | 0.6661 | 0.6707 | 0.0303 | 0.0046 |
+| t11_arms_number_a31_1 | * | 0.6477 | 0.6650 | 0.6539 | 0.6642 | 0.6567 | 0.0116 | 0.0076 |
+| t11_arms_number_a32_2 |  | 0.5837 | 0.6180 | 0.5789 | 0.5928 | 0.5826 | 0.0261 | 0.0102 |
+| t11_arms_number_a33_3 |  | 0.5429 | 0.5851 | 0.5580 | 0.5779 | 0.5690 | 0.0281 | 0.0090 |
+| t11_arms_number_a34_4 | * | 0.6077 | 0.6573 | 0.5508 | 0.6314 | 0.6143 | 0.0710 | 0.0171 |
+| t11_arms_number_a36_more_than_4 | * | 0.7050 | 0.7287 | 0.6954 | 0.7153 | 0.7049 | 0.0222 | 0.0104 |
+| t11_arms_number_a37_cant_tell | * | 0.6099 | 0.6305 | 0.6097 | 0.6187 | 0.6138 | 0.0139 | 0.0049 |
