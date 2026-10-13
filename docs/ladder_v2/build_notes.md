@@ -7,8 +7,14 @@ What the build did differently from `plan.md`, and why. No results are cited; no
    fixed name (`t1_ladder.json`, `r_r2.json`, `o1_embeddings.npz`, …). So each encoder's records share
    one directory, `runs/ladder_v2/<a1|a2|a3>/`, and the manifest maps entries to outputs. The shared
    untrained bank is in `runs/ladder_v2/shared/`.
-2. **E2 is excluded** (decision 4). Its only implementation, `aligned_score.py c2`, scores the family
-   in `powered.json`, which was fixed from M1/M2's scores.
+2. **E2 runs through a scoring-only driver** (second approval, item 1). Its only implementation,
+   `aligned_score.py c2`, scores the family in `powered.json`, which was fixed from M1/M2's scores, so
+   it cannot run under decision 4. Checked from code: E5's `t1_ladder` does not supply E2. It fits on
+   the 40,000-galaxy capped train (`r_nonlinear.MAX_TRAIN`), not the uncapped full split. So
+   `artifacts/ladder_v2_e2.py` scores all 37 answers on the full identical split with `aligned_c2`'s
+   protocol unchanged (`fit_scores`, `auc`, `boot_aucs` under `weights`: 2,000 Poisson draws, fixed
+   seed, 2.5/97.5 percentiles). It applies no powered filter, no multiplicity correction and no
+   aggregation.
 3. **`p2_ladder` runs as its own E5 entry.** `r0`, `s2_verify` and `t1_ladder` read its record.
    **R0 runs before S2/T1, not last** (as `r3→r2→r1→r0` in the plan), because S2 reads `r_r0.json`.
    R3 → R2 → R1 then follow.

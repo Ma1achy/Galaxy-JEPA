@@ -10,7 +10,6 @@ common_env:
   OMP_NUM_THREADS: '4'
   LADDER_UNTRAINED_BANK: runs/ladder_v2/shared/p1_untrained_bank.json
 excluded:
-  E2 per-answer AUC (aligned_score c2): decision 4 — its family is powered.json, fixed from M1/M2
   E9 T2 (t2_other): decision 4 — target chosen from M's ladder
   E13 V1 (v1_loose_ends): decision 4 — SUPPRESSION list chosen from M's U2; escape is encoder-free
   x1_vector_posthoc: decision 4 — M-specific, exploratory
@@ -144,6 +143,39 @@ entries:
     artifacts/j4_spread_controls.py: 9598302bdba7e3376c35cdfff4dfa0ddbe4e69b9
     artifacts/ladder_env.py: 7ffe0f430ef55c67a744bd19aa873cd71872eb6c
     artifacts/ladder_v2_c2.py: a19f711f4885b41dbcb43a32ff5de8127b1c9fef
+    artifacts/probe_bank.py: b5b854f9011b0b9965e562ef8adeb3c4bddbbf57
+    artifacts/r_nonlinear.py: 9e7aeaa276a43bf219997e9d4a474036c4df57ca
+- id: E2.answers.a1
+  exp: E2
+  encoder: a1
+  heavy: cpu
+  est_h: 0.6
+  inputs:
+  - E1.c2_bank.a1
+  out_dir: runs/ladder_v2/a1
+  kind: run
+  cmd:
+  - .venv/bin/python
+  - artifacts/ladder_v2_e2.py
+  - a1
+  env:
+    LADDER_ENCODER: runs/m_v2/encoder.pt
+    LADDER_OUT: runs/ladder_v2/a1
+    LADDER_TAG: a1
+  expect:
+  - e2_answers.json
+  pins:
+    configs/pretrain_v2.yaml: c232b054f42114c9ad6e5e76dbc8c8c342ebf838
+    configs/pretrain.yaml: 13c483b63a3e07b19a3a8f5a1ac7fc7a9b2ab1d0
+    configs/probe.yaml: c0ddb4e322b70e90adfaf6b2d7760ba42003d28b
+    configs/effect_floor.json: e6b8b8ab7f0f0a9fea733a5d7d68135098b43cd1
+    src/galaxy_jepa/**.py: 9400ddf417ab8690d3148c7500125f3eb7bbf4cc
+    runs/m_v2/encoder.pt: 34bb30a74d38b1fc4622861f43959a92fc01520c
+    artifacts/aligned_c2.py: 029adeb522a3026603e36f7bf9187e3e9ae39c8a
+    artifacts/f0_preconditions.py: b5491b4f50f4630258928fdf0a32ec1b36a0cdf5
+    artifacts/j4_spread_controls.py: 9598302bdba7e3376c35cdfff4dfa0ddbe4e69b9
+    artifacts/ladder_env.py: 7ffe0f430ef55c67a744bd19aa873cd71872eb6c
+    artifacts/ladder_v2_e2.py: 7006f2822810e4f330ece88f3c0baf2dcf32a40e
     artifacts/probe_bank.py: b5b854f9011b0b9965e562ef8adeb3c4bddbbf57
     artifacts/r_nonlinear.py: 9e7aeaa276a43bf219997e9d4a474036c4df57ca
 - id: E3.o1_matched.a1
@@ -2878,6 +2910,39 @@ entries:
     artifacts/ladder_v2_c2.py: a19f711f4885b41dbcb43a32ff5de8127b1c9fef
     artifacts/probe_bank.py: b5b854f9011b0b9965e562ef8adeb3c4bddbbf57
     artifacts/r_nonlinear.py: 9e7aeaa276a43bf219997e9d4a474036c4df57ca
+- id: E2.answers.a2
+  exp: E2
+  encoder: a2
+  heavy: cpu
+  est_h: 0.6
+  inputs:
+  - E1.c2_bank.a2
+  out_dir: runs/ladder_v2/a2
+  kind: run
+  cmd:
+  - .venv/bin/python
+  - artifacts/ladder_v2_e2.py
+  - a2
+  env:
+    LADDER_ENCODER: runs/m_v2_s1/encoder.pt
+    LADDER_OUT: runs/ladder_v2/a2
+    LADDER_TAG: a2
+  expect:
+  - e2_answers.json
+  pins:
+    configs/pretrain_v2.yaml: c232b054f42114c9ad6e5e76dbc8c8c342ebf838
+    configs/pretrain.yaml: 13c483b63a3e07b19a3a8f5a1ac7fc7a9b2ab1d0
+    configs/probe.yaml: c0ddb4e322b70e90adfaf6b2d7760ba42003d28b
+    configs/effect_floor.json: e6b8b8ab7f0f0a9fea733a5d7d68135098b43cd1
+    src/galaxy_jepa/**.py: 9400ddf417ab8690d3148c7500125f3eb7bbf4cc
+    runs/m_v2_s1/encoder.pt: 380cdb7b67a97873c7b2c3b0458a638966eff9b1
+    artifacts/aligned_c2.py: 029adeb522a3026603e36f7bf9187e3e9ae39c8a
+    artifacts/f0_preconditions.py: b5491b4f50f4630258928fdf0a32ec1b36a0cdf5
+    artifacts/j4_spread_controls.py: 9598302bdba7e3376c35cdfff4dfa0ddbe4e69b9
+    artifacts/ladder_env.py: 7ffe0f430ef55c67a744bd19aa873cd71872eb6c
+    artifacts/ladder_v2_e2.py: 7006f2822810e4f330ece88f3c0baf2dcf32a40e
+    artifacts/probe_bank.py: b5b854f9011b0b9965e562ef8adeb3c4bddbbf57
+    artifacts/r_nonlinear.py: 9e7aeaa276a43bf219997e9d4a474036c4df57ca
 - id: E3.o1_matched.a2
   exp: E3
   encoder: a2
@@ -5454,6 +5519,39 @@ entries:
     artifacts/j4_spread_controls.py: 9598302bdba7e3376c35cdfff4dfa0ddbe4e69b9
     artifacts/ladder_env.py: 7ffe0f430ef55c67a744bd19aa873cd71872eb6c
     artifacts/ladder_v2_c2.py: a19f711f4885b41dbcb43a32ff5de8127b1c9fef
+    artifacts/probe_bank.py: b5b854f9011b0b9965e562ef8adeb3c4bddbbf57
+    artifacts/r_nonlinear.py: 9e7aeaa276a43bf219997e9d4a474036c4df57ca
+- id: E2.answers.a3
+  exp: E2
+  encoder: a3
+  heavy: cpu
+  est_h: 0.6
+  inputs:
+  - E1.c2_bank.a3
+  out_dir: runs/ladder_v2/a3
+  kind: run
+  cmd:
+  - .venv/bin/python
+  - artifacts/ladder_v2_e2.py
+  - a3
+  env:
+    LADDER_ENCODER: runs/m_v2_s2/encoder.pt
+    LADDER_OUT: runs/ladder_v2/a3
+    LADDER_TAG: a3
+  expect:
+  - e2_answers.json
+  pins:
+    configs/pretrain_v2.yaml: c232b054f42114c9ad6e5e76dbc8c8c342ebf838
+    configs/pretrain.yaml: 13c483b63a3e07b19a3a8f5a1ac7fc7a9b2ab1d0
+    configs/probe.yaml: c0ddb4e322b70e90adfaf6b2d7760ba42003d28b
+    configs/effect_floor.json: e6b8b8ab7f0f0a9fea733a5d7d68135098b43cd1
+    src/galaxy_jepa/**.py: 9400ddf417ab8690d3148c7500125f3eb7bbf4cc
+    runs/m_v2_s2/encoder.pt: 4c3e1c7e88f662a40cae07141b859db264ddac0a
+    artifacts/aligned_c2.py: 029adeb522a3026603e36f7bf9187e3e9ae39c8a
+    artifacts/f0_preconditions.py: b5491b4f50f4630258928fdf0a32ec1b36a0cdf5
+    artifacts/j4_spread_controls.py: 9598302bdba7e3376c35cdfff4dfa0ddbe4e69b9
+    artifacts/ladder_env.py: 7ffe0f430ef55c67a744bd19aa873cd71872eb6c
+    artifacts/ladder_v2_e2.py: 7006f2822810e4f330ece88f3c0baf2dcf32a40e
     artifacts/probe_bank.py: b5b854f9011b0b9965e562ef8adeb3c4bddbbf57
     artifacts/r_nonlinear.py: 9e7aeaa276a43bf219997e9d4a474036c4df57ca
 - id: E3.o1_matched.a3

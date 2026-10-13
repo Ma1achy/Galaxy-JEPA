@@ -39,7 +39,6 @@ COMMON_ENV = {
 CONFIGS = ["configs/pretrain_v2.yaml", "configs/pretrain.yaml", "configs/probe.yaml", "configs/effect_floor.json"]
 
 EXCLUDED = {
-    "E2 per-answer AUC (aligned_score c2)": "decision 4 — its family is powered.json, fixed from M1/M2",
     "E9 T2 (t2_other)": "decision 4 — target chosen from M's ladder",
     "E13 V1 (v1_loose_ends)": "decision 4 — SUPPRESSION list chosen from M's U2; escape is encoder-free",
     "x1_vector_posthoc": "decision 4 — M-specific, exploratory",
@@ -161,6 +160,8 @@ class Builder:
                heavy="mps", est_h=0.5, expect=["h5_probes.jsonl"])
         e1 = a(f"E1.c2_bank.{enc}", exp="E1", enc=enc, script="ladder_v2_c2.py", args=[enc],
                heavy="mps", est_h=0.5, expect=[f"c2_{enc}_embeddings.npz"])
+        a(f"E2.answers.{enc}", exp="E2", enc=enc, script="ladder_v2_e2.py", args=[enc], inputs=[e1],
+          est_h=0.6, expect=["e2_answers.json"])  # all 37, no powered filter (second approval, item 1)
         e3 = a(f"E3.o1_matched.{enc}", exp="E3", enc=enc, script="o1_matched.py",
                args=["--checkpoint", ENCODERS[enc], "--tag", "o1"], heavy="mps", est_h=0.6,
                expect=["o1_embeddings.npz", "o1_matched.json"])
