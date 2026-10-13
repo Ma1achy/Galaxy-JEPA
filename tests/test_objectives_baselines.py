@@ -395,6 +395,12 @@ def test_a_baseline_config_is_ms_with_one_block_swapped(path, cls):
     assert b.paths.out_dir != m.paths.out_dir  # never M's directory
     # and the file states the settled recipe: its block is the class defaults, nothing tuned
     assert b.objective == type(b.objective)()
+    # the schedule inside `objective` is M's too (§1.1): the block is swapped, the budget is not
+    mo, bo = m.objective, b.objective
+    for k in ("steps", "batch_size", "warmup_steps", "monitor_every", "checkpoint_every"):
+        assert getattr(bo, k) == getattr(mo, k), k
+    assert bo.lr_final is not None and mo.lr_final is not None
+    assert bo.lr_final / bo.lr == pytest.approx(mo.lr_final / mo.lr)  # M's cosine shape
 
 
 @pytest.mark.parametrize(

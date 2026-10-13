@@ -234,6 +234,7 @@ and needs its line.
 | target | the cached normalised stamp, patchified; **norm-pix** (per-patch mean and variance, eps 1e-6) | He Table 1c (default, better); the sky hazard is below |
 | loss | MSE on masked patches only | He §3 |
 | augmentation | **none** | §2. He Table 1e reports a linear-probe cost for dropping crops (*verify*): a named handicap. |
+| decoder init | PyTorch defaults; the mask token trunc-normal 0.02. **Differs from He's code** (xavier_uniform on every Linear, normal 0.02 for the mask token; review of PR #3, 2026-10-13), recorded as a small deviation. The encoder keeps M's init, byte-identical for the same seed | the decoder is discarded at read-out; a different init changes its optimisation start only |
 | read-out | `encode()` over **all 256 tokens, unmasked**, block index 10, mean-pooled | He's linear probe uses all patches; `core/encoder.py:21-23` already expects MAE's final block to specialise |
 
 **Sky hazard.** M's target sampling is biased onto the galaxy (β = 0.5, `docs/masking.md`); MAE's
@@ -360,7 +361,7 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 | 7 | masking distribution | M's bbox-biased multi-block masking belongs to its objective | uniform (published); log the sky share of the loss (F5) |
 | 8 | patch size / encoder vs D12 | D12 specified 8×8, ~30M | 16×16 ViT-S by the user's decision; **D12 amended** (§4.1) |
 | 9 | MAE augmentation | He's default uses resized crops and flips | none, as M (D10, no-rebin); He's linear-probe cost named |
-| 10 | optimiser details | each method's recipe is tuned with its own optimiser and LR rule | **each method's published LR rule at batch 32, with its own optimiser form** (F7, settled): MAE AdamW (0.9, 0.95), wd 0.05, 1.875e-5; MoCo AdamW (MoCo v3's ViT rule), wd 0.1, 1.875e-5. A 5,000-step check at 1/3×, 1× and 3× the rule's rate, judged on pretext loss only |
+| 10 | optimiser details | each method's recipe is tuned with its own optimiser and LR rule | **each method's published LR rule at batch 32, with its own optimiser form** (F7, settled): MAE AdamW (0.9, 0.95), wd 0.05, 1.875e-5; MoCo AdamW (MoCo v3's ViT rule), wd 0.1, 1.875e-5. A 5,000-step check at 1/3×, 1× and 3× the rule's rate, judged on pretext loss only. **Not taken from v3's ViT recipe** (review of PR #3, 2026-10-13): `--stop-grad-conv1`, v3's frozen random patch projection, its stability fix for ViTs (v3 §4–5); the patch embedding trains as M's does. v3's `--moco-m-cos` and 40-epoch warmup are replaced by F3 and M's schedule. If the F7 check shows instability, the frozen patch projection is the named lever |
 | 11 | FLOPs / wall-clock | objectives differ in cost per image | exposure and schedule matched instead (§1.1); reported "per image seen" |
 | 12 | schedule completion | published recipes anneal to completion; M stopped at 65.9% of peak LR | inherit M's truncation; P4 applies to all arms |
 | 13 | collapse kill criterion | the soft floor 2.5 is grounded on JEPA traces only (`pretrain.yaml` `collapse_floor`) | F8 |
