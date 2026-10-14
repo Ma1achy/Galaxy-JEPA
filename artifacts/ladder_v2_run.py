@@ -22,6 +22,13 @@ between steps, and no other heavy job overlaps). The run does not branch on any 
 - **Resume.** The state is rewritten atomically after every transition. An entry found `running`
   was interrupted: files it created are removed (bar its `keep` globs, which its driver resumes from)
   and it runs again.
+- **Pause.** At an entry boundary: a `PAUSE` file beside the state is honoured before the next entry
+  starts, so nothing is lost. At once: SIGTERM/SIGINT take the entry's process group down, wait for it,
+  clear the files it created (as an interruption) and put it back to `pending`. Either way the state
+  records where it stopped, the runner prints `ladder v2 runner: PAUSED …` and exits 75 (EX_TEMPFAIL,
+  which `_detach.py` reads as paused, not failed). The next start prints `RESUMED` and carries on from
+  that entry; `artifacts/ladder_v2_ctl.py` drives both ends (`status`, `pause [--now] [--eject]`,
+  `resume`). A second signal during a pause kills the entry outright.
 - **Blind.** Entry stdout/stderr go only to `<root>/logs/<id>.log`. The runner prints and records id,
   status, wall-clock, peak RSS and output paths — never a value read from an output or a log.
 """
@@ -49,8 +56,19 @@ LOCK = Path("/private/tmp/claude-501/galaxy-jepa-heavy.lock")  # _heavy.sh's
 GUARDED = [REPO / "artifacts" / "out", REPO / "runs" / "dd_local_v2"]
 
 
+EX_PAUSED = 75  # EX_TEMPFAIL: stopped to be continued, not failed
+
+
 class Stop(SystemExit):
     """The ladder cannot go on as declared (pins moved, recorded outputs altered, state mismatch)."""
+
+
+class Paused(Exception):
+    """A pause was asked for; raised at an entry boundary or once the interrupted entry is down."""
+
+    def __init__(self, k: int, eid: str, how: str) -> None:
+        super().__init__(f"{k} {eid} {how}")
+        self.k, self.eid, self.how = k, eid, how
 
 
 def _abs(p: str | Path) -> Path:
@@ -141,6 +159,8 @@ class Runner:
         self.retry = set(retry_failed)
         self.child: int | None = None
         self.dry = dry
+        self.pause_file = state.with_name("PAUSE")
+        self.pausing = 0  # signals received: 1 = pause now, 2+ = kill the entry outright
         self.state = self._load_state()
 
     # ---- state -----------------------------------------------------------------------------
@@ -274,6 +294,8 @@ class Runner:
         self.verify_files()
         out_dir.mkdir(parents=True, exist_ok=True)
         self.logs.mkdir(parents=True, exist_ok=True)
+        if self._pause_wanted():  # asked for while the checks ran: stop before starting it
+            raise Paused(k, eid, "boundary")
         before = _snapshot(out_dir)
         guard = {str(d): _snapshot(d) for d in GUARDED}
         rec.clear()
@@ -295,7 +317,9 @@ class Runner:
                                         stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                                         start_new_session=True)
                 self.child = proc.pid
-                _, status, usage = os.wait4(proc.pid, 0)
+                if self.pausing:  # the signal landed between the check and the launch
+                    self._signal_child()
+                _, status, usage = os.wait4(proc.pid, 0)  # resumes after a signal (PEP 475)
                 self.child = None
                 proc.returncode = os.waitstatus_to_exitcode(status)
                 rc = proc.returncode
@@ -307,6 +331,16 @@ class Runner:
             self._save()
             self._log_row(eid, rec)
             raise Stop(f"{eid} wrote {len(escaped)} files outside its directory, e.g. {escaped[0]}")
+        if self.pausing:  # stopped by the pause, not finished: an interruption, cleared and rerun
+            self._cleanup_interrupted(e, rec)
+            rec.clear()
+            rec.update({"status": "pending", "interrupted": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "interrupted_wall_s": round(time.time() - t0, 1)})
+            self._save()
+            self._log_row(eid, {"status": "interrupted (paused)", "wall_s": time.time() - t0})
+            print(f"    interrupted by the pause after {(time.time() - t0) / 60:.1f} min; reruns on resume",
+                  flush=True)
+            raise Paused(k, eid, "interrupted")
         after = _snapshot(out_dir)
         changed = [p for p, st in after.items() if before.get(p) != st]
         rewrote = sorted({self.state["files"][p][1] for p in changed if p in self.state["files"]} - {eid})
@@ -343,10 +377,54 @@ class Runner:
                     self._log_row(e["id"], self.state["entries"][e["id"]])
         self._save()
 
+    # ---- pause ---------------------------------------------------------------------------------
+    def _signal_child(self) -> None:
+        if self.child:
+            try:
+                os.killpg(self.child, signal.SIGKILL if self.pausing > 1 else signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+    def on_signal(self, signum: int, _frame) -> None:
+        """SIGTERM/SIGINT: pause now. The entry's group is signalled; the runner itself carries on
+        to the point where the entry has exited, then clears and records it (no state torn mid-write)."""
+        self.pausing += 1
+        print(f"ladder v2 runner: signal {signum} — pausing now"
+              + (" (again: killing the entry)" if self.pausing > 1 else ""), flush=True)
+        self._signal_child()
+
+    def _pause_wanted(self) -> bool:
+        return bool(self.pausing) or self.pause_file.exists()
+
     def run(self) -> int:
+        try:
+            return self._run()
+        except Paused as p:
+            n = len(self.entries)
+            self.state["paused"] = {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "before": p.k, "entry": p.eid,
+                                    "how": p.how}
+            self.state.pop("runner", None)
+            self._save()
+            print(f"ladder v2 runner: PAUSED before {p.eid} (entry {p.k} of {n}; "
+                  f"{'it was interrupted and reruns' if p.how == 'interrupted' else 'at an entry boundary'}); "
+                  "resume with artifacts/ladder_v2_ctl.py resume", flush=True)
+            return EX_PAUSED
+
+    def _run(self) -> int:
         n = len(self.entries)
+        # the PAUSED/RESUMED lines carry no bare k/N: a log watcher reads that as the progress counter
         print(f"ladder v2 runner: {n} entries, manifest {self.manifest_sha1[:12]}, state {self.state_path}",
               flush=True)
+        if self.pause_file.exists():
+            raise Stop(f"{self.pause_file} is present: the ladder is set to pause. Remove it to run "
+                       "(artifacts/ladder_v2_ctl.py resume does)")
+        was = self.state.pop("paused", None)
+        if was:
+            print(f"ladder v2 runner: RESUMED (paused {was['at']} before {was['entry']}, entry {was['before']} "
+                  f"of {n}, {was['how']})", flush=True)
+            self.state.setdefault("pauses", []).append({**was, "resumed": time.strftime("%Y-%m-%d %H:%M:%S")})
+        self.state["runner"] = {"pid": os.getpid(), "started": time.strftime("%Y-%m-%d %H:%M:%S")}
+        self._save()
         print("verifying recorded outputs (full re-hash)…", flush=True)
         self.verify_files()
         for eid in self.retry:
@@ -379,10 +457,14 @@ class Runner:
                 self._log_row(e["id"], self.state["entries"][e["id"]])
                 print(f"    skipped(dep) — {blocker}", flush=True)
                 continue
+            if self._pause_wanted():
+                raise Paused(k, e["id"], "boundary")
             self.run_entry(k, n, e)
         counts: dict[str, int] = {}
         for rec in self.state["entries"].values():
             counts[rec["status"]] = counts.get(rec["status"], 0) + 1
+        self.state.pop("runner", None)
+        self._save()
         print(f"ladder v2 runner: finished — {counts}", flush=True)
         return 0
 
@@ -461,17 +543,11 @@ def main() -> None:
     state = a.state or a.manifest.with_name("state.json")
     r = Runner(a.manifest, state, retry_failed=a.retry_failed, dry=a.plan)
 
-    def _term(signum, _frame):  # take the entry's process group down too: no orphan keeps writing
-        if r.child:
-            try:
-                os.killpg(r.child, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-        raise SystemExit(128 + signum)
-
-    signal.signal(signal.SIGTERM, _term)
-    signal.signal(signal.SIGINT, _term)
-    sys.exit(r.plan() if a.plan else r.run())
+    if a.plan:
+        sys.exit(r.plan())
+    signal.signal(signal.SIGTERM, r.on_signal)  # a pause, not a crash: see Runner.on_signal
+    signal.signal(signal.SIGINT, r.on_signal)
+    sys.exit(r.run())
 
 
 if __name__ == "__main__":

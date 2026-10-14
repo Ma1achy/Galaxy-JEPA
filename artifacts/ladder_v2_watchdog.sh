@@ -4,7 +4,8 @@
 # carry results and are never read), and the runner log's status lines (ids and states, no values).
 # Notifies when: the runner has gone without finishing; an entry's log has not moved for 45 min (some
 # CPU fits are long and quiet — a prompt to look, not a verdict); an entry failed; free memory has
-# stayed below 15% for 10 min; the ladder finished. Never stops or restarts anything.
+# stayed below 15% for 10 min; the ladder paused (asked for, so one quiet note) or finished. Never
+# stops or restarts anything. `ladder_v2_ctl.py resume` starts a fresh one on the new runner log.
 #   .venv/bin/python artifacts/_detach.py runs/ladder_v2/logs/watchdog.log --name ladder_v2_watchdog -- \
 #       artifacts/ladder_v2_watchdog.sh runs/ladder_v2/logs/runner_<ts>.log
 RLOG=${1:?runner log}
@@ -39,6 +40,10 @@ while true; do
     last=$now
     if grep -q "^.\{0,9\}ladder v2 runner: finished" "$RLOG" 2>/dev/null; then
       note "ladder finished: $(grep 'ladder v2 runner: finished' "$RLOG" | tail -1 | sed 's/.*finished — //')"
+      exit 0
+    fi
+    if grep -q "^.\{0,9\}ladder v2 runner: PAUSED" "$RLOG" 2>/dev/null; then
+      echo "$(date '+%F %T') ladder paused: $(grep -o 'PAUSED before [^;]*' "$RLOG" | tail -1)" >> "$REC"
       exit 0
     fi
     if ! pgrep -f "artifacts/ladder_v2_run.py" >/dev/null; then

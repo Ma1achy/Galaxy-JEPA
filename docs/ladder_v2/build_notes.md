@@ -59,3 +59,30 @@ active corpus lacks. Anything outside `ladder_env.NINE` refuses. Under A1 it res
 - **Split key:** `untrained_split_key` reproduces M's existing bank key.
 - **Plumbing run** (scratch manifest, 2 entries): resume after SIGTERM, failure → `skipped(dep)`,
   `--retry-failed`, tamper detection, pin-move stop, and the guard all behaved as specified.
+
+## Pause and resume (added 14 October, after a manual stop to unplug the runs disk)
+`artifacts/ladder_v2_ctl.py` drives it; the runner, `_detach.py`, the watchdog and the status line
+agree on one signal: `ladder v2 runner: PAUSED …` and exit 75 (EX_TEMPFAIL).
+- **`pause`** drops `PAUSE` beside the state. The runner honours it before its next entry, so
+  nothing is lost. **`pause --now`** also sends SIGTERM: the runner takes the entry's process group
+  down and waits for it, then clears what the entry wrote (as an interruption, bar `keep` globs) and
+  sets it back to `pending`. A second signal kills the entry outright. **`--eject`** waits for the
+  runner and the heavy lock, then ejects the runs volume only if nothing holds a file open on it.
+- **`resume`** refuses unless the runs root is mounted, no runner is alive, the heavy lock is free and
+  the runner's `--plan` passes (pins unmoved, structure sound). It then removes `PAUSE` and relaunches
+  on a new log under the same status-line name, so the paused bar resumes. It also starts the
+  watchdog and writes the log's path to `runner_log`.
+- **State:** `paused` is the current pause (where and how), `pauses` keeps the history with resume
+  times, and `runner` holds the live runner's pid. `run_log.md` gets an `interrupted (paused)` row
+  for an interrupted attempt.
+- **What a pause does not change:** the order and the pins. Nothing is retried that the ladder had
+  marked failed. A pause has nothing to do with an entry's outcome.
+- The PAUSED/RESUMED lines carry no bare `k/N`; a log watcher would read one as the progress counter.
+- Verified on a 4-entry scratch manifest:
+  - an immediate pause in the middle of an entry (partial file cleared; the entry reran);
+  - a boundary pause (nothing lost);
+  - two resumes (each printed `RESUMED` and carried on from the right entry);
+  - the heavy lock freed each time;
+  - the status-line bar going running → paused → running (resumed, paused time booked) → done.
+- `_detach.py`'s detached child now drops the caller's stdio, so piping its output no longer blocks
+  until the job ends.
