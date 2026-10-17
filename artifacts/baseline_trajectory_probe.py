@@ -13,7 +13,10 @@ headline field and the driver prints no AUC; baseline_run.py logs only how many 
 
 Called by baseline_run.py as a subprocess, one checkpoint per call, under its environment:
 `import baseline_run` comes first, so GJ_CONFIG / F0_CACHE_BASE / F0_NORM_PREFIX are held to A1's
-before F0 reads them, and the split is the one A1 and A2 are scored on.
+before F0 reads them. The split is ladder v2's identical set (`j4_spread_controls._identical_split`,
+decision 1: v1's stride and test split, minus the nine galaxies probe_v2 lacks), held here through
+`LADDER_SPLIT=identical`, so a baseline's trajectory is scored on exactly the galaxies E2 scored A1–A3
+on. tests/test_trajectory_split.py checks the two splits byte for byte.
 
 Investigation code: terse, excluded from lint/CI.
 
@@ -24,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -32,6 +36,11 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import baseline_run  # noqa: E402,F401  — the v2 environment guard, before F0 reads it
+
+# the ladder's split, not the config's own: prepare() reads this at call time (ladder_env)
+if os.environ.setdefault("LADDER_SPLIT", "identical") != "identical":
+    raise SystemExit(f"trajectory: LADDER_SPLIT={os.environ['LADDER_SPLIT']!r}; the baselines are "
+                     "scored on ladder v2's identical split")
 from aligned_c2 import N_BOOT, SEED, _bank, auc, boot_aucs, embed, fit_scores, weights  # noqa: E402
 from i3_loss_usability import frozen_from  # noqa: E402
 from j4_spread_controls import OUT  # noqa: E402
