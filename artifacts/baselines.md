@@ -367,9 +367,37 @@ cost.
   that can stop a run). Row 2's rates are MoCo v3's ViT rule (F7 (b), settled 2026-10-03):
   6.25e-6, 1.875e-5 and 5.625e-5.
 
-## 6. The 500-step timing rehearsal (proposed; held, not run)
+## 6. The 500-step timing rehearsal (run 2026-10-17; gate passed)
 
-**Held (user, 2026-10-13):** it does not run until the user releases it. Modelled on
+**Released (user, 2026-10-17) and run 14:26–15:10** by `artifacts/baseline_rehearsal.py`, record
+`runs/_rehearsal_baselines/rehearsal.json` (SHA-1 `6fb332be32f9`). All nine child processes exited 0.
+
+| arm | steps/s (median, steps 100–500) | × ref | 5,000 steps | 101,308 steps | peak RSS | MPS live / driver peak | resume 250 + 250 |
+|---|---|---|---|---|---|---|---|
+| reference (A1's recipe) | 1.454 | 1.00 | 0.96 h | 19.4 h | 1.23 GB | 0.85 / 13.26 GB | identical, step for step |
+| MoCo | 1.736 | 1.19 | 0.80 h | 16.2 h | 2.20 GB | 2.03 / 7.86 GB | identical, step for step |
+| MAE 8×512 | 1.052 | 0.72 | 1.32 h | 26.7 h | 0.98 GB | 1.91 / 7.72 GB | identical, step for step |
+
+- **Phases** (median ms per step, from the resumed child, steps 250–500, a device sync either side of
+  each phase): reference — data 62, mask 30, forward 353, backward 254, optimiser 72, EMA 4; MoCo —
+  data 76, augment 48 (inside forward), forward 257, backward 267, optimiser 138, momentum 6; MAE —
+  data 59, mask 1, forward 305, backward 557, optimiser 134.
+- **Collapse monitor at step 400:** reference std 0.600, effective rank 13.0, mean cosine 0.867; MoCo
+  0.444, 19.2, 0.822; MAE 0.376, 18.5, 0.934. No halt.
+- **MoCo:** InfoNCE (mean of the last 50 steps) 9.18 against log(K + 1) = 11.09. Top-1 by 100 steps:
+  0.106, 0.019, 0.014, 0.018, 0.018 (the first block is the queue's initial random keys).
+- **The gate** (fixed in the driver before the run: mean top-1 over steps 450–500 ≥ 0.95 stops the
+  sequence): **0.017 — pass.** The pretext is not too easy.
+- **MAE's sky/galaxy split (F5)** at step 499, masked tokens only, galaxy = inside A1's Petrosian box:
+  per-token loss galaxy 0.998, sky 0.999; the sky's share of the masked loss 0.898, equal to its share
+  of masked tokens (0.898). At this point in the warm-up the loss is spread evenly per token, so the
+  sky carries the loss in proportion to its area. Descriptive (F5 settled norm-pix); no gate.
+- **Against §5.2's model:** MoCo is faster than modelled (16.2 h, not 19–22) and MAE too (26.7 h, not
+  30–35). The four seed runs come to about 86 h at these rates, before probe pauses.
+
+The plan as proposed (kept for the record):
+
+Modelled on
 `artifacts/rehearsal_run.py`, on **A1's v2 cache and freeze** (`baseline_run.py`'s environment, §1).
 Each arm is its own subprocess, `smoke: true`, into a scratch `out_dir`, with no bake or pull running
 locally alongside.
@@ -475,7 +503,11 @@ any baseline trains, and no probe number enters any of them.
     The run departs from the rule's rate **only if that rate is unstable** (divergence, NaN, or a
     collapse-floor breach under F8); then the nearest stable of the three, stated. Recorded: the
     loss curves, the final 500-step mean loss at each rate, any instability, and the choice.
-    **Results: not run** (no baseline code exists yet, §9); they are written here before the seed runs.
+    **Results: running from 2026-10-17** (`artifacts/baseline_f7.py`, records under `runs/_f7/`); they
+    are written here before the seed runs. "Unstable" was made numeric in the driver before any F7
+    run: a halt (non-finite loss, the hard collapse floor, or short of 5,000 steps), or divergence —
+    the final 500-step mean above the run's lowest 500-step rolling mean by more than 50%. Nearest
+    is by rate ratio, a tie going to the lower rate.
     About 7.6 h of machine time in all (§5.2).
 - **F8** — *Settled:* **the method-agnostic hard floor gates** a run (a collapse that stops it);
   M's JEPA-grounded soft floors (`collapse_floor`, 2.5) are **reported descriptively, not gating**:
