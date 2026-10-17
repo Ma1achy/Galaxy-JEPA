@@ -1,0 +1,4217 @@
+{
+ "manifest": "/Users/malachy/Documents/Galaxy-JEPA/docs/ladder_v2/manifest.yaml",
+ "manifest_sha1": "6c2f462009ce7f60a81b85e9eca02b8b2662732c",
+ "entries": {
+  "E4.p1_untrained_bank.shared": {
+   "status": "done",
+   "started": "2026-10-13 14:56:11",
+   "exit": 0,
+   "wall_s": 23701.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/shared/p1_untrained_bank.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E4.p1_untrained_bank.shared.log",
+   "peak_rss_mb": 4182.9
+  },
+  "setup.ext.a1": {
+   "status": "done",
+   "started": "2026-10-13 21:31:14",
+   "exit": 0,
+   "wall_s": 1.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/ext"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/setup.ext.a1.log"
+  },
+  "E0.h5_probe.a1": {
+   "status": "done",
+   "started": "2026-10-13 21:31:17",
+   "exit": 0,
+   "wall_s": 689.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/h5_probes.jsonl"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E0.h5_probe.a1.log",
+   "peak_rss_mb": 3985.3
+  },
+  "E1.c2_bank.a1": {
+   "status": "done",
+   "started": "2026-10-13 21:42:47",
+   "exit": 0,
+   "wall_s": 7.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/c2_a1_embeddings.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E1.c2_bank.a1.log",
+   "peak_rss_mb": 852.6
+  },
+  "E2.answers.a1": {
+   "status": "done",
+   "started": "2026-10-13 21:42:54",
+   "exit": 0,
+   "wall_s": 436.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/e2_answers.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E2.answers.a1.log",
+   "peak_rss_mb": 2764.2
+  },
+  "E3.o1_matched.a1": {
+   "status": "done",
+   "started": "2026-10-13 21:50:12",
+   "exit": 0,
+   "wall_s": 2465.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/o1_embeddings.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/o1_matched.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/o1_matched.partial.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E3.o1_matched.a1.log",
+   "peak_rss_mb": 3727.3
+  },
+  "E7.r_bank.a1": {
+   "status": "done",
+   "started": "2026-10-13 22:31:18",
+   "exit": 0,
+   "wall_s": 1584.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_untrained_seeds.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r_bank.a1.log",
+   "peak_rss_mb": 2705.9
+  },
+  "E5.p2_ladder.a1": {
+   "status": "done",
+   "started": "2026-10-13 22:57:45",
+   "exit": 0,
+   "wall_s": 23740.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/p2_ladder.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.p2_ladder.a1.log",
+   "peak_rss_mb": 3061.2
+  },
+  "E7.r0.a1": {
+   "status": "done",
+   "started": "2026-10-14 05:33:26",
+   "exit": 0,
+   "wall_s": 1952.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_r0.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r0.a1.log",
+   "peak_rss_mb": 2893.4
+  },
+  "E5.s2_verify.a1": {
+   "status": "done",
+   "started": "2026-10-14 06:05:59",
+   "exit": 0,
+   "wall_s": 8899.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/s2_ladder.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/s2_noise.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.s2_verify.a1.log",
+   "peak_rss_mb": 3430.4
+  },
+  "E5.t1_ladder.a1": {
+   "status": "done",
+   "started": "2026-10-14 08:34:19",
+   "exit": 0,
+   "wall_s": 6962.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/t1_ladder.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.t1_ladder.a1.log",
+   "peak_rss_mb": 3239.6
+  },
+  "E7.r3.a1": {
+   "status": "done",
+   "started": "2026-10-14 10:30:23",
+   "exit": 0,
+   "wall_s": 281.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r3_orientation.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_r3.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r3.a1.log",
+   "peak_rss_mb": 6938.9
+  },
+  "E7.r2.a1": {
+   "status": "done",
+   "started": "2026-10-14 10:35:04",
+   "exit": 0,
+   "wall_s": 7921.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_r2.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r2.a1.log",
+   "peak_rss_mb": 7902.0
+  },
+  "E7.r1.a1": {
+   "status": "done",
+   "started": "2026-10-14 12:47:06",
+   "exit": 0,
+   "wall_s": 5223.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r1_clusters.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_r1.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r1.a1.log",
+   "peak_rss_mb": 2349.4
+  },
+  "E7.r2_reach_split.a1": {
+   "status": "done",
+   "started": "2026-10-14 14:14:10",
+   "exit": 0,
+   "wall_s": 29.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r2_reach_split.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r2_reach_split.a1.log",
+   "peak_rss_mb": 3317.1
+  },
+  "E8.s1_spiral_inclination.a1": {
+   "status": "done",
+   "started": "2026-10-14 14:14:40",
+   "exit": 0,
+   "wall_s": 42.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/s1_spiral_inclination.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E8.s1_spiral_inclination.a1.log",
+   "peak_rss_mb": 3346.4
+  },
+  "E10.u1_bar_winding.a1": {
+   "status": "done",
+   "started": "2026-10-14 14:15:23",
+   "exit": 0,
+   "wall_s": 152.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/u1_bar_winding.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E10.u1_bar_winding.a1.log",
+   "peak_rss_mb": 1955.4
+  },
+  "E11.u2_counts.a1": {
+   "status": "done",
+   "started": "2026-10-14 14:17:56",
+   "exit": 0,
+   "wall_s": 55.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/u2_counts.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E11.u2_counts.a1.log",
+   "peak_rss_mb": 2401.8
+  },
+  "E11.u2_uncertainty.a1": {
+   "status": "done",
+   "started": "2026-10-14 14:18:52",
+   "exit": 0,
+   "wall_s": 795.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/u2_uncertainty.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E11.u2_uncertainty.a1.log",
+   "peak_rss_mb": 3901.5
+  },
+  "E12.u3_graded.a1": {
+   "status": "done",
+   "started": "2026-10-14 14:32:08",
+   "exit": 0,
+   "wall_s": 57.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/u3_graded.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E12.u3_graded.a1.log",
+   "peak_rss_mb": 2772.2
+  },
+  "E14.v2_independent.a1": {
+   "status": "done",
+   "started": "2026-10-14 14:33:06",
+   "exit": 0,
+   "wall_s": 86.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v2_independent.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E14.v2_independent.a1.log",
+   "peak_rss_mb": 3504.2
+  },
+  "E15.v3_own_directions.a1": {
+   "status": "done",
+   "started": "2026-10-14 14:34:32",
+   "exit": 0,
+   "wall_s": 652.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_alignment.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_own_directions.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc10_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc10_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc13_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc13_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc14_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc14_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc15_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc15_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc16_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc16_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc17_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc17_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc18_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc18_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc1_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc1_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc2_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc2_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc3_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc3_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc4_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc4_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc5_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc5_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc6_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc6_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc7_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc7_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc8_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc8_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc9_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc9_low.png"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E15.v3_own_directions.a1.log",
+   "peak_rss_mb": 4518.5
+  },
+  "E16.w2_measure.a1": {
+   "status": "done",
+   "started": "2026-10-14 17:23:55",
+   "exit": 0,
+   "wall_s": 2029.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/w2_stamp_axes.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_measure.a1.log",
+   "peak_rss_mb": 3604.5
+  },
+  "E16.w2_planted.a1": {
+   "status": "done",
+   "started": "2026-10-14 17:57:45",
+   "exit": 0,
+   "wall_s": 48.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/w2_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_planted.a1.log",
+   "peak_rss_mb": 1935.4
+  },
+  "E16.w2_run.a1": {
+   "status": "done",
+   "started": "2026-10-14 17:58:34",
+   "exit": 0,
+   "wall_s": 230.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/w2_name_pcs.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_run.a1.log",
+   "peak_rss_mb": 1756.5
+  },
+  "E17.x1_bank.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:02:25",
+   "exit": 0,
+   "wall_s": 206.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/x1_transform_bank.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_bank.a1.log",
+   "peak_rss_mb": 1437.3
+  },
+  "E17.x1_planted.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:05:52",
+   "exit": 0,
+   "wall_s": 70.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/x1_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_planted.a1.log",
+   "peak_rss_mb": 3187.7
+  },
+  "E17.x1_run.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:07:02",
+   "exit": 0,
+   "wall_s": 87.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/x1_handedness.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_run.a1.log",
+   "peak_rss_mb": 3422.3
+  },
+  "E18.y3_bank.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:08:30",
+   "exit": 0,
+   "wall_s": 75.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/y3_extra_bank.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_bank.a1.log",
+   "peak_rss_mb": 1940.9
+  },
+  "E18.y3_planted3.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:09:46",
+   "exit": 0,
+   "wall_s": 246.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/y3_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_planted3.a1.log",
+   "peak_rss_mb": 3745.2
+  },
+  "E18.y3_y3.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:13:53",
+   "exit": 0,
+   "wall_s": 98.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/y3_pitch.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_y3.a1.log",
+   "peak_rss_mb": 3541.4
+  },
+  "E19.z3_planted.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:15:31",
+   "exit": 0,
+   "wall_s": 453.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/z3_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E19.z3_planted.a1.log",
+   "peak_rss_mb": 3172.8
+  },
+  "E19.z3_z3.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:23:05",
+   "exit": 0,
+   "wall_s": 239.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/z3_bt.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E19.z3_z3.a1.log",
+   "peak_rss_mb": 2753.6
+  },
+  "E20.aa1_planted.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:27:05",
+   "exit": 0,
+   "wall_s": 32.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa1_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E20.aa1_planted.a1.log",
+   "peak_rss_mb": 2364.2
+  },
+  "E20.aa1_aa1.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:27:38",
+   "exit": 0,
+   "wall_s": 661.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa1_label_efficiency.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E20.aa1_aa1.a1.log",
+   "peak_rss_mb": 2454.8
+  },
+  "E22.aa3a_planted.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:38:39",
+   "exit": 0,
+   "wall_s": 113.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3a_offsets.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3a_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E22.aa3a_planted.a1.log",
+   "peak_rss_mb": 2437.8
+  },
+  "E22.aa3a_aa3a.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:40:33",
+   "exit": 0,
+   "wall_s": 28.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3a_pose.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E22.aa3a_aa3a.a1.log",
+   "peak_rss_mb": 1827.5
+  },
+  "E23.aa3b_bank.a1": {
+   "status": "done",
+   "started": "2026-10-14 18:41:02",
+   "exit": 0,
+   "wall_s": 3819.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_ids.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_progress.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r0.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r0m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r1m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r2.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r2m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r3m.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_bank.a1.log",
+   "peak_rss_mb": 1675.5
+  },
+  "E23.aa3b_planted.a1": {
+   "status": "done",
+   "started": "2026-10-14 19:44:41",
+   "exit": 0,
+   "wall_s": 15.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_planted.a1.log",
+   "peak_rss_mb": 2102.7
+  },
+  "E23.aa3b_aa3b.a1": {
+   "status": "done",
+   "started": "2026-10-14 19:44:57",
+   "exit": 0,
+   "wall_s": 295.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_pose_average.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_aa3b.a1.log",
+   "peak_rss_mb": 3957.4
+  },
+  "E24.dd_sae_plants.a1": {
+   "status": "done",
+   "started": "2026-10-14 19:49:53",
+   "exit": 0,
+   "wall_s": 2.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_sae_plants.a1.log",
+   "peak_rss_mb": 421.4
+  },
+  "E24.dd_extract.a1": {
+   "status": "done",
+   "started": "2026-10-14 19:49:56",
+   "exit": 0,
+   "wall_s": 428.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/A1_b11_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/A1_b11_sae_eval.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/A1_b6_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/A1_b6_sae_eval.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/untrained_b11_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/untrained_b11_sae_eval.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/untrained_b6_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/untrained_b6_sae_eval.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_extract.a1.log",
+   "peak_rss_mb": 4568.1
+  },
+  "E24.dd_train_trained_11_8.a1": {
+   "status": "done",
+   "started": "2026-10-14 19:57:05",
+   "exit": 0,
+   "wall_s": 750.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x8.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_11_8.a1.log",
+   "peak_rss_mb": 3935.9
+  },
+  "E24.dd_train_trained_11_16.a1": {
+   "status": "done",
+   "started": "2026-10-14 20:09:36",
+   "exit": 0,
+   "wall_s": 1166.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x16.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_11_16.a1.log",
+   "peak_rss_mb": 3649.0
+  },
+  "E24.dd_train_trained_6_8.a1": {
+   "status": "done",
+   "started": "2026-10-14 20:29:03",
+   "exit": 0,
+   "wall_s": 736.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x8.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_6_8.a1.log",
+   "peak_rss_mb": 4279.2
+  },
+  "E24.dd_train_trained_6_16.a1": {
+   "status": "done",
+   "started": "2026-10-14 20:41:19",
+   "exit": 0,
+   "wall_s": 1154.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x16.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_6_16.a1.log",
+   "peak_rss_mb": 3415.1
+  },
+  "E24.dd_train_untrained_11_8.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:00:34",
+   "exit": 0,
+   "wall_s": 482.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x8.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_untrained_11_8.a1.log",
+   "peak_rss_mb": 4293.2
+  },
+  "E24.dd_train_untrained_11_16.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:08:37",
+   "exit": 0,
+   "wall_s": 773.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x16.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_untrained_11_16.a1.log",
+   "peak_rss_mb": 3810.7
+  },
+  "E24.dd_train_untrained_6_8.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:21:31",
+   "exit": 0,
+   "wall_s": 470.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x8.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_untrained_6_8.a1.log",
+   "peak_rss_mb": 4267.6
+  },
+  "E24.dd_train_untrained_6_16.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:29:22",
+   "exit": 0,
+   "wall_s": 797.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x16.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_untrained_6_16.a1.log",
+   "peak_rss_mb": 3728.6
+  },
+  "E24.dd_eval_trained_11_8.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:42:40",
+   "exit": 0,
+   "wall_s": 70.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_11_8.a1.log",
+   "peak_rss_mb": 2828.6
+  },
+  "E24.dd_eval_trained_11_16.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:43:51",
+   "exit": 0,
+   "wall_s": 71.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_11_16.a1.log",
+   "peak_rss_mb": 2717.5
+  },
+  "E24.dd_eval_trained_6_8.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:45:03",
+   "exit": 0,
+   "wall_s": 91.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_6_8.a1.log",
+   "peak_rss_mb": 2794.0
+  },
+  "E24.dd_eval_trained_6_16.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:46:35",
+   "exit": 0,
+   "wall_s": 94.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_6_16.a1.log",
+   "peak_rss_mb": 2611.1
+  },
+  "E24.dd_eval_untrained_11_8.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:48:09",
+   "exit": 0,
+   "wall_s": 74.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_11_8.a1.log",
+   "peak_rss_mb": 2977.7
+  },
+  "E24.dd_eval_untrained_11_16.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:49:24",
+   "exit": 0,
+   "wall_s": 77.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_11_16.a1.log",
+   "peak_rss_mb": 2696.2
+  },
+  "E24.dd_eval_untrained_6_8.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:50:42",
+   "exit": 0,
+   "wall_s": 98.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_6_8.a1.log",
+   "peak_rss_mb": 2747.9
+  },
+  "E24.dd_eval_untrained_6_16.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:52:20",
+   "exit": 0,
+   "wall_s": 99.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_6_16.a1.log",
+   "peak_rss_mb": 2770.7
+  },
+  "E24.dd_score.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:54:01",
+   "exit": 0,
+   "wall_s": 130.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/score.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_score.a1.log",
+   "peak_rss_mb": 1728.6
+  },
+  "E24.dd_4b_flags.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:56:12",
+   "exit": 0,
+   "wall_s": 103.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/flags.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_flags.a1.log",
+   "peak_rss_mb": 7239.5
+  },
+  "E24.dd_4b_stats.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:57:56",
+   "exit": 0,
+   "wall_s": 21.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/part4b_stats.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_stats.a1.log",
+   "peak_rss_mb": 1876.8
+  },
+  "E24.dd_4b_pools.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:58:18",
+   "exit": 0,
+   "wall_s": 1.3,
+   "outputs": [],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_pools.a1.log",
+   "peak_rss_mb": 211.0
+  },
+  "E24.dd_4b_plants.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:58:20",
+   "exit": 0,
+   "wall_s": 1.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/part4b_plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_plants.a1.log",
+   "peak_rss_mb": 210.9
+  },
+  "E24.dd_4b_run.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:58:21",
+   "exit": 0,
+   "wall_s": 1.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/part4b.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_run.a1.log",
+   "peak_rss_mb": 210.8
+  },
+  "E24.dd_v3_maps.a1": {
+   "status": "done",
+   "started": "2026-10-14 21:58:23",
+   "exit": 0,
+   "wall_s": 4282.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/names.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_ids.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_m_drop1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_m_drop2.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_m_noise1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_names.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_u_drop1.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3_maps.a1.log",
+   "peak_rss_mb": 3974.4
+  },
+  "E24.dd_v3b_direct.a1": {
+   "status": "done",
+   "started": "2026-10-14 23:09:46",
+   "exit": 0,
+   "wall_s": 141.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/direct_m_occl.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/direct_m_v3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/direct_u_v3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/flux_v3.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_direct.a1.log",
+   "peak_rss_mb": 4444.7
+  },
+  "E24.dd_v3b_plants.a1": {
+   "status": "done",
+   "started": "2026-10-14 23:12:08",
+   "exit": 0,
+   "wall_s": 4.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3b_plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_plants.a1.log",
+   "peak_rss_mb": 375.6
+  },
+  "E24.dd_v3b_v3.a1": {
+   "status": "done",
+   "started": "2026-10-14 23:12:13",
+   "exit": 0,
+   "wall_s": 6.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3b_score.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_v3.a1.log",
+   "peak_rss_mb": 431.4
+  },
+  "E26.plate_subset.a1": {
+   "status": "done",
+   "started": "2026-10-14 23:12:19",
+   "exit": 0,
+   "wall_s": 23.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_subset.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_subset.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_subset.a1.log",
+   "peak_rss_mb": 2358.6
+  },
+  "E26.plate_export.a1": {
+   "status": "done",
+   "started": "2026-10-14 23:12:43",
+   "exit": 0,
+   "wall_s": 286.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate.bin",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_decisions.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_export_report.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_probes.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_export.a1.log",
+   "peak_rss_mb": 3780.7
+  },
+  "E26.plate_sanity.a1": {
+   "status": "done",
+   "started": "2026-10-14 23:17:30",
+   "exit": 0,
+   "wall_s": 5.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_sanity.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_sanity.a1.log",
+   "peak_rss_mb": 1044.8
+  },
+  "setup.ext.a2": {
+   "status": "done",
+   "started": "2026-10-14 23:17:36",
+   "exit": 0,
+   "wall_s": 0.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/ext"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/setup.ext.a2.log"
+  },
+  "E0.h5_probe.a2": {
+   "status": "done",
+   "started": "2026-10-14 23:17:37",
+   "exit": 0,
+   "wall_s": 620.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/h5_probes.jsonl"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E0.h5_probe.a2.log",
+   "peak_rss_mb": 5415.9
+  },
+  "E1.c2_bank.a2": {
+   "status": "done",
+   "started": "2026-10-14 23:27:57",
+   "exit": 0,
+   "wall_s": 6.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/c2_a2_embeddings.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E1.c2_bank.a2.log",
+   "peak_rss_mb": 801.9
+  },
+  "E2.answers.a2": {
+   "status": "done",
+   "started": "2026-10-14 23:28:04",
+   "exit": 0,
+   "wall_s": 316.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/e2_answers.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E2.answers.a2.log",
+   "peak_rss_mb": 3091.8
+  },
+  "E3.o1_matched.a2": {
+   "status": "done",
+   "started": "2026-10-14 23:33:21",
+   "exit": 0,
+   "wall_s": 2128.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/o1_embeddings.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/o1_matched.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/o1_matched.partial.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E3.o1_matched.a2.log",
+   "peak_rss_mb": 3324.5
+  },
+  "E7.r_bank_link.a2": {
+   "status": "done",
+   "started": "2026-10-15 00:08:52",
+   "exit": 0,
+   "wall_s": 0.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_untrained_seeds.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r_bank_link.a2.log"
+  },
+  "E5.p2_ladder.a2": {
+   "status": "done",
+   "started": "2026-10-15 00:08:53",
+   "exit": 0,
+   "wall_s": 21891.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/p2_ladder.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.p2_ladder.a2.log",
+   "peak_rss_mb": 3881.6
+  },
+  "E7.r0.a2": {
+   "status": "done",
+   "started": "2026-10-15 06:13:45",
+   "exit": 0,
+   "wall_s": 1573.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_r0.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r0.a2.log",
+   "peak_rss_mb": 3335.5
+  },
+  "E5.s2_verify.a2": {
+   "status": "done",
+   "started": "2026-10-15 06:39:59",
+   "exit": 0,
+   "wall_s": 8867.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/s2_ladder.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/s2_noise.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.s2_verify.a2.log",
+   "peak_rss_mb": 4849.9
+  },
+  "E5.t1_ladder.a2": {
+   "status": "done",
+   "started": "2026-10-15 09:07:47",
+   "exit": 0,
+   "wall_s": 10725.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/t1_ladder.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.t1_ladder.a2.log",
+   "peak_rss_mb": 2554.2
+  },
+  "E7.r3.a2": {
+   "status": "done",
+   "started": "2026-10-15 12:06:32",
+   "exit": 0,
+   "wall_s": 267.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r3_orientation.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_r3.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r3.a2.log",
+   "peak_rss_mb": 6947.3
+  },
+  "E7.r2.a2": {
+   "status": "done",
+   "started": "2026-10-15 12:11:00",
+   "exit": 0,
+   "wall_s": 7687.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_r2.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r2.a2.log",
+   "peak_rss_mb": 7386.5
+  },
+  "E7.r1.a2": {
+   "status": "done",
+   "started": "2026-10-15 14:19:08",
+   "exit": 0,
+   "wall_s": 7671.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r1_clusters.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_r1.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r1.a2.log",
+   "peak_rss_mb": 2743.5
+  },
+  "E7.r2_reach_split.a2": {
+   "status": "done",
+   "started": "2026-10-15 16:27:00",
+   "exit": 0,
+   "wall_s": 30.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r2_reach_split.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r2_reach_split.a2.log",
+   "peak_rss_mb": 3374.6
+  },
+  "E8.s1_spiral_inclination.a2": {
+   "status": "done",
+   "started": "2026-10-15 16:27:30",
+   "exit": 0,
+   "wall_s": 41.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/s1_spiral_inclination.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E8.s1_spiral_inclination.a2.log",
+   "peak_rss_mb": 3353.3
+  },
+  "E10.u1_bar_winding.a2": {
+   "status": "done",
+   "started": "2026-10-15 16:28:12",
+   "exit": 0,
+   "wall_s": 166.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/u1_bar_winding.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E10.u1_bar_winding.a2.log",
+   "peak_rss_mb": 1938.0
+  },
+  "E11.u2_counts.a2": {
+   "status": "done",
+   "started": "2026-10-15 16:30:59",
+   "exit": 0,
+   "wall_s": 70.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/u2_counts.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E11.u2_counts.a2.log",
+   "peak_rss_mb": 2456.6
+  },
+  "E11.u2_uncertainty.a2": {
+   "status": "done",
+   "started": "2026-10-15 16:32:11",
+   "exit": 0,
+   "wall_s": 1137.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/u2_uncertainty.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E11.u2_uncertainty.a2.log",
+   "peak_rss_mb": 3407.4
+  },
+  "E12.u3_graded.a2": {
+   "status": "done",
+   "started": "2026-10-15 16:51:09",
+   "exit": 0,
+   "wall_s": 84.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/u3_graded.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E12.u3_graded.a2.log",
+   "peak_rss_mb": 2843.2
+  },
+  "E14.v2_independent.a2": {
+   "status": "done",
+   "started": "2026-10-15 16:52:34",
+   "exit": 0,
+   "wall_s": 101.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v2_independent.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E14.v2_independent.a2.log",
+   "peak_rss_mb": 3511.2
+  },
+  "E15.v3_own_directions.a2": {
+   "status": "done",
+   "started": "2026-10-15 16:54:15",
+   "exit": 0,
+   "wall_s": 1009.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_alignment.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_own_directions.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc10_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc10_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc11_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc11_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc12_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc12_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc15_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc15_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc18_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc18_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc19_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc19_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc20_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc20_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc3_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc3_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc4_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc4_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc5_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc5_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc6_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc6_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc9_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc9_low.png"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E15.v3_own_directions.a2.log",
+   "peak_rss_mb": 4801.2
+  },
+  "E16.w2_measure.a2": {
+   "status": "done",
+   "started": "2026-10-15 17:11:06",
+   "exit": 0,
+   "wall_s": 3392.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/w2_stamp_axes.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_measure.a2.log",
+   "peak_rss_mb": 5009.8
+  },
+  "E16.w2_planted.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:07:39",
+   "exit": 0,
+   "wall_s": 100.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/w2_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_planted.a2.log",
+   "peak_rss_mb": 1811.7
+  },
+  "E16.w2_run.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:09:20",
+   "exit": 0,
+   "wall_s": 523.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/w2_name_pcs.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_run.a2.log",
+   "peak_rss_mb": 2098.4
+  },
+  "E17.x1_bank.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:18:05",
+   "exit": 0,
+   "wall_s": 240.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/x1_transform_bank.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_bank.a2.log",
+   "peak_rss_mb": 1662.3
+  },
+  "E17.x1_planted.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:22:06",
+   "exit": 0,
+   "wall_s": 203.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/x1_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_planted.a2.log",
+   "peak_rss_mb": 3227.7
+  },
+  "E17.x1_run.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:25:30",
+   "exit": 0,
+   "wall_s": 196.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/x1_handedness.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_run.a2.log",
+   "peak_rss_mb": 3500.4
+  },
+  "E18.y3_bank.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:28:47",
+   "exit": 0,
+   "wall_s": 100.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/y3_extra_bank.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_bank.a2.log",
+   "peak_rss_mb": 2111.2
+  },
+  "E18.y3_planted3.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:30:27",
+   "exit": 0,
+   "wall_s": 587.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/y3_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_planted3.a2.log",
+   "peak_rss_mb": 3855.3
+  },
+  "E18.y3_y3.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:40:16",
+   "exit": 0,
+   "wall_s": 340.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/y3_pitch.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_y3.a2.log",
+   "peak_rss_mb": 3367.9
+  },
+  "E19.z3_planted.a2": {
+   "status": "done",
+   "started": "2026-10-15 18:45:57",
+   "exit": 0,
+   "wall_s": 1022.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/z3_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E19.z3_planted.a2.log",
+   "peak_rss_mb": 3829.8
+  },
+  "E19.z3_z3.a2": {
+   "status": "done",
+   "started": "2026-10-15 19:03:01",
+   "exit": 0,
+   "wall_s": 346.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/z3_bt.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E19.z3_z3.a2.log",
+   "peak_rss_mb": 3832.9
+  },
+  "E20.aa1_planted.a2": {
+   "status": "done",
+   "started": "2026-10-15 19:08:49",
+   "exit": 0,
+   "wall_s": 73.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa1_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E20.aa1_planted.a2.log",
+   "peak_rss_mb": 2057.4
+  },
+  "E20.aa1_aa1.a2": {
+   "status": "done",
+   "started": "2026-10-15 19:10:03",
+   "exit": 0,
+   "wall_s": 2134.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa1_label_efficiency.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E20.aa1_aa1.a2.log",
+   "peak_rss_mb": 2152.9
+  },
+  "E22.aa3a_planted.a2": {
+   "status": "done",
+   "started": "2026-10-15 19:45:38",
+   "exit": 0,
+   "wall_s": 571.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3a_offsets.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3a_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E22.aa3a_planted.a2.log",
+   "peak_rss_mb": 1340.6
+  },
+  "E22.aa3a_aa3a.a2": {
+   "status": "done",
+   "started": "2026-10-15 19:55:14",
+   "exit": 0,
+   "wall_s": 133.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3a_pose.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E22.aa3a_aa3a.a2.log",
+   "peak_rss_mb": 1618.9
+  },
+  "E23.aa3b_bank.a2": {
+   "status": "done",
+   "started": "2026-10-15 19:57:32",
+   "exit": 0,
+   "wall_s": 4118.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_ids.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_progress.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r0.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r0m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r1m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r2.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r2m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r3m.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_bank.a2.log",
+   "peak_rss_mb": 1665.5
+  },
+  "E23.aa3b_planted.a2": {
+   "status": "done",
+   "started": "2026-10-15 21:06:12",
+   "exit": 0,
+   "wall_s": 52.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_planted.a2.log",
+   "peak_rss_mb": 1863.7
+  },
+  "E23.aa3b_aa3b.a2": {
+   "status": "done",
+   "started": "2026-10-15 21:36:55",
+   "exit": 0,
+   "wall_s": 1302.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_pose_average.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_aa3b.a2.log",
+   "peak_rss_mb": 3261.3
+  },
+  "E24.dd_untrained_link.a2": {
+   "status": "done",
+   "started": "2026-10-15 21:58:39",
+   "exit": 0,
+   "wall_s": 15.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x16.pt",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x8.pt",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x16.pt",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x8.pt",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/untrained_b11_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/untrained_b11_sae_eval.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/untrained_b6_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/untrained_b6_sae_eval.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_untrained_link.a2.log"
+  },
+  "E24.dd_sae_plants.a2": {
+   "status": "done",
+   "started": "2026-10-15 21:58:57",
+   "exit": 0,
+   "wall_s": 12.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_sae_plants.a2.log",
+   "peak_rss_mb": 485.7
+  },
+  "E24.dd_extract.a2": {
+   "status": "done",
+   "started": "2026-10-15 21:59:12",
+   "exit": 0,
+   "wall_s": 246.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/A2_b11_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/A2_b11_sae_eval.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/A2_b6_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/A2_b6_sae_eval.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_extract.a2.log",
+   "peak_rss_mb": 3917.8
+  },
+  "E24.dd_train_trained_11_8.a2": {
+   "status": "done",
+   "started": "2026-10-15 23:27:52",
+   "exit": 0,
+   "wall_s": 862.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x8.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_11_8.a2.log",
+   "peak_rss_mb": 4358.8
+  },
+  "E24.dd_train_trained_11_16.a2": {
+   "status": "done",
+   "started": "2026-10-15 23:42:15",
+   "exit": 0,
+   "wall_s": 1422.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x16.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_11_16.a2.log",
+   "peak_rss_mb": 2776.0
+  },
+  "E24.dd_train_trained_6_8.a2": {
+   "status": "done",
+   "started": "2026-10-16 00:06:01",
+   "exit": 0,
+   "wall_s": 1007.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x8.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_6_8.a2.log",
+   "peak_rss_mb": 2656.8
+  },
+  "E24.dd_train_trained_6_16.a2": {
+   "status": "done",
+   "started": "2026-10-16 00:22:50",
+   "exit": 0,
+   "wall_s": 1445.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x16.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_6_16.a2.log",
+   "peak_rss_mb": 2554.3
+  },
+  "E24.dd_eval_trained_11_8.a2": {
+   "status": "done",
+   "started": "2026-10-16 00:46:56",
+   "exit": 0,
+   "wall_s": 277.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_11_8.a2.log",
+   "peak_rss_mb": 2031.2
+  },
+  "E24.dd_eval_trained_11_16.a2": {
+   "status": "done",
+   "started": "2026-10-16 00:51:35",
+   "exit": 0,
+   "wall_s": 263.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_11_16.a2.log",
+   "peak_rss_mb": 2612.6
+  },
+  "E24.dd_eval_trained_6_8.a2": {
+   "status": "done",
+   "started": "2026-10-16 00:56:00",
+   "exit": 0,
+   "wall_s": 288.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_6_8.a2.log",
+   "peak_rss_mb": 2705.3
+  },
+  "E24.dd_eval_trained_6_16.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:00:51",
+   "exit": 0,
+   "wall_s": 232.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_6_16.a2.log",
+   "peak_rss_mb": 2620.1
+  },
+  "E24.dd_eval_untrained_11_8.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:04:44",
+   "exit": 0,
+   "wall_s": 164.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_11_8.a2.log",
+   "peak_rss_mb": 2806.4
+  },
+  "E24.dd_eval_untrained_11_16.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:07:30",
+   "exit": 0,
+   "wall_s": 173.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_11_16.a2.log",
+   "peak_rss_mb": 2584.3
+  },
+  "E24.dd_eval_untrained_6_8.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:10:25",
+   "exit": 0,
+   "wall_s": 196.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_6_8.a2.log",
+   "peak_rss_mb": 2249.6
+  },
+  "E24.dd_eval_untrained_6_16.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:13:42",
+   "exit": 0,
+   "wall_s": 203.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_6_16.a2.log",
+   "peak_rss_mb": 1875.4
+  },
+  "E24.dd_score.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:17:06",
+   "exit": 0,
+   "wall_s": 104.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/score.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_score.a2.log",
+   "peak_rss_mb": 1788.5
+  },
+  "E24.dd_4b_flags.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:18:51",
+   "exit": 0,
+   "wall_s": 186.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/flags.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_flags.a2.log",
+   "peak_rss_mb": 5744.6
+  },
+  "E24.dd_4b_stats.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:22:00",
+   "exit": 0,
+   "wall_s": 33.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/part4b_stats.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_stats.a2.log",
+   "peak_rss_mb": 1812.6
+  },
+  "E24.dd_4b_pools.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:22:34",
+   "exit": 0,
+   "wall_s": 2.4,
+   "outputs": [],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_pools.a2.log",
+   "peak_rss_mb": 213.5
+  },
+  "E24.dd_4b_plants.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:22:37",
+   "exit": 0,
+   "wall_s": 3.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/part4b_plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_plants.a2.log",
+   "peak_rss_mb": 214.2
+  },
+  "E24.dd_4b_run.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:22:42",
+   "exit": 0,
+   "wall_s": 2.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/part4b.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_run.a2.log",
+   "peak_rss_mb": 214.6
+  },
+  "E24.dd_v3_maps.a2": {
+   "status": "done",
+   "started": "2026-10-16 01:22:45",
+   "exit": 0,
+   "wall_s": 4863.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/names.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_ids.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_m_drop1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_m_drop2.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_m_noise1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_names.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_u_drop1.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3_maps.a2.log",
+   "peak_rss_mb": 4021.6
+  },
+  "E24.dd_v3b_direct.a2": {
+   "status": "done",
+   "started": "2026-10-16 02:43:49",
+   "exit": 0,
+   "wall_s": 253.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/direct_m_occl.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/direct_m_v3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/direct_u_v3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/flux_v3.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_direct.a2.log",
+   "peak_rss_mb": 3279.4
+  },
+  "E24.dd_v3b_plants.a2": {
+   "status": "done",
+   "started": "2026-10-16 02:48:04",
+   "exit": 0,
+   "wall_s": 6.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3b_plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_plants.a2.log",
+   "peak_rss_mb": 381.2
+  },
+  "E24.dd_v3b_v3.a2": {
+   "status": "done",
+   "started": "2026-10-16 02:48:11",
+   "exit": 0,
+   "wall_s": 7.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3b_score.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_v3.a2.log",
+   "peak_rss_mb": 449.0
+  },
+  "E26.plate_subset.a2": {
+   "status": "done",
+   "started": "2026-10-16 02:48:18",
+   "exit": 0,
+   "wall_s": 31.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_subset.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_subset.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_subset.a2.log",
+   "peak_rss_mb": 2378.8
+  },
+  "E26.plate_export.a2": {
+   "status": "done",
+   "started": "2026-10-16 02:48:51",
+   "exit": 0,
+   "wall_s": 484.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate.bin",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_decisions.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_export_report.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_probes.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_export.a2.log",
+   "peak_rss_mb": 3242.2
+  },
+  "E26.plate_sanity.a2": {
+   "status": "done",
+   "started": "2026-10-16 02:56:55",
+   "exit": 0,
+   "wall_s": 6.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_sanity.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_sanity.a2.log",
+   "peak_rss_mb": 1052.8
+  },
+  "setup.ext.a3": {
+   "status": "done",
+   "started": "2026-10-16 02:57:03",
+   "exit": 0,
+   "wall_s": 0.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/ext"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/setup.ext.a3.log"
+  },
+  "E0.h5_probe.a3": {
+   "status": "done",
+   "started": "2026-10-16 02:57:04",
+   "exit": 0,
+   "wall_s": 692.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/h5_probes.jsonl"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E0.h5_probe.a3.log",
+   "peak_rss_mb": 5919.0
+  },
+  "E1.c2_bank.a3": {
+   "status": "done",
+   "started": "2026-10-16 03:08:37",
+   "exit": 0,
+   "wall_s": 7.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/c2_a3_embeddings.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E1.c2_bank.a3.log",
+   "peak_rss_mb": 827.1
+  },
+  "E2.answers.a3": {
+   "status": "done",
+   "started": "2026-10-16 03:08:45",
+   "exit": 0,
+   "wall_s": 489.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/e2_answers.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E2.answers.a3.log",
+   "peak_rss_mb": 2724.8
+  },
+  "E3.o1_matched.a3": {
+   "status": "done",
+   "started": "2026-10-16 03:16:55",
+   "exit": 0,
+   "wall_s": 1459.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/o1_embeddings.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/o1_matched.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/o1_matched.partial.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E3.o1_matched.a3.log",
+   "peak_rss_mb": 6734.3
+  },
+  "E7.r_bank_link.a3": {
+   "status": "done",
+   "started": "2026-10-16 03:41:15",
+   "exit": 0,
+   "wall_s": 0.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_untrained_seeds.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r_bank_link.a3.log"
+  },
+  "E5.p2_ladder.a3": {
+   "status": "done",
+   "started": "2026-10-16 03:41:16",
+   "exit": 0,
+   "wall_s": 19227.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/p2_ladder.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.p2_ladder.a3.log",
+   "peak_rss_mb": 6774.0
+  },
+  "E7.r0.a3": {
+   "status": "done",
+   "started": "2026-10-16 09:01:44",
+   "exit": 0,
+   "wall_s": 3466.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_r0.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r0.a3.log",
+   "peak_rss_mb": 2558.8
+  },
+  "E5.s2_verify.a3": {
+   "status": "done",
+   "started": "2026-10-16 09:59:33",
+   "exit": 0,
+   "wall_s": 14422.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/s2_ladder.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/s2_noise.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.s2_verify.a3.log",
+   "peak_rss_mb": 4129.2
+  },
+  "E5.t1_ladder.a3": {
+   "status": "done",
+   "started": "2026-10-16 13:59:56",
+   "exit": 0,
+   "wall_s": 7107.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/t1_ladder.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E5.t1_ladder.a3.log",
+   "peak_rss_mb": 2978.5
+  },
+  "E7.r3.a3": {
+   "status": "done",
+   "started": "2026-10-16 15:58:23",
+   "exit": 0,
+   "wall_s": 270.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r3_orientation.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_r3.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r3.a3.log",
+   "peak_rss_mb": 7814.0
+  },
+  "E7.r2.a3": {
+   "status": "done",
+   "started": "2026-10-16 16:02:54",
+   "exit": 0,
+   "wall_s": 7507.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_r2.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r2.a3.log",
+   "peak_rss_mb": 8626.2
+  },
+  "E7.r1.a3": {
+   "status": "done",
+   "started": "2026-10-16 18:08:03",
+   "exit": 0,
+   "wall_s": 11688.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r1_clusters.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_r1.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r1.a3.log",
+   "peak_rss_mb": 2746.8
+  },
+  "E7.r2_reach_split.a3": {
+   "status": "done",
+   "started": "2026-10-16 21:22:51",
+   "exit": 0,
+   "wall_s": 29.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r2_reach_split.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E7.r2_reach_split.a3.log",
+   "peak_rss_mb": 3334.5
+  },
+  "E8.s1_spiral_inclination.a3": {
+   "status": "done",
+   "started": "2026-10-16 21:23:21",
+   "exit": 0,
+   "wall_s": 40.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/s1_spiral_inclination.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E8.s1_spiral_inclination.a3.log",
+   "peak_rss_mb": 3354.5
+  },
+  "E10.u1_bar_winding.a3": {
+   "status": "done",
+   "started": "2026-10-16 21:24:02",
+   "exit": 0,
+   "wall_s": 165.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/u1_bar_winding.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E10.u1_bar_winding.a3.log",
+   "peak_rss_mb": 1932.3
+  },
+  "E11.u2_counts.a3": {
+   "status": "done",
+   "started": "2026-10-16 21:26:47",
+   "exit": 0,
+   "wall_s": 57.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/u2_counts.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E11.u2_counts.a3.log",
+   "peak_rss_mb": 2387.5
+  },
+  "E11.u2_uncertainty.a3": {
+   "status": "done",
+   "started": "2026-10-16 21:27:45",
+   "exit": 0,
+   "wall_s": 806.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/u2_uncertainty.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E11.u2_uncertainty.a3.log",
+   "peak_rss_mb": 4585.1
+  },
+  "E12.u3_graded.a3": {
+   "status": "done",
+   "started": "2026-10-16 21:41:11",
+   "exit": 0,
+   "wall_s": 57.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/u3_graded.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E12.u3_graded.a3.log",
+   "peak_rss_mb": 2771.6
+  },
+  "E14.v2_independent.a3": {
+   "status": "done",
+   "started": "2026-10-16 21:42:09",
+   "exit": 0,
+   "wall_s": 143.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v2_independent.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E14.v2_independent.a3.log",
+   "peak_rss_mb": 3338.5
+  },
+  "E15.v3_own_directions.a3": {
+   "status": "done",
+   "started": "2026-10-16 21:44:33",
+   "exit": 0,
+   "wall_s": 1607.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_alignment.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_own_directions.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc10_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc10_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc11_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc11_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc12_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc12_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc13_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc13_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc16_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc16_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc17_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc17_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc18_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc18_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc19_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc19_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc1_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc1_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc20_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc20_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc2_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc2_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc3_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc3_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc4_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc4_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc5_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc5_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc6_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc6_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc7_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc7_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc8_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc8_low.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc9_high.png",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc9_low.png"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E15.v3_own_directions.a3.log",
+   "peak_rss_mb": 4098.5
+  },
+  "E16.w2_measure.a3": {
+   "status": "done",
+   "started": "2026-10-16 22:11:20",
+   "exit": 0,
+   "wall_s": 2721.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/w2_stamp_axes.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_measure.a3.log",
+   "peak_rss_mb": 7522.6
+  },
+  "E16.w2_planted.a3": {
+   "status": "done",
+   "started": "2026-10-16 22:56:42",
+   "exit": 0,
+   "wall_s": 64.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/w2_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_planted.a3.log",
+   "peak_rss_mb": 1773.7
+  },
+  "E16.w2_run.a3": {
+   "status": "done",
+   "started": "2026-10-16 22:57:48",
+   "exit": 0,
+   "wall_s": 266.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/w2_name_pcs.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E16.w2_run.a3.log",
+   "peak_rss_mb": 1878.8
+  },
+  "E17.x1_bank.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:02:15",
+   "exit": 0,
+   "wall_s": 230.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/x1_transform_bank.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_bank.a3.log",
+   "peak_rss_mb": 1740.9
+  },
+  "E17.x1_planted.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:06:06",
+   "exit": 0,
+   "wall_s": 173.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/x1_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_planted.a3.log",
+   "peak_rss_mb": 3667.6
+  },
+  "E17.x1_run.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:08:59",
+   "exit": 0,
+   "wall_s": 187.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/x1_handedness.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E17.x1_run.a3.log",
+   "peak_rss_mb": 3057.9
+  },
+  "E18.y3_bank.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:12:08",
+   "exit": 0,
+   "wall_s": 118.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/y3_extra_bank.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_bank.a3.log",
+   "peak_rss_mb": 1799.3
+  },
+  "E18.y3_planted3.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:14:08",
+   "exit": 0,
+   "wall_s": 388.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/y3_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_planted3.a3.log",
+   "peak_rss_mb": 3147.1
+  },
+  "E18.y3_y3.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:20:37",
+   "exit": 0,
+   "wall_s": 164.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/y3_pitch.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E18.y3_y3.a3.log",
+   "peak_rss_mb": 3725.5
+  },
+  "E19.z3_planted.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:23:22",
+   "exit": 0,
+   "wall_s": 521.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/z3_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E19.z3_planted.a3.log",
+   "peak_rss_mb": 3311.8
+  },
+  "E19.z3_z3.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:32:05",
+   "exit": 0,
+   "wall_s": 259.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/z3_bt.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E19.z3_z3.a3.log",
+   "peak_rss_mb": 3119.2
+  },
+  "E20.aa1_planted.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:36:24",
+   "exit": 0,
+   "wall_s": 31.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa1_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E20.aa1_planted.a3.log",
+   "peak_rss_mb": 2383.4
+  },
+  "E20.aa1_aa1.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:36:56",
+   "exit": 0,
+   "wall_s": 1003.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa1_label_efficiency.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E20.aa1_aa1.a3.log",
+   "peak_rss_mb": 2016.8
+  },
+  "E22.aa3a_planted.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:53:40",
+   "exit": 0,
+   "wall_s": 125.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3a_offsets.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3a_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E22.aa3a_planted.a3.log",
+   "peak_rss_mb": 2459.1
+  },
+  "E22.aa3a_aa3a.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:55:47",
+   "exit": 0,
+   "wall_s": 32.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3a_pose.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E22.aa3a_aa3a.a3.log",
+   "peak_rss_mb": 1832.6
+  },
+  "E23.aa3b_bank.a3": {
+   "status": "done",
+   "started": "2026-10-16 23:56:19",
+   "exit": 0,
+   "wall_s": 3843.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_ids.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_progress.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r0.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r0m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r1m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r2.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r2m.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r3m.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_bank.a3.log",
+   "peak_rss_mb": 1688.5
+  },
+  "E23.aa3b_planted.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:00:23",
+   "exit": 0,
+   "wall_s": 15.1,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_planted.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_planted.a3.log",
+   "peak_rss_mb": 2230.4
+  },
+  "E23.aa3b_aa3b.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:00:38",
+   "exit": 0,
+   "wall_s": 300.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_pose_average.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E23.aa3b_aa3b.a3.log",
+   "peak_rss_mb": 5372.4
+  },
+  "E24.dd_untrained_link.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:05:39",
+   "exit": 0,
+   "wall_s": 0.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x16.pt",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x8.pt",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x16.pt",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x8.pt",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/untrained_b11_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/untrained_b11_sae_eval.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/untrained_b6_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/untrained_b6_sae_eval.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_untrained_link.a3.log"
+  },
+  "E24.dd_sae_plants.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:05:40",
+   "exit": 0,
+   "wall_s": 2.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_sae_plants.a3.log",
+   "peak_rss_mb": 331.3
+  },
+  "E24.dd_extract.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:05:43",
+   "exit": 0,
+   "wall_s": 220.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/A3_b11_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/A3_b11_sae_eval.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/A3_b6_sae.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/A3_b6_sae_eval.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_extract.a3.log",
+   "peak_rss_mb": 5308.5
+  },
+  "E24.dd_train_trained_11_8.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:09:23",
+   "exit": 0,
+   "wall_s": 863.4,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x8.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_11_8.a3.log",
+   "peak_rss_mb": 4204.3
+  },
+  "E24.dd_train_trained_11_16.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:23:47",
+   "exit": 0,
+   "wall_s": 1391.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x16.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_11_16.a3.log",
+   "peak_rss_mb": 3175.4
+  },
+  "E24.dd_train_trained_6_8.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:47:00",
+   "exit": 0,
+   "wall_s": 733.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x8.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x8.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_6_8.a3.log",
+   "peak_rss_mb": 4118.9
+  },
+  "E24.dd_train_trained_6_16.a3": {
+   "status": "done",
+   "started": "2026-10-17 01:59:14",
+   "exit": 0,
+   "wall_s": 1108.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x16.log.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x16.pt"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_train_trained_6_16.a3.log",
+   "peak_rss_mb": 4223.8
+  },
+  "E24.dd_eval_trained_11_8.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:17:43",
+   "exit": 0,
+   "wall_s": 77.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_11_8.a3.log",
+   "peak_rss_mb": 3127.6
+  },
+  "E24.dd_eval_trained_11_16.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:19:01",
+   "exit": 0,
+   "wall_s": 78.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_11_16.a3.log",
+   "peak_rss_mb": 2723.6
+  },
+  "E24.dd_eval_trained_6_8.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:20:19",
+   "exit": 0,
+   "wall_s": 99.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_6_8.a3.log",
+   "peak_rss_mb": 3037.6
+  },
+  "E24.dd_eval_trained_6_16.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:21:59",
+   "exit": 0,
+   "wall_s": 102.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_trained_6_16.a3.log",
+   "peak_rss_mb": 2855.8
+  },
+  "E24.dd_eval_untrained_11_8.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:23:42",
+   "exit": 0,
+   "wall_s": 75.7,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_11_8.a3.log",
+   "peak_rss_mb": 3253.5
+  },
+  "E24.dd_eval_untrained_11_16.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:24:58",
+   "exit": 0,
+   "wall_s": 75.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_11_16.a3.log",
+   "peak_rss_mb": 2692.1
+  },
+  "E24.dd_eval_untrained_6_8.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:26:14",
+   "exit": 0,
+   "wall_s": 98.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x8.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_6_8.a3.log",
+   "peak_rss_mb": 2842.4
+  },
+  "E24.dd_eval_untrained_6_16.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:27:52",
+   "exit": 0,
+   "wall_s": 100.0,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x16.eval.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_eval_untrained_6_16.a3.log",
+   "peak_rss_mb": 2788.8
+  },
+  "E24.dd_score.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:29:33",
+   "exit": 0,
+   "wall_s": 76.8,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/score.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_score.a3.log",
+   "peak_rss_mb": 2735.1
+  },
+  "E24.dd_4b_flags.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:30:50",
+   "exit": 0,
+   "wall_s": 106.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/flags.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_flags.a3.log",
+   "peak_rss_mb": 7290.2
+  },
+  "E24.dd_4b_stats.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:32:36",
+   "exit": 0,
+   "wall_s": 21.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/part4b_stats.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_stats.a3.log",
+   "peak_rss_mb": 1913.0
+  },
+  "E24.dd_4b_pools.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:32:58",
+   "exit": 0,
+   "wall_s": 1.3,
+   "outputs": [],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_pools.a3.log",
+   "peak_rss_mb": 210.1
+  },
+  "E24.dd_4b_plants.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:33:00",
+   "exit": 0,
+   "wall_s": 1.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/part4b_plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_plants.a3.log",
+   "peak_rss_mb": 208.1
+  },
+  "E24.dd_4b_run.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:33:01",
+   "exit": 0,
+   "wall_s": 1.2,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/part4b.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_4b_run.a3.log",
+   "peak_rss_mb": 208.1
+  },
+  "E24.dd_v3_maps.a3": {
+   "status": "done",
+   "started": "2026-10-17 02:33:03",
+   "exit": 0,
+   "wall_s": 4580.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/names.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_ids.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_m_drop1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_m_drop2.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_m_noise1.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_names.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_u_drop1.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3_maps.a3.log",
+   "peak_rss_mb": 4015.0
+  },
+  "E24.dd_v3b_direct.a3": {
+   "status": "done",
+   "started": "2026-10-17 03:49:24",
+   "exit": 0,
+   "wall_s": 228.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/direct_m_occl.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/direct_m_v3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/direct_u_v3.npy",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/flux_v3.npy"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_direct.a3.log",
+   "peak_rss_mb": 4267.2
+  },
+  "E24.dd_v3b_plants.a3": {
+   "status": "done",
+   "started": "2026-10-17 03:53:13",
+   "exit": 0,
+   "wall_s": 4.3,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3b_plants.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_plants.a3.log",
+   "peak_rss_mb": 378.2
+  },
+  "E24.dd_v3b_v3.a3": {
+   "status": "done",
+   "started": "2026-10-17 03:53:18",
+   "exit": 0,
+   "wall_s": 5.9,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3b_score.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E24.dd_v3b_v3.a3.log",
+   "peak_rss_mb": 430.7
+  },
+  "E26.plate_subset.a3": {
+   "status": "done",
+   "started": "2026-10-17 03:53:26",
+   "exit": 0,
+   "wall_s": 55.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_subset.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_subset.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_subset.a3.log",
+   "peak_rss_mb": 2364.2
+  },
+  "E26.plate_export.a3": {
+   "status": "done",
+   "started": "2026-10-17 03:54:22",
+   "exit": 0,
+   "wall_s": 556.5,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate.bin",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_decisions.npz",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_export_report.json",
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_probes.npz"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_export.a3.log",
+   "peak_rss_mb": 2674.8
+  },
+  "E26.plate_sanity.a3": {
+   "status": "done",
+   "started": "2026-10-17 04:03:39",
+   "exit": 0,
+   "wall_s": 9.6,
+   "outputs": [
+    "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_sanity.json"
+   ],
+   "log": "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/logs/E26.plate_sanity.a3.log",
+   "peak_rss_mb": 1053.5
+  }
+ },
+ "files": {
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/shared/p1_untrained_bank.json": [
+   "7a8efc748b4a65391abd4fc98c35214e5dc53c8f",
+   "E4.p1_untrained_bank.shared"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/ext": [
+   "884ada754446af01692f0538c2cc94f4d1db66d8",
+   "setup.ext.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/h5_probes.jsonl": [
+   "9ec4050e558374ec6f15efae6be993040c972ae6",
+   "E0.h5_probe.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/c2_a1_embeddings.npz": [
+   "c4eb12f7440262ea531315a446028edf0ec65f48",
+   "E1.c2_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/e2_answers.json": [
+   "ed340caebd39a212a118b5ec71c5efed29726147",
+   "E2.answers.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/o1_embeddings.npz": [
+   "c21bfe37873a0df01f55e6f3ac37d1816ee2d390",
+   "E3.o1_matched.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/o1_matched.json": [
+   "9d4ec917749ab9a23aef97581b0d8923de100f62",
+   "E3.o1_matched.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/o1_matched.partial.json": [
+   "52bb069c93fff9aff3cc024c81bfa1bb674d502f",
+   "E3.o1_matched.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_untrained_seeds.npz": [
+   "9921e585354c668985be6cd80cc52f54fa21dd7a",
+   "E7.r_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/p2_ladder.json": [
+   "c732d3f2e23fea50979afd3920b96e60fcae13d8",
+   "E5.p2_ladder.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_r0.json": [
+   "9cbf0de2459eb4002b07394b3a0126c748f9ac62",
+   "E7.r0.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/s2_ladder.json": [
+   "ae7a8647da6f5e5882f7b0236b983353a24fde5d",
+   "E5.s2_verify.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/s2_noise.npz": [
+   "9bfef3e1caee861066e64f89ff98e44f3abafc04",
+   "E5.s2_verify.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/t1_ladder.json": [
+   "705154a1605b82afb6833bf340e68b102f3a9b5c",
+   "E5.t1_ladder.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r3_orientation.npz": [
+   "d22cf8cafaa307fd9419a640b677a848fd2b98ba",
+   "E7.r3.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_r3.json": [
+   "333c42607721aa6f38b1f4e01e0f2d3790ca4092",
+   "E7.r3.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_r2.json": [
+   "530dea522ede210f2b690364af1a22cf42fc41ca",
+   "E7.r2.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r1_clusters.npz": [
+   "b17904442dd9254f65a56071a46db532ca3abe52",
+   "E7.r1.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r_r1.json": [
+   "54e4b2b5e03e8f031f04c39c14c6706dd87bc571",
+   "E7.r1.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/r2_reach_split.json": [
+   "947ea7fd9db59c742af16bc9eae5e8f8b193d1f7",
+   "E7.r2_reach_split.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/s1_spiral_inclination.json": [
+   "c24a6d7ef8ef846b1e881aa4d1f55a55c13ee98b",
+   "E8.s1_spiral_inclination.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/u1_bar_winding.json": [
+   "2bf641c5caf0f869d1dcd4e6770e49ecb93a6fb4",
+   "E10.u1_bar_winding.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/u2_counts.json": [
+   "5de723666a594e808361e82fb1c4ff8112c5b811",
+   "E11.u2_counts.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/u2_uncertainty.json": [
+   "a7931f3ace47a43cdf136d04c01152539072fcd8",
+   "E11.u2_uncertainty.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/u3_graded.json": [
+   "db43daa16d3a3398452973b2422e3e64e106b889",
+   "E12.u3_graded.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v2_independent.json": [
+   "7f006032356368749765b73d6cfc52ffb7ce5027",
+   "E14.v2_independent.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_alignment.json": [
+   "e826cf2fb0256b5850036f5e517eb37e28d3fea0",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_own_directions.json": [
+   "f1b1d583844e5ba001c927b5c0cee8cf5912a777",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc10_high.png": [
+   "c482d573adb85f663788060dcf553a83595e225a",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc10_low.png": [
+   "5616ee8515736a5928d6207d0e883f0d088a02be",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc13_high.png": [
+   "95799fb18160a512e6700893010671390c77349c",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc13_low.png": [
+   "c99d4ad14454a9dd2d4f192a0261c1913f7bf6cd",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc14_high.png": [
+   "fa2fcb3822c38581a77e9b6edcdfe0831253e9e0",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc14_low.png": [
+   "7ee81942b316ad820c734e02e20bbd31d7640916",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc15_high.png": [
+   "71415a3572b95c09444196c41ec4d43dff76c24f",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc15_low.png": [
+   "e360d760b3a41efe213ff44d8011ad22ff8610bc",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc16_high.png": [
+   "0e3d54bac27906be49d3bf9d889325de15fd5549",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc16_low.png": [
+   "bcb48419cff30aa5007eb8d6307d9be8bf314657",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc17_high.png": [
+   "9ab9f4ca84a097bb01d0ce446de98bf31ce25089",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc17_low.png": [
+   "4ab6e51ee5a3a7539bb8cb9076b97711f3e6e0a4",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc18_high.png": [
+   "0e759044b8399efeddc483924c6cf107bec1c0d4",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc18_low.png": [
+   "7536e5f3423320d1a64099c0e3db2bb6fab4522a",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc1_high.png": [
+   "c440716d734b90339fe2a1ec3947cad0e9f43c15",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc1_low.png": [
+   "839b1b7a4cb69c83c90cd78fea67222f8bf7f2f2",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc2_high.png": [
+   "b312cedc40777f269f013bdcf696613c1ad23c34",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc2_low.png": [
+   "c342bc87b881df897e58cd95945be74e331e7bfb",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc3_high.png": [
+   "b8641780f74e0c1f4e9f1228298b75c48ccaa2d3",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc3_low.png": [
+   "d1381f9daf921fc27147406b44a007eb9a2866d7",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc4_high.png": [
+   "aa3566c8f6599991088c926a64c530d48c915373",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc4_low.png": [
+   "fe8c423773e76532685bfce453b11960f3551a96",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc5_high.png": [
+   "6eb6d7d7e05aba0ec8c422787f3d5620a244ab17",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc5_low.png": [
+   "d1e49fe3f677f0de365b69fd4bea4e3989c1f0de",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc6_high.png": [
+   "c9df6a04a792d44a663011439c8f8dfb542bc08f",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc6_low.png": [
+   "28b6e6e081d50b859ae9bcd5856b04d9111dc21e",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc7_high.png": [
+   "2dbaaf74e30ef053f798b9347104670f77bc4258",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc7_low.png": [
+   "731f3fe60a441c96297ef7fac618b820c57df9e3",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc8_high.png": [
+   "a8fdf040ff108a43005d764538837ecf5ef3bc5e",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc8_low.png": [
+   "b049f22ca0f8d329c99a48b13464e4df6d42b5c8",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc9_high.png": [
+   "14b8d9d7160e7b00d7485b30236d21ba10361e37",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/v3_pc9_low.png": [
+   "5d4fcdfabe3d257c8c709ac970852cec113d8cda",
+   "E15.v3_own_directions.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/w2_stamp_axes.npz": [
+   "d15920e8d083fe927e8d870588b251abbbd0a946",
+   "E16.w2_measure.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/w2_planted.json": [
+   "afe3184d9d0b622d67c50f440cef8072d280306a",
+   "E16.w2_planted.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/w2_name_pcs.json": [
+   "0899ada3a80835633047211b44258517027fc86a",
+   "E16.w2_run.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/x1_transform_bank.npz": [
+   "505f23fb4cb7bc5ec16c2672a8fddffbc2fe8bc7",
+   "E17.x1_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/x1_planted.json": [
+   "a175f81ef88688159688cc0777372ca9b6a1840b",
+   "E17.x1_planted.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/x1_handedness.json": [
+   "d34d0f77668fd6bda508ce9f4c430fb6a4b258d6",
+   "E17.x1_run.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/y3_extra_bank.npz": [
+   "9e105a9140df52ce88e0a32f40459abf82ca8ce7",
+   "E18.y3_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/y3_planted.json": [
+   "1477e2652b0bf936d967969a509a211035bf3d4f",
+   "E18.y3_planted3.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/y3_pitch.json": [
+   "1805cca9d26eceeabf32cdcd3b4f3d3256e05bc7",
+   "E18.y3_y3.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/z3_planted.json": [
+   "71d8d9e02fff0b91f6de5a56617068e2da50e98c",
+   "E19.z3_planted.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/z3_bt.json": [
+   "0ecc3b8f2f00f91376ba246ec2f4e485f9a56e5c",
+   "E19.z3_z3.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa1_planted.json": [
+   "0e09bf439c7698f217eac29fcff5e7f382b0b0f1",
+   "E20.aa1_planted.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa1_label_efficiency.json": [
+   "51f29dd2b8c1e053d7ef9e5f5899508b9e03906b",
+   "E20.aa1_aa1.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3a_offsets.npz": [
+   "d329e2ab398a0e8dd9961b08f829bb80759de74f",
+   "E22.aa3a_planted.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3a_planted.json": [
+   "6696f07cd13906cc7436a9bd3921866b5c8f697c",
+   "E22.aa3a_planted.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3a_pose.json": [
+   "4954434bffebc54435dbdc76e7f5845ae269121b",
+   "E22.aa3a_aa3a.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_ids.npy": [
+   "d5cba4b7debce7693a8181b69688fc1d3957260b",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_progress.json": [
+   "41afc7e6fcc9127df1e55fb7fae34094f3bd6489",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r0.npy": [
+   "735f5941b5d6f400e45e479e5e5415686d286199",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r0m.npy": [
+   "a2a4f3b920ab7449e268d78d9e0782cd0d0036fd",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r1.npy": [
+   "bd4a58c5bccfbaa7c06952b849c0d55b100e0873",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r1m.npy": [
+   "e52a21de1d26344ae5472ad7eb886be7fdc558fb",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r2.npy": [
+   "1df08dad80239d238dd3581e235d407172f4a416",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r2m.npy": [
+   "72a5904bafacf07ec16c38b55e2a8a56d1373bdb",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r3.npy": [
+   "46e35cae5df12c09380a2c745c58bfd6586f3de2",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_d4_r3m.npy": [
+   "ad02afa879447fa6213858b127070a6228a77c42",
+   "E23.aa3b_bank.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_planted.json": [
+   "6fc32c5fb19237ebd23706eaadb88c68cc5a7e54",
+   "E23.aa3b_planted.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/aa3b_pose_average.json": [
+   "ec7edb72d327ae0d354cda8c8d0908d5b2f35d98",
+   "E23.aa3b_aa3b.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/plants.json": [
+   "0d0ee9c9a86b7534ee66dd19de0cfb91566f5a00",
+   "E24.dd_sae_plants.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/A1_b11_sae.npy": [
+   "2931d83011fb47b9ab7e7d234dd40bfa4fa47c61",
+   "E24.dd_extract.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/A1_b11_sae_eval.npy": [
+   "5cfdf9721f11427b6139029bf7c5c9d4e7ed31ea",
+   "E24.dd_extract.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/A1_b6_sae.npy": [
+   "051110418a4d83d97b467f7cbc00d247cfa8dfdb",
+   "E24.dd_extract.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/A1_b6_sae_eval.npy": [
+   "e4369610f32a8ef987403e9071e6fea6df0b23a5",
+   "E24.dd_extract.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/untrained_b11_sae.npy": [
+   "7ec94fd08ddc1fe22ac7f080e65c8d1fdd3c6866",
+   "E24.dd_extract.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/untrained_b11_sae_eval.npy": [
+   "64fb42a78cd840283e8e5ea749075612c2686624",
+   "E24.dd_extract.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/untrained_b6_sae.npy": [
+   "e84b695b39b910e8fb295cbc0dd035a33469861a",
+   "E24.dd_extract.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae_tokens/untrained_b6_sae_eval.npy": [
+   "e9177ca5d001010414487f54ff789ba58b6ee13e",
+   "E24.dd_extract.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x8.log.json": [
+   "90db834adadacf96bfb17f03ce7296f25be18420",
+   "E24.dd_train_trained_11_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x8.pt": [
+   "a5f4184cf64836205d12512dfda82a4dbbdb7dfa",
+   "E24.dd_train_trained_11_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x16.log.json": [
+   "3ce8f1597bd42b7fde0a3cd3698a2e07bb27b736",
+   "E24.dd_train_trained_11_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x16.pt": [
+   "b87afd3bf48f65c56bf88dd3060bbbbf40e9b659",
+   "E24.dd_train_trained_11_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x8.log.json": [
+   "8d1ebbdef767da0211e443e76d94752a95790aae",
+   "E24.dd_train_trained_6_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x8.pt": [
+   "8ec73fef3d1ba4ab0bb075959635684e2effc8d0",
+   "E24.dd_train_trained_6_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x16.log.json": [
+   "3fcce045e6d1a5e2d15ee006b0ed2417de42f56a",
+   "E24.dd_train_trained_6_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x16.pt": [
+   "ae5ab9d0eb1eb962593a35c108cf230eb1167d98",
+   "E24.dd_train_trained_6_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x8.log.json": [
+   "088ef58d6fa63512b77f7ef9e5074a5485e9b0fa",
+   "E24.dd_train_untrained_11_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x8.pt": [
+   "e81d4b07ca3e8c00fa290cd3a4f91852c6087091",
+   "E24.dd_train_untrained_11_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x16.log.json": [
+   "de4fdf953a00c0a967e72235d36d68e155916389",
+   "E24.dd_train_untrained_11_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x16.pt": [
+   "3e671de7f26d3aa2f9d9bf243eefbcc7a7ebeb96",
+   "E24.dd_train_untrained_11_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x8.log.json": [
+   "d64aa586623dfeb60e7f45b8a75b2dc90659fede",
+   "E24.dd_train_untrained_6_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x8.pt": [
+   "ef1caff04f2db4fafa3a35a36db41b02ec01ab4a",
+   "E24.dd_train_untrained_6_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x16.log.json": [
+   "48e5f51290c263fd027aa01efac090c195578aad",
+   "E24.dd_train_untrained_6_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x16.pt": [
+   "61310d4fd32bfcffa9fae46459f56ce1cbd27d0d",
+   "E24.dd_train_untrained_6_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x8.eval.json": [
+   "bfbda222086d891746bfcfefa60ef586ca3d9cd1",
+   "E24.dd_eval_trained_11_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b11_x16.eval.json": [
+   "91c81e09146b43fa673d21796e50486723941a1c",
+   "E24.dd_eval_trained_11_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x8.eval.json": [
+   "a86b8a9ed9267387518b211fb390db16061d9cac",
+   "E24.dd_eval_trained_6_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/A1_b6_x16.eval.json": [
+   "04ae918aa6e93bf65002f6cba8493adf36b86886",
+   "E24.dd_eval_trained_6_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x8.eval.json": [
+   "58376b66f35abc5c388f448c47418cc43fd339a8",
+   "E24.dd_eval_untrained_11_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b11_x16.eval.json": [
+   "b46d8c259925a5a9159f1a9df7c3698282fac704",
+   "E24.dd_eval_untrained_11_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x8.eval.json": [
+   "82fe18d4c59a52fd2475f05d3d58fd4bcba1f826",
+   "E24.dd_eval_untrained_6_8.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/untrained_b6_x16.eval.json": [
+   "16e87def89e01a575f79ec6107635829e712084c",
+   "E24.dd_eval_untrained_6_16.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/score.json": [
+   "195d21573ed40d28c85746ec8fe9203f46a9094a",
+   "E24.dd_score.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/flags.npz": [
+   "30b695984182d4049bd912c38342be7afd715ed3",
+   "E24.dd_4b_flags.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/part4b_stats.npz": [
+   "7f071e4209cd22c53d789ba4e0576e01e5bb8633",
+   "E24.dd_4b_stats.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/part4b_plants.json": [
+   "58bf595528ee555b730df33de030f1f9f7fc20b5",
+   "E24.dd_4b_plants.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/sae/part4b.json": [
+   "a06e97fa3a0517d154e504d5799ca310ae370ab7",
+   "E24.dd_4b_run.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/names.json": [
+   "1e8556012e294c7136d57ae6da3a9b06a77ecefd",
+   "E24.dd_v3_maps.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_ids.npy": [
+   "382260fb07ba756c3b1effd160ebb7749d405c0d",
+   "E24.dd_v3_maps.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_m_drop1.npy": [
+   "5ecbfc94a1579c53be4774899733a9674d9513ed",
+   "E24.dd_v3_maps.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_m_drop2.npy": [
+   "8355a8ae8bd3a82c80e4c83a7980f0d1d3ac2a90",
+   "E24.dd_v3_maps.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_m_noise1.npy": [
+   "f3bf9757e5d3570f740a67fb8f8e0c3be67d36a0",
+   "E24.dd_v3_maps.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_names.json": [
+   "60233c7c6b2de2014d5e71d98db0dad32d23c86e",
+   "E24.dd_v3_maps.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3_u_drop1.npy": [
+   "33ac6d2883886cd1966e80eae388ccc8a0b73298",
+   "E24.dd_v3_maps.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/direct_m_occl.npy": [
+   "c70fab26ad5f070caffe45c0bb428eba1f67fc2b",
+   "E24.dd_v3b_direct.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/direct_m_v3.npy": [
+   "b409f718ccc831acb9e21307a5e7e9494db9d0fe",
+   "E24.dd_v3b_direct.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/direct_u_v3.npy": [
+   "e4c622278707ac6ef1a8d279f147d90a5b74e7cc",
+   "E24.dd_v3b_direct.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/flux_v3.npy": [
+   "29ea27511e9779bfe03c8eb0f11aed94d638a671",
+   "E24.dd_v3b_direct.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3b_plants.json": [
+   "fa37528d2e0892fd6a096200d97991d64a6c1030",
+   "E24.dd_v3b_plants.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/dd/part1/v3b_score.json": [
+   "2e511bb3015272aa6df498207f257a4c8e966523",
+   "E24.dd_v3b_v3.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_subset.json": [
+   "0d5a783c2d5614027a9f270e326fb227c8df5afc",
+   "E26.plate_subset.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_subset.npz": [
+   "5b2ba5789528be96cf21921d8479b7523077e813",
+   "E26.plate_subset.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate.bin": [
+   "e922ba279da8f5e7ed737ac2cd1cfdc651da8f9f",
+   "E26.plate_export.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_decisions.npz": [
+   "625810323a2d482f3342f14833d42a1407ad7b59",
+   "E26.plate_export.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_export_report.json": [
+   "3880fbc78d6e7f34f8458d7b6cb0d613de400f7f",
+   "E26.plate_export.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_probes.npz": [
+   "61a310be939098ab2a55978ce74c30c2e675b549",
+   "E26.plate_export.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a1/plate/plate_sanity.json": [
+   "a718df3e1fba344e0a37864bfcbd8e10e2fa4e40",
+   "E26.plate_sanity.a1"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/ext": [
+   "884ada754446af01692f0538c2cc94f4d1db66d8",
+   "setup.ext.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/h5_probes.jsonl": [
+   "68e260816004d8b561b5acaaa7d74cb38e51c5fa",
+   "E0.h5_probe.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/c2_a2_embeddings.npz": [
+   "1042f605ba48224f1b7300e74c47704ddb095a25",
+   "E1.c2_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/e2_answers.json": [
+   "b08adbe870323dec1f1d17ab3e40a844ddbaff44",
+   "E2.answers.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/o1_embeddings.npz": [
+   "622ca2b0eb9ee747faa4cb15a937fb67794987af",
+   "E3.o1_matched.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/o1_matched.json": [
+   "773b5f5acd2b04006f05c4af7558773db014e57b",
+   "E3.o1_matched.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/o1_matched.partial.json": [
+   "73d9f486ee9afbcc0d70a38e83af6965c0febdac",
+   "E3.o1_matched.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_untrained_seeds.npz": [
+   "9921e585354c668985be6cd80cc52f54fa21dd7a",
+   "E7.r_bank_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/p2_ladder.json": [
+   "96f7a160dbff3757828b43b5cbf36387d83522b9",
+   "E5.p2_ladder.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_r0.json": [
+   "ad95c31c169c39ef3857055019a091286464b2b4",
+   "E7.r0.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/s2_ladder.json": [
+   "a6f1f92d40194bd5aeb133a52586494ed0566292",
+   "E5.s2_verify.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/s2_noise.npz": [
+   "da1eb7db69bf5ce90a7ce61cb0bd7c0d38e25802",
+   "E5.s2_verify.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/t1_ladder.json": [
+   "aee7d218d8c10ec3f0344cf41575924b711d65c4",
+   "E5.t1_ladder.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r3_orientation.npz": [
+   "d22cf8cafaa307fd9419a640b677a848fd2b98ba",
+   "E7.r3.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_r3.json": [
+   "0aa3cba266e46243efe9bb33f6c5933ca82f5b7d",
+   "E7.r3.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_r2.json": [
+   "c00c6c4ba0ce5254cd19ed8670c1f1d861e644ec",
+   "E7.r2.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r1_clusters.npz": [
+   "686a4c428b6126de5d3c9c40b56c5d1950735909",
+   "E7.r1.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r_r1.json": [
+   "7f14b43bf7837392c0b6d89582e89248c28a48a9",
+   "E7.r1.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/r2_reach_split.json": [
+   "4788bc64754924f4c60ef6d486d4396166040eda",
+   "E7.r2_reach_split.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/s1_spiral_inclination.json": [
+   "b184408840e09de7edaa3265e259bd33dee8963f",
+   "E8.s1_spiral_inclination.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/u1_bar_winding.json": [
+   "3a3244b6cad47de8cad7148ad1a5742fb30ac8b1",
+   "E10.u1_bar_winding.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/u2_counts.json": [
+   "2dba7597b2419e9614a7c8e9c83fab4de6b32bb1",
+   "E11.u2_counts.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/u2_uncertainty.json": [
+   "294e79bde884cc21768a74bb7de68e382e933554",
+   "E11.u2_uncertainty.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/u3_graded.json": [
+   "452edeee094c64d54ff7ca5731ac297f48965f2c",
+   "E12.u3_graded.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v2_independent.json": [
+   "797dcac7482d480fedfc83889fefdff6bf8cd289",
+   "E14.v2_independent.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_alignment.json": [
+   "7ae6e718694ab0336ddc029483791680714ccc4a",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_own_directions.json": [
+   "da4a137c40d246271d521267623ba81f36a8ca78",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc10_high.png": [
+   "59f325f8ac5313ae3e43f89e4113d26790f6e8ff",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc10_low.png": [
+   "467e52c811a7260c81a66a2f2d0a139d57619a3e",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc11_high.png": [
+   "540bb6eeebb4deee735eea2ad2843e52873964fc",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc11_low.png": [
+   "6f7a50507f934e8710f13011119517382e11d8ba",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc12_high.png": [
+   "d236ee12063e61a03f3a5e73f25896c2dc3f33b8",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc12_low.png": [
+   "6c5905c6207589698a1c5136bd08ae211855745d",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc15_high.png": [
+   "46e05e3e36400db9a940d270c91d1d462e0ad3c4",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc15_low.png": [
+   "aaf8b314318e4d67514560dedb4d575540cf9f4c",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc18_high.png": [
+   "3fed3408f90cbf8c32cdb8f73cce993799435475",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc18_low.png": [
+   "3c515c1be16a627f593b41beba1b3818f3e24717",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc19_high.png": [
+   "44916ca5ffb04442199d31876ff8bc3768077a62",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc19_low.png": [
+   "f27a31119a00593152edf142ea3a7d5b7c2f2d1c",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc20_high.png": [
+   "1a8eed612ffec68f04bf87c5a2bd84246121c9af",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc20_low.png": [
+   "2333af5ec737414bbe707130d537e18ba04614d6",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc3_high.png": [
+   "726d202d3c24a659f9f0eb7e2bfc6f08df9f3602",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc3_low.png": [
+   "3b7021dd24e08107b713966b1bcf9ad55d1aeeb6",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc4_high.png": [
+   "04896aaa2473c981d9a88aed7ef3d359b25a8bba",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc4_low.png": [
+   "5d9c4238f60ab737d9f96994cbed7050d75571b5",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc5_high.png": [
+   "821be664ebb34a18120a05280312f10146e430e3",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc5_low.png": [
+   "da7f0d09bacde6978c2fbb30393815ed493abe45",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc6_high.png": [
+   "442f9a157bcb7ee34d39d37edf3b62dd8bd10d3c",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc6_low.png": [
+   "f4a99ced6b8bffb679bd55deb820fb4e949c21a4",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc9_high.png": [
+   "a2145b87c8ec33ca85a117dec1324fd15f0bbcc2",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/v3_pc9_low.png": [
+   "9ece5643695245687fc611eaffd0d334c4764da7",
+   "E15.v3_own_directions.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/w2_stamp_axes.npz": [
+   "d15920e8d083fe927e8d870588b251abbbd0a946",
+   "E16.w2_measure.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/w2_planted.json": [
+   "b05bddea1bfbe81533d446147b68b1a250942c1b",
+   "E16.w2_planted.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/w2_name_pcs.json": [
+   "dd2e926653535947acbb1a9faff59a4d606c0455",
+   "E16.w2_run.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/x1_transform_bank.npz": [
+   "3af13434fb89f3674b39afc295258dac5f7c98cb",
+   "E17.x1_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/x1_planted.json": [
+   "0eb5a1d9a56c8da66cb6e89e6879e0a1dbc3f41d",
+   "E17.x1_planted.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/x1_handedness.json": [
+   "8634517710aff19530a06c844e60e453a53e670c",
+   "E17.x1_run.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/y3_extra_bank.npz": [
+   "b865dd9486d7fbd8ca8b8fd7c351471177a86a31",
+   "E18.y3_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/y3_planted.json": [
+   "7940f7120158fc0a83836b96275baf489bd728f1",
+   "E18.y3_planted3.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/y3_pitch.json": [
+   "e7fae201640edf7237a5d6026ea38602994fc5f9",
+   "E18.y3_y3.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/z3_planted.json": [
+   "9ba87c3ab504581c19bef1bb7137d26e9459ec09",
+   "E19.z3_planted.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/z3_bt.json": [
+   "60d2c534f84c0fc6a7c36b195e067a11e2db1b89",
+   "E19.z3_z3.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa1_planted.json": [
+   "4e8dd9aed3ba91ed6b57bf755d7a8a1bdac1817d",
+   "E20.aa1_planted.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa1_label_efficiency.json": [
+   "fc9d7b11e984329aff0d0ea222f74ba2a7a9429f",
+   "E20.aa1_aa1.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3a_offsets.npz": [
+   "d329e2ab398a0e8dd9961b08f829bb80759de74f",
+   "E22.aa3a_planted.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3a_planted.json": [
+   "7b83e62fe46383f1877539f79897d34082a4fb8c",
+   "E22.aa3a_planted.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3a_pose.json": [
+   "5803a042fd9cc6c70ef8db2f18201e6a67bc5090",
+   "E22.aa3a_aa3a.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_ids.npy": [
+   "d5cba4b7debce7693a8181b69688fc1d3957260b",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_progress.json": [
+   "41afc7e6fcc9127df1e55fb7fae34094f3bd6489",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r0.npy": [
+   "4f87c3252146f4e890bf889f3d6166b91a0f8d85",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r0m.npy": [
+   "b654082567ab3482221186ed2f08f9a3970bfa29",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r1.npy": [
+   "80ec2feab0d68530f7e6c414f1196a1677db593c",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r1m.npy": [
+   "f187e31361ac6c1e9bcb86b7b7718ecab1906a27",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r2.npy": [
+   "0f5974551b72b0d1942e9b02fa5ee091512eddc6",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r2m.npy": [
+   "8d68a41e33775020818b89fb8bc7c3b6be733388",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r3.npy": [
+   "676a33d8b0fcf52f9899b3fd898a24605b9359e2",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_d4_r3m.npy": [
+   "6f0210e1f0f72f8ed39bf47d805b11d5b726b88f",
+   "E23.aa3b_bank.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_planted.json": [
+   "3872faa233b7a124baf3dc482e9448b8afe873f1",
+   "E23.aa3b_planted.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/aa3b_pose_average.json": [
+   "cdc88e0de18f2d0cf3071578bc1ecad1592bc7b4",
+   "E23.aa3b_aa3b.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x16.log.json": [
+   "de4fdf953a00c0a967e72235d36d68e155916389",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x16.pt": [
+   "3e671de7f26d3aa2f9d9bf243eefbcc7a7ebeb96",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x8.log.json": [
+   "088ef58d6fa63512b77f7ef9e5074a5485e9b0fa",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x8.pt": [
+   "e81d4b07ca3e8c00fa290cd3a4f91852c6087091",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x16.log.json": [
+   "48e5f51290c263fd027aa01efac090c195578aad",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x16.pt": [
+   "61310d4fd32bfcffa9fae46459f56ce1cbd27d0d",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x8.log.json": [
+   "d64aa586623dfeb60e7f45b8a75b2dc90659fede",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x8.pt": [
+   "ef1caff04f2db4fafa3a35a36db41b02ec01ab4a",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/untrained_b11_sae.npy": [
+   "7ec94fd08ddc1fe22ac7f080e65c8d1fdd3c6866",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/untrained_b11_sae_eval.npy": [
+   "64fb42a78cd840283e8e5ea749075612c2686624",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/untrained_b6_sae.npy": [
+   "e84b695b39b910e8fb295cbc0dd035a33469861a",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/untrained_b6_sae_eval.npy": [
+   "e9177ca5d001010414487f54ff789ba58b6ee13e",
+   "E24.dd_untrained_link.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/plants.json": [
+   "0d0ee9c9a86b7534ee66dd19de0cfb91566f5a00",
+   "E24.dd_sae_plants.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/A2_b11_sae.npy": [
+   "48b95a177fab18cfc5c5d9bacdaf7dd188c86b5e",
+   "E24.dd_extract.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/A2_b11_sae_eval.npy": [
+   "b43a5c6b98c7a9b66f417a2d46a6deb70a0bf6d6",
+   "E24.dd_extract.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/A2_b6_sae.npy": [
+   "151a51fdb53ca0be2ae9fd2bf710dad9332816db",
+   "E24.dd_extract.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae_tokens/A2_b6_sae_eval.npy": [
+   "d6171d879ce14d0549a375bac0bdf1e1714b625d",
+   "E24.dd_extract.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x8.log.json": [
+   "1709fc9329d622747e6b6db6795fb285d3cd568d",
+   "E24.dd_train_trained_11_8.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x8.pt": [
+   "fcfb9a47267eee2d115284231c238043c1ff0565",
+   "E24.dd_train_trained_11_8.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x16.log.json": [
+   "fcfbb5eb27852a6167e83a403cf126deac30f09e",
+   "E24.dd_train_trained_11_16.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x16.pt": [
+   "404e5514c9cf657af2209dda4ad12fc2de5ee978",
+   "E24.dd_train_trained_11_16.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x8.log.json": [
+   "47a522194c1158aa83a62166201e0c5463790763",
+   "E24.dd_train_trained_6_8.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x8.pt": [
+   "04e6bbd81f0cb1ade197da21636eb3de8b869f65",
+   "E24.dd_train_trained_6_8.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x16.log.json": [
+   "09e4fc2b9e4e912f85c4bc34071459410b67594a",
+   "E24.dd_train_trained_6_16.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x16.pt": [
+   "214d653f896ec2be6ae781cd47605697ec045ae1",
+   "E24.dd_train_trained_6_16.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x8.eval.json": [
+   "ce534e2eb32584043bb377b94e906f1c8d07c10a",
+   "E24.dd_eval_trained_11_8.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b11_x16.eval.json": [
+   "aef1f8fc839004d498cadbe668e9ac392da642ea",
+   "E24.dd_eval_trained_11_16.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x8.eval.json": [
+   "fca0644ad868e3f2111a2f843b13b65f528de0e9",
+   "E24.dd_eval_trained_6_8.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/A2_b6_x16.eval.json": [
+   "7ad3d9431926eef12c848e039b00532430c9e5db",
+   "E24.dd_eval_trained_6_16.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x8.eval.json": [
+   "58376b66f35abc5c388f448c47418cc43fd339a8",
+   "E24.dd_eval_untrained_11_8.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b11_x16.eval.json": [
+   "b46d8c259925a5a9159f1a9df7c3698282fac704",
+   "E24.dd_eval_untrained_11_16.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x8.eval.json": [
+   "82fe18d4c59a52fd2475f05d3d58fd4bcba1f826",
+   "E24.dd_eval_untrained_6_8.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/untrained_b6_x16.eval.json": [
+   "16e87def89e01a575f79ec6107635829e712084c",
+   "E24.dd_eval_untrained_6_16.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/score.json": [
+   "16534781a6d348ba0ec5832124ee845dcfd3931b",
+   "E24.dd_score.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/flags.npz": [
+   "26a224da5c9212e53b9398f1dceebeac0444e5d3",
+   "E24.dd_4b_flags.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/part4b_stats.npz": [
+   "af652ec6355ff93aa9da6e0650b423d60ce1bc46",
+   "E24.dd_4b_stats.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/part4b_plants.json": [
+   "60861070440426d57780f6c45a1135b1123fc237",
+   "E24.dd_4b_plants.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/sae/part4b.json": [
+   "36b1e4b28a4bd0525285a8e9e810ed78ed3b2d31",
+   "E24.dd_4b_run.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/names.json": [
+   "1e8556012e294c7136d57ae6da3a9b06a77ecefd",
+   "E24.dd_v3_maps.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_ids.npy": [
+   "382260fb07ba756c3b1effd160ebb7749d405c0d",
+   "E24.dd_v3_maps.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_m_drop1.npy": [
+   "f2f1f30b86115d45f31e9b90ecbd8f4601267774",
+   "E24.dd_v3_maps.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_m_drop2.npy": [
+   "00dc86841301d244187beade8c7cae7836283707",
+   "E24.dd_v3_maps.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_m_noise1.npy": [
+   "162e394a03851d13925e7a509d237ac71420654e",
+   "E24.dd_v3_maps.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_names.json": [
+   "60233c7c6b2de2014d5e71d98db0dad32d23c86e",
+   "E24.dd_v3_maps.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3_u_drop1.npy": [
+   "33ac6d2883886cd1966e80eae388ccc8a0b73298",
+   "E24.dd_v3_maps.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/direct_m_occl.npy": [
+   "a055555b2f716af538c412a155ead1babe506f2c",
+   "E24.dd_v3b_direct.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/direct_m_v3.npy": [
+   "5fc96008609650e9299b7ce61d723510968c4eab",
+   "E24.dd_v3b_direct.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/direct_u_v3.npy": [
+   "e4c622278707ac6ef1a8d279f147d90a5b74e7cc",
+   "E24.dd_v3b_direct.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/flux_v3.npy": [
+   "29ea27511e9779bfe03c8eb0f11aed94d638a671",
+   "E24.dd_v3b_direct.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3b_plants.json": [
+   "fa37528d2e0892fd6a096200d97991d64a6c1030",
+   "E24.dd_v3b_plants.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/dd/part1/v3b_score.json": [
+   "be27f7d66edb0efa127c49bca72b32caa5fdf426",
+   "E24.dd_v3b_v3.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_subset.json": [
+   "babaadc7b257c0b78d0897cee5771a851a5d4d47",
+   "E26.plate_subset.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_subset.npz": [
+   "c540113d1222d28a58c964b6a65f7221ee56cfda",
+   "E26.plate_subset.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate.bin": [
+   "f51f4a9a8c16d4a8d72d636f1b1e0ddb26b7b63b",
+   "E26.plate_export.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_decisions.npz": [
+   "5dec04a4f981fd007af7ce3269e96bd724deeb60",
+   "E26.plate_export.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_export_report.json": [
+   "2d496ade917cb78e9d87aa15ff3bc2e7d015a393",
+   "E26.plate_export.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_probes.npz": [
+   "be889fd81dbd4a4926f22b4861f1a7055720da6b",
+   "E26.plate_export.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a2/plate/plate_sanity.json": [
+   "5b0389e47cab1d3bb97c9d0f70493864bd2b754c",
+   "E26.plate_sanity.a2"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/ext": [
+   "884ada754446af01692f0538c2cc94f4d1db66d8",
+   "setup.ext.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/h5_probes.jsonl": [
+   "10a8b6a6ba4fde5c3d51fd4d638ef0bf14e40db8",
+   "E0.h5_probe.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/c2_a3_embeddings.npz": [
+   "7341f6fbcadc95a1288a9fa03d47463947b02816",
+   "E1.c2_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/e2_answers.json": [
+   "26b1808bf6c80c19946a329c72d7f1fc6170f622",
+   "E2.answers.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/o1_embeddings.npz": [
+   "2458a6da330d35dbf889d301365e73b83c09546d",
+   "E3.o1_matched.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/o1_matched.json": [
+   "f450df91bd74fe70670cfc456618f3275b8d3138",
+   "E3.o1_matched.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/o1_matched.partial.json": [
+   "f12dd985b617ed89170cdef4c7cf41ee3ce7b9f7",
+   "E3.o1_matched.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_untrained_seeds.npz": [
+   "9921e585354c668985be6cd80cc52f54fa21dd7a",
+   "E7.r_bank_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/p2_ladder.json": [
+   "a6cfe105db7a970504305839111e5656a7e76dec",
+   "E5.p2_ladder.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_r0.json": [
+   "eb893bfbe6c88ea48afbeb81d44843557e58974b",
+   "E7.r0.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/s2_ladder.json": [
+   "eb14115663c03dd625e6025e6a15c487dde65b61",
+   "E5.s2_verify.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/s2_noise.npz": [
+   "640903c8a8c23335e568bddac482ad353a90759a",
+   "E5.s2_verify.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/t1_ladder.json": [
+   "2c30f8f282035e8d3baf600b7fadf539d720248b",
+   "E5.t1_ladder.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r3_orientation.npz": [
+   "d22cf8cafaa307fd9419a640b677a848fd2b98ba",
+   "E7.r3.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_r3.json": [
+   "f8c729d2fb916207f8c69e9e266dd68e98e8c84c",
+   "E7.r3.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_r2.json": [
+   "4f2ce2cb7116a9c376465feb343745525a3badfe",
+   "E7.r2.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r1_clusters.npz": [
+   "24a8714f865d7405b6cce353f9b99787a4ce713d",
+   "E7.r1.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r_r1.json": [
+   "50c7fc93bad1cdcf9c2e26acc088eb8aa0dece0d",
+   "E7.r1.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/r2_reach_split.json": [
+   "f2b180c7a2774610448998630e2f5afb35106011",
+   "E7.r2_reach_split.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/s1_spiral_inclination.json": [
+   "bcca4d805a465871fda18cf8b4b3725bb01d6e62",
+   "E8.s1_spiral_inclination.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/u1_bar_winding.json": [
+   "b3470f7babeacdb62193166a101874998f01c918",
+   "E10.u1_bar_winding.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/u2_counts.json": [
+   "ee8efef896e9796b741a92be977adca014fad25c",
+   "E11.u2_counts.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/u2_uncertainty.json": [
+   "341ae47c71e96b93d125bb6c149f58ea3dc71697",
+   "E11.u2_uncertainty.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/u3_graded.json": [
+   "2331bc6c20062e4ce357b30b629d624b60b88ba4",
+   "E12.u3_graded.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v2_independent.json": [
+   "d9d11f0c733a25c6e664ffe883774503dc7a6fde",
+   "E14.v2_independent.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_alignment.json": [
+   "32b91422edee193e66126a088463f3a1a7d42752",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_own_directions.json": [
+   "e6791d74d2ad4a7b5c2839b87a7ded005807a671",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc10_high.png": [
+   "c95fc7d21b3f0a215bb3c3637689bbda26ad3008",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc10_low.png": [
+   "184066cbd4e18a621e463161e150331d746e8aac",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc11_high.png": [
+   "c1363a69e362daf5aace7917ea921f78a18eb751",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc11_low.png": [
+   "fce9acad989e7db2dc2f32a72b2dc7bec5791b40",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc12_high.png": [
+   "ce1958ec6f8d4cec7ad8918725b18358896d4f0b",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc12_low.png": [
+   "23cf38e75ae0c1840c4b43a5a173ff6a3167f169",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc13_high.png": [
+   "5537fce9ab3f4d88774f5c348b74cf6c27f45743",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc13_low.png": [
+   "8cb1c6d8e22d2180daeedcef965ace6e3f0b27cb",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc16_high.png": [
+   "add69b9d50777b2ab1f7f3e28861516be3dc5928",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc16_low.png": [
+   "78f2a78ac1c80f8964dce882d7a59699e1ab3787",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc17_high.png": [
+   "abf367cf3098f77b2b4a35f49a7628328e759b85",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc17_low.png": [
+   "ea2c25933083dda4f6ca6edf28f07648ca4e4a51",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc18_high.png": [
+   "1f6bedf8af20e945dd5bee16e9c0e64b2dabddd4",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc18_low.png": [
+   "ff0f6718d514c341fc623a02ae62c5b39b5fda37",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc19_high.png": [
+   "d6c7d6de16dc363e2727ded24753f6b6bf98cae7",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc19_low.png": [
+   "86477b54721878ec4da9fdd604ae39db1871b853",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc1_high.png": [
+   "24bfcd83828e3e98d2286ebec30899c32315668c",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc1_low.png": [
+   "836da9368c3280d2255835c028aaad5089703144",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc20_high.png": [
+   "a1e85ac70c802c75780756f6d7089104a35557ef",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc20_low.png": [
+   "f5ed148f89ef112e0552c865b675b699b034a1de",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc2_high.png": [
+   "f33aead367b8d3223e9d8cd0ce7915b6e32a3908",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc2_low.png": [
+   "7b6a8229271c087c122156fa8e4f11a91abce00b",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc3_high.png": [
+   "49d3166d631d69a608602fcf5ba3f391ac2ffe0e",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc3_low.png": [
+   "4362cce4ef9c6487e6f4f018e425581cd7b5a1d3",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc4_high.png": [
+   "4d72568730818ca61a67d495fe713cc9300fc118",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc4_low.png": [
+   "a26344dee794684ddd1503048ad3b651ec365346",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc5_high.png": [
+   "b6baea093f304fa7145914e281bf6b87d4c17ef3",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc5_low.png": [
+   "d430050bed4fb740d42896af5420fd9af5b410f9",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc6_high.png": [
+   "3db0378dadb2262404b7f49127b832cfa4fc064d",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc6_low.png": [
+   "8cbe39702db37fcea9792c9d60fada1323db2628",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc7_high.png": [
+   "0067a8f1008caee4c9f0223b763c8ca5c0e296ae",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc7_low.png": [
+   "0f0c5e814507825362e79ab14154c1b7547b030b",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc8_high.png": [
+   "33764684ea78acd65391f92774fac535cca44b7c",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc8_low.png": [
+   "1e24dd7bb3348d17799918eb6bd021692c072afe",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc9_high.png": [
+   "17337478b4e6d19fac4039109de98fac0f27d215",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/v3_pc9_low.png": [
+   "96e72f59e4cd06803654e01d550a7187189da9c2",
+   "E15.v3_own_directions.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/w2_stamp_axes.npz": [
+   "d15920e8d083fe927e8d870588b251abbbd0a946",
+   "E16.w2_measure.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/w2_planted.json": [
+   "e1ce411860df2b7f015a74f70c1817e0a2b80fb9",
+   "E16.w2_planted.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/w2_name_pcs.json": [
+   "1db8261d9bc8fec338839ad3f13c2ac8e499b145",
+   "E16.w2_run.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/x1_transform_bank.npz": [
+   "3afb5602b226f83ea18e46ab48d4298321d896c7",
+   "E17.x1_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/x1_planted.json": [
+   "23f8ec963b237b31611168d6ed6e213060c9dcf2",
+   "E17.x1_planted.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/x1_handedness.json": [
+   "949a32a4502f45d53a92ed7a22c42f070d6d543a",
+   "E17.x1_run.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/y3_extra_bank.npz": [
+   "9b9863db3158084d3dfb1f6308043c27ad2ae374",
+   "E18.y3_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/y3_planted.json": [
+   "f2770841936cb336dd81548ddf5ce370b5210b27",
+   "E18.y3_planted3.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/y3_pitch.json": [
+   "3b816f23902ec61f9544842de56018b5d3536c2f",
+   "E18.y3_y3.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/z3_planted.json": [
+   "d0c62850e8507b7dc0adf7f64e3aad7eda4dba37",
+   "E19.z3_planted.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/z3_bt.json": [
+   "fa867f7472ac40738b1618aca48146e1bb549b35",
+   "E19.z3_z3.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa1_planted.json": [
+   "077454e8d0e163fa264cd1e144a43a75ec31d547",
+   "E20.aa1_planted.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa1_label_efficiency.json": [
+   "c6d6f6a871489e0b35791affc5d2cf7ffd71553c",
+   "E20.aa1_aa1.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3a_offsets.npz": [
+   "d329e2ab398a0e8dd9961b08f829bb80759de74f",
+   "E22.aa3a_planted.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3a_planted.json": [
+   "31be06ec78a1799ddb2a9aebc53750875b29f501",
+   "E22.aa3a_planted.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3a_pose.json": [
+   "5613bcf2b3c01798823aa72f3295f9f6383a43b5",
+   "E22.aa3a_aa3a.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_ids.npy": [
+   "d5cba4b7debce7693a8181b69688fc1d3957260b",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_progress.json": [
+   "41afc7e6fcc9127df1e55fb7fae34094f3bd6489",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r0.npy": [
+   "21f1814dd2986963e357b790efb5a52688fd7ccc",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r0m.npy": [
+   "85f24d8ab7274cfc24ce0a5df43cddfaf41a2f99",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r1.npy": [
+   "fbb541527424e280772c36fd66d71dff1b3887e9",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r1m.npy": [
+   "3789fa331ee821f20446a8d42b7b6263c6bc6816",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r2.npy": [
+   "96cf80f9b77ef9d989d4b3732c7f94c91a2b9a88",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r2m.npy": [
+   "5e35133afca79b673b7c9830de7459c2461f2ecd",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r3.npy": [
+   "29ede806c21304c9c8b881ba2b3a5a5c897b3ab0",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_d4_r3m.npy": [
+   "948340b074c76ec8ad2c5b66cf1994bff2e261c2",
+   "E23.aa3b_bank.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_planted.json": [
+   "3767607875acf21263699e60e258d367202190e4",
+   "E23.aa3b_planted.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/aa3b_pose_average.json": [
+   "a12c49fc899aef5e3f54702c54c706e58953c3bf",
+   "E23.aa3b_aa3b.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x16.log.json": [
+   "de4fdf953a00c0a967e72235d36d68e155916389",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x16.pt": [
+   "3e671de7f26d3aa2f9d9bf243eefbcc7a7ebeb96",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x8.log.json": [
+   "088ef58d6fa63512b77f7ef9e5074a5485e9b0fa",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x8.pt": [
+   "e81d4b07ca3e8c00fa290cd3a4f91852c6087091",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x16.log.json": [
+   "48e5f51290c263fd027aa01efac090c195578aad",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x16.pt": [
+   "61310d4fd32bfcffa9fae46459f56ce1cbd27d0d",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x8.log.json": [
+   "d64aa586623dfeb60e7f45b8a75b2dc90659fede",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x8.pt": [
+   "ef1caff04f2db4fafa3a35a36db41b02ec01ab4a",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/untrained_b11_sae.npy": [
+   "7ec94fd08ddc1fe22ac7f080e65c8d1fdd3c6866",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/untrained_b11_sae_eval.npy": [
+   "64fb42a78cd840283e8e5ea749075612c2686624",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/untrained_b6_sae.npy": [
+   "e84b695b39b910e8fb295cbc0dd035a33469861a",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/untrained_b6_sae_eval.npy": [
+   "e9177ca5d001010414487f54ff789ba58b6ee13e",
+   "E24.dd_untrained_link.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/plants.json": [
+   "0d0ee9c9a86b7534ee66dd19de0cfb91566f5a00",
+   "E24.dd_sae_plants.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/A3_b11_sae.npy": [
+   "c2539d0d34239086a10f165db14ed7d933de5ef6",
+   "E24.dd_extract.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/A3_b11_sae_eval.npy": [
+   "700708953681c5f6de1ad2d43b91e7ff7ecc1d6a",
+   "E24.dd_extract.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/A3_b6_sae.npy": [
+   "d6097a4711107e85f95b9fcd503dc52c886af4fc",
+   "E24.dd_extract.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae_tokens/A3_b6_sae_eval.npy": [
+   "d3259c144ee08ac9f87fc27b070eb9f388ac0f2d",
+   "E24.dd_extract.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x8.log.json": [
+   "894b65b24f624f836a723a61d9497e94b9eb8892",
+   "E24.dd_train_trained_11_8.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x8.pt": [
+   "0804e91e9a4c4d2328800cad6fb005b56c21ba31",
+   "E24.dd_train_trained_11_8.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x16.log.json": [
+   "ff123563d5d4c780256139f52eb7b9bbfcf452e1",
+   "E24.dd_train_trained_11_16.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x16.pt": [
+   "dd68f36cf2aca031b85371e2bcd612328f4a43e0",
+   "E24.dd_train_trained_11_16.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x8.log.json": [
+   "7af84737f34c7dc6f50faa8497eee6970ab993b0",
+   "E24.dd_train_trained_6_8.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x8.pt": [
+   "23aa7013e9d5c0f4aaecd59a8b07b62ce77a5a37",
+   "E24.dd_train_trained_6_8.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x16.log.json": [
+   "44136a37336beee79520ff33f0a29f28ae5e5eb7",
+   "E24.dd_train_trained_6_16.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x16.pt": [
+   "e996b33edd244a9b2f4db0d2b9ff5585f4be3c50",
+   "E24.dd_train_trained_6_16.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x8.eval.json": [
+   "fedde7f8826b34113b12ccadbfc046702f89fe9b",
+   "E24.dd_eval_trained_11_8.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b11_x16.eval.json": [
+   "68ddaace75bc5f0dfbef0fc521778f50ac21c5ad",
+   "E24.dd_eval_trained_11_16.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x8.eval.json": [
+   "1cce7f11f443f55d589970b244ce02fccc6189a7",
+   "E24.dd_eval_trained_6_8.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/A3_b6_x16.eval.json": [
+   "ce6e8df32914775d1616fe60c9797cc40d83f9c5",
+   "E24.dd_eval_trained_6_16.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x8.eval.json": [
+   "58376b66f35abc5c388f448c47418cc43fd339a8",
+   "E24.dd_eval_untrained_11_8.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b11_x16.eval.json": [
+   "b46d8c259925a5a9159f1a9df7c3698282fac704",
+   "E24.dd_eval_untrained_11_16.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x8.eval.json": [
+   "82fe18d4c59a52fd2475f05d3d58fd4bcba1f826",
+   "E24.dd_eval_untrained_6_8.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/untrained_b6_x16.eval.json": [
+   "16e87def89e01a575f79ec6107635829e712084c",
+   "E24.dd_eval_untrained_6_16.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/score.json": [
+   "de3d803df9aea37a4100c9fd06aa4bce27c718ac",
+   "E24.dd_score.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/flags.npz": [
+   "62ea7860abedf3589ad3ce0d932f6545f63774d2",
+   "E24.dd_4b_flags.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/part4b_stats.npz": [
+   "e46071dc17b4aa2eb66fd73586e8b058577999d5",
+   "E24.dd_4b_stats.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/part4b_plants.json": [
+   "bf4899f51b8fa4614b20277b1294467d83ddee96",
+   "E24.dd_4b_plants.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/sae/part4b.json": [
+   "92bbab609005e51dccb4626bf3d18810d97783c6",
+   "E24.dd_4b_run.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/names.json": [
+   "1e8556012e294c7136d57ae6da3a9b06a77ecefd",
+   "E24.dd_v3_maps.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_ids.npy": [
+   "382260fb07ba756c3b1effd160ebb7749d405c0d",
+   "E24.dd_v3_maps.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_m_drop1.npy": [
+   "83342d23496bbaf8ba5cdbeb55a5e8d467e4fe05",
+   "E24.dd_v3_maps.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_m_drop2.npy": [
+   "d9d3432719f98111f51f1dfca8e5e81ccf9f1b95",
+   "E24.dd_v3_maps.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_m_noise1.npy": [
+   "a88264e7903f81ad23a0142789f7bd4637e3e4ed",
+   "E24.dd_v3_maps.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_names.json": [
+   "60233c7c6b2de2014d5e71d98db0dad32d23c86e",
+   "E24.dd_v3_maps.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3_u_drop1.npy": [
+   "33ac6d2883886cd1966e80eae388ccc8a0b73298",
+   "E24.dd_v3_maps.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/direct_m_occl.npy": [
+   "797b7118eb3e0e1b4dce09021cfe3682014030bf",
+   "E24.dd_v3b_direct.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/direct_m_v3.npy": [
+   "59fa0f62a406fd1a5d7af6c8a33d61cd970737ef",
+   "E24.dd_v3b_direct.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/direct_u_v3.npy": [
+   "e4c622278707ac6ef1a8d279f147d90a5b74e7cc",
+   "E24.dd_v3b_direct.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/flux_v3.npy": [
+   "29ea27511e9779bfe03c8eb0f11aed94d638a671",
+   "E24.dd_v3b_direct.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3b_plants.json": [
+   "fa37528d2e0892fd6a096200d97991d64a6c1030",
+   "E24.dd_v3b_plants.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/dd/part1/v3b_score.json": [
+   "e1be9aadbbb00e70f445fdce63ec80a3480c5f30",
+   "E24.dd_v3b_v3.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_subset.json": [
+   "22550757013c89d6bdbf897967c7a4a42facde6c",
+   "E26.plate_subset.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_subset.npz": [
+   "e1398e3c006de4ad56bac6b7f04cb82d4299d26f",
+   "E26.plate_subset.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate.bin": [
+   "12ac3d29eb54dc515d1da72198c2112ff2ab6dfe",
+   "E26.plate_export.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_decisions.npz": [
+   "d0cd41e2c416a6b9fe4e5fcb477a33067c860ff2",
+   "E26.plate_export.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_export_report.json": [
+   "6ffa79edc181f7be20325d301bbebcd68b4d4ea4",
+   "E26.plate_export.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_probes.npz": [
+   "7785ea8b47ba5df97088184925e609d0104af526",
+   "E26.plate_export.a3"
+  ],
+  "/Users/malachy/Documents/Galaxy-JEPA/runs/ladder_v2/a3/plate/plate_sanity.json": [
+   "4963a19577c36f3e54ec0a0f6da2bbaac7f777ac",
+   "E26.plate_sanity.a3"
+  ]
+ },
+ "pauses": [
+  {
+   "at": "2026-10-15 22:18:44",
+   "before": 114,
+   "entry": "E24.dd_train_trained_11_8.a2",
+   "how": "interrupted",
+   "resumed": "2026-10-15 23:27:01"
+  }
+ ]
+}
