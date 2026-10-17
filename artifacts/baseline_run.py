@@ -1,22 +1,26 @@
-"""D12's baselines — MoCo and MAE on M's data, backbone, budget and data order (baselines.md §9 item 8).
+"""D12's baselines — MoCo and MAE on A1's data, backbone, budget and data order (baselines.md §9 item 8).
 
-M's driver with the objective swapped and the stopping rule removed. m2_long_run's machinery is
-imported, not copied — `Run`, the segment schedule, the trace merge, the k2 probe subprocess — and
-the loop is `train_objective`, the one that trained M (build 2a). `m2_long_run.main` itself is not
-called: it is JEPA-shaped throughout (SIGReg, EMA schedule, the M4 rule) and it is the driver of
-record for M, O2 and A1–A3, so it stays untouched.
+M's driver (and A1's) with the objective swapped and the stopping rule removed. m2_long_run's
+machinery is imported, not copied — `Run`, the segment schedule, the trace merge — and the loop is
+`train_objective`, the one that trained M (build 2a). `m2_long_run.main` itself is not called: it is
+JEPA-shaped throughout (SIGReg, EMA schedule, the M4 rule) and it is the driver of record for M, O2
+and A1–A3, so it stays untouched.
 
-**Matched to M, checked rather than trusted (§1).** The baseline config (configs/moco.yaml or
-mae.yaml) must equal M's configs/pretrain.yaml on every determining field except `objective`; F0
-runs against M's config, so the cache, freeze, effect floor and splits are M's by construction, and
-the k2 probe (which reads M's config) lands on the identical held-out galaxies. Training seed 0
-pairs with M, seed 1 with O2; the split seed is the config's 0 for both (§1, Seeds). The encoder is
-`seed_init(train_seed)` built first, so its init is byte-identical to M's; the data order is
-`ResumableShuffle(train_seed)`, identical to M's.
+**Matched to A1, checked rather than trusted (§1; user, 2026-10-13).** A1 is M's recipe on the
+aligned pretrain_v2 stamps, launched by artifacts/aligned_launch.sh; the baselines train in that
+environment: GJ_CONFIG=configs/pretrain_v2.yaml, the v2 cache under runs/m_v2/cache and the v2
+freeze `246d8de6…`. The baseline config (configs/moco.yaml or mae.yaml) must equal A1's on every
+determining field except `objective`; F0 runs against A1's config, so the cache, freeze, effect
+floor and splits are A1's by construction, and the trajectory probe (which reads the same config)
+lands on the identical held-out galaxies. Training seed 0 pairs with A1 (runs/m_v2), seed 1 with A2
+(runs/m_v2_s1); the split seed is the config's 0 for both (§1, Seeds). The encoder is
+`seed_init(train_seed)` built first, so its init is byte-identical to A1's; the data order is
+`ResumableShuffle(train_seed)`, identical to A1's.
 
 **A fixed stop, no rule (§1.1).** Every arm stops at step 101,308 (4.00 epochs) with `steps` left at
-253,270, so the LR sits at 65.9% of its own peak as M's did. Probes at 0.5 / 1 / 2 / 4 epochs are
-trajectories only: reported, never used to choose a checkpoint (spec 1C).
+253,270, so the LR sits at 65.9% of its own peak as A1's did. Probes at 0.5 / 1 / 2 / 4 epochs are
+trajectories only: reported, never used to choose a checkpoint (spec 1C). They follow E2's protocol
+(artifacts/baseline_trajectory_probe.py): per-answer held-out AUC for all 37 answers, no aggregate.
 
 **F7 checks** (§5.3 rows 2–3) go through the same path: `--lr` and `--stop` make a different recipe
 (lr is determining, so the hash moves) in its own directory, with no probe. Judged on pretext loss.
@@ -24,7 +28,7 @@ trajectories only: reported, never used to choose a checkpoint (spec 1C).
 Investigation code: terse, excluded from lint/CI.
 
     uv run python artifacts/baseline_run.py moco0 --plan
-    uv run python artifacts/baseline_run.py moco0                     # MoCo seed 0 (pairs with M)
+    uv run python artifacts/baseline_run.py moco0                     # MoCo seed 0 (pairs with A1)
     uv run python artifacts/baseline_run.py moco0 --lr 6.25e-6 --stop 5000   # an F7 arm
 """
 
@@ -32,15 +36,19 @@ from __future__ import annotations
 
 import os
 
-# M's v1 config and cache are the reference; F0 reads these at import time. A baseline launched
-# under the v2 variables would be matched to A1, not M — refuse rather than silently re-target.
-for _k, _want in (("GJ_CONFIG", "configs/pretrain.yaml"),):
+# A1's v2 config, cache and freeze are the reference (artifacts/aligned_launch.sh); F0 reads these
+# at import time. Unset, F0 would fall back to M's v1 config and cache; set to anything else, the
+# baselines would be matched to something other than A1 — refuse either way rather than re-target.
+# baseline_trajectory_probe.py imports this module first, so the probe is held to the same three.
+V2_ENV = (
+    ("GJ_CONFIG", "configs/pretrain_v2.yaml"),
+    ("F0_CACHE_BASE", "/Volumes/X10 Pro/galaxy-jepa/runs/m_v2/cache"),
+    ("F0_NORM_PREFIX", "246d8de6ba9a"),
+)
+for _k, _want in V2_ENV:
     if os.environ.setdefault(_k, _want) != _want:
-        raise SystemExit(f"baseline_run: {_k}={os.environ[_k]!r}; the baselines are matched to M "
-                         f"({_want}) and F0 must check M's config")
-for _k in ("F0_CACHE_BASE", "F0_NORM_PREFIX"):
-    if _k in os.environ:
-        raise SystemExit(f"baseline_run: {_k} is set; the baselines train on M's v1 cache (§1)")
+        raise SystemExit(f"baseline_run: {_k}={os.environ[_k]!r}; the baselines are matched to A1 "
+                         f"({_k}={_want!r}) and F0 must check A1's config, cache and freeze")
 
 import argparse  # noqa: E402
 import dataclasses  # noqa: E402
@@ -59,7 +67,7 @@ from torch.utils.data import DataLoader  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from f0_preconditions import REPO, check  # noqa: E402
 from i2_sigreg_run import _split_ids  # noqa: E402
-from m2_long_run import MONITOR_BATCH, OUT, PROBE, Run, _merge, _schedule  # noqa: E402
+from m2_long_run import MONITOR_BATCH, OUT, Run, _merge, _schedule  # noqa: E402
 
 from galaxy_jepa.callbacks.checkpoint import TrainCheckpointer  # noqa: E402
 from galaxy_jepa.core.config import config_hash  # noqa: E402
@@ -67,8 +75,10 @@ from galaxy_jepa.data.dataset import ResumableShuffle, StampDataset  # noqa: E40
 from galaxy_jepa.harness import MaeRunConfig, MocoRunConfig, build_objective, seed_init  # noqa: E402
 from galaxy_jepa.objectives.loop import _to_device, learning_rate, train_objective  # noqa: E402
 
-STOP = 101_308  # M's and O2's stop: round(4.0 × 25,327)
+STOP = 101_308  # A1's and A2's stop (M's and O2's before them): round(4.0 × 25,327)
 PROBE_EPOCHS = (0.5, 1.0, 2.0, 4.0)  # M's epoch points; trajectories only (§1.1)
+# E2's protocol, not m2's k2 probe: k2 is a v1 like-for-like guard and refuses probe_v2 (§1.1)
+PROBE = Path(__file__).resolve().parent / "baseline_trajectory_probe.py"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -88,13 +98,13 @@ ARMS = {f"{k}{s}": _arm(k, s) for s in (0, 1) for k in ("moco", "mae")}
 CONFIGS = {"moco": ("configs/moco.yaml", MocoRunConfig), "mae": ("configs/mae.yaml", MaeRunConfig)}
 
 
-def _matched(base, m) -> None:
-    """Every determining field but the objective is M's (§1), on the resolved device."""
-    bd, md = base.determining_dump(), m.determining_dump()
-    bd.pop("objective"), md.pop("objective")
-    if bd != md:
-        diff = sorted(k for k in set(bd) | set(md) if bd.get(k) != md.get(k))
-        raise SystemExit(f"baseline_run: the config differs from M's outside `objective`: {diff}")
+def _matched(base, a1) -> None:
+    """Every determining field but the objective is A1's (§1), on the resolved device."""
+    bd, ad = base.determining_dump(), a1.determining_dump()
+    bd.pop("objective"), ad.pop("objective")
+    if bd != ad:
+        diff = sorted(k for k in set(bd) | set(ad) if bd.get(k) != ad.get(k))
+        raise SystemExit(f"baseline_run: the config differs from A1's outside `objective`: {diff}")
 
 
 def main() -> None:
@@ -114,10 +124,10 @@ def main() -> None:
     run, L = arm.run, arm.run.label
     log = logging.getLogger(run.tag)
 
-    m_cfg, cache = check(verbose=False)  # M's config, resolved device; F0 raises on any failure
+    a1_cfg, cache = check(verbose=False)  # A1's config, resolved device; F0 raises on any failure
     path, cls = CONFIGS[arm.kind]
     cfg = cls(**yaml.safe_load((REPO / path).read_text())).with_resolved_device()
-    _matched(cfg, m_cfg)
+    _matched(cfg, a1_cfg)
     if not cfg.smoke:
         raise SystemExit(f"{L}: smoke is False — a baseline is not a headline (§1, F1)")
     obj = cfg.objective
@@ -142,7 +152,7 @@ def main() -> None:
     else:
         points = _schedule(per_epoch, total, run.probe_epochs)
         if points[-1] != STOP:
-            raise SystemExit(f"{L}: the last probe point is {points[-1]}, not M's stop {STOP}")
+            raise SystemExit(f"{L}: the last probe point is {points[-1]}, not A1's stop {STOP}")
     every = int(os.environ.get("GJ_CHECKPOINT_EVERY") or obj.checkpoint_every)
     keep = total // every + len(points) + 2
     ocfg = getattr(obj, f"to_{arm.kind}_config")(seed=train_seed)
@@ -150,8 +160,9 @@ def main() -> None:
 
     print(f"\n{L} objective   : {arm.kind} from {path}; config_hash v2:{ch[:16]}"
           f"{'  (VARIANT: ' + ', '.join(f'{k}={v}' for k, v in (('lr', args.lr), ('stop', args.stop)) if v is not None) + ')' if variant else ''}")
-    print(f"{L} matched     : every determining field but `objective` equals configs/pretrain.yaml "
-          f"(device {cfg.runtime.device})")
+    print(f"{L} matched     : every determining field but `objective` equals {os.environ['GJ_CONFIG']} "
+          f"(A1; freeze {cfg.normalisation.content_hash[:12]}, device {cfg.runtime.device})")
+    print(f"{L} pairs with  : {('A1 (runs/m_v2)', 'A2 (runs/m_v2_s1)')[train_seed]}")
     print(f"{L} budget      : schedule {total:,} steps; stop at {points[-1]:,} "
           f"({points[-1] / per_epoch:.2f} ep, lr {learning_rate(points[-1], ocfg):.3e} = "
           f"{learning_rate(points[-1], ocfg) / ocfg.lr:.1%} of peak)")
@@ -170,7 +181,7 @@ def main() -> None:
     device = cfg.runtime.resolved_device()
     out.mkdir(parents=True, exist_ok=True)
     ds = StampDataset(cache, {}, train_ids, scalars=cache.scalars)
-    sampler = ResumableShuffle(len(ds), seed=train_seed)  # M's order for the same seed
+    sampler = ResumableShuffle(len(ds), seed=train_seed)  # A1's / A2's order for the same seed
     loader = DataLoader(ds, batch_size=obj.batch_size, sampler=sampler, drop_last=True)
     objective = build_objective(ocfg, seed_init(train_seed, cache.index.height,
                                                 cfg.model.model_kwargs()))
@@ -248,9 +259,9 @@ def main() -> None:
         rec = json.loads((OUT / f"{tag}_trajectory.json").read_text())["checkpoints"][-1]
         rec["epoch"] = done / per_epoch
         curve.append(rec)
-        log.info(f"{L} PROBE step %d (%.2f ep): consensus %.4f [%.4f, %.4f]  all %.4f  amb %.4f",
-                 done, rec["epoch"], rec["auc"], rec["auc_lo"], rec["auc_hi"], rec["auc_all"],
-                 rec["auc_ambiguous"])
+        # no AUC in the log: 37 answers, no aggregate (E2), and the record is the place to read them
+        log.info(f"{L} PROBE step %d (%.2f ep): %d answers scored -> %s", done, rec["epoch"],
+                 rec["n_answers"], OUT / f"{tag}_trajectory.json")
         curve_path.write_text(json.dumps({
             "objective": arm.kind, "budget_steps": total, "stop": STOP, "probe_points": points,
             "stopping_rule": None, "smoke": True, "config_hash": f"v2:{ch}",

@@ -1,6 +1,10 @@
-# Baselines — MoCo and MAE, matched to M (Kickoff F)
+# Baselines — MoCo and MAE, matched to A1 (Kickoff F)
 
-*Status: draft, 2026-10-02 (first draft 2026-09-27). Nothing hashed, nothing trained. **Settled
+*Status: draft, 2026-10-02 (first draft 2026-09-27). Nothing hashed, nothing trained. **Retargeted
+to pretrain_v2 (user, 2026-10-13):** the baselines are matched to A1 (M's recipe on the aligned v2
+stamps, `configs/pretrain_v2.yaml`, freeze `246d8de6…`), not to M on v1; seed 0 pairs with A1, seed 1
+with A2; σ_sky re-measured on the v2 cache; trajectory probes on E2's protocol; F6 moot on aligned
+stamps; the rehearsal held (§1, §3.4, §5.3, §6, §7, §8). Ladder plan Task 5 (`docs/ladder_v2/plan.md`) was carried out on branch `baselines-v2`, commit `3767663`. **Settled
 (user, 2026-09-28):** 16×16 patches for MAE (D12 amended), F2 (MAE decoder 8×512) and the MoCo
 settings of F3 (K = 65,536, m = 0.999, τ = 0.2); **F3's residue settled (user, 2026-10-01 evening):
 m constant at 0.999, v2-style.** **F1, F4–F8 settled (user, 2026-10-02); F9 settled (user, 2026-10-09): D4 averaging off** (§8). **F7's MoCo
@@ -10,40 +14,53 @@ Design sources: `DECISIONS.md` D10 revised (`:377`), D12 (`:414`), `docs/spec/ob
 in §8. Claims marked *verify* are from memory of the primary papers and are checked against the
 PDFs before sign-off.*
 
-## 1. What "matched to M" means
+## 1. What "matched to A1" means
 
 D12 holds the data fixed and varies only the objective (`DECISIONS.md:418-423`). Each baseline
-keeps everything in M's recipe that is not intrinsic to its objective. The matched items are below;
-§7 lists every place where matching was impossible.
+keeps everything in A1's recipe that is not intrinsic to its objective. A1 is M's recipe verbatim on
+the aligned pretrain_v2 stamps (`configs/pretrain_v2.yaml` is `pretrain.yaml` bar the three `paths`
+and the `normalisation` block), so "M's recipe" below means A1's too. The baselines were first
+matched to M on v1; the user retargeted them to A1 on 2026-10-13, so they train on the stamps every
+later encoder is compared on. The matched items are below; §7 lists every place where matching was
+impossible.
 
-| quantity | M (`configs/pretrain.yaml`) | MoCo | MAE |
+| quantity | A1 (`configs/pretrain_v2.yaml`; M's recipe) | MoCo | MAE |
 |---|---|---|---|
-| backbone | ViT-S/16: dim 384, depth 12, heads 6, mlp 4.0 (`:62-67`), 21.6M params, no CLS | same | same |
+| backbone | ViT-S/16: dim 384, depth 12, heads 6, mlp 4.0 (`:66-71`), 21.6M params, no CLS | same | same |
 | stamp / tokens | 256 px native, 16×16 = 256 tokens | same at read-out | same |
-| corpus | v1 pretrain, 810,491 train / 16,477 monitor (`m_findings.md:13-21`) | same split (`_split_ids`, split seed 0) | same |
-| normalisation | frozen, `content_hash 75100066b3e0…` (`:59`) | the same block verbatim, so the same fp16 cache (`pipeline_hash` is keyed on the pipeline only, `data/cache.py:60`) | same |
-| batch | 32, `drop_last` (`:80`) | 32 | 32 |
-| `steps` (schedule length) | 253,270 (`:73`) | 253,270 | 253,270 |
-| stop | 101,308 via `stop_after` (`objectives/jepa.py:447`) | 101,308 | 101,308 |
+| corpus | pretrain_v2, the aligned re-pull (826,968 stamps, none shared with probe_v2); train / monitor by `split_pretrain` (`harness._prepare`; split seed 0, the config's, for every run, `monitor_frac` 0.02): **810,491 train / 16,477 monitor** (measured 2026-10-13 from the two corpora's `metadata.csv`) | same split | same |
+| normalisation | frozen v2 freeze, `content_hash 246d8de6ba9a…` (`:51`); the v2 fp16 cache under `runs/m_v2/cache` | the same block verbatim, so the same fp16 cache (`pipeline_hash` is keyed on the pipeline only, `data/cache.py:60`) | same |
+| batch | 32, `drop_last` (`:84`) | 32 | 32 |
+| `steps` (schedule length) | 253,270 (`:77`) | 253,270 | 253,270 |
+| stop | 101,308 via `stop_after` (`objectives/jepa.py:447`; `aligned_train.py` `STOP_EPOCHS`) | 101,308 | 101,308 |
 | optimiser | AdamW, torch default betas (0.9, 0.999), wd 0.04 constant, no grad clip (`jepa.py:326`) | **AdamW, torch default betas (0.9, 0.999), wd 0.1** (F7 (b): MoCo v3's ViT recipe) | **AdamW, betas (0.9, 0.95), wd 0.05** (F7, He et al.'s recipe) |
-| LR | peak 1.25e-4, warmup 1,250, cosine to 1.25e-7 (`:86-90`, `jepa.py:250`) | **peak 1.875e-5** = 1.5e-4 × 32/256 (F7 (b), MoCo v3); M's warmup and cosine shape | **peak 1.875e-5** = 1.5e-4 × 32/256 (F7); M's warmup and cosine shape |
+| LR | peak 1.25e-4, warmup 1,250, cosine to 1.25e-7 (`:90-94`, `jepa.py:250`) | **peak 1.875e-5** = 1.5e-4 × 32/256 (F7 (b), MoCo v3); M's warmup and cosine shape | **peak 1.875e-5** = 1.5e-4 × 32/256 (F7); M's warmup and cosine shape |
 | LR at the stop | 8.24e-5 (65.9% of peak) | 65.9% of its own peak, by construction | 65.9% of its own peak |
-| EMA | 0.996 → 1.0 cosine over 253,270 (`:91-92`, `jepa.py:265`); 0.99738 at the stop | momentum encoder 0.999, constant (v2; §3.3) | none (objective-intrinsic) |
-| precision | fp32 (`autocast: null`, `:34`) | fp32 | fp32 |
-| SIGReg | off, λ = 0 (`:121`, D21) | n/a | n/a |
-| status | `smoke: true` (`:30`), so not a headline | `smoke: true` (§8, F1) | `smoke: true` |
-| weight init | `seed_init(train_seed)` (`harness.py:372`) | byte-identical to M's for the same seed: the encoder is built first from the seeded stream | same |
-| data order | `ResumableShuffle(seed=train_seed)` | the identical sequence to M's | same |
+| EMA | 0.996 → 1.0 cosine over 253,270 (`:95-96`, `jepa.py:265`); 0.99738 at the stop | momentum encoder 0.999, constant (v2; §3.3) | none (objective-intrinsic) |
+| precision | fp32 (`autocast: null`, `:38`) | fp32 | fp32 |
+| SIGReg | off, λ = 0 (`:125`, D21) | n/a | n/a |
+| status | `smoke: true` (`:34`), so not a headline | `smoke: true` (§8, F1) | `smoke: true` |
+| weight init | `seed_init(train_seed)` (`harness.py:372`) | byte-identical to A1's for the same seed: the encoder is built first from the seeded stream | same |
+| data order | `ResumableShuffle(seed=train_seed)` | the identical sequence to A1's | same |
 | read-out | penultimate block (`DEFAULT_LAYER = -2`: block index 10, the 11th of 12, before the final norm), mean over all 256 tokens (`vit.py:172`, `core/encoder.py:20-36`) | backbone `encode()` only; projector discarded | backbone `encode()` over all 256 tokens, no mask; decoder discarded |
 
 "Block 11" throughout the project means the 11th block, index 10. Nobody writes `blocks[11]`.
 
-**Seeds.** Two per baseline, paired to M's: training seed 0 pairs with M, training seed 1 with O2.
-The split seed is 0 for both, exactly as in O2 (`o_findings.md:343-347`). Within a pair, the initial
-encoder weights and the order of stamps are identical to the JEPA run, so the seed-0 MoCo run
-differs from M in its objective and in nothing else the harness controls.
+**Checked, not trusted.** `configs/moco.yaml` and `configs/mae.yaml` are `pretrain_v2.yaml` with the
+`objective` block swapped (and their own `out_dir`); `tests/test_objectives_baselines.py` pins the
+equality on every determining field and names the v2 freeze. `artifacts/baseline_run.py` runs under
+A1's launch environment (`aligned_launch.sh`): `GJ_CONFIG=configs/pretrain_v2.yaml`,
+`F0_CACHE_BASE=…/runs/m_v2/cache`, `F0_NORM_PREFIX=246d8de6ba9a`. Unset, it sets them; set to anything
+else, it refuses. F0 then checks the cache against the live v2 freeze, and the driver refuses a
+config that differs from A1's outside `objective`.
 
-**The SIGReg caveat for D12 (`TODO.md:498`, `DECISIONS.md:945`) does not apply to M.** M runs at
+**Seeds.** Two per baseline, paired to A1's and A2's: training seed 0 pairs with A1 (`runs/m_v2`),
+training seed 1 with A2 (`runs/m_v2_s1`). The split seed is 0 for both, exactly as in A1 and A2.
+Within a pair, the initial encoder weights and the order of stamps are identical to the JEPA run, so
+the seed-0 MoCo run differs from A1 in its objective and in nothing else the harness controls. A3
+(seed 2, exploratory) gets no baseline partner; pairing one would add about 50 h.
+
+**The SIGReg caveat for D12 (`TODO.md:498`, `DECISIONS.md:945`) does not apply to A1.** A1 runs at
 λ = 0 (D21). No arm carries a distributional constraint, so the "you constrained its geometry"
 objection does not arise. It stays live only if a SIGReg JEPA arm is ever added.
 
@@ -66,16 +83,31 @@ cosine at a different point. The price: "JEPA beats MAE" cannot be read as "per 
 says "per image seen".
 
 **Why keep M's truncated schedule.** M stopped at 40% of its 10-epoch cosine (`m_findings.md:165`);
-the annealing tail never ran (`o_findings.md` P4, `:466`). A cosine completed over 101,308 steps
-would give the baselines an anneal M never had. So every arm keeps `steps: 253,270` and stops at
-101,308 through `stop_after`, which leaves "`config.steps` — and so the LR and EMA schedules —
-untouched" (`jepa.py:319`). P4's cooldown question then applies to all three arms equally.
+the annealing tail never ran (`o_findings.md` P4, `:466`). A1 and A2 inherit that truncation as a
+fixed stop. A cosine completed over 101,308 steps would give the baselines an anneal A1 never had.
+So every arm keeps `steps: 253,270` and stops at 101,308 through `stop_after`, which leaves
+"`config.steps` — and so the LR and EMA schedules — untouched" (`jepa.py:319`). P4's cooldown
+question then applies to all three arms equally.
 
 **The stop is fixed, not a rule.** M's 4-epoch stop was chosen by an AUC-reading rule
-(`m_findings.md:162`). The baselines inherit its step count as a fixed number and apply no rule of
-their own, so no baseline checkpoint is chosen by looking at labels (spec 1C). They are probed at
-M's epoch points (0.5, 1, 2, 4) for trajectories only; those probes are reported, never used to
-select a checkpoint.
+(`m_findings.md:162`); A1 and A2 took its step count as a fixed number. The baselines do the same
+and apply no rule of their own, so no baseline checkpoint is chosen by looking at labels (spec 1C).
+They are probed at M's epoch points (0.5, 1, 2, 4) for trajectories only; those probes are
+reported, never used to select a checkpoint.
+
+**Trajectory probes: E2's protocol (user, 2026-10-13).** m2's k2 probe (`k2_trajectory_probe.py`)
+is a v1 like-for-like guard: it asserts J4(A)'s split counts and so refuses probe_v2. The trajectory
+probes use E2's protocol instead, read unchanged from `aligned_c2.py` as ladder v2's E2 entry reads
+it: the encoder's full-split bank (`embed`: uncapped probe-train plus probe-test), `fit_scores`
+(`_fit`, C from `probe.yaml`), then per answer the held-out `auc` and a 95% interval from `boot_aucs`
+under `weights` (2,000 Poisson galaxy draws, seed fixed there). **All 37 Scheme-1 answers, no powered
+filter, no multiplicity correction, and no aggregation over answers** — in particular none over an
+M-derived list such as `powered`. `baseline_run.py` calls `artifacts/baseline_trajectory_probe.py` at
+each probe point with one checkpoint; it re-exports the checkpoint through `frozen_from`, so
+`load_frozen_encoder` stays the only way in, writes a bank per checkpoint (fp32 × 384 over the probe-train and probe-test union: about 0.3 GB
+each by arithmetic, so about 5 GB over the four runs' 16 probe points) and
+`artifacts/out/<arm><i>_trajectory.json`. The driver logs how many answers were scored, never an
+AUC.
 
 ## 2. Symmetry and augmentation policy (D10 revised)
 
@@ -194,22 +226,28 @@ gri); resized crops (no-rebin).
 - **Reason.** Augmentations define MoCo's invariances. A ±10% per-band gain (the earlier proposal)
   would make MoCo invariant to colour, a strong morphology signal, and so handicap it on exactly what
   is probed.
-- **σ_sky, measured** (`artifacts/sky_sigma.py` → `artifacts/out/sky_sigma_v1.json`): M's v1 fp16
-  cache (asinh q = 4, frozen Normalise `75100066…`); 2,000 stamps from M's pretrain train split
-  (numpy seed 20261013); each stamp's outer 16-px frame (≥ 44″ from the centre); per stamp and band a
-  1.4826 × MAD σ after iterative 3σ clipping; the median over stamps. **g 0.414, r 0.501, i 0.612**
-  normalised units (16th–84th percentiles 0.312–0.475, 0.387–0.550, 0.501–0.709); sky level −0.10 to
-  −0.13; about 1% of each frame clipped. The frozen Normalise std is dominated by sky pixels, so
-  σ_sky is a large fraction of a unit: at u = 1 a view carries √2 × the native sky noise.
+- **σ_sky, measured on the cache the baselines train on** (`artifacts/sky_sigma.py` →
+  `artifacts/out/sky_sigma_v2.json`, 2026-10-13): A1's v2 fp16 cache (asinh q = 4, frozen v2 Normalise
+  `246d8de6…`, read through F0 under `baseline_run.py`'s environment); 2,000 stamps from the
+  pretrain_v2 train split (numpy seed 20261013); each stamp's outer 16-px frame (≥ 44″ from the
+  centre); per stamp and band a 1.4826 × MAD σ after iterative 3σ clipping; the median over stamps.
+  **g 0.395, r 0.466, i 0.598** normalised units, in `MocoConfig`, `MocoObjectiveConfig` and
+  `configs/moco.yaml`; the spread, sky level and clipped fraction are in the record. The method is the
+  first measurement's, unchanged; that one, on M's v1 cache (`75100066…`, `sky_sigma_v1.json`), is
+  superseded with the retarget. The frozen Normalise std is dominated by sky pixels, so σ_sky is a
+  large fraction of a unit: at u = 1 a view carries √2 × the native sky noise.
 - **No rotations and no flips: D10 revised stands (user, 2026-10-13).** The decision first listed
   rotations by multiples of 90° and flips (citing D4, which is the from-scratch decision); asked
   against D10 revised (2026-09-23), which rules out rotation and reflection for M and every D12
   baseline (its reason 4: one symmetry policy across the encoder family) and whose flips would erase
   handedness, the user kept D10. The code has no flip or rotation op, and a test pins that.
 
-**Known shortcut risk: band misregistration.** v1 stamps carry per-galaxy sub-pixel g/r/i offsets
-(AA3a; `TODO.md:447-455`). Crops preserve them, so instance discrimination could key on them.
-Default (F6): measure, not mitigate. Probe the band offsets from the MoCo encoder against M's.
+**Band misregistration: moot on aligned stamps (user, 2026-10-13).** v1 stamps carry per-galaxy
+sub-pixel g/r/i offsets (AA3a; `TODO.md:447-455`), which crops preserve, so on v1 instance
+discrimination could have keyed on them; F6 was to measure that shortcut. The baselines now train on
+pretrain_v2, the aligned re-pull, so the shortcut F6 named is not in the data and its measurement is
+dropped (§8, F6). The rehearsal's top-1 gate (§6) stays, as a check that the pretext task is not too
+easy for any reason.
 
 ## 4. MAE (reconstructive)
 
@@ -300,25 +338,28 @@ Uncertainty sources:
 
 The rehearsal replaces all of these with measurements.
 
-### 5.3 Total compute and order after A1 and A2 (user, 2026-10-02)
+### 5.3 Total compute and order after A1 and A2 (user, 2026-10-02; pairing retargeted 2026-10-13)
 
 Serial, one heavy process at a time. Rates as §5.2 (±30% model uncertainty until the rehearsal
-measures them). A1 and A2 are M's recipe on the v2 cache, so they cost M's 19.3–19.8 h each.
+measures them). A1 and A2 are M's recipe on the v2 cache, so they cost M's 19.3–19.8 h each; the
+baselines train on the same cache and are paired with them (§1, Seeds), so the retarget moves no
+cost.
 
 | # | job | steps | h (range) | why here |
 |---|---|---|---|---|
-| — | A1, A2 (aligned v2, seeds 0 and 1) | 2 × 101,308 | 39–40 | already queued behind the two hashes and a CLEAN audit; not part of this budget |
-| 1 | rehearsal (§6): M reference, MoCo, MAE, resume identity | 3 × 500 + resumes | ~1 | timing and plumbing; the top-1 shortcut gate before anything long |
+| — | A1, A2 (aligned v2, seeds 0 and 1) | 2 × 101,308 | 39–40 | trained under Kickoff E (`aligned_train.py`); the pairing partners, not part of this budget |
+| 1 | rehearsal (§6): A1-recipe reference, MoCo, MAE, resume identity | 3 × 500 + resumes | ~1 | timing and plumbing; the top-1 pretext-ease gate before anything long |
 | 2 | F7 check, MoCo: 1/3×, 1×, 3× the rule's rate | 3 × 5,000 | ~2.8 (at ~1.5 steps/s) | fixes MoCo's LR before its seed runs; cheaper arm first |
 | 3 | F7 check, MAE: the same three rates | 3 × 5,000 | ~4.8 (at ~0.87 steps/s) | fixes MAE's LR |
-| 4 | **MoCo seed 0** (pairs with M) | 101,308 | 19–22 | first full D12 contrast at the earliest point; the cheaper arm, so a fault shows early |
-| 5 | **MAE seed 0** (pairs with M) | 101,308 | 30–35 | completes the seed-0 ladder (M, MoCo, MAE) |
-| 6 | **MoCo seed 1** (pairs with O2) | 101,308 | 19–22 | second seed: the J1–J2-style spread for MoCo |
-| 7 | **MAE seed 1** (pairs with O2) | 101,308 | 30–35 | second seed for MAE |
+| 4 | **MoCo seed 0** (pairs with A1, `runs/m_v2`) | 101,308 | 19–22 | first full D12 contrast at the earliest point; the cheaper arm, so a fault shows early |
+| 5 | **MAE seed 0** (pairs with A1) | 101,308 | 30–35 | completes the seed-0 ladder (A1, MoCo, MAE) |
+| 6 | **MoCo seed 1** (pairs with A2, `runs/m_v2_s1`) | 101,308 | 19–22 | second seed: the J1–J2-style spread for MoCo |
+| 7 | **MAE seed 1** (pairs with A2) | 101,308 | 30–35 | second seed for MAE |
 
 - **Baselines in all (rows 1–7): about 107–123 h, ≈ 4.5–5.1 days** of machine time (±30%), plus probe
-  pauses (the k2 probe subprocess at 0.5/1/2/4 epochs per run, §9 item 8).
-- **With A1 and A2 first: about 146–163 h, ≈ 6.1–6.8 days.**
+  pauses (the E2 trajectory probe subprocess at 0.5/1/2/4 epochs per run, §1.1, §9 item 8).
+- **A1 and A2 are already trained**, so their 39–40 h is not owed; a baseline partner for A3 (seed
+  2, exploratory) would add about 50 h and is not planned.
 - **Build time is separate:** about 5.5–7 working days (§9), which can run while A1 and A2 train;
   the F7 checks need build items 1–8, so the rows above start when both A2 and the build are done.
 - **Order rule:** seed-0 pair before seed-1 pair, so one complete objective ladder exists before any
@@ -326,13 +367,15 @@ measures them). A1 and A2 are M's recipe on the v2 cache, so they cost M's 19.3�
   that can stop a run). Row 2's rates are MoCo v3's ViT rule (F7 (b), settled 2026-10-03):
   6.25e-6, 1.875e-5 and 5.625e-5.
 
-## 6. The 500-step timing rehearsal (proposed, not run)
+## 6. The 500-step timing rehearsal (proposed; held, not run)
 
-Modelled on `artifacts/rehearsal_run.py`, on the **v1** cache and freeze. Each arm is its own
-subprocess, `smoke: true`, into a scratch `out_dir`, with no bake or pull running locally alongside.
+**Held (user, 2026-10-13):** it does not run until the user releases it. Modelled on
+`artifacts/rehearsal_run.py`, on **A1's v2 cache and freeze** (`baseline_run.py`'s environment, §1).
+Each arm is its own subprocess, `smoke: true`, into a scratch `out_dir`, with no bake or pull running
+locally alongside.
 
-1. **Reference:** M's exact recipe for 500 steps in the same session, so ratios are against today's
-   machine state.
+1. **Reference:** A1's recipe (`configs/pretrain_v2.yaml`: M's recipe on the v2 cache) for 500 steps
+   in the same session, so ratios are against today's machine state.
 2. **MoCo** (the settled settings, §3.2), 500 steps.
 3. **MAE 8×512**, 500 steps.
 4. **Resume identity per baseline:** 250 steps, stop, resume to 500 in a second process; losses
@@ -345,10 +388,14 @@ log(K + 1) = 11.09 and its contrastive top-1; MAE's sky/galaxy loss split.
 All 500 steps sit inside the 1,250-step warm-up, so the rehearsal measures timing and plumbing, not
 learning. Cost: about 6–12 min per arm, under 1 h in all.
 
-**Gate before launch:** if MoCo's top-1 is near 1.0 by step 500, the pretext task is too easy (a
-shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 40 h.
+**Gate before launch: a pretext-ease check.** If MoCo's top-1 is near 1.0 by step 500, the pretext
+task is too easy, whatever the cause; revisit §3.4 before committing about 40 h. The gate was first
+written against one named shortcut, v1's band offsets (F6); on the aligned v2 stamps that shortcut is
+not in the data (§3.4), so the gate no longer names a mechanism and stays as the generic check.
 
-## 7. Where matching M was impossible
+## 7. Where matching A1 was impossible
+
+A1 is M's recipe on v2 (§1), so "M" in this table reads as A1 as well.
 
 | # | what | why it cannot match | proposed |
 |---|---|---|---|
@@ -363,17 +410,18 @@ shortcut, possibly the band offsets, F6); revisit §3.4 before committing about 
 | 9 | MAE augmentation | He's default uses resized crops and flips | none, as M (D10, no-rebin); He's linear-probe cost named |
 | 10 | optimiser details | each method's recipe is tuned with its own optimiser and LR rule | **each method's published LR rule at batch 32, with its own optimiser form** (F7, settled): MAE AdamW (0.9, 0.95), wd 0.05, 1.875e-5; MoCo AdamW (MoCo v3's ViT rule), wd 0.1, 1.875e-5. A 5,000-step check at 1/3×, 1× and 3× the rule's rate, judged on pretext loss only. **Not taken from v3's ViT recipe** (review of PR #3, 2026-10-13): `--stop-grad-conv1`, v3's frozen random patch projection, its stability fix for ViTs (v3 §4–5); the patch embedding trains as M's does. v3's `--moco-m-cos` and 40-epoch warmup are replaced by F3 and M's schedule. If the F7 check shows instability, the frozen patch projection is the named lever |
 | 11 | FLOPs / wall-clock | objectives differ in cost per image | exposure and schedule matched instead (§1.1); reported "per image seen" |
-| 12 | schedule completion | published recipes anneal to completion; M stopped at 65.9% of peak LR | inherit M's truncation; P4 applies to all arms |
-| 13 | collapse kill criterion | the soft floor 2.5 is grounded on JEPA traces only (`pretrain.yaml` `collapse_floor`) | F8 |
-| 14 | band misregistration | v1 stamps carry it (`TODO.md:453`) | train on v1 to match M; measure the shortcut (F6) |
+| 12 | schedule completion | published recipes anneal to completion; M, and A1 and A2 after it, stopped at 65.9% of peak LR | inherit the truncation; P4 applies to all arms |
+| 13 | collapse kill criterion | the soft floor 2.5 is grounded on JEPA traces only (`pretrain_v2.yaml` `collapse_floor`, as `pretrain.yaml`'s) | F8 |
+| 14 | band misregistration | v1 stamps carry it (`TODO.md:453`); the first plan trained on v1 to match M and measured the shortcut (F6) | **moot (user, 2026-10-13):** every arm trains on A1's aligned v2 stamps, so the offsets are not in the data and F6's measurement is dropped; the rehearsal's top-1 gate stays as a pretext-ease check (§6) |
+| 15 | trajectory probes | m2's k2 probe is a v1 like-for-like guard and refuses probe_v2 | E2's protocol (`baseline_trajectory_probe.py`, §1.1): per-answer held-out AUC on the full split, all 37 answers, no powered filter, no aggregate |
 
 ## 8. Forks for the user
 
 **Settled by the user, 2026-10-02** (F2 and F3 earlier). Every arm carries these; they are fixed before
 any baseline trains, and no probe number enters any of them.
 
-- **F1** — *Settled:* `smoke: true` for both baselines, as for M. The D12 comparison on M is
-  exploratory until a headline run exists.
+- **F1** — *Settled:* `smoke: true` for both baselines, as for M and A1. The D12 comparison on A1
+  is exploratory until a headline run exists.
 - **F2** — *Settled (user, 2026-09-28):* MAE decoder **8 blocks × 512 wide, 16 heads**, He's
   standard configuration, which matters for the linear-probe read-out; the extra cost is accepted
   (30–35 h per seed against 17–18 h for 3 layers, about +12–18 h per seed, §5.2). The 3-layer
@@ -388,9 +436,11 @@ any baseline trains, and no probe number enters any of them.
   symmetrised loss (about 2× the cost, §5.1).
 - **F5** — *Settled:* MAE target **norm-pix** (He et al. 2022, Table 1c). The sky hazard (§4.2) is
   accepted; the rehearsal logs the loss's sky/galaxy split.
-- **F6** — *Settled:* **measure only**; no anti-offset augmentation. Every encoder faces the same
-  nuisance (v1's band misregistration), so none is given a remedy the others lack. The rehearsal's
-  top-1 gate (§6) and the distractor pre-registration measure the shortcut.
+- **F6** — *Settled (2026-10-02):* **measure only**; no anti-offset augmentation. Every encoder faces
+  the same nuisance (v1's band misregistration), so none is given a remedy the others lack. **Moot
+  (user, 2026-10-13):** the baselines train on the aligned v2 stamps (§1), which do not carry the
+  offsets, so there is no shortcut to measure and F6's measurement is dropped. Still no anti-offset
+  augmentation. The rehearsal's top-1 gate (§6) stays as a pretext-ease check.
 - **F7** — *Settled:* **each method's published learning-rate scaling rule at our batch size (32)**,
   stated with its source, in the method's own optimiser form; M's warmup (1,250 steps) and cosine
   shape over 253,270 steps, stopped at 101,308, for every arm (§1).
@@ -447,16 +497,17 @@ No MoCo or MAE code exists under `src/`. Estimates in working days of build and 
 | 5 | `objectives/moco.py`: projector, queue buffer, InfoNCE, momentum encoder by deepcopy (as `jepa.py:152`) | new | 0.5–1 d | Queue in the checkpoint; positive at index 0; key encoder without grad |
 | 6 | Augmentation: token windows, per-band gain, blur, noise; on device; seeded from `(train_seed, step)`; no flip or rotation op exists | `objectives/moco.py` (single consumer) | 0.5–1 d | Per-step seeding keeps resume identity; a seeded `torch.Generator('mps')` to check |
 | 7 | `build_objective` branch; `calibrate` generalised (it hard-codes `jepa.predictor`, `harness.py:1132`) | `harness.py` | 0.25 d | |
-| 8 | Driver `artifacts/baseline_run.py` reusing m2's `Run`, segmenting, `keep` and the k2 probe subprocess; fixed stop 101,308; probes at 0.5/1/2/4 epochs for trajectories only | new artefact | 0.5 d | out-dir guard as in m2 (`m2_long_run.py:205`) |
+| 8 | Driver `artifacts/baseline_run.py` reusing m2's `Run`, segmenting and `keep`, under A1's v2 environment (§1); fixed stop 101,308; probes at 0.5/1/2/4 epochs for trajectories only, through `artifacts/baseline_trajectory_probe.py` (E2's protocol, §1.1; k2 refuses probe_v2) | new artefact | 0.5 d | out-dir guard as in m2 (`m2_long_run.py:205`) |
 | 9 | Rehearsal (§6) | `rehearsal_run.py` pattern | 0.25 d + ~1 h machine | |
 | 10 | Tests (below) | `tests/test_objectives_moco.py`, `test_objectives_mae.py`, `test_objective_loop.py` | 1 d | |
 | 11 | D-entries: D12 amendment (16×16, ViT-S, decoder; done 2026-10-02); the MoCo recipe; `docs/spec/objectives.md` §2 | docs | 0.25 d | |
 
 **Total: about 5.5–7 working days of build**, then about 4–5 machine-days for the four runs.
 
-Tests (invariant tier unless marked): M's `config_hash` unchanged; JEPA losses identical step for
-step after the loop refactor; a baseline's encoder init byte-identical to M's for the same seed; a
-baseline's data order equal to M's; no flip or rotation in the augmentation (windows are
+Tests (invariant tier unless marked): M's `config_hash` unchanged; each baseline config equal to
+A1's `pretrain_v2.yaml` outside `objective`, on the v2 freeze; JEPA losses identical step for step
+after the loop refactor; a baseline's encoder init byte-identical to M's (and so A1's) for the same
+seed; a baseline's data order equal to M's; no flip or rotation in the augmentation (windows are
 axis-aligned token sub-grids, a chiral test image is never mirrored); MoCo queue enqueue/dequeue and
 no grad on the key encoder; MAE exactly 64 visible tokens, loss only on masked patches, norm-pix
 against a hand computation; the baseline checkpoint loads through `load_frozen_encoder`, passes

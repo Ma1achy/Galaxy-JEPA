@@ -18,9 +18,10 @@ reproduces the views with no saved augmentation state.
 **Gain and noise, settled (user, 2026-10-13; §3.4).** A global gain ×U(0.9, 1.1), the same for all
 bands (brightness, not colour); a per-band gain ×U(0.98, 1.02), independent per band, about SDSS's
 photometric calibration and small enough to keep colour; additive noise σ_aug = u × σ_sky per band,
-u ~ U(0, 1) per view, with σ_sky the normalised sky σ measured in M's v1 cache
-(``artifacts/sky_sigma.py``). Augmentation defines MoCo's invariances: a ±10% per-band gain would
-make it invariant to colour, a strong morphology signal, and handicap it on what is probed.
+u ~ U(0, 1) per view, with σ_sky the normalised sky σ measured in A1's v2 cache, the one the
+baselines train on (``artifacts/sky_sigma.py``). Augmentation defines MoCo's invariances: a ±10%
+per-band gain would make it invariant to colour, a strong morphology signal, and handicap it on what
+is probed.
 
 The projector reads the mean of the window's final-block tokens after the final norm (there is no
 CLS token). The saved encoder is the query encoder, a plain :class:`VisionTransformer`, read by
@@ -63,8 +64,9 @@ class MocoConfig:
     blur_sigma: tuple[float, float] = (0.1, 2.0)  # px, uniform; v2's aug+
     blur_p: float = 0.5
     #: The normalised sky σ per band (g, r, i): median over 2,000 train stamps' 16-px frames of a
-    #: 3σ-clipped MAD σ in M's v1 cache (``artifacts/sky_sigma.py``, 2026-10-13).
-    sky_sigma: tuple[float, float, float] = (0.414, 0.501, 0.612)
+    #: 3σ-clipped MAD σ in A1's v2 cache, freeze ``246d8de6…`` (``artifacts/sky_sigma.py``,
+    #: 2026-10-13).
+    sky_sigma: tuple[float, float, float] = (0.395, 0.466, 0.598)
     noise_u_max: float = 1.0  # σ_aug = u × sky_sigma, u ~ U(0, noise_u_max) per image and view
     monitor_every: int = 100
     checkpoint_every: int = 6331

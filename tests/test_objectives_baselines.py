@@ -400,27 +400,31 @@ BASELINE_CONFIGS = [("configs/moco.yaml", MocoRunConfig), ("configs/mae.yaml", M
 
 
 @pytest.mark.parametrize(("path", "cls"), BASELINE_CONFIGS, ids=["moco", "mae"])
-def test_a_baseline_config_is_ms_with_one_block_swapped(path, cls):
-    """Matched to M (§1): every determining field but the objective is M's, so the corpus, the
-    freezes, the backbone, the collapse floor and the probe cannot drift between the arms."""
+def test_a_baseline_config_is_a1s_with_one_block_swapped(path, cls):
+    """Matched to A1 (§1): every determining field but the objective is A1's, so the corpus, the
+    freezes, the backbone, the collapse floor and the probe cannot drift between the arms. A1 is
+    M's recipe on the aligned v2 stamps, so the objective block is still M's."""
     yaml = pytest.importorskip("yaml")
-    with open("configs/pretrain.yaml") as fh:
-        m = HarnessConfig(**yaml.safe_load(fh))
+    with open("configs/pretrain_v2.yaml") as fh:
+        a1 = HarnessConfig(**yaml.safe_load(fh))
     with open(path) as fh:
         b = cls(**yaml.safe_load(fh))
-    md, bd = m.determining_dump(), b.determining_dump()
-    assert md.pop("objective") != bd.pop("objective")
-    assert md == bd
-    assert (b.paths.pretrain_dir, b.paths.probe_dir) == (m.paths.pretrain_dir, m.paths.probe_dir)
-    assert b.paths.out_dir != m.paths.out_dir  # never M's directory
+    ad, bd = a1.determining_dump(), b.determining_dump()
+    assert ad.pop("objective") != bd.pop("objective")
+    assert ad == bd
+    assert (b.paths.pretrain_dir, b.paths.probe_dir) == (a1.paths.pretrain_dir, a1.paths.probe_dir)
+    assert b.paths.out_dir != a1.paths.out_dir  # never A1's directory
+    # the v2 freeze, named: a pretrain_v2.yaml edited back to v1 must not carry the baselines along
+    assert b.normalisation is not None
+    assert b.normalisation.content_hash.startswith("246d8de6ba9a")
     # and the file states the settled recipe: its block is the class defaults, nothing tuned
     assert b.objective == type(b.objective)()
-    # the schedule inside `objective` is M's too (§1.1): the block is swapped, the budget is not
-    mo, bo = m.objective, b.objective
+    # the schedule inside `objective` is A1's too (§1.1): the block is swapped, the budget is not
+    ao, bo = a1.objective, b.objective
     for k in ("steps", "batch_size", "warmup_steps", "monitor_every", "checkpoint_every"):
-        assert getattr(bo, k) == getattr(mo, k), k
-    assert bo.lr_final is not None and mo.lr_final is not None
-    assert bo.lr_final / bo.lr == pytest.approx(mo.lr_final / mo.lr)  # M's cosine shape
+        assert getattr(bo, k) == getattr(ao, k), k
+    assert bo.lr_final is not None and ao.lr_final is not None
+    assert bo.lr_final / bo.lr == pytest.approx(ao.lr_final / ao.lr)  # M's and A1's cosine shape
 
 
 @pytest.mark.parametrize(
@@ -450,7 +454,7 @@ def test_moco_as_configured_states_the_settled_views():
     assert (o.gain_global, o.gain_band, o.sky_sigma, o.noise_u_max) == (
         0.1,
         0.02,
-        (0.414, 0.501, 0.612),
+        (0.395, 0.466, 0.598),
         1.0,
     )
 
