@@ -53,7 +53,11 @@ def metadata(union: np.ndarray) -> dict[str, np.ndarray]:
     cols = {k: np.full(union.size, np.nan) for k in ("expAB_r", "deVAB_r", "petroRad_r",
                                                       "modelMag_r")}
     dr7 = np.zeros(union.size, dtype=np.int64)
-    with open(Path("data/probe/metadata.csv"), newline="") as fh:
+    # the active config's probe corpus (probe_v2 under the v2 env; v1 by default), not a v1 literal
+    import yaml
+    from f0_preconditions import CONFIG, REPO
+    probe_dir = yaml.safe_load((REPO / CONFIG).read_text())["paths"]["probe_dir"]
+    with open(REPO / probe_dir / "metadata.csv", newline="") as fh:
         for row in csv.DictReader(fh):
             i = pos.get(int(row["object_id"]))
             if i is None:

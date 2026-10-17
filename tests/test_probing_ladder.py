@@ -22,7 +22,7 @@ from galaxy_jepa.probing import controls as ctl
 from galaxy_jepa.probing.config import ProbingConfig
 from galaxy_jepa.probing.extract import LabelProvider, extract_matrix
 from galaxy_jepa.probing.floor import freeze_effect_floor
-from galaxy_jepa.probing.ladder import run_ladder
+from galaxy_jepa.probing.ladder import run_ladder, untrained_split_key
 from galaxy_jepa.probing.run import run_probing
 
 pytestmark = pytest.mark.integration
@@ -285,11 +285,13 @@ def test_two_identical_invocations_produce_identical_verdicts(tmp_path):
 # threading and the power annotation were each unit-tested and never exercised together.
 
 
-def _bank_file(tmp_path, features, *, k=25, mean=0.5, sd=0.01, seed=0):
+def _bank_file(tmp_path, features, *, k=25, mean=0.5, sd=0.01, seed=0, split_key=None):
     rng = np.random.default_rng(seed)
+    if split_key is None:  # the split every caller passes: ids[:120] / ids[120:]
+        split_key = untrained_split_key(list(range(120)), list(range(120, _N)))
     rec = {
         "model_key": "test",
-        "split_key": "test",
+        "split_key": split_key,
         "seeds": {
             str(s): {f: float(mean + sd * rng.standard_normal()) for f in features}
             for s in range(k)
@@ -515,3 +517,21 @@ def test_the_mlp_rung_is_not_assigned_without_an_untrained_mlp_bar(tmp_path):
     assert failing
     for v in failing:
         assert v.rung == "R4" and "unadjudicated" in v.mechanism and v.sweep
+
+
+@pytest.mark.integration
+def test_an_untrained_bank_built_on_another_split_is_refused(tmp_path):
+    # The bar is only a bar for the split it was measured on: a bank from another split (the v1
+    # stride, say, read by a v2 ladder) must fail loudly rather than set the bar silently.
+    labels = _labels()
+    cfg = _z_config(_bank_file(tmp_path, labels.features, split_key="another-split"))
+    controls, ids = _controls_and_ids()
+    with pytest.raises(ValueError, match="split"):
+        run_ladder(controls, labels, ids[:120], ids[120:], config=cfg, sky_label_col="snr")
+
+
+def test_untrained_split_key_ignores_order_and_id_type():
+    a = untrained_split_key([3, 1, 2], [9, 7])
+    assert a == untrained_split_key([2, 3, 1], [7, 9])
+    assert a == untrained_split_key([np.int64(1), 2, 3], ["7", "9"])
+    assert a != untrained_split_key([1, 2, 3], [7, 8])

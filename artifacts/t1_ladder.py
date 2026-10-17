@@ -25,6 +25,7 @@ import time
 import numpy as np
 
 sys.path.insert(0, "artifacts")
+import ladder_env as L  # noqa: E402
 import r_nonlinear as R  # noqa: E402
 from s2_verify import noise_matrix, row  # noqa: E402
 
@@ -125,6 +126,9 @@ def main() -> None:
         out[f"{pop}_pairs"] = [dataclasses.asdict(p) for p in res.pair_verdicts]
         RECORD.write_text(json.dumps(out, indent=1, default=float))
         print(f"T1 {pop:<12s} {time.perf_counter() - t0:6.0f}s", file=sys.stderr)
+    if L.active():  # ladder v2 is blind: no comparison against M's records (plan Task 1b.3)
+        print("T1 compare    : skipped (ladder v2)", file=sys.stderr)
+        return
     compare(out)
 
 

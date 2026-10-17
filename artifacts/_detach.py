@@ -15,7 +15,9 @@ more process for the caller's session to take down with it.
 The job also gets a status-line bar with no sidecar to start (claude-statusline's `--watch`, when
 ~/.claude/statusline.js is installed): named after the log unless `--name` is among the watch flags,
 which pass through as given (`--stage RE --stages N --inner TPL` for a chain). This process is the
-job's parent, so it writes the true end, done or failed by exit code, once the job exits.
+job's parent, so it writes the true end by exit code once the job exits: 0 done, 75 (EX_TEMPFAIL)
+paused — stopped to be resumed, as the ladder runner's pause does — anything else failed. A paused
+bar stays up until the job is relaunched under the same name, which picks it up as a resume.
 """
 
 import os
@@ -24,6 +26,7 @@ import subprocess
 import sys
 import time
 
+EX_PAUSED = 75  # EX_TEMPFAIL: the job stopped to be continued later
 log_path, rest = sys.argv[1], sys.argv[2:]
 watch = rest[:rest.index("--")] if "--" in rest else []
 rest = rest[len(watch) + 1:] if "--" in rest else rest
@@ -39,6 +42,11 @@ if os.fork():
     raise SystemExit(0)
 
 os.setsid()  # own session: no controlling terminal, no process group shared with the caller
+# and none of the caller's stdio: a caller reading our output through a pipe would otherwise wait
+# for the whole job, as the job's lifetime would hold the pipe open
+_null = os.open(os.devnull, os.O_RDWR)
+for _fd in (0, 1, 2):
+    os.dup2(_null, _fd)
 with open(log_path, "a", buffering=1) as fh:
     fh.write(f"\n=== detached launch {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
     proc = subprocess.Popen(
@@ -61,6 +69,8 @@ with open(log_path, "a", buffering=1) as fh:
             watcher.wait(timeout=30)
         except subprocess.TimeoutExpired:
             watcher.terminate()
-        subprocess.run([node, SL, "--run", name, "--status", "done" if rc == 0 else "failed",
-                        "--message", f"exit {rc}"], stdin=subprocess.DEVNULL, capture_output=True)
+        status = "done" if rc == 0 else "paused" if rc == EX_PAUSED else "failed"
+        subprocess.run([node, SL, "--run", name, "--status", status,
+                        "--message", "paused — relaunch to resume" if status == "paused" else f"exit {rc}"],
+                       stdin=subprocess.DEVNULL, capture_output=True)
 os._exit(0)

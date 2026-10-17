@@ -39,11 +39,13 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ladder_env as L  # noqa: E402
 from j4_spread_controls import OUT, _release, prepare  # noqa: E402
 
 from galaxy_jepa.models.vit import load_frozen_encoder  # noqa: E402
 from galaxy_jepa.probing import controls as ctl  # noqa: E402
 from galaxy_jepa.probing.extract import feature_embeddings  # noqa: E402
+from galaxy_jepa.probing.ladder import untrained_split_key  # noqa: E402
 from galaxy_jepa.probing.nulls import K_MIN  # noqa: E402
 
 BANK = OUT / "p1_untrained_bank.json"
@@ -54,13 +56,19 @@ def _key(obj: object) -> str:
     return hashlib.sha256(json.dumps(obj, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
-def _load(model_key: str, split_key: str) -> dict:
-    """The bank, or a fresh one. Refuses to top up a bank built on different foundations."""
+def _load(model_key: str, split_key: str, pixels_key: str) -> dict:
+    """The bank, or a fresh one. Refuses to top up a bank built on different foundations: the model,
+    the split, and (since ladder v2) the pixels — the normalisation freeze the stamps went through.
+    A bank from before the pixels key carries none and is refused for any run that states one."""
     if not BANK.exists():
-        return {"model_key": model_key, "split_key": split_key, "max_train": MAX_TRAIN, "seeds": {}}
+        return {"model_key": model_key, "split_key": split_key, "pixels_key": pixels_key,
+                "max_train": MAX_TRAIN, "seeds": {}}
     rec = json.loads(BANK.read_text())
     for name, want, got in (("model", model_key, rec.get("model_key")),
-                            ("split", split_key, rec.get("split_key"))):
+                            ("split", split_key, rec.get("split_key")),
+                            # a legacy bank (no pixels key) tops up only outside ladder v2
+                            ("pixels", pixels_key,
+                             rec.get("pixels_key", None if L.active() else pixels_key))):
         if got != want:
             raise SystemExit(
                 f"P1: the bank at {BANK} was built against {name} {got}, this run is {want}. "
@@ -85,9 +93,10 @@ def main() -> None:
     # The encoder is loaded ONLY for its constructor record. No weights reach the bar.
     frozen = load_frozen_encoder(setup.ckpt)
     model_key = _key(dict(frozen.config))
-    split_key = _key([len(train_ids), len(test_ids), setup.union[:1], setup.union[-1:]])
+    split_key = untrained_split_key(train_ids, test_ids)  # the package's definition, which the ladder checks
+    pixels_key = setup.cfg.normalisation.content_hash
 
-    rec = _load(model_key, split_key)
+    rec = _load(model_key, split_key, pixels_key)
     have = sorted(int(s) for s in rec["seeds"])
     todo = [s for s in range(args.seeds) if s not in have]
 

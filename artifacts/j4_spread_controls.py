@@ -40,6 +40,7 @@ import torch
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ladder_env as L  # noqa: E402
 from f0_preconditions import REPO, check  # noqa: E402
 
 from galaxy_jepa.data.dataset import StampDataset  # noqa: E402
@@ -52,7 +53,9 @@ from galaxy_jepa.probing.extract import extract_matrix, feature_embeddings  # no
 from galaxy_jepa.probing.logistic import probe_auc_ci  # noqa: E402
 from galaxy_jepa.probing.schemes import get_scheme  # noqa: E402
 
-OUT = REPO / "artifacts" / "out"
+OUT = L.out(REPO / "artifacts" / "out")
+#: v1's cache (f0_preconditions' default), read only to rebuild v1's split for the identical set
+V1_CACHE_BASE = Path("/Volumes/X10 Pro/galaxy-jepa/runs/full/cache")
 
 #: The spread, drawn from Scheme 1 — where every one of the 37 answers is binary, so
 #: `GradedExistenceTestUndecided` cannot fire. Chosen to span the difficulty range, declared here
@@ -104,6 +107,28 @@ def _capped_train(train_ids: list[int], max_train: int) -> list[int]:
     return [train_ids[int(i * stride)] for i in range(max_train)]
 
 
+def _identical_split(probe_ids: list[int], max_train: int, cfg: Any) -> tuple[list[int], list[int]]:
+    """Ladder v2, decision 1: v1's split and stride, then minus the galaxies the active probe corpus
+    lacks — the split the effect floor was frozen on (as ``aligned_score._identical_prepare`` and
+    ``setup13``: the stride is taken on v1 first, so it never shifts). Only ``ladder_env.NINE`` may
+    drop; anything else is a different corpus and refuses."""
+    from galaxy_jepa.data.cache import TensorCache, pipeline_hash
+    from galaxy_jepa.harness import HarnessConfig, _build_pipeline
+
+    v1 = HarnessConfig(**yaml.safe_load((REPO / "configs/pretrain.yaml").read_text()))
+    if (v1.seed, tuple(v1.ratios)) != (cfg.seed, tuple(cfg.ratios)):
+        raise SystemExit("identical set: v1 and the active config split with different seeds/ratios")
+    cache1 = TensorCache(V1_CACHE_BASE / pipeline_hash(_build_pipeline(q=v1.q, freeze=v1.normalisation)))
+    _, ids1 = _probe_rows(cache1, v1.paths.probe_dir)
+    split1 = assign_three_way(cache1.present(sorted(ids1)), seed=v1.seed, ratios=v1.ratios)
+    train1, test1 = _capped_train(sorted(split1.train), max_train), sorted(split1.test)
+    have = set(probe_ids)
+    dropped = {i for i in (*train1, *test1) if i not in have}
+    if not dropped <= L.NINE:
+        raise SystemExit(f"identical set: {len(dropped - L.NINE)} v1 galaxies missing beyond the 9")
+    return [i for i in train1 if i in have], [i for i in test1 if i in have]
+
+
 def _release(device: str) -> None:
     if device.startswith("mps"):
         torch.mps.empty_cache()
@@ -135,10 +160,18 @@ def prepare(checkpoint: str | None, max_train: int, *, label: str, sources: int)
     """
     cfg, cache = check(verbose=False)
     pc = ProbingConfig(**yaml.safe_load((REPO / "configs/probe.yaml").read_text()))
+    bank = L.untrained_bank(pc.untrained_bank_path)
+    if bank != pc.untrained_bank_path:  # ladder v2: the v2 untrained bank (decision 2)
+        pc = pc.model_copy(update={"untrained_bank_path": bank})
+        if Path(bank).exists():  # absent while p1 builds it; the ladder's loader refuses absence
+            got = json.loads(Path(bank).read_text()).get("pixels_key")
+            if got != cfg.normalisation.content_hash:
+                raise SystemExit(f"{label}: untrained bank {bank} has pixels {got!r}, the active "
+                                 f"freeze is {cfg.normalisation.content_hash[:12]} — another corpus")
     if pc.headline:
         raise SystemExit(f"{label}: probe.yaml claims headline — this battery is not a result")
     device = cfg.runtime.resolved_device()
-    ckpt = Path(checkpoint) if checkpoint else Path(cfg.paths.out_dir) / "encoder.pt"
+    ckpt = L.encoder(checkpoint) or Path(cfg.paths.out_dir) / "encoder.pt"
     OUT.mkdir(parents=True, exist_ok=True)
 
     rows, corpus_ids = _probe_rows(cache, cfg.paths.probe_dir)
@@ -146,6 +179,8 @@ def prepare(checkpoint: str | None, max_train: int, *, label: str, sources: int)
     split = assign_three_way(probe_ids, seed=cfg.seed, ratios=cfg.ratios)
     train_ids = _capped_train(sorted(split.train), max_train)
     test_ids = sorted(split.test)
+    if L.identical_split():
+        train_ids, test_ids = _identical_split(probe_ids, max_train, cfg)
     union = sorted({*train_ids, *test_ids})
     print(f"{label} split: {len(train_ids):,} train (of {len(split.train):,}) + "
           f"{len(test_ids):,} test = {len(union):,} stamps to embed x{sources} sources",

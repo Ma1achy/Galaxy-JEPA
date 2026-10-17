@@ -26,6 +26,7 @@ import numpy as np
 sys.path.insert(0, "artifacts")
 import r_nonlinear as R  # noqa: E402
 from p2_ladder import _rung_row  # noqa: E402
+from probe_bank import load_bank, write_bank  # noqa: E402
 
 from galaxy_jepa.models.vit import load_frozen_encoder  # noqa: E402
 from galaxy_jepa.probing import controls as ctl  # noqa: E402
@@ -38,15 +39,22 @@ TOL = 1e-9
 
 
 def noise_matrix(setup, frozen, ids: np.ndarray) -> EmbeddingMatrix:
+    """The noise-through-encoder control, banked. The bank is stamped with the encoder it went
+    through and reused only for that encoder (by SHA-1, `probe_bank`): matching ids alone would hand
+    a second encoder on the same split the first one's control (ladder v2, plan Task 1b.2)."""
     if NOISE_BANK.exists():
-        blob = np.load(NOISE_BANK, allow_pickle=False)
-        if np.array_equal(blob["ids"], ids):
-            return EmbeddingMatrix(ids, blob["x"], "noise")
+        with np.load(NOISE_BANK, allow_pickle=False) as raw:
+            stamped = "checkpoint_sha1" in raw.files
+        if stamped:
+            blob = load_bank(NOISE_BANK, expected_checkpoint=setup.ckpt)  # refuses another encoder
+            if np.array_equal(blob["ids"], ids):
+                return EmbeddingMatrix(ids, blob["x"], "noise")
+        # an unstamped bank predates this check: its encoder is unknown, so it is re-extracted
     t0 = time.perf_counter()
     m = ctl.noise_through_encoder_matrix(frozen, setup.ds, device=setup.device, seed=setup.cfg.seed)
     if not np.array_equal(m.object_ids, ids):
         raise SystemExit("S2: noise matrix is not co-indexed with the bank")
-    np.savez(NOISE_BANK, ids=ids, x=m.x)
+    write_bank(NOISE_BANK, ids=ids, x=m.x, checkpoint=setup.ckpt)
     print(f"S2 noise      : extracted in {time.perf_counter() - t0:.0f}s", file=sys.stderr)
     return m
 

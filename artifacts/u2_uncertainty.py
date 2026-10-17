@@ -46,10 +46,13 @@ BATCH = 250
 ALPHA = 0.05
 MIN_EXTREME = 50  # per class, train
 # Brief V1.4: U2's pre-registered rule had no state for a significant partial of the opposite sign
-# to the raw. Future runs read it as REVERSES; U2's recorded verdicts were made without it and are
-# not recomputed, so this stays False for the U2 record.
-REVERSAL_STATE = False
+# to the raw. Future runs read it as REVERSES (D27: a state added after a result applies to future
+# runs only). U2's recorded verdicts were made without it and are not recomputed; every run from
+# ladder v2 on has it (docs/ladder_v2/plan.md: the one non-plumbing change, user 2026-10-13).
+REVERSAL_STATE = True
 VISIBILITY = ("magnitude", "snr", "size", "redshift")
+#: Never read. Named from an earlier encoder's results, so ladder v2 must not use it (decision 4);
+#: U2's targets come from `gated_features`, the encoder's own E5 rungs.
 FLAGGED = {"t08_odd_feature_a24_merger": "merger", "t04_spiral_a08_spiral": "spiral",
            "t06_odd_a14_yes": "anything odd"}
 COUNTS = R.OUT / "u2_counts.json"

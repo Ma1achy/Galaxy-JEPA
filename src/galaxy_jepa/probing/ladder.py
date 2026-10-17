@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -110,14 +111,27 @@ class LadderResult:
         assert_reportable(self.floor, what)
 
 
+def untrained_split_key(train_ids: Sequence[int], test_ids: Sequence[int]) -> str:
+    """The split an untrained bank was built against — the one definition, which
+    ``artifacts/p1_untrained_bank.py`` stamps into the bank and :func:`_load_untrained_bank`
+    checks: the train and test sizes and the first and last galaxy of their union."""
+    union = sorted({*(int(i) for i in train_ids), *(int(i) for i in test_ids)})
+    key = [len(train_ids), len(test_ids), union[:1], union[-1:]]
+    return hashlib.sha256(json.dumps(key, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
 def _load_untrained_bank(
-    config: ProbingConfig, features: Sequence[str]
+    config: ProbingConfig, features: Sequence[str], split_key: str | None = None
 ) -> dict[str, np.ndarray] | None:
     """The K-seed untrained bar for D23's existence test, or ``None`` under the empirical method.
 
     Raises rather than falling back. A missing bank under ``existence_method='untrained_z'`` is a
     configuration error, and silently reverting to the point-mass estimator would produce a
     plausible-looking catalogue computed by a test the config said not to use.
+
+    With ``split_key`` (:func:`untrained_split_key` of the ladder's own split) the bank must have
+    been built on that split: a bar computed on other galaxies is a different population, and the
+    loader once took it without looking (ladder v2, plan Task 1b.2).
     """
     if config.existence_method != nulls_mod.EXISTENCE_UNTRAINED_Z:
         return None
@@ -130,6 +144,12 @@ def _load_untrained_bank(
     if not path.exists():
         raise FileNotFoundError(f"untrained bank not found at {path}")
     rec = json.loads(path.read_text())
+    if split_key is not None and rec.get("split_key") != split_key:
+        raise ValueError(
+            f"untrained bank at {path} was built on split {rec.get('split_key')!r}; this "
+            f"ladder's split is {split_key!r}. Its bar describes other galaxies — build the bank "
+            "on this split."
+        )
     seeds = rec.get("seeds", {})
     if not seeds:
         raise ValueError(f"untrained bank at {path} is empty")
@@ -697,7 +717,7 @@ def run_ladder(
         )
 
     # Phase 2: family-corrected existence verdict (3B/2B) — the gate input.
-    bank = _load_untrained_bank(config, features)
+    bank = _load_untrained_bank(config, features, untrained_split_key(train_ids, test_ids))
     existence = nulls_mod.existence_verdicts(
         feature_controls,
         alpha=config.alpha,
