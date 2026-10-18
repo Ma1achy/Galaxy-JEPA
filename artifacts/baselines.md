@@ -503,11 +503,29 @@ any baseline trains, and no probe number enters any of them.
     The run departs from the rule's rate **only if that rate is unstable** (divergence, NaN, or a
     collapse-floor breach under F8); then the nearest stable of the three, stated. Recorded: the
     loss curves, the final 500-step mean loss at each rate, any instability, and the choice.
-    **Results: running from 2026-10-17** (`artifacts/baseline_f7.py`, records under `runs/_f7/`); they
-    are written here before the seed runs. "Unstable" was made numeric in the driver before any F7
-    run: a halt (non-finite loss, the hard collapse floor, or short of 5,000 steps), or divergence —
-    the final 500-step mean above the run's lowest 500-step rolling mean by more than 50%. Nearest
-    is by rate ratio, a tie going to the lower rate.
+    **Results (run 2026-10-18 00:02–06:31, `artifacts/baseline_f7.py`, record `runs/_f7/f7.json`,
+    SHA-1 `2bf5f3e5dfde`), written before the seed runs.** "Unstable" was made numeric in the driver
+    before any F7 run: a halt (non-finite loss, the hard collapse floor, or short of 5,000 steps), or
+    divergence — the final 500-step mean above the run's lowest 500-step rolling mean by more than
+    50%. Nearest is by rate ratio, a tie going to the lower rate. All six reached step 5,000 with no
+    halt and no divergence:
+
+    | arm | rate | final 500-step mean loss | lowest 500-step rolling mean | rise over lowest | top-1 at 5,000 | steps/s |
+    |---|---|---|---|---|---|---|
+    | MoCo | 6.25e-6 (1/3×) | 7.4835 | 7.4699 | 0.18% | 0.469 | 1.67 |
+    | MoCo | **1.875e-5 (rule)** | 7.2924 | 7.2924 | 0 | 0.562 | 1.33 |
+    | MoCo | 5.625e-5 (3×) | 7.2887 | 7.2829 | 0.08% | 0.438 | 1.77 |
+    | MAE | 6.25e-6 (1/3×) | 0.9679 | 0.9679 | 0 | — | 1.10 |
+    | MAE | **1.875e-5 (rule)** | 0.9641 | 0.9641 | 0 | — | 1.10 |
+    | MAE | 5.625e-5 (3×) | 0.9622 | 0.9622 | 0 | — | 1.10 |
+
+    **Choice: the rule's rate, 1.875e-5, for both arms — it is stable,** so the seed runs train at
+    the configured rate with no departure. MoCo's InfoNCE rises during the first ~1,000 steps at every
+    rate (to 8.3–9.2 at its peak, from 7.45) as the queue's initial random keys are replaced by real
+    ones, then falls; the lowest rolling mean comes after that rise, so it is not counted as
+    divergence. The rule-rate MoCo arm ran slower (1.33 steps/s) than its neighbours and the rehearsal
+    (1.74): machine load at the time, not the recipe. Recorded for the record only: pretext loss
+    chose nothing here, because the rule's rate was not unstable.
     About 7.6 h of machine time in all (§5.2).
 - **F8** — *Settled:* **the method-agnostic hard floor gates** a run (a collapse that stops it);
   M's JEPA-grounded soft floors (`collapse_floor`, 2.5) are **reported descriptively, not gating**:
