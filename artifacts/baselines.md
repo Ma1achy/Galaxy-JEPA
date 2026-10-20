@@ -392,6 +392,15 @@ cost.
   per-token loss galaxy 0.998, sky 0.999; the sky's share of the masked loss 0.898, equal to its share
   of masked tokens (0.898). At this point in the warm-up the loss is spread evenly per token, so the
   sky carries the loss in proportion to its area. Descriptive (F5 settled norm-pix); no gate.
+- **After the gate (MoCo seed 0, recorded 2026-10-20; user: continue as planned).** The gate passed at
+  step 500, but MoCo's contrastive top-1 (one batch of 32, logged at each segment end) then reached
+  0.938 at step 12,664 and **1.000 at 25,327, 50,654 and 101,308**: by ranking, the two views of a
+  galaxy are told apart from all 65,536 queued keys every time. The run did not stall: InfoNCE
+  (500-step means) fell from 8.55 (steps 0–500) through 6.80 (12,664), 6.51 (25,327), 6.36 (50,654)
+  to 6.28 (101,308), against log(K + 1) = 11.09, so the softmax was still sharpening while the
+  argmax was already right. This is the "too easy" the gate was written for, arriving after the
+  window the gate looked at. It is recorded as a property of this baseline under §3.4's mild,
+  symmetry-free augmentation; MoCo is judged by its trajectory probes, never by its pretext top-1.
 - **Against §5.2's model:** MoCo is faster than modelled (16.2 h, not 19–22) and MAE too (26.7 h, not
   30–35). The four seed runs come to about 86 h at these rates, before probe pauses.
 
