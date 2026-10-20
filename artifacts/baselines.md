@@ -401,6 +401,17 @@ cost.
   argmax was already right. This is the "too easy" the gate was written for, arriving after the
   window the gate looked at. It is recorded as a property of this baseline under §3.4's mild,
   symmetry-free augmentation; MoCo is judged by its trajectory probes, never by its pretext top-1.
+  - **The pre-registered gate passed** (mean top-1 0.017 over steps 450–500, above); saturation
+    came later, by 1 epoch, and the gate did not cover it.
+  - **The augmentation is unchanged, by decision (user, 2026-10-20).** It was set on physical grounds
+    (§2, §3.4). Stronger augmentation would add invariances the design excludes: orientation (flips and
+    rotations, D10 revised) and colour (a wider per-band gain, grayscale or hue jitter, against the
+    colour argument settled 2026-10-13). It is not tuned to the pretext's difficulty.
+  - **For interpretation.** With augmentation this mild, the crop, gain, blur and noise leave much of
+    a galaxy's low-level identity intact across its two views. Instance discrimination may therefore
+    rest on low-level identity cues, such as field stars and the position of the galaxy and its
+    neighbours in the frame, rather than on morphology. A saturated top-1 does not say which. **The
+    trajectory probes are the measure of what MoCo learned;** its pretext top-1 is not.
 - **Against §5.2's model:** MoCo is faster than modelled (16.2 h, not 19–22) and MAE too (26.7 h, not
   30–35). The four seed runs come to about 86 h at these rates, before probe pauses.
 
