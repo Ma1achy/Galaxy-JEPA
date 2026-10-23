@@ -84,7 +84,9 @@ artifacts driver imports so both pull paths share one derivation site);
 `pull.py --source sciserver` fails loudly with a pointer to the artifacts driver rather than
 calling the Jobs API. The account is federated Microsoft SSO — **no password login**; the
 token is refreshed manually and goes stale (see the user-memory note). Never print/log/commit
-the token, and never ask the user to paste it into chat. `artifacts/` is excluded from
+the token, and never ask the user to paste it into chat. Before every commit and push, run
+`tools/credential_check.py` (the staged diff by default, or a range such as `origin/main..HEAD`):
+it prints hit counts only and exits 1 on a hit. `artifacts/` is excluded from
 lint/CI (`pyproject.toml:45`) — investigation/ops code, deliberately terse, not package code.
 
 ## House style
