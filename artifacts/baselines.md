@@ -441,6 +441,51 @@ task is too easy, whatever the cause; revisit §3.4 before committing about 40 h
 written against one named shortcut, v1's band offsets (F6); on the aligned v2 stamps that shortcut is
 not in the data (§3.4), so the gate no longer names a mechanism and stays as the generic check.
 
+### 6.1 The four seed runs (run 2026-10-18 to 2026-10-23; all complete)
+
+§5.3 rows 4–7. They ran serially under the heavy-job lock as one chain:
+`runs/_seed_chain.sh`, which calls `baseline_run.py <arm>` with `GJ_CHECKPOINT_EVERY=2000` and stops at
+the first arm that fails. The log is `runs/_seed_chain.log`.
+- **Learning rate:** the rule's rate, 1.875e-5, for both arms, as F7 chose (§8).
+- **Code:** at `41e97a9`. No commit has touched `src/`, `configs/`, `baseline_run.py` or
+  `baseline_trajectory_probe.py` since.
+- **Outcome:** all four reached step 101,308 with no halt, no non-finite loss and no watchdog alert.
+
+| run | pairs with | start → end | wall-clock (of it training) | `encoder.pt` SHA-1 | `ckpt_000101308.pt` SHA-1 |
+|---|---|---|---|---|---|
+| `runs/moco_s0` | A1 | 18 Oct 06:32 → 19 Oct 02:56 | 20 h 24 min (18.2 h) | `bf0f0f60cae41ec48acb075bcf30d46009f02a54` | `05963418539f30e084bf0cf8b264f157a01cd92f` |
+| `runs/mae_s0` | A1 | 19 Oct 02:56 → 20 Oct 14:39 | 35 h 44 min (31.1 h) | `fb3d03d1bd476e1b65d171ef8fbd6f6e35250da8` | `46097653f7fc6fa0c7b303dd41247ebb8fd5c2ed` |
+| `runs/moco_s1` | A2 | 20 Oct 14:39 → 21 Oct 17:10 | 26 h 30 min (24.1 h) | `f5e2a9f6fd5a5a0a2583216d3ae2f14248c3417a` | `ea758c0c01ee740ed5492ecb0a5b354de389b553` |
+| `runs/mae_s1` | A2 | 21 Oct 17:10 → 23 Oct 03:01 | 33 h 51 min (31.6 h) | `f375c9e530f78983d81bb0d3b7e6d135b5663778` | `248574a5fdc9e3f8c50dcd977025d2b712521c70` |
+
+**The whole chain:** 18 Oct 06:32 → 23 Oct 03:01, about 116.5 h. The rehearsal had projected about
+86 h of training. The excess comes mostly from other jobs sharing the machine (load averages of
+30–57 at times); the rest is the probe pauses and the restarts between segments.
+
+**Pretext traces at each probe point.** Each figure is the mean of the 500 steps before the point,
+read from each run's `traces.json`. MoCo's loss is InfoNCE, against log(K + 1) = 11.09; MAE's is the
+norm-pix masked-patch loss. MoCo's top-1 is one batch of 32, logged at each segment's end. Segment
+speed is in steps/s.
+
+| step (epochs) | MoCo s0 loss / top-1 / speed | MoCo s1 loss / top-1 / speed | MAE s0 loss / speed | MAE s1 loss / speed |
+|---|---|---|---|---|
+| 12,664 (0.5) | 6.801 / 0.938 / 1.79 | 6.789 / 0.906 / 1.12 | 0.959 / 1.10 | 0.960 / 0.98 |
+| 25,327 (1) | 6.509 / 1.000 / 1.27 | 6.501 / 1.000 / 1.12 | 0.945 / 1.04 | 0.947 / 0.66 |
+| 50,654 (2) | 6.358 / 1.000 / 1.40 | 6.351 / 1.000 / 1.03 | 0.943 / 0.86 | 0.943 / 0.90 |
+| 101,308 (4) | 6.283 / 1.000 / 1.66 | 6.279 / 1.000 / 1.27 | 0.940 / 0.86 | 0.941 / 0.94 |
+
+**Trajectory probes.** These are the E2 protocol on ladder v2's identical split, 37 answers each, in
+`artifacts/out/<run><i>_trajectory.json` with i = 1–4 for 0.5, 1, 2 and 4 epochs. All 16 probes ran.
+Their values have **not been read**. They stay unread until the §10 pre-registration (D27/D28) is
+hashed. The SHA-1s (first 12 hex digits) are recorded so that what is read later is what was written:
+
+| run | i = 1 | i = 2 | i = 3 | i = 4 |
+|---|---|---|---|---|
+| `moco_s0` | `f704d7b7482a` | `96b2fe92be89` | `43620ad7ebae` | `2f09f95583c6` |
+| `mae_s0` | `30f12cd20a20` | `ed70365f8f5b` | `e841aa0e330e` | `ab340ad11339` |
+| `moco_s1` | `1b7f6799ae41` | `f347544d196d` | `e3576ff5399d` | `556e404d9452` |
+| `mae_s1` | `83b3846ea79f` | `5f9be0065a4a` | `3dad1148bdf7` | `650943208b93` |
+
 ## 7. Where matching A1 was impossible
 
 A1 is M's recipe on v2 (§1), so "M" in this table reads as A1 as well.
