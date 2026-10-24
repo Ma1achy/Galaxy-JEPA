@@ -1,0 +1,5 @@
+# Baselines comparison outputs (artifacts/out -> SSD, not in git): SHA-1, bytes, path
+3fd8775ab179174c2155cc9652b093e0ac4ab4cf  9174  artifacts/out/baselines_answer_set.json
+624ce34dfa6f4b2031ee6ac389c3bd03539d8aca  3421  artifacts/out/baselines_calibration.json
+1ff6252ae1e3806c850c2fba45bec34f5ac6cc16  4316  artifacts/out/baselines_plants.json
+4945557a2a0346c139ece1e2ec358a6c9ca7b14f  1801  artifacts/out/baselines_plants_negligible_v2.json
