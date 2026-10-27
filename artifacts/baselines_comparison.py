@@ -50,6 +50,24 @@ PRIMARY = 4.0
 FALSE_BOUND = 0.025
 
 ANSWER_SET = HERE / "out" / "baselines_answer_set.json"
+PREREG = HERE / "baselines_comparison.md"
+PREREG_SHA1: str | None = "b021e8688970f684ad429babfa44a2fcebe88a9c"  # hashed 2026-10-27; `score` refuses unless it matches
+
+
+def prereg_section() -> str:
+    """From '## Pre-registration' to the next level-2 heading, trailing newline (as aligned_comparison)."""
+    lines = PREREG.read_text().splitlines()
+    a = lines.index("## Pre-registration")
+    b = next((k for k in range(a + 1, len(lines)) if lines[k].startswith("## ")), len(lines))
+    return "\n".join(lines[a:b]).rstrip() + "\n"
+
+
+def assert_hashed() -> None:
+    if PREREG_SHA1 is None:
+        raise SystemExit("baselines_comparison: the pre-registration is not hashed; nothing is scored")
+    got = hashlib.sha1(prereg_section().encode()).hexdigest()
+    if got != PREREG_SHA1:
+        raise SystemExit(f"baselines_comparison: pre-registration changed since the hash ({got} != {PREREG_SHA1})")
 
 
 def _w() -> np.ndarray:
@@ -432,7 +450,10 @@ def nplants() -> dict:
 
 
 def score() -> None:
-    raise SystemExit("score: refused — baselines_comparison.md is not hashed (D27). Nothing is read.")
+    assert_hashed()
+    # the hash locks the plan; the scoring path (P3's refit check, decide() per objective and epoch,
+    # decide_nuisance()) is written next and reads nothing until it is reviewed
+    raise SystemExit("score: hashed, but the scoring path is not written yet. Nothing is read.")
 
 
 if __name__ == "__main__":

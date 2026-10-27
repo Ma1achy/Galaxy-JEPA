@@ -4,8 +4,10 @@
 order held fixed, does the JEPA objective give a representation from which GZ2's morphology is
 read better, the same, or worse than MoCo's and MAE's?
 
+**Hashed 2026-10-27: the Pre-registration section's SHA-1 is `b021e8688970f684ad429babfa44a2fcebe88a9c`** (in `baselines_comparison.PREREG_SHA1`; `score` refuses unless the section still matches).
+
 **Status.** Final draft (v3), 2026-10-26: the three-seed design (user, 23 Oct); SAME in the
-equivalence form, the constants approved and P1's identity rule amended (user, 25 Oct). Nothing hashed, nothing read.
+equivalence form, the constants approved and P1's identity rule amended (user, 25 Oct). Hashed 2026-10-27 (above); no result was read before the hash.
 Draft v1 (two seed pairs) and its plants are in git at `e545a0c`. Its plant record is kept below.
 The decision layer was recalibrated and the plants rerun under three pairs, before any hash (D28).
 The user reviews this, and only then is the section from "## Pre-registration" through its last
