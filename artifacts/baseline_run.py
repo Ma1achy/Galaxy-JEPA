@@ -13,7 +13,8 @@ freeze `246d8de6…`. The baseline config (configs/moco.yaml or mae.yaml) must e
 determining field except `objective`; F0 runs against A1's config, so the cache, freeze, effect
 floor and splits are A1's by construction, and the trajectory probe (which reads the same config)
 lands on the identical held-out galaxies. Training seed 0 pairs with A1 (runs/m_v2), seed 1 with A2
-(runs/m_v2_s1); the split seed is the config's 0 for both (§1, Seeds). The encoder is
+(runs/m_v2_s1), seed 2 with A3 (runs/m_v2_s2; user, 2026-10-23); the split seed is the config's 0 for
+all (§1, Seeds). The encoder is
 `seed_init(train_seed)` built first, so its init is byte-identical to A1's; the data order is
 `ResumableShuffle(train_seed)`, identical to A1's.
 
@@ -93,8 +94,9 @@ def _arm(kind: str, seed: int) -> Arm:
                          train_seed=seed, out_dir=f"runs/{tag}"))
 
 
-# §5.3's order: MoCo s0, MAE s0, MoCo s1, MAE s1
-ARMS = {f"{k}{s}": _arm(k, s) for s in (0, 1) for k in ("moco", "mae")}
+# §5.3's order: MoCo s0, MAE s0, MoCo s1, MAE s1, then the third pair (MoCo s2, MAE s2)
+PAIRED = ("A1 (runs/m_v2)", "A2 (runs/m_v2_s1)", "A3 (runs/m_v2_s2)")  # indexed by training seed
+ARMS = {f"{k}{s}": _arm(k, s) for s in range(len(PAIRED)) for k in ("moco", "mae")}
 CONFIGS = {"moco": ("configs/moco.yaml", MocoRunConfig), "mae": ("configs/mae.yaml", MaeRunConfig)}
 
 
@@ -162,7 +164,7 @@ def main() -> None:
           f"{'  (VARIANT: ' + ', '.join(f'{k}={v}' for k, v in (('lr', args.lr), ('stop', args.stop)) if v is not None) + ')' if variant else ''}")
     print(f"{L} matched     : every determining field but `objective` equals {os.environ['GJ_CONFIG']} "
           f"(A1; freeze {cfg.normalisation.content_hash[:12]}, device {cfg.runtime.device})")
-    print(f"{L} pairs with  : {('A1 (runs/m_v2)', 'A2 (runs/m_v2_s1)')[train_seed]}")
+    print(f"{L} pairs with  : {PAIRED[train_seed]}")
     print(f"{L} budget      : schedule {total:,} steps; stop at {points[-1]:,} "
           f"({points[-1] / per_epoch:.2f} ep, lr {learning_rate(points[-1], ocfg):.3e} = "
           f"{learning_rate(points[-1], ocfg) / ocfg.lr:.1%} of peak)")
@@ -181,7 +183,7 @@ def main() -> None:
     device = cfg.runtime.resolved_device()
     out.mkdir(parents=True, exist_ok=True)
     ds = StampDataset(cache, {}, train_ids, scalars=cache.scalars)
-    sampler = ResumableShuffle(len(ds), seed=train_seed)  # A1's / A2's order for the same seed
+    sampler = ResumableShuffle(len(ds), seed=train_seed)  # the paired run's order for the same seed
     loader = DataLoader(ds, batch_size=obj.batch_size, sampler=sampler, drop_last=True)
     objective = build_objective(ocfg, seed_init(train_seed, cache.index.height,
                                                 cfg.model.model_kwargs()))

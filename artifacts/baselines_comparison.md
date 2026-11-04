@@ -617,3 +617,23 @@ The full v1 record is in `e545a0c` (`artifacts/out/baselines_plants.json`, `1ff6
   - then ladder subset (a) on all six baselines.
   - Before launching either, free memory and load are reported, and the user is told first if other
     sessions are loading the machine heavily.
+
+## Third-seed training: an interruption (recorded 2 Nov)
+
+- MoCo s2 (`runs/_seed_chain_s2.sh`, log `runs/_seed_chain_s2.log`) launched 1 Nov 19:40 from `bb80b42` plus the
+  seed-2 arm table (`runs/_seed_chain_s2.patch`, SHA-1 `ac1b5be2…`), so its stamps read dirty.
+- On 2 Nov at 15:34 the chain's disk guard stopped it at step 94,037: another session had filled the shared
+  SSD to 24 GB free. The 0.5, 1 and 2-epoch probes were already complete.
+- It resumed in a new process from `ckpt_000094000.pt` at 16:25 (user: "just go"), with the disk floors lowered
+  to 35 GB to start an arm and 10 GB while one runs.
+- This is the cross-process resume P1 examined: the CPU RNG differs from an uninterrupted run by one DataLoader
+  base-seed draw; under the amended rule A1–A3's end-to-end check passed on the same loop. Only the final
+  4-epoch point is downstream of the resume.
+- MoCo s2 finished on 2 Nov at 18:18. MAE s2 started alone at 19:51 (`ARMS_TO_RUN=mae2`), because at
+  18:18 the disk had been below its start floor.
+- MAE s2 was stopped deliberately on 3 Nov at 19:54, at step 76,673, so the SSD could be unplugged. The 0.5,
+  1 and 2-epoch probes were complete. It resumed in a new process from `ckpt_000076000.pt` on 3 Nov after
+  21:18: the same cross-process resume as MoCo s2's. Only the 4-epoch point is downstream of it.
+- On 4 Nov at 05:47 the disk guard stopped MAE s2 at step 98,999, because another session had filled the
+  SSD to below 10 GB free. It resumed in a new process from `ckpt_000098000.pt` on 4 Nov at about 09:22:
+  the same cross-process resume as before. Only the 4-epoch point is downstream of it.
