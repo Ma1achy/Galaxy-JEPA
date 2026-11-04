@@ -14,6 +14,9 @@ printing `PAUSED` and exiting 75, which `_detach.py` and the status line read as
 `--eject` waits for the runner and the heavy lock, then ejects the volume holding the manifest's root
 only if nothing has a file open on it (holders are listed, never killed).
 
+For a manifest other than ladder v2's own (the baselines', `--name ladder_baselines`) `resume` also
+starts `ladder_disk_guard.sh`, which pauses through this script when the SSD runs low.
+
 `resume` refuses unless: the runs root is mounted; no runner is alive; the heavy lock is free; and the
 runner's own `--plan` passes (every pin unmoved, the manifest well formed). Then it removes `PAUSE`,
 relaunches the runner detached on a new log under the same status-line name (so the bar resumes), and
@@ -218,9 +221,14 @@ def resume(L: Ladder, name: str) -> int:
                     "--", str(PY), RUNNER, "--manifest", str(L.manifest)], cwd=REPO, check=True)
     L.log_ptr.write_text(rel + "\n")
     wd = REPO / "artifacts" / "ladder_v2_watchdog.sh"
-    if L.manifest.resolve() == (REPO / "docs/ladder_v2/manifest.yaml").resolve():
-        subprocess.run([str(PY), "artifacts/_detach.py", str(logs / "watchdog.log"), "--name", f"{name}_watchdog",
-                        "--", str(wd), rel], cwd=REPO, check=True)
+    default = L.manifest.resolve() == (REPO / "docs/ladder_v2/manifest.yaml").resolve()
+    wlog = logs / ("watchdog.log" if default else f"{name}_watchdog.log")
+    subprocess.run([str(PY), "artifacts/_detach.py", str(wlog), "--name", f"{name}_watchdog",
+                    "--", str(wd), rel, name], cwd=REPO, check=True)
+    if not default:  # the baselines' run shares the SSD with other sessions' builds (user, 4 Nov)
+        subprocess.run([str(PY), "artifacts/_detach.py", str(logs / f"{name}_diskguard.log"), "--name",
+                        f"{name}_diskguard", "--", str(REPO / "artifacts" / "ladder_disk_guard.sh"),
+                        str(L.manifest), name], cwd=REPO, check=True)
     time.sleep(3)
     pid = L.runner_pid()
     print(f"resume: runner {'alive, pid ' + str(pid) if pid else 'NOT ALIVE — read ' + rel}; log {rel}")

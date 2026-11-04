@@ -7,20 +7,21 @@
 # stayed below 15% for 10 min; the ladder paused (asked for, so one quiet note) or finished. Never
 # stops or restarts anything. `ladder_v2_ctl.py resume` starts a fresh one on the new runner log.
 #   .venv/bin/python artifacts/_detach.py runs/ladder_v2/logs/watchdog.log --name ladder_v2_watchdog -- \
-#       artifacts/ladder_v2_watchdog.sh runs/ladder_v2/logs/runner_<ts>.log
-RLOG=${1:?runner log}
+#       artifacts/ladder_v2_watchdog.sh runs/ladder_v2/logs/runner_<ts>.log [name]
+# `name` (default ladder_v2) keys the record file and the notification title; the baselines run its own.
+RLOG=${1:?runner log} NAME=${2:-ladder_v2}
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 LOGS="$REPO/runs/ladder_v2/logs"
-REC="$HOME/Library/Logs/galaxy-jepa-watchdog-ladder_v2.log"
+REC="$HOME/Library/Logs/galaxy-jepa-watchdog-$NAME.log"
 TICK=60 PERIOD=300 STALE=2700 MEM_FLOOR=15 MEM_FOR=600
 
 note() {
   echo "$(date '+%F %T') $1" >> "$REC"
-  osascript -e "display notification \"$1\" with title \"Galaxy-JEPA ladder v2\" sound name \"Basso\"" 2>/dev/null
+  osascript -e "display notification \"$1\" with title \"Galaxy-JEPA $NAME\" sound name \"Basso\"" 2>/dev/null
 }
 free_pct() { memory_pressure 2>/dev/null | awk '/free percentage/ {gsub("%", "", $NF); print $NF}'; }
 
-echo "$(date '+%F %T') watching ladder v2 (runner log $RLOG)" >> "$REC"
+echo "$(date '+%F %T') watching $NAME (runner log $RLOG)" >> "$REC"
 sleep 120
 low_since="" warned="" last=0 failed_seen=0 stale_warned=""
 while true; do

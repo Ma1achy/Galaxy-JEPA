@@ -637,3 +637,19 @@ The full v1 record is in `e545a0c` (`artifacts/out/baselines_plants.json`, `1ff6
 - On 4 Nov at 05:47 the disk guard stopped MAE s2 at step 98,999, because another session had filled the
   SSD to below 10 GB free. It resumed in a new process from `ckpt_000098000.pt` on 4 Nov at about 09:22:
   the same cross-process resume as before. Only the 4-epoch point is downstream of it.
+
+## Ladder (a): plumbing and layout (recorded 4 Nov)
+
+- **Encoders:** `artifacts/ladder_v2_baselines_export.py` re-exports each baseline's step-101,308 checkpoint
+  through `frozen_from` (§D) into `runs/ladder_v2/encoders/<tag>.pt`. Each is bit-identical to the run's own
+  `encoder.pt` and loads frozen; SHA-1s in `runs/ladder_v2/encoders/export.json`.
+- **Manifest:** `artifacts/ladder_v2_baselines_manifest.py` writes `docs/ladder_v2_baselines/manifest.yaml`:
+  §D's six entries per encoder, built with ladder v2's own `Builder`, in §5.3's encoder order. Its state,
+  run log and output hashes live beside it; ladder v2's record is untouched. The two shared banks (E4's K = 30
+  untrained bank, A1's E7 untrained seeds 1–2 bank) are not re-run; every entry pins them by SHA-1.
+- **Layout, a deviation from §D's wording:** §D names outputs `runs/ladder_v2/<experiment>/<encoder>/`. The
+  ladder writes one folder per encoder, `runs/ladder_v2/<tag>/`, as ladder v2 did for A1–A3, because the
+  drivers read each other's records by fixed name from one `LADDER_OUT`. No entry, input or statistic changes.
+- **Disk guard:** `artifacts/ladder_disk_guard.sh`, started by `ladder_v2_ctl.py resume` beside the watchdog:
+  below 30 GB free it pauses at the next entry boundary; below 15 GB it pauses now (the entry is cleared and
+  reruns on resume). Both are the control script's own pause, so every stop is resumable.
