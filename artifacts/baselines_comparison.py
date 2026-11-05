@@ -449,11 +449,449 @@ def nplants() -> dict:
     return out
 
 
-def score() -> None:
+# --- score: the hashed rules on the real inputs (after the hash, and only on the user's go) ----------
+# The helpers take their paths as parameters, so tests drive them on synthetic files and read no real one;
+# score() itself wires the real paths and is exercised only through its refusals.
+STEPS = (12_664, 25_327, 50_654, 101_308)  # 0.5, 1, 2, 4 epochs (Common ground)
+KINDS = ("moco", "mae")
+P3_MANIFESTS = ("baselines_p3.sha1", "baselines_p3_s2.sha1")  # hashed unread (27 Oct; 4 Nov, third pair)
+P1_ROOT = HERE.parent / "runs" / "_p1"
+REPORTED_NUISANCE = {"snr": "snr_r", "redshift": "specz", "size": "petroRad_r"}  # §N: reported, no state
+
+
+class P3Mismatch(SystemExit):
+    """P3: a file or a refitted AUC differs from its record. Scoring stops; that epoch is VOID."""
+
+
+def traj_tag(role: str, kind: str, seed: int, k: int) -> str:
+    """The trajectory probe's tag: A side a{s+1}_traj{k} (P2), baselines {kind}_s{s}{k} (baseline_run)."""
+    return f"a{seed + 1}_traj{k}" if role == "A" else f"{kind}_s{seed}{k}"
+
+
+def encoders_for(kind: str) -> dict[str, tuple[str, int]]:
+    """PAIRS' names -> (role, seed): A1..A3 are the JEPA seeds, X0..X2 this objective's."""
+    return {**{a: ("A", s) for s, (a, _) in enumerate(PAIRS)}, **{x: ("X", s) for s, (_, x) in enumerate(PAIRS)}}
+
+
+def needed_files(out_dir: Path, p1_fail: tuple = ()) -> list[Path]:
+    """Every file scoring opens. A run whose P1 fails has no valid 0.5–2 epoch points: not required."""
+    fs = []
+    for k, step in enumerate(STEPS, 1):
+        for s in range(len(PAIRS)):
+            a_side = [] if (PAIRS[s][0] in p1_fail and step != STEPS[-1]) else [traj_tag("A", "", s, k)]
+            for t in {*a_side, *(traj_tag("X", kd, s, k) for kd in KINDS)}:
+                fs += [out_dir / f"{t}_trajectory.json", out_dir / f"c2_{t}_{step:09d}_embeddings.npz"]
+    return sorted(set(fs))
+
+
+def _sha1(p: Path) -> str:
+    h = hashlib.sha1()
+    with open(p, "rb") as fh:
+        for blk in iter(lambda: fh.read(1 << 22), b""):
+            h.update(blk)
+    return h.hexdigest()
+
+
+N_PREFIXES = 16  # baselines.md §6.1: four runs × four epochs
+
+
+def p3_hashes(out_dir: Path, manifests: list[Path], table_md: Path | None = None, p1_fail: tuple = ()) -> dict:
+    """P3, files: every trajectory file and bank scoring will open matches its recorded SHA-1 (the
+    manifests hashed unread; for the first two baseline pairs also `baselines.md` §6.1's prefixes)."""
+    rec = {}
+    for m in manifests:
+        for ln in m.read_text().splitlines():
+            if ln and not ln.startswith("#"):
+                sha, path = ln.split(None, 1)
+                if Path(path).name in rec:
+                    raise P3Mismatch(f"P3: {Path(path).name} is listed twice across the manifests")
+                rec[Path(path).name] = sha
+    prefix = {}
+    if table_md is not None:  # | `moco_s0` | `f704…` | … |, i = 1..4
+        import re
+        for m_ in re.finditer(r"^\| `((?:moco|mae)_s\d)` \|(.*)\|$", table_md.read_text(), re.M):
+            for k, cell in enumerate(re.findall(r"`([0-9a-f]{12})`", m_.group(2)), 1):
+                prefix[f"{m_.group(1)}{k}_trajectory.json"] = cell
+        if len(prefix) != N_PREFIXES:
+            raise P3Mismatch(f"P3: parsed {len(prefix)} §6.1 prefixes from {table_md.name}, not {N_PREFIXES}")
+    bad = []
+    files = needed_files(out_dir, p1_fail)
+    for f in files:
+        want = rec.get(f.name)
+        if want is None:
+            bad.append(f"{f.name}: no recorded SHA-1")
+            continue
+        got = _sha1(f) if f.exists() else None
+        if got != want:
+            bad.append(f"{f.name}: {'missing' if got is None else got[:12]} != recorded {want[:12]}")
+        if f.name in prefix and not want.startswith(prefix[f.name]):
+            bad.append(f"{f.name}: manifest {want[:12]} != baselines.md §6.1 {prefix[f.name]}")
+    return {"checked": len(files), "mismatches": bad}
+
+
+def p1_status(root: Path = P1_ROOT) -> dict[str, dict]:
+    """P1 per A run: the identity resume and the end-to-end resume both pass the amended rule."""
+    out = {}
+    for s in range(len(PAIRS)):
+        a = PAIRS[s][0]
+        got = {}
+        for part in ("identity", "e2e"):
+            f = root / f"{a}_{part}" / "p1_record.json"
+            if not f.exists():
+                raise SystemExit(f"score: P1 record {f} is missing (wrong root or disk unmounted?)")
+            got[part] = json.loads(f.read_text())["amended"]["passes"] is True
+        out[a] = {**got, "passes": all(got.values())}
+    return out
+
+
+def refit(tag: str, step: int, out_dir: Path, answers: list[str], fit, wt, pos) -> tuple[dict, dict]:
+    """P3, values: refit from the bank (`fit` = aligned_c2.fit_scores, the probe's own call); every
+    refitted held-out AUC must equal the trajectory file's exactly. Returns auc[j], boot[j]."""
+    from aligned_c2 import auc as _auc
+    from aligned_c2 import boot_aucs
+    traj = json.loads((out_dir / f"{tag}_trajectory.json").read_text())
+    rec = next((c for c in traj["checkpoints"] if c["step"] == step), None)
+    if rec is None:
+        raise P3Mismatch(f"P3: {tag}_trajectory.json has no step {step}")
+    bank = f"{tag}_{step:09d}"
+    sc, meta, test_ids = fit([bank])
+    if [int(o) for o in test_ids] != list(pos):
+        raise P3Mismatch(f"P3: {bank}'s test split is not the shared weights' split")
+    filed = {j for j in answers if j in rec["answers"]}
+    if filed != {j for j in answers if j in sc[bank]}:
+        raise P3Mismatch(f"P3: {bank}: the refit scores a different answer set from the trajectory file")
+    A, B = {}, {}
+    for j in answers:
+        if j not in sc[bank]:
+            continue  # not scoreable for this encoder: decide() counts it against MIN_ANSWERS
+        y = meta["y"][j]
+        a = _auc(sc[bank][j], y)
+        want = rec["answers"].get(j, {}).get("auc")
+        if want is None or a != want:
+            raise P3Mismatch(f"P3: {bank} {j}: refitted AUC differs from the trajectory file")
+        A[j] = a
+        B[j] = boot_aucs(sc[bank][j], y, wt[:, [pos[int(o)] for o in meta["rows"][j]]])
+    return A, B
+
+
+def score_core(tables: dict, answers: list[str], w: np.ndarray, p1: dict) -> dict:
+    """tables[kind][epoch] = (auc, boot) keyed by A1..A3, X0..X2, as decide() takes them; plus
+    tables["moco_vs_mae"][4.0] with the JEPA slot taken by MoCo. P1: a failed A run voids 0.5–2 ep."""
+    p1_fail = [a for a, r in p1.items() if not r["passes"]]
+    out = {}
+    for kind in KINDS:
+        per = {}
+        for ep in EPOCHS:
+            if ep != PRIMARY and p1_fail:
+                per[str(ep)] = {"state": "VOID", "why": f"P1 failed for {', '.join(p1_fail)}"}
+                continue
+            if ep not in tables[kind]:
+                per[str(ep)] = {"state": "VOID", "why": "P3: scoring stopped before this epoch"}
+                continue
+            per[str(ep)] = decide(*tables[kind][ep], answers, w)
+            if ep != PRIMARY:  # §B: per-answer states at 4 epochs only; earlier, D_j and its CI reported
+                for v in per[str(ep)].get("answers", {}).values():
+                    v.pop("state", None)
+                    v.pop("why", None)
+        out[kind] = {"primary": per[str(PRIMARY)], "epochs": per,
+                     "trajectory": trajectory([per[str(e)]["state"] for e in EPOCHS])}
+    if "moco_vs_mae" in tables:
+        out["moco_vs_mae"] = {}
+        for ep, tb in tables["moco_vs_mae"].items():
+            r = decide(*tb, answers, w)
+            for v in [r, *r.get("answers", {}).values()]:  # reported, no state (§B)
+                v.pop("state", None)
+                v.pop("why", None)
+            out["moco_vs_mae"][str(ep)] = r
+    return out
+
+
+def all_void(why: str) -> dict:
+    """P3: "a mismatch stops scoring" — read literally: nothing is decided, every state is VOID, named."""
+    v = {"state": "VOID", "why": why}
+    return {"comparison": {k: {"primary": v, "epochs": {str(e): v for e in EPOCHS}, "trajectory": "VOID"}
+                           for k in KINDS},
+            "nuisance": {k: {"states": {n: v for n in NUISANCE}} for k in KINDS}}
+
+
+def nuisance_labels(values: np.ndarray, var: str) -> tuple[np.ndarray, np.ndarray]:
+    """§N: (mask of usable galaxies, 0/1 label at this split's own median, ≥ is 1). Sentinels
+    (≤ −9000), non-positive sky and missing values are excluded, per variable."""
+    v = np.asarray(values, float)
+    ok = np.isfinite(v) & (v > -9000) & ((v > 0) if var == "sky" else True)
+    y = (v[ok] >= np.nanmedian(v[ok])).astype(int)
+    return ok, y
+
+
+def nuisance_tables(banks: dict, train_ids, test_ids, values: dict, wt, pos, c: float) -> tuple[dict, dict]:
+    """§N's statistic per encoder and variable: `_fit` on probe-train, AUC + shared bootstrap on probe-test.
+    banks[e] = (ids, x) at 4 epochs; values[var] = (train values, test values) aligned to the ids."""
+    from aligned_c2 import auc as _auc
+    from aligned_c2 import boot_aucs
+    from galaxy_jepa.probing.logistic import _fit
+    from types import SimpleNamespace
+    A, B = {e: {} for e in banks}, {e: {} for e in banks}
+    for e, (ids, x) in banks.items():
+        row = {int(o): k for k, o in enumerate(ids)}
+        for var, (vtr, vte) in values.items():
+            ktr, ytr = nuisance_labels(vtr, var)
+            kte, yte = nuisance_labels(vte, var)
+            tr_ids = np.asarray(train_ids)[ktr]
+            te_ids = np.asarray(test_ids)[kte]
+            if len(np.unique(ytr)) < 2 or len(np.unique(yte)) < 2:
+                continue
+            tr = SimpleNamespace(x=x[[row[int(o)] for o in tr_ids]].astype(np.float64), y=ytr)
+            sc, clf = _fit(tr, c=c)
+            s = clf.decision_function(sc.transform(x[[row[int(o)] for o in te_ids]].astype(np.float64)))
+            A[e][var] = _auc(s, yte)
+            B[e][var] = boot_aucs(s, yte, wt[:, [pos[int(o)] for o in te_ids]])
+    return A, B
+
+
+def representation_shares(x_test: np.ndarray, fam: dict) -> dict:
+    """§N, draft v1's criterion 2, reported with no state: the top-10 PC variance share tracking a
+    nuisance family (brightness, observing) and the share tracking morphology, plus PR
+    (aligned_c13.representation's machinery; offsets are gone on aligned stamps)."""
+    from aligned_c13 import representation
+    r = representation(x_test, fam)
+    r["N"] = float(sum(p["share"] for p in r["pcs"] if p["tracks"] in ("brightness", "observing")))
+    r.pop("offset_pc", None)
+    return r
+
+
+LADDER_ROOT = HERE.parent / "runs" / "ladder_v2"
+LADDER_STATES = (HERE.parent / "docs/ladder_v2/state.json", HERE.parent / "docs/ladder_v2_baselines/state.json")
+LADDER_FILES = ("p2_ladder.json", "s2_ladder.json", "t1_ladder.json")
+LADDER_GROUPS = {"JEPA": ("a1", "a2", "a3"), "MoCo": ("moco_s0", "moco_s1", "moco_s2"),
+                 "MAE": ("mae_s0", "mae_s1", "mae_s2")}
+N_FEATURES = 37  # every Scheme-1 answer gets a verdict in both populations (run_ladder)
+
+
+def ladder_table(root: Path = LADDER_ROOT, states: tuple = LADDER_STATES, groups: dict = LADDER_GROUPS) -> dict:
+    """§D, "how it is read": each encoder's own ladder states per answer and population, beside the
+    others', with an agreement count per objective (3/3, or 2/1 naming the seed that differs). **No
+    comparative state** is formed across objectives. Refuses unless both ladders have finished with
+    every entry done, and every file read matches the runner's recorded SHA-1."""
+    recorded = {}
+    for st in states:
+        d = json.loads(Path(st).read_text())
+        bad = {k: v["status"] for k, v in d["entries"].items() if v["status"] != "done"}
+        if bad:
+            raise SystemExit(f"ladder: {st} has entries not done: {sorted(bad.items())[:5]}")
+        recorded.update({str(Path(p_).resolve()): v[0] for p_, v in d["files"].items()})
+    encs = [e for g in groups.values() for e in g]
+    rec = {}
+    for e in encs:
+        for f in LADDER_FILES:
+            p_ = (Path(root) / e / f).resolve()
+            if recorded.get(str(p_)) != _sha1(p_):
+                raise SystemExit(f"ladder: {e}/{f} does not match the runner's recorded SHA-1")
+        rec[e] = {f: json.loads((Path(root) / e / f).read_text()) for f in LADDER_FILES}
+        want = f"{e}.pt" if e not in groups["JEPA"] else None
+        if want and not str(rec[e]["t1_ladder.json"]["checkpoint"]).endswith(want):
+            raise SystemExit(f"ladder: {e}'s t1 record names checkpoint {rec[e]['t1_ladder.json']['checkpoint']}")
+    out: dict = {"encoders": encs, "groups": groups, "populations": {}}
+    for pop in ("full", "conditional"):
+        rows: dict = {}
+        for e in encs:
+            got = {f: {r["feature"]: r for r in rec[e][f][pop]} for f in LADDER_FILES}
+            for f in LADDER_FILES:
+                if len(got[f]) != N_FEATURES:
+                    raise SystemExit(f"ladder: {e}/{f} {pop} has {len(got[f])} features, not {N_FEATURES}")
+            for feat, t1 in got["t1_ladder.json"].items():
+                rungs = {f: got[f][feat]["rung"] for f in LADDER_FILES}
+                rows.setdefault(feat, {})[e] = {
+                    "rung": t1["rung"], "mechanism": t1["mechanism"], "retention": t1.get("retention"),
+                    "exceeds_null": t1.get("exceeds_null"), "clean": t1.get("clean"),
+                    "underpowered": t1.get("underpowered"),
+                    "files_agree": len(set(rungs.values())) == 1, "rungs_by_file": rungs}
+        for feat, by in rows.items():
+            agree = {}
+            for g, members in groups.items():
+                vals = [by[m]["rung"] for m in members]
+                top = max(sorted(set(vals)), key=vals.count)
+                if vals.count(top) == 1:
+                    agree[g] = f"0/{len(members)} (all differ)"
+                    continue
+                odd = [m for m, v in zip(members, vals, strict=True) if v != top]
+                agree[g] = f"{len(members) - len(odd)}/{len(odd)} ({', '.join(odd)} differs)" if odd else f"{len(members)}/{len(members)}"
+            by["agreement"] = agree
+        out["populations"][pop] = rows
+    return out
+
+
+NUISANCE_CSV_SHA1 = "6bea1443"  # the pull's output SHA-1 prefix as recorded beside the hash ("Nuisance pull")
+SCORE_OUT = "baselines_score.json"
+
+
+def score(go: bool = False, out_dir: Path = HERE / "out") -> dict:
+    """The real scoring. Refuses without the hash, without `--go` (the user's word, after the ladder), with
+    a ladder environment left set, or before both ladders have finished. Any P3 mismatch (a file or a
+    refitted value) stops scoring: a record is written with every state VOID and the mismatch named."""
     assert_hashed()
-    # the hash locks the plan; the scoring path (P3's refit check, decide() per objective and epoch,
-    # decide_nuisance()) is written next and reads nothing until it is reviewed
-    raise SystemExit("score: hashed, but the scoring path is not written yet. Nothing is read.")
+    if not go:
+        raise SystemExit("score: refuses without --go (user, 4 Nov: no real scoring until the ladder has "
+                         "finished and the user says go). Nothing is read.")
+    if "aligned_c2" in sys.modules or "j4_spread_controls" in sys.modules:
+        raise SystemExit("score: aligned_c2 / j4 imported before the v2 environment was set (F0 would read v1)")
+    import ladder_env
+    if ladder_env.active():
+        raise SystemExit("score: LADDER_ENCODER / LADDER_OUT are set; unset them (the banks live in artifacts/out)")
+    import baseline_run  # noqa: F401  — A1's v2 environment, before F0 reads it (the import-order trap)
+    os.environ.setdefault("LADDER_SPLIT", "identical")
+    from j4_spread_controls import OUT
+    if OUT.resolve() != Path(out_dir).resolve():
+        raise SystemExit(f"score: the banks would be read from {OUT}, not the hashed {out_dir}")
+    ladder = ladder_table()  # refuses unless both ladders finished and every file matches: before any refit
+    p1 = p1_status()
+    p1_fail = tuple(a for a, r in p1.items() if not r["passes"])
+    res = {"prereg_sha1": PREREG_SHA1, "p1": p1, "reads": "trajectory files (smoke: trajectories only) and banks"}
+
+    def stop(why: str) -> dict:
+        res.update(all_void(why), p3_stop=why)
+        (Path(out_dir) / SCORE_OUT).write_text(json.dumps(res, indent=1, default=float))
+        raise P3Mismatch(f"score: P3 stop, every state VOID ({why}); record {SCORE_OUT}")
+
+    try:
+        h = p3_hashes(out_dir, [HERE / m for m in P3_MANIFESTS], HERE / "baselines.md", p1_fail)
+    except P3Mismatch as e:
+        stop(str(e))
+    res["p3_files"] = h
+    if h["mismatches"]:
+        stop("P3 files: " + "; ".join(h["mismatches"]))
+    from aligned_c2 import fit_scores, weights
+    from j4_spread_controls import prepare
+    sp = prepare(None, 0, label="baselines-score", sources=1)
+    a = json.loads(ANSWER_SET.read_text())
+    sha = hashlib.sha1(json.dumps([sorted(map(int, sp.train_ids)), sorted(map(int, sp.test_ids))]).encode()).hexdigest()
+    if sha != a["split_ids_sha1"]:
+        raise SystemExit(f"score: split SHA-1 {sha[:12]} is not the answer set's {a['split_ids_sha1'][:12]}")
+    res["split_ids_sha1"] = sha
+    answers, w = a["answer_set"], _w()
+    wt, pos = weights(list(sp.test_ids))
+    tables: dict = {k: {} for k in (*KINDS, "moco_vs_mae")}
+    cache: dict = {}
+    try:
+        for k, (ep, step) in enumerate(zip(EPOCHS, STEPS, strict=True), 1):
+            if ep != PRIMARY and p1_fail:
+                continue  # VOID by P1 (score_core names it); those A files were not required
+            for kind in KINDS:
+                A, B = {}, {}
+                for name, (role, seed) in encoders_for(kind).items():
+                    t = traj_tag(role, kind, seed, k)
+                    if t not in cache:
+                        cache[t] = refit(t, step, out_dir, answers, fit_scores, wt, pos)
+                    A[name], B[name] = cache[t]
+                tables[kind][ep] = (A, B)
+            A, B = {}, {}  # MoCo against MAE: X = MAE, the JEPA slot taken by MoCo (reported, no state)
+            for sd, (a_, x_) in enumerate(PAIRS):
+                A[a_], B[a_] = cache[traj_tag("X", "moco", sd, k)]
+                A[x_], B[x_] = cache[traj_tag("X", "mae", sd, k)]
+            tables["moco_vs_mae"][ep] = (A, B)
+    except P3Mismatch as e:
+        stop(str(e))
+    del cache
+    res["comparison"] = score_core(tables, answers, w, p1)
+    res["nuisance"] = _score_nuisance(sp, out_dir, wt, pos)
+    res["ladder"] = ladder
+    (Path(out_dir) / SCORE_OUT).write_text(json.dumps(res, indent=1, default=float))
+    return res
+
+
+def _score_nuisance(s, out_dir: Path, wt, pos) -> dict:
+    """§N at 4 epochs on the same banks, one encoder in memory at a time: three variables with states,
+    three reported, and draft v1's criterion 2 reported."""
+    import pandas as pd
+    from aligned_c2 import _bank
+    from aligned_c13 import _r_flux
+    from probe_bank import load_bank
+    rec = json.loads((Path(out_dir) / "baselines_nuisance.json").read_text())
+    csv = Path(out_dir) / "baselines_nuisance.csv"
+    got = _sha1(csv)
+    if got != rec["output_sha1"] or not got.startswith(NUISANCE_CSV_SHA1):
+        raise SystemExit("score: baselines_nuisance.csv does not match its record / the hashed prefix")
+    sky = pd.read_csv(csv, dtype={"object_id": str}).set_index("object_id")["sky_r"]
+    meta = pd.read_csv(HERE.parent / "data/probe_v2/metadata.csv", dtype={"object_id": str}).set_index("object_id")
+    te = [int(o) for o in s.test_ids]
+    if te != list(pos):
+        raise SystemExit("score: the nuisance split is not the shared weights' split")
+    tr = [int(o) for o in s.train_ids]
+
+    def col(series, ids):
+        return pd.to_numeric(series.reindex([str(o) for o in ids]), errors="coerce").to_numpy(float)
+    cols = {**{v: (meta[c] if v != "sky" else sky) for v, c in NUISANCE.items()},
+            **{v: meta[c] for v, c in REPORTED_NUISANCE.items()}}
+    values = {v: (col(sr, tr), col(sr, te)) for v, sr in cols.items()}
+    coverage = {}
+    for v, (vtr, vte) in values.items():  # a failed join reads as all-NaN: refuse rather than VOID quietly
+        ntr, nte = int(nuisance_labels(vtr, v)[0].sum()), int(nuisance_labels(vte, v)[0].sum())
+        if ntr == 0 or nte == 0:
+            raise SystemExit(f"score: §N variable {v} has no usable values (train {ntr}, test {nte}): a join failed")
+        coverage[v] = {"train": ntr, "test": nte}
+    fam = {"brightness": [values["brightness"][1], _r_flux({"test": te})],
+           "observing": [values["psf"][1], values["sky"][1]], "morphology": []}
+    for f in s.labels.features:
+        el = set(s.labels.eligible(f, te))
+        v = s.labels.vote_fraction(f, te).astype(float)
+        v[[i for i, o in enumerate(te) if o not in el]] = np.nan
+        fam["morphology"].append(v)
+    k4 = len(STEPS)
+    A, B, crit2 = {}, {}, {}
+    tags = sorted({traj_tag(role, kind, seed, k4) for kind in KINDS for role, seed in encoders_for(kind).values()})
+    for t in tags:
+        b = load_bank(_bank(f"{t}_{STEPS[-1]:09d}"))
+        ids, x = b["ids"].astype(np.int64), b["x"]
+        a_, b_ = nuisance_tables({t: (ids, x)}, tr, te, values, wt, pos, s.pc.c)
+        A[t], B[t] = a_[t], b_[t]
+        row = {int(o): i for i, o in enumerate(ids)}
+        crit2[t] = representation_shares(x[[row[o] for o in te]].astype(np.float64), fam)
+        del b, x
+    out: dict = {"coverage": coverage, "criterion2": crit2}
+    for kind in KINDS:
+        m = {name: traj_tag(role, kind, seed, k4) for name, (role, seed) in encoders_for(kind).items()}
+        Ak, Bk = {n: A[t] for n, t in m.items()}, {n: B[t] for n, t in m.items()}
+        rep = decide_nuisance(Ak, Bk, tuple(REPORTED_NUISANCE))
+        for r in rep.values():
+            r.pop("state", None)
+            r.pop("why", None)
+        out[kind] = {"states": decide_nuisance(Ak, Bk, tuple(NUISANCE)), "reported": rep}
+    return out
+
+
+def score_plants() -> dict:
+    """The plants through score_core (the scoring's own path from tables to states): synthetic scores
+    on the real labels, four epochs, both objectives; expectations fixed before the run."""
+    answers, ys, rows, test, sha = _labels()
+    from aligned_c2 import weights
+    wt, pos = weights(test)
+    cols = {f: [pos[int(o)] for o in rows[f]] for f in answers}
+    w = _w()
+    rng = np.random.default_rng(20261104)
+    base = rng.uniform(0.70, 0.95, len(answers))
+    on_x = lambda v: {e: (v if e[0] == "X" else 0.0) for p in PAIRS for e in p}  # noqa: E731
+    ok = {a: {"identity": True, "e2e": True, "passes": True} for a, _ in PAIRS}
+    spec = [  # name, moco Δ per epoch, mae Δ per epoch, P1, expectations (fixed here, before the run)
+        ("better_vs_same", (0.03,) * 4, (0.0,) * 4, ok,
+         {"moco": ("BETTER", "CONSISTENT"), "mae": ("SAME", "CONSISTENT")}),
+        ("worse_crosses", (0.03, 0.03, -0.03, -0.03), (-0.03,) * 4, ok,
+         {"moco": ("WORSE", "CROSSES"), "mae": ("WORSE", "CONSISTENT")}),
+        ("p1_fails_A2", (0.03,) * 4, (0.0,) * 4, {**ok, "A2": {"identity": True, "e2e": False, "passes": False}},
+         {"moco": ("BETTER", "VOID"), "mae": ("SAME", "VOID")}),
+    ]
+    out = {"split_ids_sha1": sha, "plants": {}}
+    for name, dm, da, p1, expect in spec:
+        runs = []
+        for _ in range(3):
+            tables = {k: {} for k in KINDS}
+            for ep, a_, b_ in zip(EPOCHS, dm, da, strict=True):
+                for kind, d in (("moco", a_), ("mae", b_)):
+                    tables[kind][ep] = _realise(rng, answers, ys, cols, wt, base, tau=0.0003, sig=0.002, delta=on_x(d))
+            r = score_core(tables, answers, w, p1)
+            runs.append({k: (r[k]["primary"]["state"], r[k]["trajectory"]) for k in KINDS})
+        hits = sum(all(tuple(x[k]) == expect[k] for k in KINDS) for x in runs)
+        out["plants"][name] = {"expect": expect, "runs": runs, "fired": f"{hits}/3"}
+        print(f"{name:16s} expect {expect}  fired {hits}/3  {runs}", flush=True)
+    return out
 
 
 if __name__ == "__main__":
@@ -465,5 +903,7 @@ if __name__ == "__main__":
         (OUTP / "baselines_plants_3seed_equiv.json").write_text(json.dumps(plants(), indent=1, default=list))
     elif mode == "nplants":
         (OUTP / "baselines_nplants_3seed_equiv.json").write_text(json.dumps(nplants(), indent=1, default=list))
+    elif mode == "scoreplants":
+        (OUTP / "baselines_score_plants.json").write_text(json.dumps(score_plants(), indent=1, default=list))
     elif mode == "score":
-        score()
+        score(go="--go" in sys.argv[2:])  # writes artifacts/out/baselines_score.json
