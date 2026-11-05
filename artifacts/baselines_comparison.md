@@ -653,3 +653,34 @@ The full v1 record is in `e545a0c` (`artifacts/out/baselines_plants.json`, `1ff6
 - **Disk guard:** `artifacts/ladder_disk_guard.sh`, started by `ladder_v2_ctl.py resume` beside the watchdog:
   below 30 GB free it pauses at the next entry boundary; below 15 GB it pauses now (the entry is cleared and
   reruns on resume). Both are the control script's own pause, so every stop is resumable.
+
+## Scoring code of record (recorded 5 Nov)
+
+- **Code of record:** `artifacts/baselines_comparison.py`, SHA-1 `2e87a80034e454c9d798ba76ebfdba4197f38dea`,
+  committed in `d30ac14`. `score --go` is the only path that reads a real trajectory file or ladder
+  output; it has not been run, and runs only after ladder (a) finishes and the user says go.
+- **P3 for the third seed pair:** `artifacts/baselines_p3_s2.sha1` (SHA-1 `8b2471b3…`), the 16 SHA-1s of
+  `moco_s2{1-4}`/`mae_s2{1-4}` trajectory files and banks, hashed on 4 Nov without reading them.
+- **Tests:** `tests/test_baselines_score.py`, 16 tests on synthetic inputs only (preconditions, refit
+  equality, refusals, §N labels, the ladder table).
+- **Score-path plants** (`score_plants`, synthetic scores on the real labels through `score_core`, τ 0.0003,
+  σ 0.002, three realisations each, expectations fixed in code before the run):
+
+  | plant | expected (MoCo; MAE) | fired |
+  |---|---|---|
+  | worse_crosses | WORSE, CROSSES; WORSE, CONSISTENT | 3/3 |
+  | p1_fails_A2 | BETTER, VOID; SAME, VOID | 3/3 |
+  | better_vs_same | BETTER, CONSISTENT; SAME, CONSISTENT | 0/3 |
+
+  better_vs_same missed on the MAE trajectory alone (MIXED ×3; MoCo and both primaries as expected).
+  The expectation was wrong, not the code: under a flat null (Δ = 0 at all four epochs) the family state
+  at each epoch falls on SAME or UNRESOLVED (the hashed null plant reached SAME 10/20), so four SAMEs in a
+  row is the less likely outcome and the hashed rule reads MIXED. Checked on three further null worlds
+  (seed 20261105): six of six trajectories MIXED, each a SAME/UNRESOLVED mix, no BETTER, WORSE or SPLIT.
+  The code is left as it ran. In reading: a MIXED trajectory of SAME and UNRESOLVED states is what a
+  true null produces.
+- **Agreement column (reading, not a rule change):** the ladder table's agreement is seed agreement
+  within each objective (the three MoCo encoders, the three MAE, A1–A3), as ladder v2's report did.
+  Agreement between a baseline and the JEPA is not computed.
+- **Not attached by `score()`:** the SPLIT null rates and expected chance counts the Reading section
+  asks to sit beside the states; they come from §C's calibration and go in the write-up.
