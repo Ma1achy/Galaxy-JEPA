@@ -138,6 +138,8 @@ def _snapshot(d: Path) -> dict[str, tuple[int, int]]:
         return out
     for root, dirs, files in os.walk(d, followlinks=False):
         for name in files + [x for x in dirs if (Path(root) / x).is_symlink()]:
+            if name == ".DS_Store":  # Finder writes these when a window opens the folder; not an entry's write
+                continue
             p = Path(root) / name
             st = p.stat() if p.exists() else p.lstat()
             out[str(p)] = (st.st_size, st.st_mtime_ns)

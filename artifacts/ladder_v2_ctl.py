@@ -192,7 +192,7 @@ def pause(L: Ladder, now: bool, wait: bool, eject: bool) -> int:
     return _eject(L) if eject else 0
 
 
-def resume(L: Ladder, name: str) -> int:
+def resume(L: Ladder, name: str, retry: list[str] = ()) -> int:
     problems = []
     if not L.runs_mounted():
         problems.append(f"the runs root {L.root} is not mounted (plug the disk in)")
@@ -218,7 +218,8 @@ def resume(L: Ladder, name: str) -> int:
         log = logs / f"runner_{time.strftime('%Y%m%d_%H%M%S')}.log"
     rel = os.path.relpath(log, REPO) if log.is_relative_to(REPO) else str(log)
     subprocess.run([str(PY), "artifacts/_detach.py", rel, "--name", name, "--stage", STAGE, "--stages", str(L.n),
-                    "--", str(PY), RUNNER, "--manifest", str(L.manifest)], cwd=REPO, check=True)
+                    "--", str(PY), RUNNER, "--manifest", str(L.manifest),
+                    *(["--retry-failed", *retry] if retry else [])], cwd=REPO, check=True)
     L.log_ptr.write_text(rel + "\n")
     wd = REPO / "artifacts" / "ladder_v2_watchdog.sh"
     default = L.manifest.resolve() == (REPO / "docs/ladder_v2/manifest.yaml").resolve()
@@ -246,13 +247,15 @@ def main() -> None:
     p.add_argument("--eject", action="store_true", help="then eject the runs disk if nothing holds it")
     r = sub.add_parser("resume")
     r.add_argument("--name", default=NAME, help="status-line name (the paused bar under it resumes)")
+    r.add_argument("--retry-failed", action="append", default=[], metavar="ID",
+                   help="rerun this failed entry (the runner clears its leftovers); repeatable")
     a = ap.parse_args()
     L = Ladder(a.manifest.resolve())
     if a.cmd == "status":
         sys.exit(status(L))
     if a.cmd == "pause":
         sys.exit(pause(L, a.now, a.wait, a.eject))
-    sys.exit(resume(L, a.name))
+    sys.exit(resume(L, a.name, a.retry_failed))
 
 
 if __name__ == "__main__":
