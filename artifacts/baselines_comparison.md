@@ -677,10 +677,27 @@ The full v1 record is in `e545a0c` (`artifacts/out/baselines_plants.json`, `1ff6
   at each epoch falls on SAME or UNRESOLVED (the hashed null plant reached SAME 10/20), so four SAMEs in a
   row is the less likely outcome and the hashed rule reads MIXED. Checked on three further null worlds
   (seed 20261105): six of six trajectories MIXED, each a SAME/UNRESOLVED mix, no BETTER, WORSE or SPLIT.
-  The code is left as it ran. In reading: a MIXED trajectory of SAME and UNRESOLVED states is what a
-  true null produces.
+  The code is left as it ran.
+  *Amended 11 Nov (user), outside the hash, no code change.* The 5 Nov sentence "a MIXED trajectory of
+  SAME and UNRESOLVED states is what a true null produces" overstated the reading: such a trajectory is
+  compatible with a null, not evidence of one. The hashed state stays MIXED. In reporting, a MIXED
+  trajectory made only of SAME and UNRESOLVED reads "consistent with no difference; equivalence shown at
+  k of 4 epochs (listed), unresolved at the rest". The reason is the two plant rates above: under a real
+  0.02 effect SAME was reached 0/20 (real_0.02), so a SAME epoch excludes 0.02 there; at a true null with
+  τ 0.006 SAME was reached only 10/20 (null_tau0.006), so an UNRESOLVED epoch excludes nothing.
 - **Agreement column (reading, not a rule change):** the ladder table's agreement is seed agreement
   within each objective (the three MoCo encoders, the three MAE, A1–A3), as ladder v2's report did.
   Agreement between a baseline and the JEPA is not computed.
 - **Not attached by `score()`:** the SPLIT null rates and expected chance counts the Reading section
   asks to sit beside the states; they come from §C's calibration and go in the write-up.
+
+## Scoring run (recorded 15 Nov)
+
+- `score --go` on the user's go (11 Nov instructions), code of record `2e87a800` at HEAD `53aee9e`. A first
+  launch (14 Nov 13:56) was killed by a signal at about 16:50 when the user's terminal crashed: no
+  traceback, no exit status, nothing written (log kept as `runs/baselines_score_killed_20261114.log`).
+  Rerun from the start 16:59 under nohup; finished 15 Nov 02:36, exit 0.
+- Record: `artifacts/out/baselines_score.json`, SHA-1 `45c3d74f757499664409b2efb4ec4f69af4db496`.
+  VOIDs: 0 of 156 states; no failures.
+  `artifacts/out` is a symlink onto the SSD that git does not follow, so the committed copy is
+  `docs/baselines_comparison/baselines_score.json` (byte-identical, same SHA-1).
