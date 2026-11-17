@@ -122,11 +122,18 @@ def _identical_split(probe_ids: list[int], max_train: int, cfg: Any) -> tuple[li
     _, ids1 = _probe_rows(cache1, v1.paths.probe_dir)
     split1 = assign_three_way(cache1.present(sorted(ids1)), seed=v1.seed, ratios=v1.ratios)
     train1, test1 = _capped_train(sorted(split1.train), max_train), sorted(split1.test)
-    have = set(probe_ids)
-    dropped = {i for i in (*train1, *test1) if i not in have}
-    if not dropped <= L.NINE:
-        raise SystemExit(f"identical set: {len(dropped - L.NINE)} v1 galaxies missing beyond the 9")
-    return [i for i in train1 if i in have], [i for i in test1 if i in have]
+    return _minus_nine(train1, test1, set(probe_ids))
+
+
+def _minus_nine(train1: list[int], test1: list[int], have: set[int]) -> tuple[list[int], list[int]]:
+    """v1's split minus ``NINE`` whatever the active corpus holds: on v1 pixels the nine are present,
+    and keeping them would read M/O2 on galaxies A1–A3 never saw (comparison with M, 17 Nov). On v2 the
+    nine are absent, so this is the set ladder v2 already used. Anything else missing refuses."""
+    missing = {i for i in (*train1, *test1) if i not in have}
+    if not missing <= L.NINE:
+        raise SystemExit(f"identical set: {len(missing - L.NINE)} v1 galaxies missing beyond the 9")
+    keep = have - L.NINE
+    return [i for i in train1 if i in keep], [i for i in test1 if i in keep]
 
 
 def _release(device: str) -> None:

@@ -70,3 +70,15 @@ def test_the_nine_are_the_aligned_scorers_nine():
 
     assert frozenset(int(i) for i in aligned_score.NINE) == L.NINE
     assert len(L.NINE) == 9
+
+
+def test_identical_set_drops_the_nine_even_when_the_corpus_has_them():
+    import j4_spread_controls as J
+
+    nine = sorted(L.NINE)
+    train, test = [1, 2, nine[0], 3], [4, nine[1], 5]
+    v1 = {1, 2, 3, 4, 5, *L.NINE}  # v1 pixels: the nine present
+    v2 = {1, 2, 3, 4, 5}  # v2 pixels: the nine absent
+    assert J._minus_nine(train, test, v1) == J._minus_nine(train, test, v2) == ([1, 2, 3], [4, 5])
+    with pytest.raises(SystemExit, match="beyond the 9"):
+        J._minus_nine(train, test, v2 - {3})
