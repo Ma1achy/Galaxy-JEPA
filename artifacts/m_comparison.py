@@ -66,25 +66,42 @@ RECORDS = {r: LADDER / d / "t1_ladder.json" for r, d in
            (("M", "m"), ("O2", "o2"), ("A1", "a1"), ("A2", "a2"), ("A3", "a3"))}
 BANKS = {"v1": LADDER / "shared_v1" / "p1_untrained_bank.json",
          "v2": LADDER / "shared" / "p1_untrained_bank.json"}
-# P1 pins. A1–A3 and the v2 bank from docs/ladder_v2/outputs.sha1 (hash lines only); M, O2 and the v1
-# bank from the re-ladder runner's own record, entered before the hash by `shasum` (digest only).
+# P1 pins. A1–A3 and the v2 bank from docs/ladder_v2/outputs.sha1 (hash lines only, cross-checked at
+# scoring); M, O2 and the v1 bank from docs/ladder_v2_m/outputs.sha1, read at scoring only after its own
+# SHA-1 equals V1_OUTPUTS_SHA1 (recorded outside the hash when the runner finishes; fingerprint only).
 PINS: dict[str, str | None] = {
     "A1": "705154a1605b82afb6833bf340e68b102f3a9b5c",
     "A2": "aee7d218d8c10ec3f0344cf41575924b711d65c4",
     "A3": "2c30f8f282035e8d3baf600b7fadf539d720248b",
     "bank_v2": "7a8efc748b4a65391abd4fc98c35214e5dc53c8f",
-    "M": None, "O2": None, "bank_v1": None,
+    "M": None, "O2": None, "bank_v1": None,  # filled from V1_OUTPUTS by v1_pins()
 }
+A_OUTPUTS = REPO / "docs" / "ladder_v2" / "outputs.sha1"
+V1_OUTPUTS = REPO / "docs" / "ladder_v2_m" / "outputs.sha1"
+V1_OUTPUTS_SHA1: str | None = None  # outside the hash, when the M/O2 runner finishes
 CHECKPOINTS = {"M": "runs/m/encoder.pt", "O2": "runs/o2/encoder.pt", "A1": "runs/m_v2/encoder.pt",
                "A2": "runs/m_v2_s1/encoder.pt", "A3": "runs/m_v2_s2/encoder.pt"}
-# P4: the code each ladder ran at, pinned before the hash from the runners' logs (not the records).
-A_CODE_SHA: str | None = None
-V1_CODE_SHA: str | None = None
-LADDER_PATH = ("src/galaxy_jepa/probing", "configs/probe.yaml", "configs/effect_floor.json",
-               "artifacts/t1_ladder.py", "artifacts/s2_verify.py", "artifacts/p2_ladder.py",
-               "artifacts/r_nonlinear.py", "artifacts/j4_spread_controls.py", "artifacts/ladder_env.py",
-               "artifacts/p1_untrained_bank.py")
-P4_INERT: tuple[str, ...] = ()  # commits between the two, each classified rung-inert by a blinded review
+# P4: the code each ladder ran at is what its manifest pins per entry (the runner checks the pins at
+# launch). The manifests are pinned here by SHA-1 at their committing commits.
+MANIFESTS = {"A": ("fcea3b2", "docs/ladder_v2/manifest.yaml", "6c2f462009ce7f60a81b85e9eca02b8b2662732c"),
+             "V1": ("17945d9", "docs/ladder_v2_m/manifest.yaml", "b4dbd5171c8c96cbe88e83cfebeedb921d7c4ae4")}
+P4_ENTRIES = ("E5.t1_ladder", "E5.s2_verify", "E5.p2_ladder", "E4.p1_untrained_bank", "E7.r_bank",
+              "E7.r0", "E3.o1_matched")
+P4_ENCODERS = {"A": {"a1", "a2", "a3", "shared"}, "V1": {"m", "o2", "shared_v1"}}
+# The only code pins allowed to differ, each as its exact (A, V1) SHA-1 pair, classified before the hash:
+P4_DECLARED = {
+    # 17945d9 `_minus_nine`: v1's split minus NINE whatever the corpus holds; on v2 the nine are absent,
+    # so A's set is unchanged (its test); on v1 it makes the split identical to A's
+    "artifacts/j4_spread_controls.py": ("9598302bdba7e3376c35cdfff4dfa0ddbe4e69b9",
+                                        "de65785469401de2a480dfdea227a5f3f3ddd14a"),
+    # fcea3b2..17945d9 touches src/galaxy_jepa only in harness.py and objectives/moco.py: MoCo's
+    # sky_sigma default and docstrings. Training-side; not on the probing path of a JEPA encoder: inert
+    "src/galaxy_jepa/**.py": ("9400ddf417ab8690d3148c7500125f3eb7bbf4cc",
+                              "afc8ce9bc026f99470c3da0f8f02035a356046e8"),
+}
+# §I: M's original record, reproduction check only (does not gate); pinned by `shasum` (digest only)
+ORIGINAL_M = REPO / "artifacts" / "out" / "t1_ladder.json"
+ORIGINAL_M_SHA1 = "d71ce4ee858cc35f1531107a1db62b6f6133228f"
 
 REAL_ROOTS = tuple({p.resolve() for p in (REPO / "runs", REPO / "artifacts" / "out",
                                           Path("/Volumes/X10 Pro/galaxy-jepa/runs"),
@@ -143,7 +160,53 @@ def load_inputs(records: dict, banks: dict, pins: dict) -> tuple[dict, dict, lis
     return recs, bk, p1
 
 
+def load_pinned(path: Path, pin: str) -> dict | None:
+    """One pinned JSON (M's original record), under the same refusal as load_inputs; None on a pin mismatch."""
+    if is_real(Path(path)):
+        assert_hashed()
+    return json.loads(Path(path).read_text()) if _sha1(Path(path)) == pin else None
+
+
+def outputs_pins(path: Path, want: dict[str, Path]) -> dict[str, str | None]:
+    """The runner's outputs.sha1 (`<sha1>  <path>` lines) -> the pin of each wanted file, matched by path."""
+    got: dict[str, str] = {}
+    for line in Path(path).read_text().splitlines():
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            got[str(Path(parts[1].strip()))] = parts[0]
+    full = lambda p: str(Path(p) if Path(p).is_absolute() else REPO / p)  # noqa: E731
+    return {n: got.get(full(p)) or got.get(str(Path(p).relative_to(REPO)) if Path(p).is_absolute() else str(p))
+            for n, p in want.items()}
+
+
+def reproduction(original: dict | None, relad: dict) -> dict:
+    """§I: M's original t1 record against the re-laddered M, rung by rung. Reported after scoring; no gate."""
+    if original is None:
+        return {"result": "NOT RUN", "why": "original record does not match its pin"}
+    diff, why = 0, None
+    for pop in POPS:
+        a = {r["feature"]: r.get("rung") for r in original.get(pop, [])}
+        b = {r["feature"]: r.get("rung") for r in relad.get(pop, [])}
+        if set(a) != set(b):
+            why = f"{pop}: answer sets differ"
+        diff += sum(a[f] != b[f] for f in set(a) & set(b))
+    if why:
+        return {"result": "FAIL", "cells_rung_differs": diff, "why": why}
+    return {"result": "PASS"} if diff == 0 else {"result": "FAIL", "cells_rung_differs": diff}
+
+
 # --- the statistics ---------------------------------------------------------------------------
+def drift(d1: np.ndarray, d2: np.ndarray, ok: np.ndarray, s2: np.ndarray) -> dict:
+    """§E: the measured run-specific drift, mean over non-VOID cells of Δ1 − Δ2 with its SE, and the same
+    mean in run-noise units (|mean| / √(σ̂²/2)), the scale the ω lookup reads. Vectorised like decide()."""
+    x = np.where(ok, d1 - d2, 0.0)
+    n = np.maximum(ok.sum(-1), 1)
+    m = x.sum(-1) / n
+    var = np.where(ok, (d1 - d2 - m[..., None]) ** 2, 0.0).sum(-1) / np.maximum(n - 1, 1)
+    return {"mean": m, "se": np.sqrt(var / n), "scaled": np.abs(m) / np.sqrt(np.maximum(s2 / 2.0, 1e-12))}
+
+
+
 def by_reject(p: np.ndarray, alpha: float = ALPHA_BY, m: int = N_FEATURES) -> np.ndarray:
     """BY step-up along the last axis: `nulls.family_significant` vectorised (a test asserts identity)."""
     p = np.asarray(p, dtype=np.float64)
@@ -304,15 +367,42 @@ def p5_record(rec: dict, bank: dict) -> list[str]:
     return bad
 
 
+def manifest_code_pins(text: str, encoders: set[str]) -> dict[str, set[str]]:
+    """Every code pin (artifacts/, src/, configs/) of the comparison's entries (P4_ENTRIES) in a manifest."""
+    import yaml
+
+    out: dict[str, set[str]] = {}
+    for e in yaml.safe_load(text)["entries"]:
+        if e["id"].startswith(P4_ENTRIES) and e.get("encoder") in encoders:
+            for k, v in (e.get("pins") or {}).items():
+                if k.startswith(("artifacts/", "src/", "configs/")):
+                    out.setdefault(k, set()).add(v)
+    return out
+
+
+def p4_compare(a: dict[str, set[str]], v: dict[str, set[str]]) -> list[str]:
+    """P4 on the two manifests' code pins: one SHA-1 per file per side, the same file set, and equal
+    SHA-1s except the declared pairs (P4_DECLARED), which must match exactly."""
+    bad = [f"P4: {f} pinned only on {s}" for s, x, y in (("A", a, v), ("V1", v, a)) for f in sorted(set(x) - set(y))]
+    for f in sorted(set(a) & set(v)):
+        if len(a[f]) != 1 or len(v[f]) != 1:
+            bad.append(f"P4: {f} has more than one pin within a side")
+        elif a[f] != v[f] and (next(iter(a[f])), next(iter(v[f]))) != P4_DECLARED.get(f):
+            bad.append(f"P4: {f} differs and is not a declared, classified difference")
+    return bad
+
+
 def p4_status() -> list[str]:
-    """P4: no change on the ladder path between the code A1–A3 ran at and the code M/O2 ran at, except
-    commits a blinded review classified rung-inert (pinned in P4_INERT)."""
-    if A_CODE_SHA is None or V1_CODE_SHA is None:
-        return ["P4: the two ladders' code SHAs are not pinned"]
-    log = subprocess.run(["git", "log", "--format=%H", f"{A_CODE_SHA}..{V1_CODE_SHA}", "--", *LADDER_PATH],
-                         cwd=REPO, capture_output=True, text=True, check=True).stdout.split()
-    return [f"P4: {c[:8]} touches the ladder path and is not classified inert" for c in log
-            if c not in P4_INERT]
+    """P4 from the manifests at their pinned commits (git show), each checked against its SHA-1."""
+    texts = {}
+    for side, (commit, path, sha) in MANIFESTS.items():
+        t = subprocess.run(["git", "show", f"{commit}:{path}"], cwd=REPO, capture_output=True, text=True,
+                           check=True).stdout
+        if hashlib.sha1(t.encode()).hexdigest() != sha:
+            return [f"P4: {path} at {commit} does not match its pin"]
+        texts[side] = t
+    return p4_compare(manifest_code_pins(texts["A"], P4_ENCODERS["A"]),
+                      manifest_code_pins(texts["V1"], P4_ENCODERS["V1"]))
 
 
 # --- score ------------------------------------------------------------------------------------
@@ -332,6 +422,94 @@ def observed_like(rows: list[dict], s2: float, tau_ratio: float, flip: float) ->
     cand = [r for r in cand if r["tau_ratio"] == best_t]
     return min(cand, key=lambda r: (round(abs(r["flip_rate"] - flip), 3),
                                     -(r["rate"]["A-LOWER"] + r["rate"]["A-HIGHER"])))
+
+
+THRESHOLDS = (0.025, 0.05)
+A_BOUND_LEVEL = 0.95  # one-sided
+A_BOUND_DF = 2  # three v2 runs
+CURVE_OF = {"CARRIED": ("CARRIED",), "MASKED": ("MASKED",), "BOTH WAYS": ("BOTH WAYS",),
+            "WITHIN-CHANCE": (), "INSUFFICIENT": (), "VOID": ()}
+
+
+def omega_curve(rows: list[dict]) -> list[dict]:
+    """§E (b): the ω grid's false-call rates, all rows, in ω order."""
+    om = sorted((r for r in rows if r["kind"] == "omega"), key=lambda r: r["omega_ratio"])
+    return [{"omega": r["omega_ratio"], **{s_: r["agg_rate"][s_] for s_ in ("CARRIED", "MASKED", "BOTH WAYS")}}
+            for r in om]
+
+
+def tipping(curve: list[dict], state: str, thr: float) -> dict:
+    """§E (a): the ω (× per-answer run noise (σ)) at which `state`'s false-call rate first reaches `thr`, by linear
+    interpolation between the bracketing grid rows. 'above at 0' if the first row already reaches it;
+    '> 1.5×' (the grid's end) if no row does."""
+    w = [c["omega"] for c in curve]
+    r = [c[state] for c in curve]
+    if r[0] >= thr:
+        return {"omega": 0.0, "text": f"≤ 0× (already {r[0]:.2%} at 0)", "bracket": [w[0], w[0]]}
+    for i in range(1, len(r)):
+        if r[i] >= thr:
+            x = w[i - 1] + (thr - r[i - 1]) / (r[i] - r[i - 1]) * (w[i] - w[i - 1])
+            return {"omega": x, "text": f"{x:.2f}×", "bracket": [w[i - 1], w[i]]}
+    return {"omega": None, "text": f"> {w[-1]}×", "bracket": [w[-1], None]}
+
+
+def rate_at(curve: list[dict], state: str, omega: float) -> float:
+    """The grid rate at ω by linear interpolation; at or beyond the grid's end, the end row's rate."""
+    w = [c["omega"] for c in curve]
+    return float(np.interp(min(omega, w[-1]), w, [c[state] for c in curve]))
+
+
+def seed_noise_centred(d1: np.ndarray, d2: np.ndarray, nu: np.ndarray, ok: np.ndarray) -> np.ndarray:
+    """The grid's unit for ω: per-run cell-level noise σ², from Δ1 − Δ2 **centred** across cells, so that
+    a run-level offset (ω, constant across cells) does not inflate it. Σ (x_c − x̄)² / (2 ν_c) / (2(n − 1))."""
+    x = d1 - d2
+    n = np.maximum(ok.sum(-1), 2)
+    xbar = np.where(ok, x, 0.0).sum(-1) / n
+    q = np.where(ok, (x - xbar[..., None]) ** 2 / (2.0 * nu), 0.0)
+    return q.sum(-1) / (2.0 * (n - 1))
+
+
+def a_bound(zA: np.ndarray, ok: np.ndarray, sig2: np.ndarray) -> dict:
+    """§E (c): a one-sided 95% upper bound on run-specific noise ω, from A1–A3 alone.
+
+    zA is (3, ..., n): the three v2 runs' z. With m_r the mean over non-VOID cells of run r:
+      s_m² = Σ_r (m_r − m̄)² / 2                       (2 df)
+      s_int² = Σ_rc (z_rc − m_r − z̄_c + m̄)² / (2(n − 1))  (run × cell residual)
+    E[s_m²] = ω² + τ_run² + E[s_int²]/n, and 2 s_m² / E[s_m²] ~ χ²₂, so
+      ω_up² = max(2 s_m² / χ²₂(0.05) − s_int²/n, 0)
+    bounds ω² + τ_run² ≥ ω², hence ω, at 95% one-sided (if the v2 runs' ω is that of the v1 runs).
+    Returned as ω_up / σ̂_c, the grid's unit (× per-answer run noise (σ)), σ̂_c² from seed_noise_centred()."""
+    from scipy.stats import chi2
+
+    okb = np.broadcast_to(ok, zA.shape)
+    n = np.maximum(ok.sum(-1), 2)
+    m = np.where(okb, zA, 0.0).sum(-1) / n
+    mbar = m.mean(0)
+    s_m2 = ((m - mbar) ** 2).sum(0) / A_BOUND_DF
+    zc = zA.mean(0)
+    res = np.where(okb, zA - m[..., None] - zc + mbar[..., None], 0.0)
+    s_int2 = (res ** 2).sum((0, -1)) / (A_BOUND_DF * (n - 1))
+    up2 = np.maximum(2 * s_m2 / chi2.ppf(1 - A_BOUND_LEVEL, A_BOUND_DF) - s_int2 / n, 0.0)
+    return {"omega_up": np.sqrt(up2), "ratio": np.sqrt(up2) / np.sqrt(np.maximum(sig2, 1e-12)),
+            "s_m2": s_m2, "s_int2": s_int2}
+
+
+def run_noise_report(state: str, curve: list[dict], bound_ratio: float, drift_: dict) -> dict:
+    """§E's block beside an overall state: tipping points, the curve, the A-bound and its rate, the drift."""
+    tips = {s_: {f"{t:.1%}": tipping(curve, s_, t) for t in THRESHOLDS} for s_ in ("CARRIED", "MASKED", "BOTH WAYS")}
+    applies = CURVE_OF.get(state, ())
+    out = {"applies_to": list(applies) or "no false call to bound (CARRIED/MASKED shown for reference)",
+           "tipping": tips, "curve": curve,
+           "a_bound": {"omega_up_x_seed_noise": bound_ratio, "df": A_BOUND_DF, "level": A_BOUND_LEVEL,
+                       "rate_at_bound": {s_: rate_at(curve, s_, bound_ratio) for s_ in ("CARRIED", "MASKED", "BOTH WAYS")},
+                       "beyond_grid": bound_ratio > curve[-1]["omega"]},
+           "drift": {"mean": drift_["mean"], "se": drift_["se"],
+                     "label": "one draw of the run-level noise; not an estimate of its size"}}
+    if state in ("CARRIED", "MASKED"):
+        t = tips[state]["2.5%"]
+        out["headline"] = (f"below 2.5% false calls if run-specific noise < {t['text']} per-answer run noise (σ); "
+                           f"up to {curve[-1][state]:.1%} at {curve[-1]['omega']}×")
+    return out
 
 
 def score(records: dict, banks: dict, *, k: float | None = None, p1_fail=(), calibration: dict | None = None,
@@ -385,14 +563,13 @@ def score(records: dict, banks: dict, *, k: float | None = None, p1_fail=(), cal
         zA = np.stack([z["A1"], z["A2"], z["A3"]])
         s2v2 = float(np.mean((zA.var(0, ddof=1) / nu)[elig])) if elig.any() else float("nan")
         tau_ratio = math.sqrt(max(s2v2 / max(float(d["s2"]) / 2, 1e-12) - 1.0, 0.0))
-        x = ((d["d1"] - d["d2"]) / np.sqrt(2 * nu))[elig]
-        drift_t = float(x.mean() / (x.std(ddof=1) / math.sqrt(len(x)))) if len(x) > 2 and x.std() > 0 else 0.0
+        dr_ = drift(d["d1"], d["d2"], ~void, d["s2"])
         a = d["agg"]
         agg = {"state": AGG_STATES[int(a["state"])], "n": int(a["n"]), "m_down": int(a["m_down"]),
                "m_up": int(a["m_up"]), "p_down": float(a["p_down"]), "p_up": float(a["p_up"]),
                "n_void": int(a["n_void"]), "reach": reach(int(a["n"])), "chance_each_pattern": int(a["n"]) / 4,
-               "pairs_drift_t": drift_t,
-               "pairs_drift_flag": abs(drift_t) > float(student_t.isf(0.025, max(len(x) - 1, 1)))}
+               "drift": {"mean": float(dr_["mean"]), "se": float(dr_["se"]),
+                         "label": "one draw of the run-level noise; not an estimate of its size"}}
         counts = {f"{STATES[c]}{'' if dr == 0 else ('↓' if dr < 0 else '↑')}": int(((d["code"] == c) & (d["dir"] == dr)).sum())
                   for c in range(len(STATES)) for dr in (-1, 0, 1) if ((d["code"] == c) & (d["dir"] == dr)).any()}
         chance = {"symmetric_unguarded_per_direction": float(opp.sum()) / 2,
@@ -402,7 +579,16 @@ def score(records: dict, banks: dict, *, k: float | None = None, p1_fail=(), cal
             row = observed_like(calibration["rows"], float(d["s2"]), tau_ratio, flip)
             chance["observed_like_row"] = {kk: row[kk] for kk in ("name", "sigma", "tau_ratio", "lam", "beta")}
             chance["expected_per_state"] = {s_: row["rate"][s_] * int(elig.sum()) for s_ in row["rate"]}
+            chance["A-SPLIT"] = {"per_answer": row["a_split_per_answer"],
+                                 "expected_of_37": row["a_split_expected_37"],
+                                 "expected_scoreable": row["a_split_per_answer"] * int(elig.sum())}
             chance["aggregate_false_rate"] = row["agg_rate"]
+            # §E: run-specific noise beside the overall state; no single "observed" rate (user, 17 Nov)
+            ab = a_bound(np.stack([z["A1"], z["A2"], z["A3"]]), ~void,
+                         seed_noise_centred(d["d1"], d["d2"], nu, ~void))
+            agg["run_noise"] = run_noise_report(agg["state"], omega_curve(calibration["rows"]),
+                                                float(ab["ratio"]), {"mean": float(dr_["mean"]),
+                                                                     "se": float(dr_["se"])})
         cells = []
         for j, f in enumerate(feats):
             cells.append({
@@ -434,18 +620,30 @@ def score_real(go: bool) -> dict:
     assert_hashed()
     if not go:
         raise SystemExit("m_comparison score: refuses without --go (the user's word). Nothing is read.")
-    if any(v is None for v in PINS.values()) or K_GUARD is None:
-        raise SystemExit("m_comparison score: a P1 pin or K_GUARD is unset")
-    p4 = p4_status()
-    recs, banks, p1 = load_inputs(RECORDS, BANKS, PINS)
+    if V1_OUTPUTS_SHA1 is None or K_GUARD is None:
+        raise SystemExit("m_comparison score: V1_OUTPUTS_SHA1 or K_GUARD is unset")
+    if _sha1(V1_OUTPUTS) != V1_OUTPUTS_SHA1:
+        raise SystemExit("m_comparison score: docs/ladder_v2_m/outputs.sha1 does not match its recorded SHA-1")
+    pins = dict(PINS)
+    pins.update(outputs_pins(V1_OUTPUTS, {"M": RECORDS["M"], "O2": RECORDS["O2"], "bank_v1": BANKS["v1"]}))
+    a_list = outputs_pins(A_OUTPUTS, {"A1": RECORDS["A1"], "A2": RECORDS["A2"], "A3": RECORDS["A3"],
+                                      "bank_v2": BANKS["v2"]})
+    p4 = p4_status() + [f"P1: {n} pin differs from docs/ladder_v2/outputs.sha1" for n, v in a_list.items()
+                        if v != PINS[n]]
+    recs, banks, p1 = load_inputs(RECORDS, BANKS, pins)
     res = score(recs, banks, p1_fail=p1, p4_fail=p4, calibration=json.loads(CALIBRATION.read_text()))
     res["prereg_sha1"] = PREREG_SHA1
+    # §I, after the scoring and whatever it says: M's original record, rung by rung (no gate)
+    res["reproduction_M"] = reproduction(load_pinned(ORIGINAL_M, ORIGINAL_M_SHA1), recs["M"])
     (HERE / "out" / "m_comparison_score.json").write_text(json.dumps(res, indent=1, default=float))
     return res
 
 
 # --- calibrate: decision-layer Monte Carlo on synthetic z -------------------------------------
 H37 = float(np.sum(1.0 / np.arange(1, N_FEATURES + 1)))
+
+
+OMEGA_GRID = np.round(np.arange(0.0, 1.5001, 0.1), 1)  # ω/σ, 0 to 1.5 in steps of 0.1
 
 
 def _regimes() -> list[dict]:
@@ -456,14 +654,19 @@ def _regimes() -> list[dict]:
                 rows.append({"kind": "base", "sigma": sig, "tau_ratio": tr, "lam": lam, "beta": beta,
                              "ratio": 1.0, "omega_ratio": 0.0, "q": 1.0, "het": "se"})
     stress = [dict(ratio=2.0, tau_ratio=0.0), dict(ratio=2.0, tau_ratio=1.0),
-              dict(omega_ratio=0.5, tau_ratio=0.0), dict(omega_ratio=0.5, tau_ratio=1.0),
-              dict(omega_ratio=1.0, tau_ratio=0.0), dict(het="mis", tau_ratio=0.0),
+              dict(omega_ratio=0.5, tau_ratio=1.0), dict(het="mis", tau_ratio=0.0),
               dict(het="mis", tau_ratio=1.0), dict(q=0.0, tau_ratio=0.0)]
     for st in stress:
         r = {"kind": "stress", "sigma": 1.0, "tau_ratio": 0.0, "lam": 0.0, "beta": 0.3, "ratio": 1.0,
              "omega_ratio": 0.0, "q": 1.0, "het": "se"}
         r.update(st)
         rows.append(r)
+    for om in OMEGA_GRID:  # §E's lookup grid: σ 1, no u_seed (the worst case), β 0.3
+        rows.append({"kind": "omega", "sigma": 1.0, "tau_ratio": 0.0, "lam": 0.0, "beta": 0.3, "ratio": 1.0,
+                     "omega_ratio": float(om), "q": 1.0, "het": "se"})
+    for om, tr, lam in ((0.5, 1.0, 1.0), (1.0, 1.0, 1.0), (0.5, 2.0, 0.0)):  # A-bound coverage with u_seed
+        rows.append({"kind": "stress", "sigma": 1.0, "tau_ratio": tr, "lam": lam, "beta": 0.3, "ratio": 1.0,
+                     "omega_ratio": om, "q": 1.0, "het": "se"})
     for r in rows:
         r["name"] = (f"{r['kind']} σ{r['sigma']} τ/σ{r['tau_ratio']} λ{r['lam']} β{r['beta']} "
                      f"v2/v1 {r['ratio']} ω/σ{r['omega_ratio']} bank{r['q']} {r['het']}")
@@ -520,7 +723,9 @@ def _rates(d: dict, border: np.ndarray) -> dict:
     rate["A-LOWER"] = float((code == S["A-LOWER"]).mean())
     rate["A-HIGHER"] = float((code == S["A-HIGHER"]).mean())
     a = d["agg"]["state"]
-    return {"rate": rate,
+    asplit = float((code == S["A-SPLIT"]).mean())
+    return {"rate": rate, "a_split_per_answer": asplit, "a_split_expected_37": asplit * N_FEATURES,
+            "drift_median": float(np.median(drift(d["d1"], d["d2"], np.ones(code.shape, bool), d["s2"])["scaled"])),
             "a_lower_per_borderline": float((code[:, border] == S["A-LOWER"]).mean()) if border.any() else 0.0,
             "a_higher_per_borderline": float((code[:, border] == S["A-HIGHER"]).mean()) if border.any() else 0.0,
             "agg_rate": {AGG_STATES[i]: float((a == i).mean()) for i in range(len(AGG_STATES))}}
@@ -561,6 +766,10 @@ def calibrate(R: int = 20_000, seed: int = 20261117) -> dict:
         row = {**reg, "mag_down": float(mags_all[i][0][ki]), "mag_up": float(mags_all[i][1][ki]),
                "flip_rate": float(((c1 != 0) | (c2 != 0)).mean()),
                "median_unit": float(np.median(d["unit"])), **_rates(d, border)}
+        ok1 = np.ones(z["M"].shape, bool)
+        ab = a_bound(np.stack([z["A1"], z["A2"], z["A3"]]), ok1, seed_noise_centred(d["d1"], d["d2"], nu, ok1))
+        row["a_bound_coverage"] = float((ab["ratio"] >= reg["omega_ratio"]).mean())
+        row["a_bound_median"] = float(np.median(ab["ratio"]))
         rows.append(row)
         del E, z, d
         print(json.dumps({"k": k, "name": row["name"], "mag": [round(row["mag_down"], 4), round(row["mag_up"], 4)],
@@ -578,6 +787,7 @@ def calibrate(R: int = 20_000, seed: int = 20261117) -> dict:
                 d = decide(E, z, nu, b2, void, void, k)
                 power.append({"tau_ratio": tr, "lost": j, "delta_z": delta,
                               "a_lower_on_planted": float((d["code"][:, :j] == S["A-LOWER"]).mean()),
+                              "a_split_on_planted": float((d["code"][:, :j] == S["A-SPLIT"]).mean()),
                               "carried": float((d["agg"]["state"] == 3).mean()),
                               "both_ways": float((d["agg"]["state"] == 2).mean())})
     return {"R": R, "seed": seed, "rule": rule, "bound": GUARD_BOUND, "k": k, "rows": rows, "power": power}
@@ -826,33 +1036,71 @@ def plants() -> dict:
                                       "fired": agg == "VOID"}
     print(f"void:four_void_cells        fired {agg == 'VOID'}", flush=True)
 
+    # §E printing: tipping points against hand-computed values, the never-crosses and above-at-0 cases
+    grid = [round(0.1 * i, 1) for i in range(16)]
+    toy = [{"omega": w, "CARRIED": 0.01 * i, "MASKED": 0.01, "BOTH WAYS": 0.03} for i, w in enumerate(grid)]
+    real = omega_curve(cal["rows"])
+    hand = {}
+    for st in ("CARRIED", "MASKED"):
+        for t in THRESHOLDS:
+            r = [c[st] for c in real]
+            i = next((i for i in range(len(r)) if r[i] >= t), None)
+            hand[(st, t)] = None if i is None or i == 0 else grid[i - 1] + (t - r[i - 1]) * 0.1 / (r[i] - r[i - 1])
+    checks = {
+        "toy CARRIED 2.5% = 0.25": abs(tipping(toy, "CARRIED", 0.025)["omega"] - 0.25) < 1e-12,
+        "toy CARRIED 5% = 0.50": abs(tipping(toy, "CARRIED", 0.05)["omega"] - 0.50) < 1e-12,
+        "toy never crosses -> > 1.5x": tipping(toy, "MASKED", 0.025)["text"] == "> 1.5×",
+        "toy above at 0 -> <= 0x": tipping(toy, "BOTH WAYS", 0.025)["omega"] == 0.0,
+        "real BOTH WAYS never crosses": tipping(real, "BOTH WAYS", 0.025)["text"] == "> 1.5×",
+        **{f"real {st} {t:.1%} = hand": (tipping(real, st, t)["omega"] is None and hand[(st, t)] is None)
+           or abs(tipping(real, st, t)["omega"] - hand[(st, t)]) < 1e-12 for (st, t) in hand},
+    }
+    out["printing"] = {"checks": checks, "fired": all(checks.values()),
+                       "real_tipping": {f"{st} {t:.1%}": {**tipping(real, st, t),
+                                                          "rows": [c for c in real if c["omega"] in tipping(real, st, t)["bracket"]]}
+                                        for st in ("CARRIED", "MASKED") for t in THRESHOLDS}}
+    print(f"printing         fired {out['printing']['fired']}  {checks}", flush=True)
+    # and through score(): the block is printed beside every overall state, with the headline on CARRIED
+    w = base_world(rng)
+    put(w, v2, strong[:8], 0.0)
+    rn = run_files(*build(rng, w), calibration=cal)["populations"]["full"]["aggregate"]["run_noise"]
+    out["printing"]["score_block_on_CARRIED"] = {"headline": rn.get("headline"), "a_bound": rn["a_bound"],
+                                                 "drift_label": rn["drift"]["label"]}
+    out["printing"]["fired"] &= bool(rn.get("headline")) and len(rn["curve"]) == 16
+
     # null and power through the full path: z from the calibration's draw(), records from z
     def through(name, reg, n_real, lost=0, delta=0.0):
         t0 = time.perf_counter()
         banks = synth_banks(rng)
         tally = {"agg": {s_: 0 for s_ in AGG_STATES}, "cells": 0, "SHIFTED": 0, "A-LOWER": 0, "A-HIGHER": 0,
-                 "A-LOWER_on_planted": 0, "planted": 0}
+                 "A-SPLIT": 0, "A-LOWER_on_planted": 0, "A-SPLIT_on_planted": 0, "planted": 0}
         for _ in range(n_real):
             E_, zz, *_ = draw(rng, 2, reg, lost=lost, delta=delta)
             z = {r: {pop: zz[r][i] for i, pop in enumerate(POPS)} for r in RUNS}
             recs, _b = build(rng, z, banks=banks)
             res = score(recs, banks, calibration=cal)
+            bd = res["populations"]["full"]["aggregate"]["run_noise"]["a_bound"]["omega_up_x_seed_noise"]
+            tally["bounds"] = tally.get("bounds", []) + [bd]
             for pop in POPS:
                 tally["agg"][res["populations"][pop]["aggregate"]["state"]] += 1
                 for j, c in enumerate(res["populations"][pop]["cells"]):
                     tally["cells"] += 1
-                    for s_ in ("SHIFTED", "A-LOWER", "A-HIGHER"):
+                    for s_ in ("SHIFTED", "A-LOWER", "A-HIGHER", "A-SPLIT"):
                         tally[s_] += c["state"] == s_
                     if j < lost:
                         tally["planted"] += 1
                         tally["A-LOWER_on_planted"] += c["state"] == "A-LOWER"
+                        tally["A-SPLIT_on_planted"] += c["state"] == "A-SPLIT"
         npop = 2 * n_real
         r_ = {"regime": reg["name"], "populations": npop, "lost": lost, "delta_z": delta,
               "aggregate_rate": {s_: v / npop for s_, v in tally["agg"].items()},
-              "per_cell": {s_: tally[s_] / tally["cells"] for s_ in ("SHIFTED", "A-LOWER", "A-HIGHER")},
+              "per_cell": {s_: tally[s_] / tally["cells"] for s_ in ("SHIFTED", "A-LOWER", "A-HIGHER", "A-SPLIT")},
+              "a_bound_coverage": float(np.mean(np.array(tally["bounds"]) >= reg["omega_ratio"])),
+              "a_bound_median": float(np.median(tally["bounds"])),
               "seconds": round(time.perf_counter() - t0, 1)}
         if lost:
             r_["a_lower_on_planted"] = tally["A-LOWER_on_planted"] / tally["planted"]
+            r_["a_split_on_planted"] = tally["A-SPLIT_on_planted"] / tally["planted"]
         se_agg = math.sqrt(ALPHA_AGG * (1 - ALPHA_AGG) / npop)
         se_cell = math.sqrt(GUARD_BOUND * (1 - GUARD_BOUND) / tally["cells"])
         if not lost:
@@ -869,11 +1117,16 @@ def plants() -> dict:
     cell = pick(kind="base", sigma=1.0, tau_ratio=0.0, lam=0.0, beta=0.3)
     seedrow = pick(kind="base", sigma=1.0, tau_ratio=1.0, lam=0.0, beta=0.3)
     seedrun = pick(kind="base", sigma=1.0, tau_ratio=1.0, lam=1.0, beta=0.3)
-    omega = pick(kind="stress", omega_ratio=0.5, tau_ratio=0.0)
+    omega = pick(kind="omega", omega_ratio=0.5)
     n0 = through("null_no_useed", cell, 300)
     n1 = through("null_useed_cell", seedrow, 300)
     n2 = through("null_useed_run", seedrun, 300)
     through("null_omega_0.5", omega, 300)
+    through("null_omega_1.0", pick(kind="omega", omega_ratio=1.0), 300)
+    through("null_omega_0.5_useed_run", pick(kind="stress", omega_ratio=0.5, tau_ratio=1.0, lam=1.0), 300)
+    for name in ("null_omega_0.5", "null_omega_1.0", "null_omega_0.5_useed_run"):
+        r_ = out["null"][name]
+        r_["a_bound_fired"] = r_["a_bound_coverage"] >= A_BOUND_LEVEL - 2 * math.sqrt(0.05 * 0.95 / 300)
     for j in (2, 4, 8):
         through(f"power_lost{j}_dz4", cell, 60, lost=j, delta=4.0)
     for name, r_ in (("null_no_useed", n0), ("null_useed_cell", n1), ("null_useed_run", n2)):
@@ -883,7 +1136,10 @@ def plants() -> dict:
                        and r_["per_cell"]["SHIFTED"] <= r_["bound_shifted_per_cell"])
     out["all_fired"] = (all(v["fired"] for v in out["structural"].values())
                         and all(v["fired"] for v in out["void"].values())
-                        and all(out["null"][n]["fired"] for n in ("null_no_useed", "null_useed_cell", "null_useed_run")))
+                        and all(out["null"][n]["fired"] for n in ("null_no_useed", "null_useed_cell", "null_useed_run"))
+                        and out["printing"]["fired"]
+                        and all(out["null"][n]["a_bound_fired"]
+                                for n in ("null_omega_0.5", "null_omega_1.0", "null_omega_0.5_useed_run")))
     return out
 
 

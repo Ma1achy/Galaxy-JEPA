@@ -1,11 +1,11 @@
-# M and O2 against A1–A3, seed-matched pairs: pre-registration (DRAFT v1, not hashed)
+# M and O2 against A1–A3, seed-matched pairs: pre-registration (DRAFT v3, final before the hash; not hashed)
 
 **Question.** For each of the 37 Scheme-1 answers, in the full and in the conditional population, does
 the existence reading change between the v1 pipeline (misregistered bands) and the v2 pipeline
 (band-aligned) when the training seed is held fixed? Which of v1's existence results look as if they
 were carried by the v1 pipeline?
 
-**Status.** Draft v1 for the user (redesign of 17 Nov). Nothing here has been hashed or committed. The
+**Status.** Draft v3 for the user. v1 was committed as d4d0c86. v2 applied the user's decisions on v1, and v3 applies the user's final changes before the hash (both 17 Nov). Nothing here has been hashed; v3 is uncommitted. The
 scoring code, calibration and plants are written and have been run on synthetic inputs only
 (`artifacts/m_comparison.py`; results below the hashed section). The hash covers the section from
 "## Pre-registration" to the next level-2 heading (SHA-1, trailing newline). It comes **before any M or
@@ -31,6 +31,15 @@ O2 ladder record is opened**, and before any A1–A3 rung, AUC or retention valu
   - `docs/ladder_v2/manifest.yaml` lines 1–35 and its `LADDER_*` lines;
   - `docs/ladder_v2/outputs.sha1`, the four A/shared hash lines only;
   - the uncommitted working-tree diff of `artifacts/j4_spread_controls.py` (`_minus_nine`).
+- **v2 (this agent), code and method text only:**
+  - `docs/ladder_v2/manifest.yaml` E5.t1_ladder.a1 entry, plus a grep for entry ids;
+  - `docs/ladder_v2_m/manifest.yaml` lines 1–28 and its E5.t1_ladder.m entry (the code pins);
+  - a script comparing the two manifests' code pins (keys and SHA-1s only);
+  - `git log` / `git show --stat 17945d9`, and `git diff fcea3b2 17945d9 -- src/galaxy_jepa` (harness.py,
+    objectives/moco.py);
+  - `shasum artifacts/out/t1_ladder.json` (digest only, §I) and `shasum` of both manifests.
+  - Listed only: `docs/ladder_v2_m/` (manifest.yaml, outputs.sha1, runner_log, state.json). The last
+    three were not opened.
 - **Listed only (filenames):** `docs/`, `docs/ladder_v2*`, `runs/`, `runs/ladder_v2/`,
   `runs/ladder_v2/{a1,a2,a3,shared,encoders}`, `runs/m`, `runs/o2`. `runs/ladder_v2/{m,o2,shared_v1}`
   do not exist yet.
@@ -52,6 +61,11 @@ O2 ladder record is opened**, and before any A1–A3 rung, AUC or retention valu
      which reveal which principal components each A run's V3 rendered. Not an existence or ladder value.
   7. (v1) `baselines_comparison.md` §F and "Scoring code of record" print synthetic calibration and
      plant rates from that study. They are synthetic, not ladder values; listed for completeness.
+  8. (v2) The commit message of 17945d9, shown by `git show --stat`, gives the identical split's
+     galaxy counts (train + test, v1 against v2) and the split-ids prefix. These are split sizes, not a
+     ladder value.
+  9. (v2) The M/O2 manifest's pins include `runs/m/encoder.pt`'s SHA-1. This is a checkpoint
+     fingerprint, not a value.
 
 ## Pre-registration
 
@@ -105,6 +119,11 @@ O2 ladder record is opened**, and before any A1–A3 rung, AUC or retention valu
   3. **Normalisation freeze:** v1 `75100066…`, v2 `246d8de6…`.
   - **Equalised by the re-ladder, and checked:** the split (identical set, v1's split minus
     `ladder_env.NINE`, on both sides: P3) and the code (P4).
+- **Caveat: the conditional population's bar.** Each side's D23 bank is built on the full population's
+  rows (`p1_untrained_bank.py` uses the default labels), and `run_ladder` reuses that same per-answer
+  bank when it judges the conditional population. This holds identically on both sides, so it does not
+  bias the comparison. It is recorded in the ladder v2 register (user, 17 Nov). Conditional existence
+  here is therefore "margin over the full population's untrained bar".
 
 ### A. What two pairs can and cannot claim
 
@@ -123,15 +142,17 @@ O2 ladder record is opened**, and before any A1–A3 rung, AUC or retention valu
      its pair partner), two pairs give little protection. Each pair's run-level tilt has a random sign,
      so both pairs tilt the same way half the time, and both tilt down a quarter of the time. The
      aggregate's false-call rate under such noise is measured (§F) and reported beside the state, not
-     bounded. A **pairs-drift** diagnostic (the mean of Δ1 − Δ2 across cells, as a t) is printed beside
-     the aggregate: a large value says the two pairs disagree at run level.
+     bounded and not gated, with no change to α (user, 17 Nov). No single "observed" rate is printed.
+     What is printed beside the state is how much run-specific noise it would take to break it, and
+     an upper bound on that noise from A1–A3 (§E).
   2. **A corpus effect against a seed × corpus interaction.** With two seeds, an effect present in one
      seed only reads ONE-PAIR. It cannot be told from noise.
   3. **The training corpus against the read-out pixels.** M read on probe_v2 is deferred (user,
      17 Nov), so every directional state is about the v1 *pipeline*: the training corpus, the probe
      pixels and the untrained bar together.
-  4. **A3 cannot confirm.** It is not paired. A3 disagreeing turns a two-pair move into A-SPLIT. A3
-     agreeing adds nothing beyond the requirement.
+  4. **A3 cannot confirm.** It is not paired. A3 disagreeing turns a two-pair move into A-SPLIT (the
+     veto, kept by the user, 17 Nov). A3 agreeing adds nothing beyond the requirement. A-SPLIT's own
+     chance rate is printed beside it (§E).
   5. **A null is not an absence.** WITHIN-CHANCE and INSUFFICIENT are "no evidence at this reach",
      never "nothing was carried". Calibrated power is given in §F.
 
@@ -140,9 +161,13 @@ O2 ladder record is opened**, and before any A1–A3 rung, AUC or retention valu
 - **P1, integrity (everything).** Each input's SHA-1 must equal its pin:
   - A1–A3 `t1_ladder.json` and the v2 bank, from `docs/ladder_v2/outputs.sha1`: `705154a1…`,
     `aee7d218…`, `2c30f8f2…`, `7a8efc74…` (full digests in `PINS`);
-  - M, O2 and the v1 bank: the re-ladder runner's own recorded SHA-1s. They are entered into `PINS`,
-    and into this section, **before the hash, by `shasum` only** (digest printed, contents never
-    displayed). `shasum` counts as blind (user, 17 Nov).
+  - M, O2 and the v1 bank (`runs/ladder_v2/{m,o2}/t1_ladder.json`,
+    `runs/ladder_v2/shared_v1/p1_untrained_bank.json`): **from `docs/ladder_v2_m/outputs.sha1`**, the
+    M/O2 runner's own record, matched by path. That file's own SHA-1 is recorded outside the hash when
+    the runner finishes, by fingerprint only, before any scoring (`V1_OUTPUTS_SHA1`). Scoring refuses
+    unless the file matches it. `shasum` counts as blind (user, 17 Nov).
+  - At scoring, A's four pins are also re-read from `docs/ladder_v2/outputs.sha1`. A disagreement is a
+    P1 failure.
   - The loader refuses to read any path under `runs/`, `artifacts/out` or their SSD targets unless this
     section's SHA-1 equals `PREREG_SHA1` (house rule). A refused read happens before a byte is opened.
 - **P2, completeness and schema.**
@@ -154,11 +179,24 @@ O2 ladder record is opened**, and before any A1–A3 rung, AUC or retention valu
     `auc` and `real_se` finite, `real_se` > 0; a row-level `k_bar`, if present, equals 3.
 - **P3, split (that cell VOID).** All five records share the identical split and the same labels, so
   `n_test` and `positives_test` must be **equal across all five** in every cell.
-- **P4, code (everything).** The ladder path is unchanged between the commit A1–A3 ran at and the
-  commit M/O2 ran at, both pinned before the hash from the runners' logs (`A_CODE_SHA`, `V1_CODE_SHA`).
-  Any commit between them that touches `src/galaxy_jepa/probing`, `configs/probe.yaml`,
-  `configs/effect_floor.json` or the ladder drivers (`LADDER_PATH`) must be classified rung-inert by a
-  blinded review and pinned in `P4_INERT`, or everything is VOID.
+- **P4, code (everything).** **The code pins come from the two runners' manifests**, which pin every
+  code file per entry, and which the runner checks at launch. A1–A3 ran at the ladder v2 code; M and
+  O2 run at commit 17945d9 (the `_minus_nine` fix and the M/O2 manifest).
+  - The manifests are read through `git show` at their committing commits, each checked against its
+    SHA-1:
+    - `docs/ladder_v2/manifest.yaml` at fcea3b2: `6c2f462009ce7f60a81b85e9eca02b8b2662732c`;
+    - `docs/ladder_v2_m/manifest.yaml` at 17945d9: `b4dbd5171c8c96cbe88e83cfebeedb921d7c4ae4`.
+  - **Scope:** the comparison's entries (t1_ladder, s2_verify, p2_ladder, p1_untrained_bank, r_bank,
+    r0, o1_matched), for a1–a3/shared on one side and m/o2/shared_v1 on the other. Every code pin under
+    `artifacts/`, `src/` and `configs/` must hold one SHA-1 per side and appear on both sides. Each must
+    be equal across the sides, except two declared differences, each fixed as its exact (A, M/O2) pair
+    and classified before the hash from the code diff alone:
+    1. `artifacts/j4_spread_controls.py` `9598302b…` → `de657854…`: `_minus_nine` (17945d9). On v2 the
+       nine are absent, so A's set is unchanged (its test). On v1 it makes the split identical to A's.
+    2. `src/galaxy_jepa/**.py` `9400ddf4…` → `afc8ce9b…`: between fcea3b2 and 17945d9 the package
+       changes only in `harness.py` and `objectives/moco.py`. Both changes are MoCo's `sky_sigma` default
+       and docstrings: training-side, off the probing path of a JEPA encoder. Classified rung-inert.
+  - Any other difference VOIDs everything.
 - **P5, existence reproduction (everything).** For every well-formed row of all five records, D23 is
   recomputed through the package (`nulls.untrained_z_pvalue` with that side's bank, then
   `family_significant`, BY, α 0.05, family 37). The checks:
@@ -168,8 +206,9 @@ O2 ladder record is opened**, and before any A1–A3 rung, AUC or retention valu
   - `resolvable_margin` equals the package's (|Δ| ≤ 1e-9), and `underpowered` equals
     `is_underpowered` of it.
   - Any mismatch VOIDs everything.
-- **VOID allowance.** At most 3 of 37 VOID cells per population (user, 17 Nov). More, and that
-  population's aggregate is VOID. Its cells are still listed.
+- **P6, VOID allowance (that population's aggregate).** At most 3 of 37 VOID cells per population
+  (user, 17 Nov). More, and that population's aggregate is VOID. Its cells are still listed. (v0's P6,
+  constants, is folded into P4 and P5.)
 
 ### C. The statistic, the guard, and the untrained bars
 
@@ -252,25 +291,72 @@ agrees on `retention`.
 
 | # | state | condition |
 |---|---|---|
-| 1 | **VOID** | a record-level failure (P1, P2 record, P4, P5), or more than 3 of the population's 37 cells VOID |
+| 1 | **VOID** | a record-level failure (P1, P2 record, P4, P5), or P6: more than 3 of the population's 37 cells VOID |
 | 2 | **INSUFFICIENT** | n < 3. The smallest attainable p, 4⁻ⁿ, cannot reach 0.025 below n = 3, so the bar is unreachable. This is an error state, not a null (D28) |
 | 3 | **BOTH WAYS** | p_down ≤ 0.025 and p_up ≤ 0.025: the pipelines differ, and no direction is claimed |
 | 4 | **CARRIED** (down) / **MASKED** (up) | p ≤ 0.025 in that direction |
 | 5 | **WITHIN-CHANCE** | otherwise. Printed with its reach: the smallest m that would have fired at this n |
 
 - **"The count of answers moving R1/R2 → R4"** is m_down in the full population.
-- **Beside every aggregate state:**
-  - the pairs-drift t, with its flag at |t| > t₀.₉₇₅;
-  - the observed-like row's false-call rate under corpus-specific run noise (ω, §F).
+- **Run-specific noise, printed beside every overall state** (full population; user, 17 Nov: no gate,
+  no change to α, no single "observed" rate). The unit throughout is ω × per-answer run noise (σ), the per-run cell-level
+  noise σ of §F's grid.
+  - **(a) Tipping points.** For each of CARRIED, MASKED and BOTH WAYS: the ω at which that state's
+    false-call rate first reaches 2.5% and 5%. They are read from §F's 16-row ω grid by linear
+    interpolation between the bracketing rows: ω = ω_lo + (t − r_lo) / (r_hi − r_lo) × 0.1.
+    - If the first row (ω 0) already reaches the threshold, it prints "≤ 0× (already r at 0)".
+    - If no row reaches it, it prints "> 1.5×".
+    - **Which rate applies:**
+      - CARRIED: the false CARRIED rate (per direction);
+      - MASKED: the false MASKED rate;
+      - BOTH WAYS: its own null rate, the false BOTH WAYS rate. It is zero on every grid row, so it
+        prints "> 1.5×".
+      - WITHIN-CHANCE and INSUFFICIENT make no claim and carry no false call. "No false call to bound"
+        is printed, with the CARRIED and MASKED tipping points beside it for reference only.
+      - VOID prints nothing.
+  - **(b) The full curve:** all 16 grid rows, ω with its CARRIED, MASKED and BOTH WAYS rates.
+  - **(c) An upper bound on ω from A1–A3 alone.**
+    - **Computation.** Over the full population's non-VOID cells (n cells), let m_r be run r's mean z,
+      for r ∈ {A1, A2, A3}, with grand mean m̄.
+      - s_m² = Σ_r (m_r − m̄)² / 2, which has **2 df**.
+      - s_int² = Σ_r,c (z_rc − m_r − z̄_c + m̄)² / (2(n − 1)) is the run × cell residual.
+      - ω_up² = max(2 s_m² / χ²₂(0.05) − s_int² / n, 0). This is a **one-sided 95%** bound, with
+        χ²₂(0.05) = 0.1026.
+      - It is printed in grid units, ω_up / σ̂_c, where σ̂_c² = Σ_c (x_c − x̄)² / (2ν_c) / (2(n − 1)),
+        with x_c = Δ1 − Δ2. This is the per-run noise from the pairs' difference **centred** across
+        cells, so a run-level offset does not inflate the unit.
+      - The grid's CARRIED, MASKED and BOTH WAYS rates are printed at ω_up. Beyond 1.5× it prints the
+        1.5× row's rate and says "beyond the grid".
+    - **What it bounds, and why.** A run's mean over cells carries its run-level offsets: its own ω_r,
+      and the run-level part of its seed offset u_seed. Cell-level terms average to s_int²/n. A1–A3
+      have three different seeds, so E[s_m²] = ω² + τ_run² + (cell term)/n, and 2s_m²/E[s_m²] ~ χ²₂.
+      The bound therefore covers ω² + τ_run² ≥ ω² at 95%.
+      - A real corpus effect and the v2 bank's error are common to A1–A3, so they cancel.
+      - **The assumption:** run-specific noise is the same size on v1 and v2 runs. The bound sees v2
+        runs only. That is the assumption the grid itself makes.
+      - With 2 df the bound is wide. It is printed as a bound, not an estimate.
+    - **Coverage on synthetic inputs** (§F, and full-path plants in §G): over the 15 ω rows with ω > 0 (20,000 draws each), coverage is 94.8%–95.3%. With u_seed it is 94.9% at ω 0.5σ, τ 1.0σ, λ 0; 99.0% at ω 0.5σ, τ 1.0σ, λ 1; 97.5% at ω 1.0σ, τ 1.0σ, λ 1; 95.0% at ω 0.5σ, τ 2.0σ, λ 0. These are higher where seed offsets have a run-level part, which the bound also absorbs. The median bound is 0.58× at ω 0 and passes 1.5× near ω 0.4σ.
+  - **(d) The drift D̄** (the mean over non-VOID cells of Δ1 − Δ2, with SE) is printed only as a number,
+    labelled exactly "one draw of the run-level noise; not an estimate of its size". It is not used to
+    choose a rate.
+    - **Why:** D̄ is one draw of (ω_A1 − ω_M) − (ω_A2 − ω_O2). It is also blind to same-direction
+      tilts, which are exactly the ones that make false CARRIED/MASKED calls.
+    - **The plants showed it** when it was used as a lookup (draft v2): at a true ω of σ it picked ω 0
+      in 24 of 300 runs; at a true ω of 0 it picked ≥ 0.2σ in 100 of 300.
+  - **Headline form for any CARRIED or MASKED:** "below 2.5% false calls if run-specific noise < X×
+    per-answer run noise (σ); up to Y at 1.5×", where X is (a)'s 2.5% tipping point and Y the curve's rate at 1.5×.
 
 **Chance counts, printed beside the per-cell state counts and before any per-cell list.** Computed
-mechanically after P1–P5 pass.
+mechanically after P1–P6 pass.
 - **Paired symmetry (needs no model).** Under the null, each opposite-flip order is as likely as each
   same-direction pattern. So:
   - unguarded: E[#(c1 = c2 = −1)] = E[#(c1 = c2 = +1)] = N_oppose / 2;
   - guarded, before A3's veto: E[# guarded same-direction] = N_oppose,guarded / 2, where
     N_oppose,guarded counts opposite flips with |Δ1| > F_c and |Δ2| > F_c.
 - **Calibrated.** For every state, n_scoreable × the observed-like row's per-cell rate (§F).
+- **A-SPLIT** (the A3 veto, kept by the user, 17 Nov) gets its own chance line. The observed-like row's
+  A-SPLIT rate under no effect, per answer, and the expected count across 37 (rate × 37) and across the
+  scoreable cells. Its range over the grid is in §F.
 
 ### F. The null and its calibration (`m_comparison.py calibrate`; synthetic z only)
 
@@ -291,12 +377,18 @@ mechanically after P1–P5 pass.
 - **Grid.**
   - **Base:** σ ∈ {0.5, 1, 2}; τ/σ ∈ {0, 1, 2}; λ ∈ {0, 1}; β ∈ {0.1, 0.3}; equal corpus noise; ω = 0;
     bank term on.
-  - **Stress:** v2/v1 noise ratio 2; ω/σ ∈ {0.5, 1}; noise weights unrelated to ν ("mis"); no bank term.
+  - **Stress:** v2/v1 noise ratio 2 (τ 0, σ); ω 0.5σ with u_seed (τ σ); noise weights unrelated to ν
+    ("mis"); no bank term.
+  - **The ω grid, for §E's tipping points and curve:** ω/σ from 0 to 1.5 in steps of 0.1 (16 rows), at
+    σ 1, τ 0, β 0.3, equal corpus noise. τ 0 is the worst case, since u_seed lowers every rate. Linear
+    interpolation between 0.1 steps is used. The curve is smooth and nearly linear there (see the table).
+  - **A-bound coverage rows:** ω 0.5σ and σ with run-level u_seed (τ σ, λ 1), and ω 0.5σ at τ 2σ, λ 0.
+    These are appended after the grid.
 - **The rule for k (fixed before the sweep):** the smallest k on a 0.05 grid such that, in every base
   regime, with and without u_seed, the per-cell rate of "both pairs beyond F_c in the same direction" is
   ≤ 0.025 for each direction. That is SHIFTED's false-call rate exactly, and an upper bound on
   A-LOWER's and A-HIGHER's.
-- **Outcome: k = 1.1** (`docs/m_comparison/calibration.json`, SHA-1 `b9f3b6e0deb47bd77c2b18f495fed3b156d8b852`). Over the base regimes:
+- **Outcome: k = 1.1** (`docs/m_comparison/calibration.json`, SHA-1 `9c598007f9d96883ca0be231e04fefb16a10e35b`). Over the base regimes:
   - **The magnitude condition:** 2.1–2.5% per direction, the same with u_seed and without it, as it must
     be, since u_seed cancels in Δ.
   - **Per borderline cell:**
@@ -304,6 +396,12 @@ mechanically after P1–P5 pass.
       at τ = 2σ. Pairing helps: a shared seed offset moves both members of a pair together, so E flips
       less often.
     - **SHIFTED** (both directions, per cell): 2.3–4.5%.
+  - **A-SPLIT under no effect** (both directions):
+    - per answer 0.50–2.03% without u_seed, an expected 0.18–0.75 of 37;
+    - 0.11–1.07% with u_seed, 0.04–0.40 of 37;
+    - noise ratio 2: 2.09%, 0.77 of 37;
+    - ω grid: 1.65–2.00%, 0.61–0.74 of 37.
+    - It is highest where many answers sit at the bar (β 0.3) and seed noise is large.
   - **Aggregate false calls, per direction:**
     - **CARRIED:** ≤ 0.92% without u_seed and ≤ 0.32% with it; **MASKED** ≤ 0.89% and ≤ 0.29%.
       **BOTH WAYS:** 0.
@@ -313,22 +411,49 @@ mechanically after P1–P5 pass.
     - **Noise ratio 2:** CARRIED 0.83%, MASKED 1.25%.
     - **"mis" weights:** ≤ 0.78%.
     - **No bank term:** 0.73–0.84%.
-    - **ω = 0.5σ:** CARRIED 2.91%, MASKED 2.86%, without u_seed, which exceeds 2.5%. With u_seed (τ = σ),
-      0.97% and 1.00%.
-    - **ω = σ:** 6.2% and 6.4%.
-    - This is the limitation §A.1 declares: measured, not bounded.
-- **Power** (σ = 1, β = 0.3; planted: v1 at the bar + 2, v2 moved down by Δz):
+    - **ω 0.5σ with u_seed (τ σ):** CARRIED 1.00%, MASKED 0.93%.
+  - **The ω grid** (σ 1, τ 0, β 0.3), with the A-bound's coverage and median per row:
 
-  | lost cells | Δz | per-cell A-LOWER, τ 0 / τ σ | CARRIED, τ 0 / τ σ |
-  |---|---|---|---|
-  | 2 | 4 | 84% / 64% | 13% / 8% |
-  | 4 | 3 | 56% / 35% | 37% / 25% |
-  | 4 | 4 | 84% / 65% | 56% / 50% |
-  | 8 | 3 | 60% / 37% | 92% / 75% |
-  | 8 | 4 | 86% / 67% | 99% / 96% |
+    | ω/σ | CARRIED | MASKED | BOTH WAYS | A-bound coverage | A-bound median |
+    |---|---|---|---|---|---|
+    | 0.0 | 0.74% | 0.75% | 0.00% | 100.0% | 0.58× |
+    | 0.1 | 0.82% | 0.97% | 0.00% | 95.3% | 0.70× |
+    | 0.2 | 1.17% | 1.18% | 0.00% | 95.2% | 0.95× |
+    | 0.3 | 1.65% | 1.54% | 0.00% | 95.2% | 1.26× |
+    | 0.4 | 2.32% | 2.27% | 0.00% | 94.8% | 1.59× |
+    | 0.5 | 3.12% | 2.87% | 0.00% | 95.0% | 1.94× |
+    | 0.6 | 3.82% | 3.76% | 0.00% | 95.2% | 2.29× |
+    | 0.7 | 4.52% | 4.62% | 0.00% | 95.1% | 2.66× |
+    | 0.8 | 5.18% | 5.25% | 0.00% | 95.1% | 2.97× |
+    | 0.9 | 5.64% | 5.70% | 0.00% | 95.0% | 3.34× |
+    | 1.0 | 6.38% | 6.72% | 0.00% | 95.0% | 3.74× |
+    | 1.1 | 6.64% | 6.69% | 0.00% | 95.0% | 4.12× |
+    | 1.2 | 7.54% | 7.04% | 0.00% | 94.9% | 4.46× |
+    | 1.3 | 7.60% | 7.78% | 0.00% | 95.0% | 4.82× |
+    | 1.4 | 7.97% | 7.87% | 0.00% | 94.8% | 5.23× |
+    | 1.5 | 8.48% | 8.73% | 0.00% | 94.9% | 5.59× |
 
-  The aggregate needs about eight answers moved by ~3 z or more. Four answers are found about half the
-  time. Two answers can be named per cell but never carry the aggregate.
+    The rate passes 2.5% between ω 0.4σ and 0.5σ. This is the limitation §A.1 declares: measured, not
+    bounded.
+- **Power, with the A3 veto in** (σ = 1, β = 0.3, 4,000 draws; planted: v1 at the bar + 2, all three v2
+  runs moved down by Δz; the aggregate ignores A3, the per-cell state does not):
+
+  | lost | Δz | per-cell A-LOWER, τ 0 / τ σ | vetoed to A-SPLIT, τ 0 / τ σ | CARRIED, τ 0 / τ σ |
+  |---|---|---|---|---|
+  | 2 | 3 | 54% / 33% | 9.4% / 11.2% | 9% / 4% |
+  | 2 | 4 | 84% / 64% | 2.1% / 5.5% | 13% / 8% |
+  | 2 | 6 | 95% / 85% | 0.1% / 0.3% | 13% / 11% |
+  | 4 | 3 | 56% / 35% | 8.6% / 10.8% | 37% / 25% |
+  | 4 | 4 | 84% / 65% | 1.9% / 5.1% | 56% / 50% |
+  | 4 | 6 | 95% / 84% | 0.0% / 0.2% | 59% / 65% |
+  | 8 | 3 | 60% / 37% | 7.6% / 10.5% | 92% / 75% |
+  | 8 | 4 | 86% / 67% | 1.5% / 4.4% | 99% / 96% |
+  | 8 | 6 | 95% / 84% | 0.0% / 0.2% | 100% / 99% |
+
+  - **The aggregate** needs about eight answers moved by ~3 z or more. Four answers are found about half
+    the time. Two answers can be named per cell but never carry the aggregate.
+  - **The veto's cost** is ≤ 11% of truly lost answers at Δz 3, and ≤ 0.3% at Δz 6: under a real effect
+    A3 is shifted too, so it rarely dissents.
 - **The observed-like row,** fixed now and chosen mechanically after P1–P5 pass, by three keys in turn:
   1. among the base rows, the nearest σ to √(σ̂²/2), on the log scale;
   2. then the nearest τ/σ, from the A seeds' spread: τ/σ = √max(s²_A / (σ̂²/2) − 1, 0), where s²_A is the
@@ -373,12 +498,14 @@ mechanically after P1–P5 pass.
 | null, no u_seed | 300 realisations (600 populations) from §F's model at σ 1, τ 0, β 0.3, through the full path | CARRIED and MASKED each ≤ 2.5% + 2 SE; SHIFTED per cell ≤ 2 × (2.5% + 2 SE) |
 | null, u_seed cell-level | the same at τ = σ, λ = 0 | the same bounds |
 | null, u_seed run-level | the same at τ = σ, λ = 1 | the same bounds |
-| null, ω 0.5σ | the same with corpus-specific run noise | reported, no bound (§A.1) |
+| null, ω 0.5σ and ω σ, and ω 0.5σ with run-level u_seed | the same with corpus-specific run noise (§F's ω rows) | false-call rates reported, no bound (§A.1); the A-bound must cover the true ω in ≥ 95% − 2 SE of runs |
+| printing | tipping points on a toy curve (hand values 0.25×, 0.50×), the real grid against the hand formula, "never crosses" ("> 1.5×"), "above at 0", BOTH WAYS on the real grid ("> 1.5×"); and the block with its headline printed by `score()` beside a CARRIED | all exact |
 | power | lost-2/4/8 at Δz 4 through the full path | reported |
 
-Pins as of draft v1, re-entered at the hash if either changes: `docs/m_comparison/plants.json`
-`cb664b454a6948fa5ee6707cb9b4e40b070fe8c1`, and `artifacts/m_comparison.py`
-`e46e26a2892dfd21f05514d86abb6bc99ac7ee25`.
+- **The plant evidence:** `docs/m_comparison/plants.json`, SHA-1 `95416bac703713cdcd54d80f84b32278ca51814c`.
+- **The scoring code's SHA-1** is recorded outside the hash ("scoring code of record"), with
+  `PREREG_SHA1` and `V1_OUTPUTS_SHA1`, because the file carries both constants. The code that
+  produced the plants is the code of record less those constants.
 
 ### H. Reading
 
@@ -387,6 +514,10 @@ Pins as of draft v1, re-entered at the hash if either changes: `docs/m_compariso
     cells named are then its A-LOWER cells. Its A-SPLIT ↓ and NEAR-BAR ↓ cells are listed after them, as
     "flipped in both pairs, not guarded or not unanimous".
   - BOTH WAYS, WITHIN-CHANCE and INSUFFICIENT name no answer as carried.
+  - **Beside the full population's state:** the run-specific-noise block of §E: the tipping points, the
+    curve, the A-bound and the grid rate at it, and the drift as a labelled number. On a CARRIED or
+    MASKED, the headline sentence of §E.
+  - Beside A-SPLIT: its chance rate per answer and expected count of 37 (§E).
   - Every statement says "the v1 pipeline" (training corpus, probe pixels and untrained bar together),
     never "the misregistration" alone (§A.3).
 - **Secondary:**
@@ -397,51 +528,89 @@ Pins as of draft v1, re-entered at the hash if either changes: `docs/m_compariso
 - **Reported, no state:**
   - retention and its pair agreement;
   - the untrained bars;
-  - the pairs-drift t;
+  - the drift D̄ ± SE (full population), labelled as one draw, not an estimate;
   - the A seeds' spread (τ/σ);
   - full → conditional changes per run, side by side.
 - **Out of scope:** M on probe_v2 (deferred); E6 pair verdicts, R-, U-series and DD.
 
-## Plant and calibration results (synthetic, before the hash)
+### I. Reproduction check against M's original record (does not gate)
 
-`m_comparison.py plants` → `docs/m_comparison/plants.json` (`all_fired: true`, k 1.1). The
-expectations were fixed in the script before the run. Every value below is synthetic.
+- **The record:** M's original `artifacts/out/t1_ladder.json` (pre-ladder-v2 code, v1 split), pinned
+  now by `shasum` (digest only): `d71ce4ee858cc35f1531107a1db62b6f6133228f`.
+- **When it is read:** in `score --go` only, after the hash, through the same refusal as every real
+  record, and after the comparison is scored.
+- **It does not gate.** Scoring uses the re-laddered M whatever this says.
+- **What is reported:** rung by rung over 74 cells, against the re-laddered M:
+  - **PASS** if every rung agrees;
+  - **FAIL** with the number of cells whose rung differs (or "answer sets differ");
+  - **NOT RUN** if the file no longer matches its pin.
+- **A FAIL is expected to be possible.** The ladder code (`ed876a4`, `e130fe1`, …) and the split
+  (minus NINE) changed since that record was written. Nothing is read from it but the rungs, and the
+  count is given only after scoring.
+- **The count stays combined.** It mixes the code changes with the nine-galaxy removal. They are not
+  separated because the check does not gate. A separation would need its own rule and inputs, and it
+  would decide nothing here.
+
+## Plant and calibration results (synthetic, before the hash; v3 code of record, A3 veto in)
+
+`m_comparison.py plants` → `docs/m_comparison/plants.json` (`55edf975…`, `all_fired: true`, k 1.1,
+calibration `9c598007…`). Expectations were fixed in the script before the run. Every value below is
+synthetic.
 
 | plant | must read | got (full population) | fired |
 |---|---|---|---|
 | identical | all AGREES, both populations; INSUFFICIENT | AGREES 37; INSUFFICIENT | yes |
-| lost-8 | A-LOWER ×8; CARRIED | A-LOWER ×8; CARRIED | yes |
-| gained-8 | A-HIGHER ×8; MASKED | A-HIGHER ×8; MASKED | yes |
-| both | A-LOWER ×10, A-HIGHER ×10; BOTH WAYS | as expected; BOTH WAYS | yes |
-| below-reach | A-LOWER ×2; INSUFFICIENT | as expected (plus 2 background SHIFTED ↓); INSUFFICIENT | yes |
-| pairs-oppose | PAIRS-OPPOSE ×5 | PAIRS-OPPOSE ×5 | yes |
-| one-pair | ONE-PAIR ↓ ×5 | ONE-PAIR ↓ ×5 | yes |
-| a-split | A-SPLIT ↓ ×5 | A-SPLIT ↓ ×5 | yes |
-| near-bar | NEAR-BAR ↓ ×5 | NEAR-BAR ↓ ×5 | yes |
-| shifted | SHIFTED ↑ ×5 | SHIFTED ↑ ×5 | yes |
-| seed-split | SEED-SPLIT ×5 | SEED-SPLIT ×5 | yes |
-| thin | THIN ×6 | THIN ×6 | yes |
-| grade | G-LOWER ×5 | G-LOWER ×5 | yes |
-| VOID: wrong pin, missing answer, `k_bar` 2, `exceeds_null` flipped (P5), bank K 29, bank split key, shared pixels key, wrong checkpoint | everything VOID | everything VOID, each naming its cause | 8/8 |
-| VOID: recorded R3; `n_test` off by 10 | that cell alone VOID | that cell alone | 2/2 |
-| VOID allowance: 4 cells | full aggregate VOID | VOID | yes |
+| lost-8 | A-LOWER ×8; CARRIED | as expected | yes |
+| gained-8 | A-HIGHER ×8; MASKED | as expected | yes |
+| both | A-LOWER ×10, A-HIGHER ×10; BOTH WAYS | as expected | yes |
+| below-reach | A-LOWER ×2; INSUFFICIENT | as expected | yes |
+| pairs-oppose | PAIRS-OPPOSE ×5 | as expected | yes |
+| one-pair | ONE-PAIR ↓ ×5 | as expected | yes |
+| a-split (the veto) | A-SPLIT ↓ ×5 | as expected | yes |
+| near-bar | NEAR-BAR ↓ ×5 | as expected | yes |
+| shifted | SHIFTED ↑ ×5 | as expected | yes |
+| seed-split | SEED-SPLIT ×5 | as expected | yes |
+| thin | THIN ×6 | as expected | yes |
+| grade | G-LOWER ×5 | as expected | yes |
+| VOID, everything (8 causes) | everything VOID, naming the cause | as expected | 8/8 |
+| VOID, one cell (recorded R3; `n_test` off by 10) | that cell alone | as expected | 2/2 |
+| P6: 4 VOID cells | full aggregate VOID | VOID | yes |
+| printing: tipping points | toy curve 0.25× and 0.50× (hand); real grid equal to the hand formula at 2.5% and 5% for CARRIED and MASKED; "> 1.5×" for never-crosses and for BOTH WAYS on the real grid; "≤ 0×" above at 0 | all exact | 9/9 |
+| printing: through `score()` on a CARRIED | the block with the headline, a 16-row curve, the A-bound (2 df, 95%) and the labelled drift | "below 2.5% false calls if run-specific noise < 0.42× per-answer run noise (σ); up to 8.5% at 1.5×" | yes |
 
-**Nulls through the full path** (600 populations each). The bounds are 2.5% + 2 SE = 3.77% per
-direction for the aggregate, and 2 × (2.5% + 2 SE) = 5.42% for SHIFTED per cell.
+**Nulls through the full path** (600 populations each). The bounds are 3.77% per direction for the
+aggregate, 5.42% for SHIFTED per cell, and A-bound coverage ≥ 92.5% (95% − 2 SE at 300 runs).
 
-| null | CARRIED | MASKED | BOTH | INSUFFICIENT | SHIFTED / cell | A-LOWER / cell | A-HIGHER / cell | within bounds |
+| null | CARRIED | MASKED | SHIFTED / cell | A-LOWER / cell | A-HIGHER / cell | A-SPLIT / cell | A-bound coverage (median) | within bounds |
 |---|---|---|---|---|---|---|---|---|
-| no u_seed (τ 0) | 1.17% | 0.50% | 0 | 52% | 2.92% | 0.27% | 0.21% | yes |
-| u_seed cell-level (τ σ, λ 0) | 0.00% | 0.17% | 0 | 91% | 2.86% | 0.14% | 0.10% | yes |
-| u_seed run-level (τ σ, λ 1) | 0.67% | 0.50% | 0 | 88% | 3.00% | 0.13% | 0.11% | yes |
-| ω 0.5σ (no bound) | 2.17% | 4.00% | 0 | 54% | 3.05% | 0.22% | 0.25% | reported |
+| no u_seed | 0.83% | 0.67% | 3.01% | 0.22% | 0.21% | 1.67% | — (ω 0; median 0.60×) | yes |
+| u_seed cell-level | 0.17% | 0.67% | 2.95% | 0.13% | 0.16% | 0.88% | — (0.86×) | yes |
+| u_seed run-level | 0.17% | 0.33% | 2.90% | 0.15% | 0.06% | 0.79% | — (3.52×) | yes |
+| ω 0.5σ | 3.83% | 3.50% | 3.11% | 0.32% | 0.15% | 1.86% | 96.0% (1.88×) | rates reported; bound covers |
+| ω σ | 4.83% | 8.83% | 4.84% | 0.32% | 0.40% | 1.81% | 97.0% (3.71×) | rates reported; bound covers |
+| ω 0.5σ + run-level u_seed | 1.33% | 0.33% | 3.42% | 0.16% | 0.09% | 0.86% | 98.3% (4.23×) | rates reported; bound covers |
 
-**Power through the full path** (σ 1, τ 0, Δz 4, 120 populations): per planted cell A-LOWER at 80% /
-82% / 85%, and CARRIED at 13% / 61% / 100%, for 2 / 4 / 8 lost answers.
+- **BOTH WAYS:** 0 in every null.
+- **MASKED 8.83% at ω σ** (600 populations, SE ≈ 1.2%) against 6.7% on the 20,000-draw grid is sampling
+  noise, within 2 SE, and not an asymmetry.
+- **The A-bound with run-level u_seed and ω 0** has a median of 3.5×. It absorbs τ_run, so it is
+  conservative there, as §E says.
 
-**Calibration:** see §F. k = 1.1; the per-row rates are in `calibration.json`.
+**Power through the full path, veto in** (σ 1, τ 0, Δz 4, 120 populations). For 2 / 4 / 8 lost answers:
+- per planted cell, A-LOWER 84% / 86% / 88%, and vetoed to A-SPLIT 2.1% / 2.1% / 1.7%;
+- CARRIED 12% / 48% / 100%.
 
-## Changelog v0 → v1 (outside the hash)
+**Tipping points under no effect** (§F's grid; hand-checkable):
+
+| state, threshold | bracketing rows (ω: rate) | interpolated |
+|---|---|---|
+| CARRIED 2.5% | 0.4: 2.320%, 0.5: 3.125% | 0.4 + (2.5 − 2.320)/(3.125 − 2.320) × 0.1 = 0.422× |
+| CARRIED 5% | 0.7: 4.525%, 0.8: 5.185% | 0.7 + (5 − 4.525)/(5.185 − 4.525) × 0.1 = 0.772× |
+| MASKED 2.5% | 0.4: 2.275%, 0.5: 2.870% | 0.4 + (2.5 − 2.275)/(2.870 − 2.275) × 0.1 = 0.438× |
+| MASKED 5% | 0.7: 4.625%, 0.8: 5.250% | 0.7 + (5 − 4.625)/(5.250 − 4.625) × 0.1 = 0.760× |
+| BOTH WAYS 2.5% and 5% | all rows 0 | > 1.5× |
+
+## Changelog v0 → v1 (outside the hash; kept)
 
 - **Design (user, 17 Nov):**
   - **Primary unit:** the seed-matched pair (M, A1), (O2, A2). It was M against A1–A3. O2 now has a
@@ -477,23 +646,67 @@ direction for the aggregate, and 2 × (2.5% + 2 SE) = 5.42% for SHIFTED per cell
   - `shasum` is blind;
   - k from the rule.
 
+## Changelog v1 → v2 (outside the hash; user's decisions on v1, 17 Nov)
+
+- **The A3 veto is kept.** The calibration and plants run the full path with it in.
+  - §E adds A-SPLIT's chance line: the rate per answer and the expected count of 37, printed by
+    `score()`.
+  - §F gives A-SPLIT's null range, and restates power with the veto in, including how often it vetoes
+    a true loss.
+- **Run-specific noise: no gate and no α change.**
+  - The pairs-drift t is replaced by the measured drift D̄ ± SE (full population, non-VOID cells).
+  - D̄ selects an ω row (a 16-row grid, ω/σ 0–1.5 in steps of 0.1, added to `calibration.json`). That
+    row's CARRIED/MASKED rate is printed beside the overall state, and `score()` implements the lookup.
+  - The ω stress rows at τ 0 are folded into the grid.
+- **Pins.**
+  - M, O2 and the v1 bank: from `docs/ladder_v2_m/outputs.sha1`, whose own SHA-1 is recorded outside
+    the hash when the runner finishes.
+  - A: from `docs/ladder_v2/outputs.sha1`, as before, and now cross-checked at scoring.
+  - P4 now reads the two runners' manifests at their commits (fcea3b2, 17945d9), each pinned by SHA-1.
+    It allows exactly two declared and classified code differences. The invented `A_CODE_SHA` /
+    `V1_CODE_SHA` / `P4_INERT` constants are gone.
+  - The VOID allowance is now numbered P6.
+- **The conditional bar:** stated as a caveat under Common ground. The full-population bank is reused
+  for conditional, on both sides.
+- **§I (new): a reproduction check against M's original record.** It does not gate. It is pinned now
+  by `shasum` and reported after scoring as PASS, FAIL with a count, or NOT RUN.
+- **The code's SHA-1** is no longer in the hashed text, since the file carries `PREREG_SHA1`. It is
+  recorded outside the hash as the scoring code of record.
+
+## Changelog v2 → v3 (outside the hash; the user's final changes, 17 Nov)
+
+- **The drift lookup is removed.** No single "observed" rate is printed. Beside every overall state,
+  `score()` now prints:
+  - the tipping points (the ω at which CARRIED's, MASKED's and BOTH WAYS's false-call rates reach 2.5%
+    and 5%, by linear interpolation on the 16-row grid, with "> 1.5×" and "≤ 0×" for the edges);
+  - the full curve;
+  - a one-sided 95% upper bound on ω from A1–A3's run-level spread (2 df), with the grid rate at it;
+  - the drift, as a labelled number only.
+- **Applicability:**
+  - BOTH WAYS is read against its own null rate.
+  - WITHIN-CHANCE and INSUFFICIENT carry no false call; their CARRIED/MASKED tipping points are shown
+    for reference.
+  - The CARRIED/MASKED headline sentence is fixed.
+- **The A-bound's unit** is a centred per-run noise estimate. With the uncentred σ̂ of the guard, ω
+  inflated the unit and coverage fell to 86% at ω 1.5σ (trial run). Centred, coverage holds across the
+  grid.
+- **§I:** a sentence on why the reproduction count stays combined.
+- **Grid spacing:** unchanged. Three A-bound coverage rows are appended after the ω grid, so the grid
+  rows' seeds, and their rates, are unchanged.
+
+**v3, last change before the hash (user, 17 Nov).** Wording only: the ω unit is named "per-answer run
+noise (σ)" wherever it was called "seed noise" (hashed text, open decisions, the printed headline);
+uses of "seed noise" meaning the spread between seeds are unchanged, as is the identifier
+`seed_noise_centred`. A sampling-noise note on MASKED at ω σ was added beside the null table. Plants
+rerun on the final code: every plant fired; `plants.json` differs from v3's only in the headline text
+and run timings (re-pinned `95416bac…`); `calibration.json` byte-identical (`9c598007…`).
+
 ## Open decisions for the user
 
-1. **A3's veto.** A two-pair move with A3 dissenting reads A-SPLIT, with no direction claimed. The
-   alternative is A-LOWER/A-HIGHER with an "A3 differs" qualifier. The user's rule needs both pairs;
-   the veto is this draft's addition.
-2. **Corpus-specific run-level noise (ω).** The aggregate exceeds 2.5% at ω ≥ 0.5σ (2.9%; 6.2% at
-   ω = σ). Choose one:
-   - accept, with the rate printed beside the state;
-   - gate the aggregate on the pairs-drift t (for example, VOID or a named state when |t| > t₀.₉₇₅);
-   - take α per direction lower for the aggregate.
-3. **P4's pins.** The A ladders' and the M/O2 re-ladder's code SHAs must come from the runners' logs.
-   The working tree has an uncommitted change to `artifacts/j4_spread_controls.py` (`_minus_nine`).
-   If the M/O2 re-ladder runs on uncommitted code, P4 needs that diff committed, or hashed into its
-   record.
-4. **The v1 runner's record of SHA-1s** for M, O2 and `shared_v1`: which file holds them? The
-   baselines used `docs/ladder_v2_baselines/state.json`.
-5. **The D23 bar in the conditional population.** The bank is built on the full population's rows and
-   applied unchanged to the conditional population. This is the ladder's behaviour on both sides, so it
-   does not bias this comparison. It is reported as is, but it may deserve a note in the ladder's own
-   register.
+1. **The A-bound rests on run-specific noise being the same size on v1 and v2 runs.** It sees only
+   A1–A3. A v1-only bound would need a third v1 seed. If v1 runs could be noisier at run level (for
+   example, the misregistration adding run-to-run variability), the bound understates ω for v1.
+2. **The A-bound is wide.** With 2 df, its median is about 0.6× per-answer run noise (σ) when ω is truly 0, and it
+   passes the grid's end (1.5×) once ω is about 0.4–0.5×. So in practice it says "small" only when
+   A1–A3's run means agree closely. It also absorbs run-level seed variance (τ_run), so it is
+   conservative whenever seed offsets have a run-level part.

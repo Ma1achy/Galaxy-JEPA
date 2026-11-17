@@ -1,6 +1,6 @@
 {
  "k": 1.1,
- "calibration_sha1": "b9f3b6e0deb47bd77c2b18f495fed3b156d8b852",
+ "calibration_sha1": "9c598007f9d96883ca0be231e04fefb16a10e35b",
  "structural": {
   "identical": {
    "expect_cells": {},
@@ -863,18 +863,21 @@
    "delta_z": 0.0,
    "aggregate_rate": {
     "VOID": 0.0,
-    "INSUFFICIENT": 0.515,
+    "INSUFFICIENT": 0.53,
     "BOTH WAYS": 0.0,
-    "CARRIED": 0.011666666666666667,
-    "MASKED": 0.005,
-    "WITHIN-CHANCE": 0.4683333333333333
+    "CARRIED": 0.008333333333333333,
+    "MASKED": 0.006666666666666667,
+    "WITHIN-CHANCE": 0.455
    },
    "per_cell": {
-    "SHIFTED": 0.029234234234234234,
-    "A-LOWER": 0.002657657657657658,
-    "A-HIGHER": 0.002117117117117117
+    "SHIFTED": 0.030135135135135136,
+    "A-LOWER": 0.002207207207207207,
+    "A-HIGHER": 0.002117117117117117,
+    "A-SPLIT": 0.016666666666666666
    },
-   "seconds": 31.0,
+   "a_bound_coverage": 1.0,
+   "a_bound_median": 0.5981818179507501,
+   "seconds": 222.8,
    "bound_aggregate_per_direction": 0.03774754878398196,
    "bound_shifted_per_cell": 0.05419136822142455,
    "fired": true
@@ -886,18 +889,21 @@
    "delta_z": 0.0,
    "aggregate_rate": {
     "VOID": 0.0,
-    "INSUFFICIENT": 0.9116666666666666,
+    "INSUFFICIENT": 0.89,
     "BOTH WAYS": 0.0,
-    "CARRIED": 0.0,
-    "MASKED": 0.0016666666666666668,
-    "WITHIN-CHANCE": 0.08666666666666667
+    "CARRIED": 0.0016666666666666668,
+    "MASKED": 0.006666666666666667,
+    "WITHIN-CHANCE": 0.10166666666666667
    },
    "per_cell": {
-    "SHIFTED": 0.028648648648648647,
-    "A-LOWER": 0.0013513513513513514,
-    "A-HIGHER": 0.001036036036036036
+    "SHIFTED": 0.029504504504504505,
+    "A-LOWER": 0.0012612612612612612,
+    "A-HIGHER": 0.0016216216216216215,
+    "A-SPLIT": 0.008828828828828829
    },
-   "seconds": 36.6,
+   "a_bound_coverage": 1.0,
+   "a_bound_median": 0.8643178280435881,
+   "seconds": 581.4,
    "bound_aggregate_per_direction": 0.03774754878398196,
    "bound_shifted_per_cell": 0.05419136822142455,
    "fired": true
@@ -909,43 +915,221 @@
    "delta_z": 0.0,
    "aggregate_rate": {
     "VOID": 0.0,
-    "INSUFFICIENT": 0.875,
+    "INSUFFICIENT": 0.8733333333333333,
     "BOTH WAYS": 0.0,
-    "CARRIED": 0.006666666666666667,
-    "MASKED": 0.005,
-    "WITHIN-CHANCE": 0.11333333333333333
+    "CARRIED": 0.0016666666666666668,
+    "MASKED": 0.0033333333333333335,
+    "WITHIN-CHANCE": 0.12166666666666667
    },
    "per_cell": {
-    "SHIFTED": 0.030045045045045043,
-    "A-LOWER": 0.0012612612612612612,
-    "A-HIGHER": 0.001081081081081081
+    "SHIFTED": 0.029009009009009008,
+    "A-LOWER": 0.0015315315315315315,
+    "A-HIGHER": 0.0006306306306306306,
+    "A-SPLIT": 0.007882882882882882
    },
-   "seconds": 38.4,
+   "a_bound_coverage": 1.0,
+   "a_bound_median": 3.5196351786649434,
+   "seconds": 329.2,
    "bound_aggregate_per_direction": 0.03774754878398196,
    "bound_shifted_per_cell": 0.05419136822142455,
    "fired": true
   },
   "null_omega_0.5": {
-   "regime": "stress \u03c31.0 \u03c4/\u03c30.0 \u03bb0.0 \u03b20.3 v2/v1 1.0 \u03c9/\u03c30.5 bank1.0 se",
+   "regime": "omega \u03c31.0 \u03c4/\u03c30.0 \u03bb0.0 \u03b20.3 v2/v1 1.0 \u03c9/\u03c30.5 bank1.0 se",
    "populations": 600,
    "lost": 0,
    "delta_z": 0.0,
    "aggregate_rate": {
     "VOID": 0.0,
-    "INSUFFICIENT": 0.5366666666666666,
+    "INSUFFICIENT": 0.5066666666666667,
     "BOTH WAYS": 0.0,
-    "CARRIED": 0.021666666666666667,
-    "MASKED": 0.04,
-    "WITHIN-CHANCE": 0.40166666666666667
+    "CARRIED": 0.03833333333333333,
+    "MASKED": 0.035,
+    "WITHIN-CHANCE": 0.42
    },
    "per_cell": {
-    "SHIFTED": 0.030495495495495496,
-    "A-LOWER": 0.002207207207207207,
-    "A-HIGHER": 0.0024774774774774773
+    "SHIFTED": 0.031126126126126127,
+    "A-LOWER": 0.003243243243243243,
+    "A-HIGHER": 0.0014864864864864865,
+    "A-SPLIT": 0.01864864864864865
    },
-   "seconds": 36.4,
+   "a_bound_coverage": 0.96,
+   "a_bound_median": 1.8789956978444442,
+   "seconds": 186.5,
    "bound_aggregate_per_direction": 0.03774754878398196,
-   "bound_shifted_per_cell": 0.05419136822142455
+   "bound_shifted_per_cell": 0.05419136822142455,
+   "a_bound_fired": true
+  },
+  "null_omega_1.0": {
+   "regime": "omega \u03c31.0 \u03c4/\u03c30.0 \u03bb0.0 \u03b20.3 v2/v1 1.0 \u03c9/\u03c31.0 bank1.0 se",
+   "populations": 600,
+   "lost": 0,
+   "delta_z": 0.0,
+   "aggregate_rate": {
+    "VOID": 0.0,
+    "INSUFFICIENT": 0.49666666666666665,
+    "BOTH WAYS": 0.0,
+    "CARRIED": 0.04833333333333333,
+    "MASKED": 0.08833333333333333,
+    "WITHIN-CHANCE": 0.36666666666666664
+   },
+   "per_cell": {
+    "SHIFTED": 0.04842342342342342,
+    "A-LOWER": 0.003198198198198198,
+    "A-HIGHER": 0.004009009009009009,
+    "A-SPLIT": 0.018063063063063062
+   },
+   "a_bound_coverage": 0.97,
+   "a_bound_median": 3.709502401779884,
+   "seconds": 284.7,
+   "bound_aggregate_per_direction": 0.03774754878398196,
+   "bound_shifted_per_cell": 0.05419136822142455,
+   "a_bound_fired": true
+  },
+  "null_omega_0.5_useed_run": {
+   "regime": "stress \u03c31.0 \u03c4/\u03c31.0 \u03bb1.0 \u03b20.3 v2/v1 1.0 \u03c9/\u03c30.5 bank1.0 se",
+   "populations": 600,
+   "lost": 0,
+   "delta_z": 0.0,
+   "aggregate_rate": {
+    "VOID": 0.0,
+    "INSUFFICIENT": 0.82,
+    "BOTH WAYS": 0.0,
+    "CARRIED": 0.013333333333333334,
+    "MASKED": 0.0033333333333333335,
+    "WITHIN-CHANCE": 0.16333333333333333
+   },
+   "per_cell": {
+    "SHIFTED": 0.03418918918918919,
+    "A-LOWER": 0.0016216216216216215,
+    "A-HIGHER": 0.0009009009009009009,
+    "A-SPLIT": 0.008603603603603604
+   },
+   "a_bound_coverage": 0.9833333333333333,
+   "a_bound_median": 4.230635949767164,
+   "seconds": 85.4,
+   "bound_aggregate_per_direction": 0.03774754878398196,
+   "bound_shifted_per_cell": 0.05419136822142455,
+   "a_bound_fired": true
+  }
+ },
+ "printing": {
+  "checks": {
+   "toy CARRIED 2.5% = 0.25": true,
+   "toy CARRIED 5% = 0.50": true,
+   "toy never crosses -> > 1.5x": true,
+   "toy above at 0 -> <= 0x": true,
+   "real BOTH WAYS never crosses": true,
+   "real CARRIED 2.5% = hand": true,
+   "real CARRIED 5.0% = hand": true,
+   "real MASKED 2.5% = hand": true,
+   "real MASKED 5.0% = hand": true
+  },
+  "fired": true,
+  "real_tipping": {
+   "CARRIED 2.5%": {
+    "omega": 0.42236024844720504,
+    "text": "0.42\u00d7",
+    "bracket": [
+     0.4,
+     0.5
+    ],
+    "rows": [
+     {
+      "omega": 0.4,
+      "CARRIED": 0.0232,
+      "MASKED": 0.02275,
+      "BOTH WAYS": 0.0
+     },
+     {
+      "omega": 0.5,
+      "CARRIED": 0.03125,
+      "MASKED": 0.0287,
+      "BOTH WAYS": 0.0
+     }
+    ]
+   },
+   "CARRIED 5.0%": {
+    "omega": 0.7719696969696971,
+    "text": "0.77\u00d7",
+    "bracket": [
+     0.7,
+     0.8
+    ],
+    "rows": [
+     {
+      "omega": 0.7,
+      "CARRIED": 0.04525,
+      "MASKED": 0.04625,
+      "BOTH WAYS": 0.0
+     },
+     {
+      "omega": 0.8,
+      "CARRIED": 0.05185,
+      "MASKED": 0.0525,
+      "BOTH WAYS": 0.0
+     }
+    ]
+   },
+   "MASKED 2.5%": {
+    "omega": 0.4378151260504202,
+    "text": "0.44\u00d7",
+    "bracket": [
+     0.4,
+     0.5
+    ],
+    "rows": [
+     {
+      "omega": 0.4,
+      "CARRIED": 0.0232,
+      "MASKED": 0.02275,
+      "BOTH WAYS": 0.0
+     },
+     {
+      "omega": 0.5,
+      "CARRIED": 0.03125,
+      "MASKED": 0.0287,
+      "BOTH WAYS": 0.0
+     }
+    ]
+   },
+   "MASKED 5.0%": {
+    "omega": 0.7600000000000001,
+    "text": "0.76\u00d7",
+    "bracket": [
+     0.7,
+     0.8
+    ],
+    "rows": [
+     {
+      "omega": 0.7,
+      "CARRIED": 0.04525,
+      "MASKED": 0.04625,
+      "BOTH WAYS": 0.0
+     },
+     {
+      "omega": 0.8,
+      "CARRIED": 0.05185,
+      "MASKED": 0.0525,
+      "BOTH WAYS": 0.0
+     }
+    ]
+   }
+  },
+  "score_block_on_CARRIED": {
+   "headline": "below 2.5% false calls if run-specific noise < 0.42\u00d7 per-answer run noise (\u03c3); up to 8.5% at 1.5\u00d7",
+   "a_bound": {
+    "omega_up_x_seed_noise": 0.6560080320637048,
+    "df": 2,
+    "level": 0.95,
+    "rate_at_bound": {
+     "CARRIED": 0.04214856626049119,
+     "MASKED": 0.04244469477351047,
+     "BOTH WAYS": 0.0
+    },
+    "beyond_grid": false
+   },
+   "drift_label": "one draw of the run-level noise; not an estimate of its size"
   }
  },
  "power": {
@@ -956,19 +1140,23 @@
    "delta_z": 4.0,
    "aggregate_rate": {
     "VOID": 0.0,
-    "INSUFFICIENT": 0.125,
+    "INSUFFICIENT": 0.1,
     "BOTH WAYS": 0.0,
-    "CARRIED": 0.13333333333333333,
+    "CARRIED": 0.11666666666666667,
     "MASKED": 0.0,
-    "WITHIN-CHANCE": 0.7416666666666667
+    "WITHIN-CHANCE": 0.7833333333333333
    },
    "per_cell": {
-    "SHIFTED": 0.026576576576576576,
-    "A-LOWER": 0.04707207207207207,
-    "A-HIGHER": 0.002027027027027027
+    "SHIFTED": 0.02702702702702703,
+    "A-LOWER": 0.04752252252252252,
+    "A-HIGHER": 0.0022522522522522522,
+    "A-SPLIT": 0.018243243243243244
    },
-   "seconds": 10.3,
-   "a_lower_on_planted": 0.8
+   "a_bound_coverage": 1.0,
+   "a_bound_median": 0.569438550881333,
+   "seconds": 11.8,
+   "a_lower_on_planted": 0.8375,
+   "a_split_on_planted": 0.020833333333333332
   },
   "power_lost4_dz4": {
    "regime": "base \u03c31.0 \u03c4/\u03c30.0 \u03bb0.0 \u03b20.3 v2/v1 1.0 \u03c9/\u03c30.0 bank1.0 se",
@@ -977,19 +1165,23 @@
    "delta_z": 4.0,
    "aggregate_rate": {
     "VOID": 0.0,
-    "INSUFFICIENT": 0.008333333333333333,
+    "INSUFFICIENT": 0.0,
     "BOTH WAYS": 0.0,
-    "CARRIED": 0.6083333333333333,
+    "CARRIED": 0.48333333333333334,
     "MASKED": 0.0,
-    "WITHIN-CHANCE": 0.38333333333333336
+    "WITHIN-CHANCE": 0.5166666666666667
    },
    "per_cell": {
-    "SHIFTED": 0.023423423423423424,
-    "A-LOWER": 0.09076576576576577,
-    "A-HIGHER": 0.0011261261261261261
+    "SHIFTED": 0.02882882882882883,
+    "A-LOWER": 0.0945945945945946,
+    "A-HIGHER": 0.002027027027027027,
+    "A-SPLIT": 0.01756756756756757
    },
-   "seconds": 9.1,
-   "a_lower_on_planted": 0.8166666666666667
+   "a_bound_coverage": 1.0,
+   "a_bound_median": 0.5798087939906533,
+   "seconds": 22.3,
+   "a_lower_on_planted": 0.85625,
+   "a_split_on_planted": 0.020833333333333332
   },
   "power_lost8_dz4": {
    "regime": "base \u03c31.0 \u03c4/\u03c30.0 \u03bb0.0 \u03b20.3 v2/v1 1.0 \u03c9/\u03c30.0 bank1.0 se",
@@ -1005,12 +1197,16 @@
     "WITHIN-CHANCE": 0.0
    },
    "per_cell": {
-    "SHIFTED": 0.016891891891891893,
-    "A-LOWER": 0.1873873873873874,
-    "A-HIGHER": 0.0015765765765765765
+    "SHIFTED": 0.020945945945945947,
+    "A-LOWER": 0.19234234234234235,
+    "A-HIGHER": 0.0011261261261261261,
+    "A-SPLIT": 0.020945945945945947
    },
-   "seconds": 4.9,
-   "a_lower_on_planted": 0.8510416666666667
+   "a_bound_coverage": 1.0,
+   "a_bound_median": 0.6407033872756926,
+   "seconds": 26.4,
+   "a_lower_on_planted": 0.8770833333333333,
+   "a_split_on_planted": 0.016666666666666666
   }
  },
  "all_fired": true
