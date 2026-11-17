@@ -321,6 +321,8 @@ What it builds: for 30 random-initialisation ViTs of the same architecture, the 
 
 Keys: model `c44bdef1dbdf5acc`, split `da12ce53250b814d`, pixels `246d8de6ba9a…`; max_train 40,000; seeds 30. Normality records identical across A1/A2/A3: yes.
 
+**Register note (added 17 Nov 2026).** The bank is built on full-population rows and reused unchanged as D23's bar for the conditional population. This holds on both sides of every comparison that reads these ladders (A1–A3 here; the baselines; M and O2's v1 bank in `runs/ladder_v2/shared_v1`), so it does not bias a comparison between them, but a conditional-population existence call is measured against a full-population untrained bar.
+
 | answer | K | mean (derived) | SD ddof=1 (derived) | min | max | Shapiro–Wilk p (D23 check) |
 |---|---|---|---|---|---|---|
 | `t01_smooth_or_features_a01_smooth` | 30 | 0.7824 | 0.0046 | 0.7696 | 0.7893 | 0.1071 (normal) |
