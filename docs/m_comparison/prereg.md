@@ -610,6 +610,20 @@ aggregate, 5.42% for SHIFTED per cell, and A-bound coverage ≥ 92.5% (95% − 2
 | MASKED 5% | 0.7: 4.625%, 0.8: 5.250% | 0.7 + (5 − 4.625)/(5.250 − 4.625) × 0.1 = 0.760× |
 | BOTH WAYS 2.5% and 5% | all rows 0 | > 1.5× |
 
+## Hash and scoring code of record (recorded 17 Nov 2026; outside the hash)
+
+- **Pre-registration hashed:** SHA-1 `a39f724e2bf9f512cbc802e52caf12247fabb491` of the section from
+  "## Pre-registration" to the next level-2 heading (`m_comparison.prereg_section()`), on the user's
+  approval of 17 Nov. Draft v3 committed at `8015315`; `PREREG_SHA1` set in the commit that adds this note.
+- **Scoring code of record:** `artifacts/m_comparison.py`, SHA-1 `612b57afa40b6987c32a0e2ac064e4a8405d180d`
+  (with `PREREG_SHA1` set, `V1_OUTPUTS_SHA1` still None). The plants and calibration were produced by
+  the same file at `8015315` (`ac8b0ebd…`), which differs only in the `PREREG_SHA1` line.
+- **Still to record, before any scoring:** `docs/ladder_v2_m/outputs.sha1`'s SHA-1 when the M/O2 runner
+  finishes (fingerprint only, nothing opened), set as `V1_OUTPUTS_SHA1`; that one-line change gives the
+  final code SHA-1, recorded here then.
+- **No real record opened** at the hash: no M, O2 or A1–A3 ladder value has been read by the drafter or
+  by the scoring code.
+
 ## Changelog v0 → v1 (outside the hash; kept)
 
 - **Design (user, 17 Nov):**

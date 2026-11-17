@@ -59,7 +59,7 @@ ROW_KEYS = ("feature", "rung", "mechanism", "auc", "n_test", "positives_test", "
 RUNGS = ("R1", "R2", "R4")  # R3 is unreachable (no untrained-MLP bar, D25): a recorded R3 is VOID
 
 PREREG = REPO / "docs" / "m_comparison" / "prereg.md"
-PREREG_SHA1: str | None = None  # set at the hash; until then load_inputs refuses every real record
+PREREG_SHA1: str | None = "a39f724e2bf9f512cbc802e52caf12247fabb491"  # hashed 17 Nov 2026 (user approval); load_inputs checks it
 
 LADDER = REPO / "runs" / "ladder_v2"
 RECORDS = {r: LADDER / d / "t1_ladder.json" for r, d in
