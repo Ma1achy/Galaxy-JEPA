@@ -621,6 +621,11 @@ aggregate, 5.42% for SHIFTED per cell, and A-bound coverage ≥ 92.5% (95% − 2
 - **Still to record, before any scoring:** `docs/ladder_v2_m/outputs.sha1`'s SHA-1 when the M/O2 runner
   finishes (fingerprint only, nothing opened), set as `V1_OUTPUTS_SHA1`; that one-line change gives the
   final code SHA-1, recorded here then.
+- **Recorded 19 Nov 2026, before any scoring:** the M/O2 runner finished, 13/13 entries done, no failures
+  (`docs/ladder_v2_m/run_log.md`). `docs/ladder_v2_m/outputs.sha1` SHA-1
+  `5e9f29dff9c6c9db80221a02ae0e17c509018ce4` (fingerprint only; not opened), set as `V1_OUTPUTS_SHA1`.
+  **Final scoring code of record:** `artifacts/m_comparison.py` SHA-1
+  `47635accdaa7a9870f7f5fd2468ec5b8b81ff590`, differing from `612b57af…` only in that line.
 - **No real record opened** at the hash: no M, O2 or A1–A3 ladder value has been read by the drafter or
   by the scoring code.
 

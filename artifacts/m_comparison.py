@@ -78,7 +78,7 @@ PINS: dict[str, str | None] = {
 }
 A_OUTPUTS = REPO / "docs" / "ladder_v2" / "outputs.sha1"
 V1_OUTPUTS = REPO / "docs" / "ladder_v2_m" / "outputs.sha1"
-V1_OUTPUTS_SHA1: str | None = None  # outside the hash, when the M/O2 runner finishes
+V1_OUTPUTS_SHA1: str | None = "5e9f29dff9c6c9db80221a02ae0e17c509018ce4"  # recorded 19 Nov 2026, runner finished 13/13 (fingerprint only)
 CHECKPOINTS = {"M": "runs/m/encoder.pt", "O2": "runs/o2/encoder.pt", "A1": "runs/m_v2/encoder.pt",
                "A2": "runs/m_v2_s1/encoder.pt", "A3": "runs/m_v2_s2/encoder.pt"}
 # P4: the code each ladder ran at is what its manifest pins per entry (the runner checks the pins at
