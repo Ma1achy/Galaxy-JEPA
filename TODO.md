@@ -474,6 +474,9 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
   the comparison D12 makes. Its other augmentations are objective-intrinsic and stay. Check the MAE
   recipe for flips too. Decide in the baselines brief.
 - [ ] (P1) Cross-objective comparison table (rung per feature × objective).
+- [ ] (P2, parked) **Seed-1 high on v2 for JEPA (A2) and MAE, not MoCo, not v1 (O2):** candidate cause
+  seed 1's v2 data order or its interaction with init. Untested; needs extra training runs.
+  (`docs/m_comparison/report.md` §4; `docs/baselines_comparison/report.md` §1.1.)
 
 ## Epic H — Figures & eval `[P7]`
 - [x] (P0) **FIG 1** — ladder / AUC bar chart (`eval.figures.figure_ladder`).
