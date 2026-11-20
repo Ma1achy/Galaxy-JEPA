@@ -1,0 +1,95 @@
+{
+ "provenance": {
+  "answer": "t04_spiral_a08_spiral",
+  "population": "full",
+  "encoder": "A1",
+  "checkpoint": "runs/m_v2/encoder.pt",
+  "checkpoint_sha1": "34bb30a74d38b1fc4622861f43959a92fc01520c",
+  "o1_bank_sha1": "c21bfe37873a0df01f55e6f3ac37d1816ee2d390",
+  "c2_bank_sha1": "c4eb12f7440262ea531315a446028edf0ec65f48",
+  "seed_bank_sha1": "9921e585354c668985be6cd80cc52f54fa21dd7a",
+  "n_train": 38000,
+  "n_test": 33081,
+  "max_train": 40000
+ },
+ "basis": "log",
+ "note": "descriptive, for Almagest; not in the science record",
+ "clean": {
+  "nuisance_columns": {
+   "size": "petroRad_r",
+   "magnitude": "modelMag_r",
+   "snr": "snr_r",
+   "psf": "psfWidth_r",
+   "redshift": "specz"
+  },
+  "basis": "log",
+  "covariates": "per nuisance: train-ECDF rank \u2212 0.5, its square, the normal score \u03a6\u207b\u00b9(rank), its square (20 columns); plus each nuisance's log value (size, snr, psf: log; redshift: log(1+z); magnitude as is), all 25 standardised on train",
+  "ridge_alpha": 1.0,
+  "fit_rows": "union train rows with all five nuisances",
+  "dropped_missing": {
+   "union": 0,
+   "spiral_train": 0,
+   "spiral_test": 0,
+   "by_nuisance_union": {
+    "size": 0,
+    "magnitude": 0,
+    "snr": 0,
+    "psf": 0,
+    "redshift": 0
+   }
+  },
+  "size_flagged_kept_union": 710,
+  "n_train": 38000,
+  "n_test": 33081,
+  "auc_raw": 0.8059984845336549,
+  "auc_cleaned": 0.7449990739052155,
+  "cosine_probe_dirs": 0.8247810993493485,
+  "decode": {
+   "size": {
+    "r2_raw_rank": 0.6144160373240377,
+    "r2_cleaned_rank": -0.000274447561924962,
+    "r2_cleaned_value": 0.0012965348943639876
+   },
+   "magnitude": {
+    "r2_raw_rank": 0.6096199187456388,
+    "r2_cleaned_rank": -0.000221708888562544,
+    "r2_cleaned_value": -7.294458694451222e-05
+   },
+   "snr": {
+    "r2_raw_rank": 0.5523723311309343,
+    "r2_cleaned_rank": -1.0639712060500628e-05,
+    "r2_cleaned_value": -5.164491805365046e-05
+   },
+   "psf": {
+    "r2_raw_rank": 0.582872743301307,
+    "r2_cleaned_rank": 2.2460133763946288e-07,
+    "r2_cleaned_value": -8.982967896198346e-07
+   },
+   "redshift": {
+    "r2_raw_rank": 0.494468954719844,
+    "r2_cleaned_rank": -4.00090652474816e-06,
+    "r2_cleaned_value": -2.56832012091035e-05
+   }
+  },
+  "decode_over_0.05": [],
+  "planted": {
+   "amplitude": 139.51797678849414,
+   "direction_seed": 20261120,
+   "injection": "X + amp \u00b7 (t \u2212 mean_train)/sd_train \u00b7 u; t cleaned as an extra nuisance column",
+   "gaussian": {
+    "corr_t_with_u_before": 0.9998585433531814,
+    "corr_t_with_u_after": 0.011612885749187805,
+    "r2_decode_t_before": 0.9999995760640771,
+    "r2_decode_t_after": -8.479354438750697e-05
+   },
+   "lognormal": {
+    "corr_t_with_u_before": 0.9998570524981031,
+    "corr_t_with_u_after": 0.17501169429251354,
+    "r2_decode_t_before": 0.9999995717094528,
+    "r2_decode_t_after": 0.03067205941304252
+   },
+   "removed": true,
+   "gate": "gaussian: |corr after| < 0.02 and decode R\u00b2 after < 0.01; lognormal reported, not gated"
+  }
+ }
+}

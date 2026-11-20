@@ -1,0 +1,70 @@
+{
+ "provenance": {
+  "answer": "t04_spiral_a08_spiral",
+  "population": "full",
+  "encoder": "A1",
+  "checkpoint": "runs/m_v2/encoder.pt",
+  "checkpoint_sha1": "34bb30a74d38b1fc4622861f43959a92fc01520c",
+  "o1_bank_sha1": "c21bfe37873a0df01f55e6f3ac37d1816ee2d390",
+  "c2_bank_sha1": "c4eb12f7440262ea531315a446028edf0ec65f48",
+  "seed_bank_sha1": "9921e585354c668985be6cd80cc52f54fa21dd7a",
+  "n_train": 38000,
+  "n_test": 33081,
+  "max_train": 40000
+ },
+ "note": "descriptive, for Almagest; not in the science record",
+ "r1": {
+  "width": 16,
+  "val_auc": {
+   "16": 0.8023108534994928,
+   "32": 0.8015254214365068,
+   "64": 0.8011340578660098,
+   "128": 0.797460851084384,
+   "256": 0.7940065497753949,
+   "512": 0.7882689851712312
+  },
+  "linear_auc": 0.8059984845336549,
+  "mlp_auc": 0.8032684705231562,
+  "headroom": -0.0027300140104987713,
+  "headroom_ci95": [
+   -0.004759638641620559,
+   -0.000669579834384793
+  ],
+  "perm_test_auc": 0.49662403559019774,
+  "perm_train_auc": 0.6085305746498301,
+  "real_train_auc": 0.8194776122300428,
+  "cluster_selective": {
+   "100": {
+    "point": -0.05663005151468847,
+    "lo": -0.05971837583847815,
+    "hi": -0.053444170671225574
+   },
+   "1000": {
+    "point": -0.11234717120012372,
+    "lo": -0.11829691422010226,
+    "hi": -0.10623714418923358
+   }
+  },
+  "cluster_control_aucs": {
+   "100": {
+    "mlp": 0.9454878544139066,
+    "linear": 0.8915878169097168
+   },
+   "1000": {
+    "mlp": 0.7699913844380943,
+    "linear": 0.6603742272484695
+   }
+  },
+  "verdict_as_R1": "NO EVIDENCE",
+  "mlp_beats_linear_beyond_ci": false,
+  "ladder_record_r_r1": {
+   "width": 16,
+   "linear_auc": 0.805994534993807,
+   "mlp_auc": 0.8032684297852517,
+   "headroom": -0.0027261052085553183,
+   "headroom_lo": -0.004757584831673609,
+   "headroom_hi": -0.0006603527805055368,
+   "verdict": "NO EVIDENCE"
+  }
+ }
+}

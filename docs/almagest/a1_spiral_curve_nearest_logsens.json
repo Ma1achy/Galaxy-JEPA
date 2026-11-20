@@ -1,0 +1,183 @@
+{
+ "provenance": {
+  "answer": "t04_spiral_a08_spiral",
+  "population": "full",
+  "encoder": "A1",
+  "checkpoint": "runs/m_v2/encoder.pt",
+  "checkpoint_sha1": "34bb30a74d38b1fc4622861f43959a92fc01520c",
+  "o1_bank_sha1": "c21bfe37873a0df01f55e6f3ac37d1816ee2d390",
+  "c2_bank_sha1": "c4eb12f7440262ea531315a446028edf0ec65f48",
+  "seed_bank_sha1": "9921e585354c668985be6cd80cc52f54fa21dd7a",
+  "n_train": 38000,
+  "n_test": 33081,
+  "max_train": 40000
+ },
+ "basis": "log",
+ "note": "descriptive, for Almagest; not in the science record",
+ "curve": {
+  "construction": {
+   "bins": "10 equal-width vote-fraction bins, \u2265100 train galaxies each (R2's edges)",
+   "space": "ridge-cleaned 384-d embedding, z-scored on train",
+   "pcs": "top-k PCs of the bin means reaching 99% of the path's variance",
+   "spline": "scipy make_smoothing_spline per PC (GCV), chord-length parameter, resampled to 1000 equal arc-length points; s \u2208 [0, 1]",
+   "s": "the nearest dense point's s; off-curve distance in the k-D PC space"
+  },
+  "a1": {
+   "n_bins": 10,
+   "bins_kept": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "occupancy": [
+    15069,
+    2173,
+    3670,
+    2601,
+    1611,
+    3339,
+    1664,
+    1428,
+    1869,
+    4576
+   ],
+   "bend_curve": 0.09441045107597423,
+   "bend_bin_polyline": 0.5129974929391555,
+   "off_pc1_share": 0.13669374176135274,
+   "k": 8,
+   "var_explained": [
+    0.8633062582386473,
+    0.03462331357746152,
+    0.025509038883316064,
+    0.024039257688473842,
+    0.016796731538335326,
+    0.011273382529470317,
+    0.00977681443814517,
+    0.007824291373951062
+   ],
+   "arc_length": 3.787561986480111,
+   "auc_s": 0.6727823671878927,
+   "auc_linear_cleaned": 0.7450354895181087,
+   "ambiguous_fraction": 0.9657809618814425,
+   "robust_well_voted": {
+    "n_train": 19530,
+    "median_reach": 6.0,
+    "n_bins": 10,
+    "k": 8,
+    "bend_curve": 0.10583235067028895,
+    "hausdorff_over_length": 0.10885935451099715,
+    "s_pearson": 0.9584382782410112,
+    "s_spearman": 0.9526987092569958,
+    "auc_s": 0.6750982091071264
+   },
+   "offcurve_spearman": {
+    "size": {
+     "rho": -0.013524492123548958,
+     "n": 33081
+    },
+    "magnitude": {
+     "rho": 0.03705933220109658,
+     "n": 33081
+    },
+    "snr": {
+     "rho": -0.047441038725980635,
+     "n": 33081
+    },
+    "psf": {
+     "rho": -0.05327721891823453,
+     "n": 33081
+    },
+    "redshift": {
+     "rho": -0.026716285442703554,
+     "n": 33081
+    },
+    "question_reach": {
+     "rho": 0.010033668384763578,
+     "n": 33081
+    },
+    "expAB_r": {
+     "rho": -0.030858785937597104,
+     "n": 33081
+    }
+   },
+   "ambiguity": {
+    "rule": "second-nearest curve point (|\u0394s| > 0.1) within 5% of the nearest distance",
+    "flagged_fraction": 0.9657809618814425,
+    "over_10pct": true,
+    "flagged_by_s_decile": [
+     10640,
+     1467,
+     2171,
+     1969,
+     1715,
+     1271,
+     827,
+     1151,
+     1123,
+     9615
+    ]
+   },
+   "auc_tie": {
+    "auc_s_minus_linear": -0.07225312233021597,
+    "within_0.01": false,
+    "s_worse_by_more_than_0.01": true
+   },
+   "extrapolation": {
+    "rule": "beyond s = 0 or 1: continue along the end tangent (unit, from the last two bin means), z(s) = curve(end) + (s \u2212 end)\u00b7L\u00b7tangent, L = arc length; defined, not rendered",
+    "tan0_k": [
+     -0.8658554253011239,
+     0.42600105331195004,
+     0.03816276482263651,
+     -0.08639766566721842,
+     0.15556500982601731,
+     -0.03054683842412663,
+     0.18472680273246037,
+     -0.025277629129939447
+    ],
+    "tan1_k": [
+     0.11693216414258918,
+     -0.35944359204398724,
+     0.22555905794827208,
+     -0.20748412679121625,
+     0.5799552199971292,
+     0.6524823196469368,
+     0.003167375954318042,
+     -0.03330697690303191
+    ]
+   }
+  },
+  "vs_primary": {
+   "space": "cleaned 384-d embedding units; divided by the primary curve's length there",
+   "primary_length": 9.399380808933856,
+   "overall": {
+    "hausdorff_over_length": 0.016247921492110916,
+    "n_test": 33081,
+    "s_pearson": 0.9897314403433357,
+    "s_spearman": 0.9886565460683556,
+    "abs_ds_median": 0.0,
+    "abs_ds_p90": 0.01901901901901909
+   },
+   "s>=0.8": {
+    "hausdorff_over_length": 0.016247921492110916,
+    "n_test": 11198,
+    "s_pearson": 0.47662403606359616,
+    "s_spearman": 0.8487849024306846,
+    "abs_ds_median": 0.0,
+    "abs_ds_p90": 0.018018018018017945
+   },
+   "tail_flag": {
+    "rule": "tail Hausdorff/length or tail median |\u0394s| > 2.0\u00d7 overall",
+    "hausdorff_ratio": 1.0,
+    "abs_ds_ratio": 0.0,
+    "flagged": false
+   }
+  }
+ }
+}

@@ -1,4 +1,7 @@
-# The Plate's data file (`plate.bin`), format version 2
+# The Plate's data file (`plate.bin`), format versions 2 and 3
+
+*Version 3 (20 Nov 2026) is version 2 plus a spiral block; every v2 section and header field is unchanged
+and byte-identical, so a v2 reader reads a v3 file. See "Version 3" at the end.*
 
 *Written by `artifacts/plate_export.py` (Kickoff C). `plate.bin`: 25,000 galaxies (cluster-stratified plus
 rare-class oversampling, `plate_subset.json`), 5.24 MB raw, 3.97 MB gzip-9, 3.81 MB brotli-11. Version 2
@@ -189,3 +192,46 @@ Verified: `node` running this decoder (extracted verbatim from this file) agains
 Python on both `plate.bin` and `plate_test.bin` — every field on six rows (first, second, third,
 middle, last two) plus whole-section sums; exact on every integer and float field, ≤ 5e-15 relative on
 the derived `prob` and `probeZ` (2026-10-02, the 80-D files, node v22.14.0).
+
+## Version 3: the spiral axis (additive)
+
+*Written by `artifacts/almagest_spiral.py plate` (20 Nov 2026) from A1's ladder Plate
+(`runs/ladder_v2/a1/plate/plate.bin`, 40,000 galaxies, read only) to `runs/almagest/a1/plate.bin`. Every v2
+section is byte-identical (checked on write); `header.version` is 3. Construction and every number:
+`docs/almagest/a1_spiral_report.md`.*
+
+**What changed for the page.** The spiral axis (answer index 7, `t04_spiral_a08_spiral`) reads the
+**cleaned** probe's decision `d`: spiral at fixed size, magnitude, S/N, PSF and redshift. It no longer reads
+QR coordinate 7 (spiral's direction with answers 0–6 removed: AUC 0.649 on the file's test galaxies, against
+0.797 for the probe direction `probe_basis.w[7]`) and not `readout[7]` (the raw probe). `header.axes` says so;
+`probe_basis`, `readout` and `coords` are unchanged.
+
+**Per-galaxy sections** (appended after the v2 sections):
+
+| name | dtype | shape | decode | meaning |
+|---|---|---|---|---|
+| `spiral_d` | uint8 | [n] | `d = lo + v*(hi − lo)/254`; 255 missing | cleaned spiral decision (a logit); `lo`, `hi` = its 0.1 and 99.9 percentiles over the file (`header.spiral.spiral_d`), clamped outside |
+| `spiral_s` | uint8 | [n] | `s = v/254`; 255 missing | arc-length coordinate along γ, clamped to [0, 1] |
+| `spiral_r` | uint8 | [n] | `|r| = v * header.spiral.spiral_r.r_scale`; 255 missing | off-axis distance `|z − γ(d)|` in the 384-d cleaned space |
+
+**Header `spiral`:**
+- `gamma`: γ at `s = 0, 0.01, …, 1` (101 points) as float coordinates in the file's 80-D space (`coords`),
+  with the matching `d`. γ is the mean cleaned galaxy along `d`: mean embedding in 20 equal-count bins of `d`
+  (train), cubic smoothing spline in the bin means' top-k PCs (`k`), `d` as parameter. The coords are the
+  **raw** embedding's, so a galaxy's own `z` need not lie near γ: use `spiral_s` and `spiral_r`, not distances
+  to these points, to place a galaxy.
+- `d_to_s`: 101 knots (`d`, `s`), piecewise linear between them (exact to the stored precision inside);
+  `below.ds_dd` / `above.ds_dd` continue it linearly outside. s = 0 and 1 are the first and last bin means.
+- `extrapolation`: beyond s = 0 or 1, `γ(s) = γ(end) + (s − end) * tangent_end`; `tangent_s0`, `tangent_s1` in
+  80-D, carrying the arc length (one unit of s = all of γ). Defined, not rendered.
+- `directions`: two unit vectors in 80-D. `filter_w` is the cleaned probe's weight vector, **for reading** a
+  position (d grows along it). `pattern_sigma_w` is Σw, the direction the mean galaxy moves as d grows,
+  **for walks**. They are nearly orthogonal (cos 0.06): the probe reads a low-variance direction, and walking
+  along it would leave the galaxies. `share_kept_in_basis` gives how much of each survives the projection
+  onto the 80-D basis (0.84 and 0.99).
+- `spiral_d`, `spiral_s`, `spiral_r`: the decode constants above; `cleaning` and `construction`: the
+  definitions; `auc`: the axis comparison on the file's eligible test galaxies.
+
+**Rules.** Missing (255) in all three means a nuisance was missing, so the galaxy could not be cleaned (none
+in A1's file). The cleaned probe was fitted on the spiral-eligible train galaxies; `flags & 1` still marks
+the test galaxies (asserted: no test galaxy is in its train rows).

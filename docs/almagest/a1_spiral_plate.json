@@ -1,0 +1,49 @@
+{
+ "provenance": {
+  "answer": "t04_spiral_a08_spiral",
+  "population": "full",
+  "encoder": "A1",
+  "checkpoint": "runs/m_v2/encoder.pt",
+  "checkpoint_sha1": "34bb30a74d38b1fc4622861f43959a92fc01520c",
+  "o1_bank_sha1": "c21bfe37873a0df01f55e6f3ac37d1816ee2d390",
+  "c2_bank_sha1": "c4eb12f7440262ea531315a446028edf0ec65f48",
+  "seed_bank_sha1": "9921e585354c668985be6cd80cc52f54fa21dd7a",
+  "n_train": 38000,
+  "n_test": 33081,
+  "max_train": 40000
+ },
+ "basis": "primary",
+ "note": "descriptive, for Almagest; not in the science record",
+ "plate": {
+  "source": "runs/ladder_v2/a1/plate/plate.bin",
+  "source_sha1": "e922ba279da8f5e7ed737ac2cd1cfdc651da8f9f",
+  "out": "runs/almagest/a1/plate.bin",
+  "out_sha1": "a29587ef9ac27eb1cd9172dd5f78bb99be9ea77a",
+  "bytes": 8483728,
+  "source_bytes": 8286352,
+  "n": 40000,
+  "missing_nuisances": 0,
+  "v2_sections_identical": true,
+  "auc": {
+   "n_plate_test_eligible": 6622,
+   "n_pos": 2165,
+   "old_qr_coordinate_7": 0.6493312800115655,
+   "probe_basis_w7_on_coords": 0.797223663013419,
+   "filter_w80_on_coords": 0.7863911816324427,
+   "raw_probe_readout_byte": 0.7972733551965122,
+   "raw_probe_384": 0.797214957813461,
+   "new_cleaned_d_float": 0.7182749609950044,
+   "new_cleaned_d_byte": 0.7183389027613618,
+   "s_byte": 0.7183160516114724
+  },
+  "share_kept_in_basis": {
+   "filter_w": 0.8366376883255628,
+   "pattern_sigma_w": 0.9940144107565101
+  },
+  "cos_w_sigma_w_384": 0.056312815475530825,
+  "cos_w80_p80": 0.06353835210902864,
+  "s_outside_0_1": 1615,
+  "d_clamped": 80,
+  "d_to_s_map_max_abs_err_inside": 2.0314083328476507e-05
+ }
+}
