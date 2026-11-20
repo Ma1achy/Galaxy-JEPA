@@ -1,0 +1,2124 @@
+{
+ "note": "post-hash, exploratory, no state (user, 19 Nov)",
+ "populations": {
+  "full": {
+   "critical_z": {
+    "M": 2.436,
+    "A1": 2.436,
+    "O2": 2.423,
+    "A2": 2.41,
+    "A3": 2.436
+   },
+   "n_scoreable": 32,
+   "min_distance_over_runs": {
+    "z": {
+     "min": -1.75,
+     "median": 8.91,
+     "n_below_2": 1,
+     "n_below_1": 1,
+     "n_negative": 1
+    },
+    "auc": {
+     "min": -0.0099,
+     "median": 0.0498
+    }
+   },
+   "nearest_five": {
+    "t10_arms_winding_a29_medium": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": -1.75,
+      "A1": -0.41,
+      "O2": -1.2,
+      "A2": -1.59,
+      "A3": -0.97
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0099,
+      "A1": -0.0022,
+      "O2": -0.0067,
+      "A2": -0.0087,
+      "A3": -0.0053
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t09_bulge_shape_a26_boxy": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 3.51,
+      "A1": 2.64,
+      "O2": 2.87,
+      "A2": 5.5,
+      "A3": 2.08
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0373,
+      "A1": 0.0291,
+      "O2": 0.0317,
+      "A2": 0.0597,
+      "A3": 0.023
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a31_1": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 5.14,
+      "A1": 2.49,
+      "O2": 4.21,
+      "A2": 4.82,
+      "A3": 2.42
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.053,
+      "A1": 0.0269,
+      "O2": 0.0434,
+      "A2": 0.0515,
+      "A3": 0.0265
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a37_cant_tell": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 6.14,
+      "A1": 4.71,
+      "O2": 5.29,
+      "A2": 8.86,
+      "A3": 4.51
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0325,
+      "A1": 0.0241,
+      "O2": 0.0282,
+      "A2": 0.0453,
+      "A3": 0.023
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t10_arms_winding_a28_tight": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 6.26,
+      "A1": 5.28,
+      "O2": 6.23,
+      "A2": 10.54,
+      "A3": 4.66
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0332,
+      "A1": 0.0254,
+      "O2": 0.0338,
+      "A2": 0.0507,
+      "A3": 0.0228
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    }
+   },
+   "absent_everywhere": [
+    "t10_arms_winding_a29_medium"
+   ],
+   "run_means_auc_nonvoid": {
+    "M": 0.7059,
+    "A1": 0.6872,
+    "O2": 0.7019,
+    "A2": 0.7236,
+    "A3": 0.6901
+   },
+   "drift": {
+    "z_mean_recorded": -5.699323442269729,
+    "z_mean_recomputed": -5.699,
+    "auc_mean": -0.0404,
+    "auc_se": 0.0058,
+    "median_z_denominator_auc": 0.0061,
+    "label": "one draw of the run-level noise; not an estimate of its size"
+   },
+   "a_bound": {
+    "ratio_recorded": 5.763064779438125,
+    "sigma_c_z": 2.208,
+    "omega_up_z": 12.724,
+    "omega_up_auc_at_median_denominator": 0.0776
+   },
+   "cells": {
+    "t01_smooth_or_features_a01_smooth": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 17.03,
+      "A1": 15.55,
+      "O2": 15.55,
+      "A2": 19.52,
+      "A3": 16.01
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0841,
+      "A1": 0.0777,
+      "O2": 0.0772,
+      "A2": 0.0962,
+      "A3": 0.0802
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t01_smooth_or_features_a02_features_or_disk": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 17.69,
+      "A1": 16.77,
+      "O2": 16.12,
+      "A2": 20.88,
+      "A3": 17.02
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0827,
+      "A1": 0.0782,
+      "O2": 0.0758,
+      "A2": 0.0958,
+      "A3": 0.0796
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t01_smooth_or_features_a03_star_or_artifact": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -1.7,
+      "A1": -3.74,
+      "O2": -1.54,
+      "A2": -0.65,
+      "A3": -2.09
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.1149,
+      "A1": -0.2888,
+      "O2": -0.0962,
+      "A2": -0.0434,
+      "A3": -0.156
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t02_edgeon_a04_yes": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 20.67,
+      "A1": 16.23,
+      "O2": 21.14,
+      "A2": 27.01,
+      "A3": 17.89
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1482,
+      "A1": 0.1198,
+      "O2": 0.1522,
+      "A2": 0.1926,
+      "A3": 0.1311
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t02_edgeon_a05_no": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 21.3,
+      "A1": 17.44,
+      "O2": 21.91,
+      "A2": 28.13,
+      "A3": 18.19
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1608,
+      "A1": 0.1343,
+      "O2": 0.1661,
+      "A2": 0.209,
+      "A3": 0.1404
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t03_bar_a06_bar": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 12.42,
+      "A1": 11.75,
+      "O2": 11.81,
+      "A2": 15.47,
+      "A3": 10.4
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0699,
+      "A1": 0.0698,
+      "O2": 0.0662,
+      "A2": 0.0913,
+      "A3": 0.062
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t03_bar_a07_no_bar": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 13.49,
+      "A1": 12.74,
+      "O2": 11.42,
+      "A2": 17.28,
+      "A3": 12.22
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0818,
+      "A1": 0.0773,
+      "O2": 0.0705,
+      "A2": 0.1024,
+      "A3": 0.0741
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t04_spiral_a08_spiral": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 16.13,
+      "A1": 16.06,
+      "O2": 14.15,
+      "A2": 19.59,
+      "A3": 16.81
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0729,
+      "A1": 0.0691,
+      "O2": 0.0643,
+      "A2": 0.0835,
+      "A3": 0.072
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t04_spiral_a09_no_spiral": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 17.32,
+      "A1": 16.52,
+      "O2": 15.25,
+      "A2": 20.44,
+      "A3": 17.18
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.078,
+      "A1": 0.0733,
+      "O2": 0.0696,
+      "A2": 0.0895,
+      "A3": 0.076
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t05_bulge_prominence_a10_no_bulge": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 12.93,
+      "A1": 10.2,
+      "O2": 11.77,
+      "A2": 15.79,
+      "A3": 9.25
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0778,
+      "A1": 0.0654,
+      "O2": 0.072,
+      "A2": 0.098,
+      "A3": 0.0593
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t05_bulge_prominence_a11_just_noticeable": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 11.57,
+      "A1": 8.89,
+      "O2": 11.24,
+      "A2": 12.0,
+      "A3": 8.86
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0507,
+      "A1": 0.0386,
+      "O2": 0.0488,
+      "A2": 0.0524,
+      "A3": 0.0385
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t05_bulge_prominence_a12_obvious": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 14.02,
+      "A1": 11.34,
+      "O2": 13.43,
+      "A2": 14.8,
+      "A3": 11.7
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0591,
+      "A1": 0.0511,
+      "O2": 0.0567,
+      "A2": 0.0662,
+      "A3": 0.053
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t05_bulge_prominence_a13_dominant": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 11.83,
+      "A1": 8.82,
+      "O2": 10.21,
+      "A2": 11.63,
+      "A3": 8.29
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0762,
+      "A1": 0.0696,
+      "O2": 0.0668,
+      "A2": 0.0903,
+      "A3": 0.0662
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t06_odd_a14_yes": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 11.26,
+      "A1": 8.95,
+      "O2": 9.1,
+      "A2": 15.93,
+      "A3": 9.08
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0686,
+      "A1": 0.0546,
+      "O2": 0.056,
+      "A2": 0.0949,
+      "A3": 0.0555
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t06_odd_a15_no": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 10.21,
+      "A1": 8.93,
+      "O2": 8.15,
+      "A2": 15.96,
+      "A3": 9.26
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0675,
+      "A1": 0.0552,
+      "O2": 0.0543,
+      "A2": 0.0962,
+      "A3": 0.0571
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t07_rounded_a16_completely_round": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 25.59,
+      "A1": 20.08,
+      "O2": 25.12,
+      "A2": 39.66,
+      "A3": 22.6
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1081,
+      "A1": 0.0897,
+      "O2": 0.1063,
+      "A2": 0.1643,
+      "A3": 0.0998
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t07_rounded_a17_in_between": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 11.68,
+      "A1": 9.72,
+      "O2": 13.58,
+      "A2": 25.12,
+      "A3": 11.05
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0477,
+      "A1": 0.0414,
+      "O2": 0.0552,
+      "A2": 0.1053,
+      "A3": 0.0477
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t07_rounded_a18_cigar_shaped": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 24.9,
+      "A1": 20.41,
+      "O2": 25.89,
+      "A2": 33.4,
+      "A3": 22.45
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.169,
+      "A1": 0.1418,
+      "O2": 0.1755,
+      "A2": 0.2214,
+      "A3": 0.155
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a19_ring": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 16.26,
+      "A1": 15.85,
+      "O2": 14.27,
+      "A2": 20.01,
+      "A3": 14.94
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0919,
+      "A1": 0.0853,
+      "O2": 0.081,
+      "A2": 0.1046,
+      "A3": 0.0807
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a20_lens_or_arc": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 6.57,
+      "A1": 6.39,
+      "O2": 6.66,
+      "A2": 8.25,
+      "A3": 5.91
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0508,
+      "A1": 0.0521,
+      "O2": 0.0516,
+      "A2": 0.0672,
+      "A3": 0.0486
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a21_disturbed": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 8.32,
+      "A1": 7.21,
+      "O2": 6.94,
+      "A2": 10.43,
+      "A3": 6.74
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0432,
+      "A1": 0.0359,
+      "O2": 0.0361,
+      "A2": 0.0511,
+      "A3": 0.0336
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a22_irregular": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 7.04,
+      "A1": 6.74,
+      "O2": 6.77,
+      "A2": 9.53,
+      "A3": 5.4
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0342,
+      "A1": 0.0351,
+      "O2": 0.0332,
+      "A2": 0.0492,
+      "A3": 0.0284
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a23_other": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 10.16,
+      "A1": 11.28,
+      "O2": 10.01,
+      "A2": 12.29,
+      "A3": 11.07
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0457,
+      "A1": 0.0472,
+      "O2": 0.0452,
+      "A2": 0.0515,
+      "A3": 0.0462
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a24_merger": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 7.11,
+      "A1": 5.2,
+      "O2": 6.56,
+      "A2": 8.5,
+      "A3": 6.56
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0562,
+      "A1": 0.0391,
+      "O2": 0.0518,
+      "A2": 0.0635,
+      "A3": 0.0496
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a38_dust_lane": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": 4.05,
+      "A1": 3.83,
+      "O2": 4.04,
+      "A2": 5.18,
+      "A3": 2.96
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0763,
+      "A1": 0.0672,
+      "O2": 0.0767,
+      "A2": 0.0923,
+      "A3": 0.0527
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t09_bulge_shape_a25_rounded": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 7.67,
+      "A1": 7.08,
+      "O2": 6.5,
+      "A2": 11.34,
+      "A3": 6.85
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0482,
+      "A1": 0.0441,
+      "O2": 0.0408,
+      "A2": 0.0704,
+      "A3": 0.0422
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t09_bulge_shape_a26_boxy": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 3.51,
+      "A1": 2.64,
+      "O2": 2.87,
+      "A2": 5.5,
+      "A3": 2.08
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0373,
+      "A1": 0.0291,
+      "O2": 0.0317,
+      "A2": 0.0597,
+      "A3": 0.023
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t09_bulge_shape_a27_no_bulge": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 7.1,
+      "A1": 7.24,
+      "O2": 6.18,
+      "A2": 11.37,
+      "A3": 7.23
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0511,
+      "A1": 0.0487,
+      "O2": 0.0447,
+      "A2": 0.0757,
+      "A3": 0.0485
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t10_arms_winding_a28_tight": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 6.26,
+      "A1": 5.28,
+      "O2": 6.23,
+      "A2": 10.54,
+      "A3": 4.66
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0332,
+      "A1": 0.0254,
+      "O2": 0.0338,
+      "A2": 0.0507,
+      "A3": 0.0228
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t10_arms_winding_a29_medium": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": -1.75,
+      "A1": -0.41,
+      "O2": -1.2,
+      "A2": -1.59,
+      "A3": -0.97
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0099,
+      "A1": -0.0022,
+      "O2": -0.0067,
+      "A2": -0.0087,
+      "A3": -0.0053
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t10_arms_winding_a30_loose": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 10.53,
+      "A1": 7.14,
+      "O2": 11.47,
+      "A2": 15.61,
+      "A3": 8.01
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0688,
+      "A1": 0.0482,
+      "O2": 0.0749,
+      "A2": 0.1021,
+      "A3": 0.0531
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a31_1": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 5.14,
+      "A1": 2.49,
+      "O2": 4.21,
+      "A2": 4.82,
+      "A3": 2.42
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.053,
+      "A1": 0.0269,
+      "O2": 0.0434,
+      "A2": 0.0515,
+      "A3": 0.0265
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a32_2": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 10.48,
+      "A1": 8.89,
+      "O2": 8.78,
+      "A2": 15.51,
+      "A3": 7.5
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0556,
+      "A1": 0.0481,
+      "O2": 0.0468,
+      "A2": 0.0821,
+      "A3": 0.0405
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a33_3": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -0.46,
+      "A1": -2.7,
+      "O2": 0.27,
+      "A2": 0.06,
+      "A3": -1.48
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0083,
+      "A1": -0.0518,
+      "O2": 0.0049,
+      "A2": 0.0011,
+      "A3": -0.0278
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": true,
+      "A2": true,
+      "A3": false
+     }
+    },
+    "t11_arms_number_a34_4": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -1.01,
+      "A1": -0.95,
+      "O2": -2.0,
+      "A2": 0.64,
+      "A3": -2.19
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0315,
+      "A1": -0.0279,
+      "O2": -0.0591,
+      "A2": 0.0191,
+      "A3": -0.0676
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": true,
+      "A3": false
+     }
+    },
+    "t11_arms_number_a36_more_than_4": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": 4.86,
+      "A1": 2.86,
+      "O2": 4.24,
+      "A2": 6.03,
+      "A3": 2.53
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0847,
+      "A1": 0.0492,
+      "O2": 0.0758,
+      "A2": 0.0977,
+      "A3": 0.0435
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a37_cant_tell": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 6.14,
+      "A1": 4.71,
+      "O2": 5.29,
+      "A2": 8.86,
+      "A3": 4.51
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0325,
+      "A1": 0.0241,
+      "O2": 0.0282,
+      "A2": 0.0453,
+      "A3": 0.023
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    }
+   }
+  },
+  "conditional": {
+   "critical_z": {
+    "M": 2.492,
+    "A1": 2.523,
+    "O2": 2.523,
+    "A2": 2.492,
+    "A3": 2.523
+   },
+   "n_scoreable": 27,
+   "min_distance_over_runs": {
+    "z": {
+     "min": -12.66,
+     "median": 8.66,
+     "n_below_2": 5,
+     "n_below_1": 5,
+     "n_negative": 2
+    },
+    "auc": {
+     "min": -0.115,
+     "median": 0.0767
+    }
+   },
+   "nearest_five": {
+    "t04_spiral_a09_no_spiral": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": -9.17,
+      "A1": -11.1,
+      "O2": -11.32,
+      "A2": -7.74,
+      "A3": -12.66
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0811,
+      "A1": -0.0984,
+      "O2": -0.1034,
+      "A2": -0.0674,
+      "A3": -0.115
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t04_spiral_a08_spiral": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": -5.88,
+      "A1": -7.93,
+      "O2": -8.29,
+      "A2": -4.44,
+      "A3": -9.81
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0528,
+      "A1": -0.0732,
+      "O2": -0.0766,
+      "A2": -0.0392,
+      "A3": -0.0912
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t11_arms_number_a37_cant_tell": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 4.69,
+      "A1": 0.26,
+      "O2": 1.95,
+      "A2": 6.0,
+      "A3": 0.37
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0442,
+      "A1": 0.0025,
+      "O2": 0.019,
+      "A2": 0.0572,
+      "A3": 0.0036
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t03_bar_a07_no_bar": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 2.47,
+      "A1": 2.34,
+      "O2": 3.22,
+      "A2": 5.12,
+      "A3": 0.61
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0199,
+      "A1": 0.019,
+      "O2": 0.0261,
+      "A2": 0.0412,
+      "A3": 0.005
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t10_arms_winding_a29_medium": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 1.5,
+      "A1": 1.73,
+      "O2": 0.71,
+      "A2": 1.11,
+      "A3": 1.32
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0123,
+      "A1": 0.0139,
+      "O2": 0.006,
+      "A2": 0.0091,
+      "A3": 0.0112
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    }
+   },
+   "absent_everywhere": [
+    "t04_spiral_a08_spiral",
+    "t04_spiral_a09_no_spiral"
+   ],
+   "run_means_auc_nonvoid": {
+    "M": 0.7302,
+    "A1": 0.7049,
+    "O2": 0.7197,
+    "A2": 0.7457,
+    "A3": 0.7121
+   },
+   "drift": {
+    "z_mean_recorded": -5.682434063669946,
+    "z_mean_recomputed": -5.682,
+    "auc_mean": -0.0514,
+    "auc_se": 0.0104,
+    "median_z_denominator_auc": 0.00913,
+    "label": "one draw of the run-level noise; not an estimate of its size"
+   },
+   "a_bound": {
+    "ratio_recorded": 4.4273976184584525,
+    "sigma_c_z": 2.804,
+    "omega_up_z": 12.417,
+    "omega_up_auc_at_median_denominator": 0.1134
+   },
+   "cells": {
+    "t01_smooth_or_features_a01_smooth": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 16.97,
+      "A1": 15.47,
+      "O2": 15.45,
+      "A2": 19.44,
+      "A3": 15.93
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0838,
+      "A1": 0.0773,
+      "O2": 0.0767,
+      "A2": 0.0957,
+      "A3": 0.0798
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t01_smooth_or_features_a02_features_or_disk": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 17.64,
+      "A1": 16.68,
+      "O2": 16.02,
+      "A2": 20.8,
+      "A3": 16.93
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0825,
+      "A1": 0.0778,
+      "O2": 0.0754,
+      "A2": 0.0955,
+      "A3": 0.0792
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t01_smooth_or_features_a03_star_or_artifact": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -1.75,
+      "A1": -3.82,
+      "O2": -1.64,
+      "A2": -0.73,
+      "A3": -2.17
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.1187,
+      "A1": -0.2956,
+      "O2": -0.1025,
+      "A2": -0.0489,
+      "A3": -0.1625
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t02_edgeon_a04_yes": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 30.21,
+      "A1": 26.88,
+      "O2": 29.25,
+      "A2": 34.61,
+      "A3": 26.89
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.2386,
+      "A1": 0.2213,
+      "O2": 0.2337,
+      "A2": 0.2676,
+      "A3": 0.2222
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t02_edgeon_a05_no": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 28.02,
+      "A1": 25.14,
+      "O2": 27.02,
+      "A2": 32.59,
+      "A3": 24.94
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.2304,
+      "A1": 0.2133,
+      "O2": 0.225,
+      "A2": 0.2597,
+      "A3": 0.213
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t03_bar_a06_bar": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 6.95,
+      "A1": 6.39,
+      "O2": 7.24,
+      "A2": 9.18,
+      "A3": 4.65
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0539,
+      "A1": 0.0522,
+      "O2": 0.0571,
+      "A2": 0.0735,
+      "A3": 0.0383
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t03_bar_a07_no_bar": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 2.47,
+      "A1": 2.34,
+      "O2": 3.22,
+      "A2": 5.12,
+      "A3": 0.61
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0199,
+      "A1": 0.019,
+      "O2": 0.0261,
+      "A2": 0.0412,
+      "A3": 0.005
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t04_spiral_a08_spiral": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": -5.88,
+      "A1": -7.93,
+      "O2": -8.29,
+      "A2": -4.44,
+      "A3": -9.81
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0528,
+      "A1": -0.0732,
+      "O2": -0.0766,
+      "A2": -0.0392,
+      "A3": -0.0912
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t04_spiral_a09_no_spiral": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": -9.17,
+      "A1": -11.1,
+      "O2": -11.32,
+      "A2": -7.74,
+      "A3": -12.66
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0811,
+      "A1": -0.0984,
+      "O2": -0.1034,
+      "A2": -0.0674,
+      "A3": -0.115
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t05_bulge_prominence_a10_no_bulge": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 12.94,
+      "A1": 8.49,
+      "O2": 11.0,
+      "A2": 12.15,
+      "A3": 6.73
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1201,
+      "A1": 0.09,
+      "O2": 0.1022,
+      "A2": 0.1185,
+      "A3": 0.0752
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t05_bulge_prominence_a11_just_noticeable": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 15.25,
+      "A1": 8.66,
+      "O2": 13.72,
+      "A2": 15.17,
+      "A3": 8.72
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0971,
+      "A1": 0.0588,
+      "O2": 0.0898,
+      "A2": 0.0966,
+      "A3": 0.0585
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t05_bulge_prominence_a12_obvious": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 14.87,
+      "A1": 9.19,
+      "O2": 14.32,
+      "A2": 16.23,
+      "A3": 8.42
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0905,
+      "A1": 0.0617,
+      "O2": 0.0854,
+      "A2": 0.0992,
+      "A3": 0.0571
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t05_bulge_prominence_a13_dominant": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -1.34,
+      "A1": -3.43,
+      "O2": -3.96,
+      "A2": -2.48,
+      "A3": -4.35
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0704,
+      "A1": -0.274,
+      "O2": -0.2867,
+      "A2": -0.213,
+      "A3": -0.337
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t06_odd_a14_yes": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 11.2,
+      "A1": 8.86,
+      "O2": 9.0,
+      "A2": 15.85,
+      "A3": 8.99
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0683,
+      "A1": 0.054,
+      "O2": 0.0553,
+      "A2": 0.0944,
+      "A3": 0.055
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t06_odd_a15_no": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 10.16,
+      "A1": 8.84,
+      "O2": 8.05,
+      "A2": 15.88,
+      "A3": 9.17
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0671,
+      "A1": 0.0546,
+      "O2": 0.0537,
+      "A2": 0.0957,
+      "A3": 0.0566
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t07_rounded_a16_completely_round": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 26.03,
+      "A1": 21.88,
+      "O2": 25.23,
+      "A2": 41.32,
+      "A3": 23.38
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1152,
+      "A1": 0.1019,
+      "O2": 0.1127,
+      "A2": 0.1774,
+      "A3": 0.1094
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t07_rounded_a17_in_between": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 8.47,
+      "A1": 7.67,
+      "O2": 9.83,
+      "A2": 25.01,
+      "A3": 8.94
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0379,
+      "A1": 0.0353,
+      "O2": 0.044,
+      "A2": 0.1128,
+      "A3": 0.0411
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t07_rounded_a18_cigar_shaped": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 25.08,
+      "A1": 21.25,
+      "O2": 26.26,
+      "A2": 35.28,
+      "A3": 22.7
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1757,
+      "A1": 0.1535,
+      "O2": 0.1826,
+      "A2": 0.2362,
+      "A3": 0.1623
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a19_ring": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 25.0,
+      "A1": 18.93,
+      "O2": 17.13,
+      "A2": 31.33,
+      "A3": 19.51
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.2289,
+      "A1": 0.1946,
+      "O2": 0.1853,
+      "A2": 0.2572,
+      "A3": 0.2035
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a20_lens_or_arc": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -4.43,
+      "A1": -3.85,
+      "O2": -3.75,
+      "A2": -3.51,
+      "A3": -2.93
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.5904,
+      "A1": -0.6272,
+      "O2": -0.437,
+      "A2": -0.5679,
+      "A3": -0.3832
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t08_odd_feature_a21_disturbed": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -1.27,
+      "A1": -0.26,
+      "O2": -0.98,
+      "A2": -1.51,
+      "A3": -0.97
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.1178,
+      "A1": -0.0203,
+      "O2": -0.0913,
+      "A2": -0.1299,
+      "A3": -0.0924
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t08_odd_feature_a22_irregular": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 21.0,
+      "A1": 19.61,
+      "O2": 21.88,
+      "A2": 21.91,
+      "A3": 18.0
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1697,
+      "A1": 0.1663,
+      "O2": 0.1693,
+      "A2": 0.1788,
+      "A3": 0.1559
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a23_other": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 7.46,
+      "A1": 6.11,
+      "O2": 6.41,
+      "A2": 6.82,
+      "A3": 6.18
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.096,
+      "A1": 0.0799,
+      "O2": 0.0836,
+      "A2": 0.0906,
+      "A3": 0.0824
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a24_merger": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 10.06,
+      "A1": 9.82,
+      "O2": 10.92,
+      "A2": 12.24,
+      "A3": 8.75
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1077,
+      "A1": 0.1041,
+      "O2": 0.1181,
+      "A2": 0.1285,
+      "A3": 0.0948
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t08_odd_feature_a38_dust_lane": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -0.91,
+      "A1": -1.75,
+      "O2": -2.18,
+      "A2": 0.87,
+      "A3": -2.49
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.0554,
+      "A1": -0.1263,
+      "O2": -0.1581,
+      "A2": 0.0467,
+      "A3": -0.1922
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": true,
+      "A3": false
+     }
+    },
+    "t09_bulge_shape_a25_rounded": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 10.74,
+      "A1": 7.95,
+      "O2": 9.74,
+      "A2": 13.9,
+      "A3": 10.11
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.14,
+      "A1": 0.113,
+      "O2": 0.1292,
+      "A2": 0.1723,
+      "A3": 0.1328
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t09_bulge_shape_a26_boxy": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": -2.91,
+      "A1": -2.7,
+      "O2": -3.55,
+      "A2": -2.09,
+      "A3": -0.77
+     },
+     "auc_minus_bar_at_crit": {
+      "M": -0.2521,
+      "A1": -0.2319,
+      "O2": -0.2839,
+      "A2": -0.1966,
+      "A3": -0.0699
+     },
+     "existence": {
+      "M": false,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t09_bulge_shape_a27_no_bulge": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 8.56,
+      "A1": 7.32,
+      "O2": 8.69,
+      "A2": 11.8,
+      "A3": 9.4
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1214,
+      "A1": 0.108,
+      "O2": 0.122,
+      "A2": 0.1543,
+      "A3": 0.1268
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t10_arms_winding_a28_tight": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 15.18,
+      "A1": 12.97,
+      "O2": 15.84,
+      "A2": 17.78,
+      "A3": 11.75
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1203,
+      "A1": 0.1007,
+      "O2": 0.126,
+      "A2": 0.1307,
+      "A3": 0.0929
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t10_arms_winding_a29_medium": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 1.5,
+      "A1": 1.73,
+      "O2": 0.71,
+      "A2": 1.11,
+      "A3": 1.32
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0123,
+      "A1": 0.0139,
+      "O2": 0.006,
+      "A2": 0.0091,
+      "A3": 0.0112
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t10_arms_winding_a30_loose": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 12.71,
+      "A1": 9.49,
+      "O2": 13.0,
+      "A2": 14.91,
+      "A3": 10.44
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1306,
+      "A1": 0.1042,
+      "O2": 0.1349,
+      "A2": 0.1564,
+      "A3": 0.1119
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a31_1": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": 2.52,
+      "A1": -0.04,
+      "O2": 1.89,
+      "A2": 1.25,
+      "A3": 0.36
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0516,
+      "A1": -0.0009,
+      "O2": 0.0403,
+      "A2": 0.0293,
+      "A3": 0.0085
+     },
+     "existence": {
+      "M": true,
+      "A1": false,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a32_2": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 21.82,
+      "A1": 17.65,
+      "O2": 20.46,
+      "A2": 21.35,
+      "A3": 17.27
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.1596,
+      "A1": 0.1313,
+      "O2": 0.1524,
+      "A2": 0.1572,
+      "A3": 0.1297
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a33_3": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": 0.77,
+      "A1": -1.99,
+      "O2": -0.05,
+      "A2": -0.57,
+      "A3": -1.05
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0173,
+      "A1": -0.0482,
+      "O2": -0.0012,
+      "A2": -0.0135,
+      "A3": -0.025
+     },
+     "existence": {
+      "M": true,
+      "A1": false,
+      "O2": false,
+      "A2": false,
+      "A3": false
+     }
+    },
+    "t11_arms_number_a34_4": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": 1.91,
+      "A1": 0.1,
+      "O2": -0.11,
+      "A2": 0.15,
+      "A3": -0.27
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0839,
+      "A1": 0.0052,
+      "O2": -0.0054,
+      "A2": 0.0081,
+      "A3": -0.0145
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": false,
+      "A2": true,
+      "A3": false
+     }
+    },
+    "t11_arms_number_a36_more_than_4": {
+     "state": "THIN",
+     "z_minus_crit": {
+      "M": 10.27,
+      "A1": 10.54,
+      "O2": 11.7,
+      "A2": 16.26,
+      "A3": 7.2
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.2584,
+      "A1": 0.2613,
+      "O2": 0.2741,
+      "A2": 0.3027,
+      "A3": 0.2156
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    },
+    "t11_arms_number_a37_cant_tell": {
+     "state": "AGREES",
+     "z_minus_crit": {
+      "M": 4.69,
+      "A1": 0.26,
+      "O2": 1.95,
+      "A2": 6.0,
+      "A3": 0.37
+     },
+     "auc_minus_bar_at_crit": {
+      "M": 0.0442,
+      "A1": 0.0025,
+      "O2": 0.019,
+      "A2": 0.0572,
+      "A3": 0.0036
+     },
+     "existence": {
+      "M": true,
+      "A1": true,
+      "O2": true,
+      "A2": true,
+      "A3": true
+     }
+    }
+   }
+  }
+ }
+}
