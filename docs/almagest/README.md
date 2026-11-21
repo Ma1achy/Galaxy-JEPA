@@ -10,6 +10,7 @@ finding depends on it.
 | All 37 answer axes | `artifacts/almagest_axes.py` | `a1_axes_report.md`, `a1_axes_table.md`, `a1_axes.json`, `a1_axes_sigma_w_cos.png`, `a1_axes_contact_sheet.jpg`; `runs/almagest/a1/plate_axes.bin` |
 | Diffusion feasibility pilot | `artifacts/almagest_diffusion.py` | `diffusion_pilot.md`, `diffusion_pilot_*.json`, reconstruction sheets; `runs/almagest/diffusion/` |
 | Diffusion checks: normalisation, native 128-px crop ceiling | `artifacts/almagest_diffusion_checks.py` | `diffusion_checks.md`, `diffusion_checks.json`, `diffusion_checks_padded_crops.png`; `runs/almagest/diffusion/checks/` |
+| Diffusion smoke: three input fixes at 64 px (stats only) | `artifacts/almagest_diffusion_smoke.py` | `diffusion_smoke.md`, `diffusion_smoke.json`; `runs/almagest/diffusion/smoke_{full,nosky}/` (checkpoints, ε-bias and clamp diagnostics) |
 | Visibility tests B0–B2 (exploratory; feeds the 8×8 pre-registration) | `artifacts/almagest_visibility.py` | `a1_visibility_report.md`, `a1_visibility_b1.{json,png}`, `a1_visibility_b2.json`, `a1_visibility_b2_examples.png`; `runs/almagest/a1/visibility/` (embeddings, post-hoc diagnostics) |
 
 ## Downsampling in the diffusion pilot is display-only

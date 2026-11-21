@@ -970,6 +970,13 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 ## Epic R — Rung controls / ablations `[control]`
 - [ ] (P1) **Masking β-sweep** {0, 0.5, 1.0} — β=0 is the control. Downstream of the headline run.
 - [ ] (P1) **8×8-patch (higher-res) ablation** — Rung-4 control (under-resolved vs absent). *(D11)*
+  **Plan changed 21 Nov:** patch 16 → 8 → 4 on full 256-px stamps (no crops for encoders), JEPA + D12
+  baselines, 2 seeds each, rented GPU. Costed in `docs/patch_ablation_cost.md` (supersedes `patch8_cost.md`).
+  **Decided 21 Nov:** one H100 80 GB rental, full grid + patch-16 bf16 GPU control for all three
+  objectives + the 128-px renderer if the smoke passes; a 200-step timed smoke per arm first. MoCo
+  windows scale with pixels (20–28 tokens at 8×8, 40–56 at 4×4); MAE masks in 16-px groups with the
+  normalised target over the 16-px group (only the encoder token changes); JEPA unchanged. R2 shipping
+  layer designed, not built: wait for the upload-speed decision. Nothing booked.
   **Pre-registration, held fixed:** JEPA target masking samples inside a 2.5 × R_petro box
   (`objectives/jepa.py` via `data/bbox.py`), so galaxy size shapes training even though stamps are
   a fixed 256 px at native 0.396″/px. Hold k = 2.5 fixed across the 16×16 and 8×8 arms and name it.
