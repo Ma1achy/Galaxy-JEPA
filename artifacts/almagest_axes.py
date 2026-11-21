@@ -510,7 +510,8 @@ def write_plate(order, recs, arrs, PE) -> None:
                        "retention": recs[f]["plate"]["retention"]} for f in order]
     h2["axes_all_note"] = ("one cleaned axis per answer (docs/almagest/a1_axes_report.md). Labels are descriptive: NOISE "
                            "(the probe direction does not repeat across train halves above shuffled labels), PROXY of X "
-                           "(its pattern Σw lies within |cos| ≥ 0.8 of a STRONG answer's in another question), WEAK "
+                           "(X's cleaned score, a STRONG answer in another question, recovers ≥ 0.9 of this answer's AUC − 0.5 on its "
+                           "galaxies; mutual: the decision-path ancestor stays STRONG), WEAK "
                            "(stable but no better than an untrained encoder), STRONG. s, |r|, γ and tangents are missing "
                            "for THIN answers (too few galaxies for 10 bins of 100): read them along d only. The old QR "
                            "coordinates and probe_basis are untouched; header.spiral and spiral_* are the spiral-only "
@@ -598,14 +599,256 @@ def step_sheet() -> None:
                 lo, hi = np.percentile(rgb, [1, 99.7])
                 a = (np.clip((rgb - lo) / (hi - lo + 1e-6), 0, 1)[64:192, 64:192] * 255).astype(np.uint8)
                 sheet.paste(Image.fromarray(a).resize((T, T), Image.LANCZOS), (x0 + c * T, y0 + HEAD + k * T))
-    out = DOCS / "a1_axes_contact_sheet.jpg"
-    sheet.convert("RGB").save(out, quality=90, optimize=True)
-    print(f"→ {out} {out.stat().st_size / 1e6:.1f} MB", file=sys.stderr)
+    out = DOCS / "a1_axes_contact_sheet.png"  # the record (lossless)
+    sheet.save(out, optimize=True)
+    view = DOCS / "a1_axes_contact_sheet.jpg"  # viewing copy
+    sheet.convert("RGB").save(view, quality=90, optimize=True)
+    print(f"→ {out} {out.stat().st_size / 1e6:.1f} MB; {view} {view.stat().st_size / 1e6:.1f} MB", file=sys.stderr)
+
+
+# --- relabel (21 Nov): transfer-based PROXY and score-correlation planes; replaces the Σw-cosine rules -----------
+TRANSFER_RATIO = 0.9
+PLANE_MARGIN = 0.1
+
+
+def is_ancestor(sch, x: str, y: str) -> bool:
+    """X's question gates Y's on the GZ2 decision path (the scheme's own `conditions`)."""
+    return sch.by_name[x].question in {q for q, _ in sch.by_name[y].conditions}
+
+
+def step_relabel() -> None:
+    """Relabel without refitting the axes. NOISE / WEAK / STRONG (base labels) are unchanged. PROXY of X: X's cleaned
+    score d_X, on Y's eligible test galaxies and sign-aligned, recovers ≥ TRANSFER_RATIO of Y's own AUC − 0.5, X base
+    STRONG, different question. If both directions qualify the ancestor on the decision path stays STRONG (neither an
+    ancestor: the higher AUC). Residual: Y refitted after projecting X's filter w out. Planes: corr(d_X, d_Y) over
+    galaxies eligible for both, against 5 paired shuffled-label probes (max |r|)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from scipy.cluster.hierarchy import leaves_list, linkage
+    from scipy.spatial.distance import squareform
+    import re
+    import plate_export as PE
+    order, recs = load_recs()
+    assert len(order) == 37
+    arrs = {f: np.load(AX / f"{f}.npz") for f in order}
+    d = Data(untrained=False)
+    sch = d.lab.scheme
+    Xc = d.clean["A1"]
+    Q = {f: recs[f]["question"] for f in order}
+    for f in order:  # keep the Σw-rule labels beside the new ones (idempotent on re-runs)
+        r = recs[f]
+        if "label_sigma_w" not in r:
+            r["label_sigma_w"], r["proxy_sigma_w"] = r["label"], r["proxy"]
+    score = {f: np.where(d.ok, np.nan_to_num(Xc) @ arrs[f]["we"] + float(arrs[f]["be"]), np.nan) for f in order}
+    te = {f: d.rows(f)[1] for f in order}
+    yte = {f: d.yv(f, te[f])[0] for f in order}
+    auc_own = {f: S.auc(yte[f], score[f][te[f]]) for f in order}
+    for f in order:
+        assert abs(auc_own[f] - recs[f]["auc_cleaned"]) < 1e-6, (f, auc_own[f], recs[f]["auc_cleaned"])
+    # transfer: T[x][y] = (AUC of d_x on y's labels, sign-aligned − 0.5) / (AUC_y − 0.5)
+    T, TA, TS = {}, {}, {}
+    for x in order:
+        for y in order:
+            if Q[x] == Q[y]:
+                continue
+            a = S.auc(yte[y], score[x][te[y]])
+            TA[x, y], TS[x, y] = max(a, 1 - a), (1 if a >= 0.5 else -1)
+            T[x, y] = (TA[x, y] - 0.5) / (auc_own[y] - 0.5)
+    base = {f: recs[f]["base_label"] for f in order}
+    edges = {(x, y) for (x, y), t in T.items() if t >= TRANSFER_RATIO and base[x] == "STRONG" and base[y] != "NOISE"}
+    mutual = []
+    for x, y in sorted(edges):
+        if (y, x) in edges and x < y:
+            if is_ancestor(sch, x, y):
+                keep, how = x, "ancestor"
+            elif is_ancestor(sch, y, x):
+                keep, how = y, "ancestor"
+            else:
+                keep, how = (x, "higher AUC") if auc_own[x] >= auc_own[y] else (y, "higher AUC")
+            mutual.append({"a": x, "b": y, "kept_strong": keep, "by": how,
+                           "ratio_a_to_b": T[x, y], "ratio_b_to_a": T[y, x]})
+    # edge (x, y) reads "y is a proxy of x"; for a mutual pair the kept answer k is not a proxy of the other o
+    dropped = {(o, k) for m in mutual for k, o in [(m["kept_strong"], m["b"] if m["kept_strong"] == m["a"] else m["a"])]}
+    edges -= dropped
+    for f in order:
+        r = recs[f]
+        r["label"] = base[f]
+        cand = sorted(((T[x, f], x) for x, y in edges if y == f), reverse=True)
+        tops = sorted(((T[x, f], x) for x in order if Q[x] != Q[f]), reverse=True)[:3]
+        r["proxy"] = {"rule": f"transfer ratio ≥ {TRANSFER_RATIO}, X STRONG, other question; mutual → ancestor, else higher AUC",
+                      "auc_own": auc_own[f],
+                      "top_transfers": [{"from": x, "ratio": t, "auc": TA[x, f], "sign": TS[x, f]} for t, x in tops]}
+        if cand:
+            t, x = cand[0]
+            r["label"] = f"PROXY of {x}"
+            r["proxy"].update({"of": x, "ratio": t, "transfer_auc": TA[x, f], "sign": TS[x, f],
+                               "reverse_ratio": T[f, x], "all_qualifying": [{"from": xx, "ratio": tt} for tt, xx in cand]})
+    print("labels:", {k: sum(recs[f]["label"].split(" of")[0] == k for f in order) for k in ("STRONG", "PROXY", "WEAK", "NOISE")},
+          file=sys.stderr, flush=True)
+    # residual: Y refitted after projecting X's filter direction out of the cleaned embeddings
+    for f in [f for f in order if "of" in recs[f]["proxy"]]:
+        u = unit(arrs[recs[f]["proxy"]["of"]]["we"])
+        tr, tt = d.rows(f)
+        y_tr, _ = d.yv(f, tr); y_tt, _ = d.yv(f, tt)
+        Xtr = Xc[tr] - np.outer(Xc[tr] @ u, u); Xte = Xc[tt] - np.outer(Xc[tt] @ u, u)
+        Pp = Probe(Xtr, y_tr, d.c)
+        sh = split_half(Xtr, y_tr, d.c, np.random.default_rng(SEED + recs[f]["j"]))
+        recs[f]["proxy"]["residual"] = {"projected_out": "X's unit filter w (cleaned embedding units)",
+                                        "auc": S.auc(y_tt, Pp.d(Xte)), "split_half_cos_w": sh.get("cos_w"),
+                                        "shuffled_max_cos_w": sh.get("shuffled_max_cos_w"), "stable": sh.get("stable")}
+        print(f"  residual {f}: {recs[f]['proxy']['residual']['auc']:.3f}", file=sys.stderr, flush=True)
+    # shuffled-label probes: N_SHUFFLE per answer on its full train rows; their scores over the union
+    SH = AX / "_shuffled"
+    SH.mkdir(exist_ok=True)
+    shs = {}
+    for f in order:
+        p = SH / f"{f}.npz"
+        if not p.exists():
+            tr, _ = d.rows(f)
+            y_tr, _ = d.yv(f, tr)
+            rng = np.random.default_rng(SEED + 1000 + recs[f]["j"])
+            W, B = [], []
+            for _ in range(N_SHUFFLE):
+                Pk = Probe(Xc[tr], rng.permutation(y_tr), d.c)
+                W.append(Pk.we); B.append(Pk.be)
+            np.savez(p, we=np.array(W), be=np.array(B))
+            print(f"  shuffled {f}", file=sys.stderr, flush=True)
+        z = np.load(p)
+        shs[f] = np.where(d.ok[None], z["we"] @ np.nan_to_num(Xc).T + z["be"][:, None], np.nan)
+    # score correlation over galaxies eligible (test) for both; null = max_k |r| over paired shuffles k
+    n = len(order)
+    Rm, Nm, Nn = np.eye(n), np.zeros((n, n)), np.zeros((n, n), int)
+    tes = {f: set(te[f].tolist()) for f in order}
+    for i in range(n):
+        for k in range(i + 1, n):
+            both = np.array(sorted(tes[order[i]] & tes[order[k]]))
+            Nn[i, k] = Nn[k, i] = len(both)
+            if len(both) < 100:
+                Rm[i, k] = Rm[k, i] = Nm[i, k] = Nm[k, i] = np.nan
+                continue
+            Rm[i, k] = Rm[k, i] = np.corrcoef(score[order[i]][both], score[order[k]][both])[0, 1]
+            Nm[i, k] = Nm[k, i] = max(abs(np.corrcoef(shs[order[i]][s, both], shs[order[k]][s, both])[0, 1])
+                                      for s in range(N_SHUFFLE))
+    lab = {f: recs[f]["label"] for f in order}
+    strong = [i for i, f in enumerate(order) if lab[f] == "STRONG"]
+    planes = sorted([(abs(Rm[a, b]), order[a], order[b], float(Rm[a, b]), float(Nm[a, b]), int(Nn[a, b]), Q[order[a]] == Q[order[b]])
+                     for x, a in enumerate(strong) for b in strong[x + 1:]
+                     if np.isfinite(Rm[a, b]) and abs(Rm[a, b]) < Nm[a, b] + PLANE_MARGIN])
+    # figure: score correlation (clustered on 1 − |r|) beside Σw cosine, both in the score-correlation order
+    Dm = 1 - np.abs(np.nan_to_num(Rm)); np.fill_diagonal(Dm, 0)
+    leaf = leaves_list(linkage(squareform(Dm, checks=False), "average"))
+    C = np.array([unit(arrs[f]["sigma_e"]) for f in order]); C = C @ C.T
+    short = [re.sub(r"^(t\d+)_.*?_a\d+_(.+)$", r"\1:\2", f) for f in order]
+    lab1 = {"STRONG": "S", "WEAK": "W", "NOISE": "N"}
+    names = [f"{short[i]} [{lab1.get(lab[order[i]], 'P')}]" for i in leaf]
+    fig, axs = plt.subplots(1, 2, figsize=(24, 11.5))
+    for ax, M, ttl in ((axs[0], Rm, "corr(d_a, d_b), cleaned probe scores, test galaxies eligible for both"),
+                       (axs[1], C, "cos(Σw_a, Σw_b), cleaned embedding units (the earlier criterion)")):
+        Ms = M[np.ix_(leaf, leaf)]
+        im = ax.imshow(Ms, cmap="RdBu_r", vmin=-1, vmax=1)
+        ax.set_xticks(range(n)); ax.set_xticklabels(names, rotation=90, fontsize=7)
+        ax.set_yticks(range(n)); ax.set_yticklabels(names, fontsize=7)
+        for a_ in range(n):
+            for b_ in range(n):
+                v = Ms[a_, b_]
+                if np.isfinite(v):
+                    ax.text(b_, a_, f"{v:.1f}".replace("0.", ".").replace("-.", "−."), ha="center", va="center",
+                            fontsize=4.2, color="white" if abs(v) > 0.6 else "#333")
+        ax.set_title(ttl, fontsize=9)
+        fig.colorbar(im, ax=ax, shrink=0.6)
+    fig.suptitle("A1, all 37 answers, both panels in the score-correlation cluster order (1 − |r|, average linkage); "
+                 "[S]TRONG [W]EAK [N]OISE [P]ROXY (transfer rule)", fontsize=10)
+    fig.tight_layout(); fig.savefig(DOCS / "a1_axes_score_corr.png", dpi=130); plt.close(fig)
+    # bend: answers where A1 bends more than every untrained seed
+    over = []
+    for f in order:
+        r = recs[f]
+        b, ub = r.get("bend"), r.get("untrained_bend_range")
+        if b and ub and b["bend_1_minus_chord_over_arc"] > ub["bend_1_minus_chord_over_arc"][1]:
+            over.append({"answer": f, "label": r["label"], "bend_A1": b["bend_1_minus_chord_over_arc"],
+                         "bend_untrained": ub["bend_1_minus_chord_over_arc"],
+                         "max_off_chord_A1": b["chord_dev_max"], "max_off_chord_untrained": ub["chord_dev_max"],
+                         "bend_uncleaned": r["bend_uncleaned"]["bend_1_minus_chord_over_arc"],
+                         "tail_flag": r.get("poorly_voted_tail", {}).get("flag")})
+    out = json.loads((DOCS / "a1_axes.json").read_text())
+    out["labels"] = lab
+    out["labels_sigma_w"] = {f: recs[f]["label_sigma_w"] for f in order}
+    out["transfer"] = {"ratio": {x: {y: T[x, y] for y in order if (x, y) in T} for x in order},
+                       "auc_sign_aligned": {x: {y: TA[x, y] for y in order if (x, y) in TA} for x in order},
+                       "mutual": mutual}
+    out["score_corr"] = {"r": np.round(Rm, 4).tolist(), "null_max_abs_r": np.round(Nm, 4).tolist(), "n_both": Nn.tolist(),
+                         "cluster_order": [order[i] for i in leaf]}
+    out["candidate_planes_sigma_w"] = out.pop("candidate_planes", out.get("candidate_planes_sigma_w"))
+    out["candidate_planes"] = [{"a": a, "b": b, "r": r_, "null_max_abs_r": nm, "n_both": nb, "same_question": s}
+                               for _, a, b, r_, nm, nb, s in planes]
+    out["bend_above_untrained"] = over
+    out["rules"]["PROXY"] = (f"transfer ratio (AUC of d_X on Y's eligible test galaxies, sign-aligned, − 0.5) / (AUC_Y − 0.5) "
+                             f"≥ {TRANSFER_RATIO}; X base STRONG, other question; if both directions qualify the ancestor on "
+                             f"the decision path (scheme conditions) stays STRONG, else the higher AUC; residual: Y refitted "
+                             f"with X's filter w projected out")
+    out["rules"]["PROXY_sigma_w (superseded)"] = f"|cos(Σw, Σw_X)| ≥ {PROXY_COS}, X STRONG (base label) in another question"
+    out["rules"]["planes"] = (f"both STRONG and |corr(d_X, d_Y)| < null + {PLANE_MARGIN}, null = max |r| over {N_SHUFFLE} paired "
+                              f"shuffled-label probes; galaxies: test, eligible for both (≥ 100)")
+    out["rules"]["planes_sigma_w (superseded)"] = f"STRONG pairs with |cos(Σw)| < {PLANE_COS}"
+    out["answers"] = recs
+    (DOCS / "a1_axes.json").write_text(json.dumps(out, indent=1, default=float))
+    for f in order:
+        (AX / f"{f}.json").write_text(json.dumps(recs[f], indent=1, default=float))
+    write_plate(order, recs, arrs, PE)
+    write_table_v2(order, recs, out, planes, over)
+    print("→ a1_axes.json, a1_axes_table.md, a1_axes_score_corr.png;", PLATE_OUT, file=sys.stderr)
+
+
+def write_table_v2(order, recs, out, planes, over) -> None:
+    # regenerate the base table from the records (Σw-rule label in its label column), then add the new column
+    tmp = {f: {**recs[f], "label": recs[f]["label_sigma_w"], "proxy": recs[f]["proxy_sigma_w"]} for f in order}
+    write_table(order, tmp, out["exclusivity"], [])
+    old = (DOCS / "a1_axes_table.md").read_text().split("\n## Candidate two-concept planes")[0]
+    lines = old.split("\n")
+    hdr = lines.index(next(x for x in lines if x.startswith("| answer | label |")))
+    lines[hdr] = lines[hdr].replace("| answer | label |", "| answer | label | label (Σw rule, superseded) |", 1)
+    lines[hdr + 1] = "|" + "---|" * 18
+    for i in range(hdr + 2, len(lines)):
+        ln = lines[i]
+        if not ln.startswith("| "):
+            continue
+        if ln.startswith("| **"):
+            lines[i] = ln + " |"
+            continue
+        cells = ln.split(" | ")
+        f = next(f for f in order if (f.split("_", 2)[2] if f.count("_") >= 2 else f) == cells[0][2:])
+        cells[1] = recs[f]["label"] + " | " + recs[f]["label_sigma_w"]
+        lines[i] = " | ".join(cells)
+    X = ["| answer | label | top transfer into it (ratio, AUC) | reverse ratio | residual AUC | residual split-half cos w (shuf. max) |",
+         "|---|---|---|---|---|---|"]
+    for f in order:
+        p = recs[f]["proxy"]; rs = p.get("residual", {})
+        top = p["top_transfers"][0]
+        X.append(f"| {f} | {recs[f]['label']} | {top['from']} ({top['ratio']:.2f}, {top['auc']:.3f}) | "
+                 f"{fmt(p.get('reverse_ratio'), 2)} | {fmt(rs.get('auc'))} | {fmt(rs.get('split_half_cos_w'))} "
+                 f"({fmt(rs.get('shuffled_max_cos_w'))}) |")
+    M = ["| a | b | ratio a→b | ratio b→a | kept STRONG | by |", "|---|---|---|---|---|---|"]
+    M += [f"| {m['a']} | {m['b']} | {m['ratio_a_to_b']:.2f} | {m['ratio_b_to_a']:.2f} | {m['kept_strong']} | {m['by']} |"
+          for m in out["transfer"]["mutual"]]
+    P = ["| a | b | r(d_a, d_b) | null max \\|r\\| | n both | same question |", "|---|---|---|---|---|---|"]
+    P += [f"| {a} | {b} | {r_:+.3f} | {nm:.3f} | {nb} | {'yes' if s else 'no'} |" for _, a, b, r_, nm, nb, s in planes]
+    B = ["| answer | label | 1−chord/arc A1 (untrained) | max off chord A1 (untrained) | uncleaned 1−c/a | tail flag |",
+         "|---|---|---|---|---|---|"]
+    B += [f"| {o['answer']} | {o['label']} | {o['bend_A1']:.3f} ({o['bend_untrained'][0]:.3f}–{o['bend_untrained'][1]:.3f}) | "
+          f"{o['max_off_chord_A1']:.3f} ({o['max_off_chord_untrained'][0]:.3f}–{o['max_off_chord_untrained'][1]:.3f}) | "
+          f"{o['bend_uncleaned']:.3f} | {'**FLAG**' if o['tail_flag'] else '—'} |" for o in over]
+    (DOCS / "a1_axes_table.md").write_text(
+        "\n".join(lines).rstrip() + "\n\n## Proxy readings (transfer rule)\n\n" + "\n".join(X) +
+        "\n\n## Mutual transfers (both directions ≥ 0.9)\n\n" + "\n".join(M) +
+        "\n\n## Candidate two-concept planes (both STRONG, |r| < shuffled-null max + 0.1)\n\n" + "\n".join(P) +
+        "\n\n## A1 bends more than every untrained seed (1 − chord/arc)\n\n" + "\n".join(B) + "\n")
 
 
 def main() -> None:
     step = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"fit": step_fit, "assemble": step_assemble, "sheet": step_sheet}.get(step, lambda: (_ for _ in ()).throw(SystemExit(__doc__)))()
+    {"fit": step_fit, "assemble": step_assemble, "sheet": step_sheet,
+     "relabel": step_relabel}.get(step, lambda: (_ for _ in ()).throw(SystemExit(__doc__)))()
 
 
 if __name__ == "__main__":

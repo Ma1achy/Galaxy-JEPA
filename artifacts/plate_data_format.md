@@ -235,3 +235,35 @@ QR coordinate 7 (spiral's direction with answers 0–6 removed: AUC 0.649 on the
 **Rules.** Missing (255) in all three means a nuisance was missing, so the galaxy could not be cleaned (none
 in A1's file). The cleaned probe was fitted on the spiral-eligible train galaxies; `flags & 1` still marks
 the test galaxies (asserted: no test galaxy is in its train rows).
+
+## Version 3, all answer axes: `plate_axes.bin` (additive, separate file)
+
+*Written by `artifacts/almagest_axes.py assemble` (20 Nov 2026), relabelled by `relabel` (21 Nov), to
+`runs/almagest/a1/plate_axes.bin`. The spiral v3 `plate.bin` above is not rewritten. This file carries every
+v2 and v3 section and header field of `plate.bin` byte-identical (asserted on write), then adds one cleaned
+axis per answer, built the way the spiral axis was. Construction, labels and numbers:
+`docs/almagest/a1_axes_report.md`.*
+
+**Sections** (appended; answer index `j` = the v2 answer order, 37 rows):
+
+| name | dtype | shape | decode | meaning |
+|---|---|---|---|---|
+| `axes_d` | uint8 | [37, n] | `d = lo + v*(hi − lo)/254` with `header.axes_all[j].d.lo/hi`; 255 missing | cleaned probe decision per answer (a logit), clamped outside its 0.1–99.9 percentiles |
+| `axes_s` | uint8 | [37, n] | `s = v/254`; 255 missing or THIN | arc-length coordinate along that answer's γ |
+| `axes_r` | uint8 | [37, n] | `|r| = v * header.axes_all[j].r_scale`; 255 missing or THIN | off-axis distance `|z − γ(d)|` |
+| `axes_gamma` | float32 | [37, 101, 80] | — | γ at `s = 0, 0.01, …, 1` in the 80-D `coords` space (NaN rows: THIN) |
+| `axes_d_knots` | float32 | [37, 101] | — | `d` at those `s` (piecewise-linear `d ↔ s`; `ds_dd_below_above` continues it outside) |
+| `axes_tangents` | float32 | [37, 2, 80] | — | outward end tangents at `s = 0` and `s = 1`; one unit of `s` = γ's whole length. Defined, not rendered |
+| `axes_filter_w` | float32 | [37, 80] | — | unit filter w: **reads** a position |
+| `axes_pattern` | float32 | [37, 80] | — | unit pattern Σw: **walks** |
+
+**Header.** `axes_all[j]` holds `id`, `j`, `label`, `proxy_of`, `thin`, `n_bins`, `d` (decode and lo/hi),
+`r_scale`, `ds_dd_below_above`, `retention` (the share of w and Σw kept in the 80-D basis). `axes_all_note`
+defines the labels. Labels (21 Nov rule): NOISE (w does not repeat across train halves above shuffled labels);
+PROXY of X (X's cleaned score, X STRONG in another question, recovers ≥ 0.9 of this answer's AUC − 0.5 on
+its galaxies; when both directions qualify, the decision-path ancestor stays STRONG, else the higher AUC);
+WEAK (no better than an untrained encoder); STRONG.
+
+**Rules.** Row 7 of `axes_d`/`axes_s`/`axes_r` equals `spiral_d`/`spiral_s`/`spiral_r` byte for byte (`d` asserted on write; all three checked 21 Nov).
+`probe_basis`, `readout` and `coords` are unchanged: the old QR axes stay readable. No answer is THIN in A1's
+file; a THIN row would carry `d` only, and the page reads it along `d`.
