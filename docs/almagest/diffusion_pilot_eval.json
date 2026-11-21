@@ -1,0 +1,66 @@
+{
+ "step": 6413,
+ "n_galaxies": 256,
+ "samples_each": 4,
+ "sampler": "DDIM \u03b7=0, 100 steps",
+ "machine": {
+  "load_avg_1_5_15": [
+   7.23,
+   7.14,
+   6.95
+  ],
+  "under_load": false,
+  "memory_free": "System-wide memory free percentage: 66%",
+  "time": "2026-11-21 03:55:27"
+ },
+ "w=1.0": {
+  "sample_seconds_per_image": 1.4228302059725593,
+  "cos_sample_to_condition": {
+   "raw": 0.22157466411590576,
+   "centred": -0.013995790854096413
+  },
+  "rank_of_condition_among_n": {
+   "median": 108.0,
+   "top1": 0.0244140625,
+   "median_centred": 110.0,
+   "top1_centred": 0.0244140625
+  },
+  "cos_between_samples_same_condition_centred": 0.3853239417076111
+ },
+ "w=3.0": {
+  "sample_seconds_per_image": 4.226786676798838,
+  "cos_sample_to_condition": {
+   "raw": 0.2992812395095825,
+   "centred": 0.01943204179406166
+  },
+  "rank_of_condition_among_n": {
+   "median": 85.0,
+   "top1": 0.0283203125,
+   "median_centred": 86.5,
+   "top1_centred": 0.029296875
+  },
+  "cos_between_samples_same_condition_centred": 0.45445460081100464
+ },
+ "reference": {
+  "real_64px_roundtrip_to_own": {
+   "raw": 0.5254682302474976,
+   "centred": 0.12455461919307709
+  },
+  "random_real_pairs": {
+   "raw": 0.6054832935333252,
+   "centred": -0.021716633811593056
+  },
+  "random_real_pairs_roundtrip": {
+   "centred": 0.9013937711715698
+  },
+  "nearest_real_neighbour_in_train_100k": {
+   "centred": 0.9335403442382812,
+   "raw": 0.9745506048202515
+  },
+  "note": "medians over the galaxies; 'centred' subtracts the train bank's mean embedding (raw cosines share a large common mean); round trip = the real galaxy pooled to 64 px, upsampled bilinear to 256, re-embedded (the ceiling any 64-px sample can reach)",
+  "real_roundtrip_rank_centred": {
+   "median": 60.5,
+   "top1": 0.06640625
+  }
+ }
+}

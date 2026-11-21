@@ -970,6 +970,18 @@ two-tailed on the shuffled vote fractions; **MP edge for the actual matrix shape
 ## Epic R — Rung controls / ablations `[control]`
 - [ ] (P1) **Masking β-sweep** {0, 0.5, 1.0} — β=0 is the control. Downstream of the headline run.
 - [ ] (P1) **8×8-patch (higher-res) ablation** — Rung-4 control (under-resolved vs absent). *(D11)*
+  **Pre-registration, held fixed:** JEPA target masking samples inside a 2.5 × R_petro box
+  (`objectives/jepa.py` via `data/bbox.py`), so galaxy size shapes training even though stamps are
+  a fixed 256 px at native 0.396″/px. Hold k = 2.5 fixed across the 16×16 and 8×8 arms and name it.
+  Inputs from Almagest (exploratory): A1 resolution curves (B1) and simulated redshifting (B2),
+  `docs/almagest/a1_visibility_*`.
+  **Queued (approved 21 Nov, exploratory, not yet run): B1b and B2b**, both feeding this pre-registration.
+  - B1b: B1 repeated on galaxies with question reach ≥ median and vote agreement (max answer fraction)
+    ≥ 0.8; report label agreement per decile beside the AUC curves.
+  - B2b: per target z, only sources whose simulated r ≤ 17.77 (n per z; mimics Malmquist selection).
+    Source stamps of 256/s px cut from the original frames if reachable, so the shrunk image fills
+    256 px; if not, say so and add the noise-only footprint control. k-correction via kcorrect (g/r/i)
+    if it installs cleanly; otherwise raw scores only and cleaned scores dropped. Same checks as B2.
 - [ ] (P1) **Backbone sweep** — clean ViT → conv-stem hybrid (CCT/CvT) → E(2)-equivariant ViT. *(D2)*
 - [ ] (P1) **Inclination conditioning** — recoverability/entanglement as a function of axis ratio
   (b/a); the confound-fingerprint deliverable. A new axis on the existing probe, not a redesign.

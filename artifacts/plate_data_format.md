@@ -238,7 +238,7 @@ the test galaxies (asserted: no test galaxy is in its train rows).
 
 ## Version 3, all answer axes: `plate_axes.bin` (additive, separate file)
 
-*Written by `artifacts/almagest_axes.py assemble` (20 Nov 2026), relabelled by `relabel` (21 Nov), to
+*Written by `artifacts/almagest_axes.py assemble` (20 Nov 2026), relabelled by `relabel` and `relabel2` (21 Nov), to
 `runs/almagest/a1/plate_axes.bin`. The spiral v3 `plate.bin` above is not rewritten. This file carries every
 v2 and v3 section and header field of `plate.bin` byte-identical (asserted on write), then adds one cleaned
 axis per answer, built the way the spiral axis was. Construction, labels and numbers:
@@ -257,12 +257,21 @@ axis per answer, built the way the spiral axis was. Construction, labels and num
 | `axes_filter_w` | float32 | [37, 80] | — | unit filter w: **reads** a position |
 | `axes_pattern` | float32 | [37, 80] | — | unit pattern Σw: **walks** |
 
-**Header.** `axes_all[j]` holds `id`, `j`, `label`, `proxy_of`, `thin`, `n_bins`, `d` (decode and lo/hi),
+**Header.** `axes_all[j]` holds `id`, `j`, `label`, `proxy_of`, `proxy_root`, `thin`, `n_bins`, `d` (decode and lo/hi),
 `r_scale`, `ds_dd_below_above`, `retention` (the share of w and Σw kept in the 80-D basis). `axes_all_note`
-defines the labels. Labels (21 Nov rule): NOISE (w does not repeat across train halves above shuffled labels);
-PROXY of X (X's cleaned score, X STRONG in another question, recovers ≥ 0.9 of this answer's AUC − 0.5 on
-its galaxies; when both directions qualify, the decision-path ancestor stays STRONG, else the higher AUC);
-WEAK (no better than an untrained encoder); STRONG.
+defines the labels. Labels (`relabel2`, 21 Nov):
+- NOISE: w does not repeat across train halves above shuffled labels.
+- WEAK: no better than an untrained encoder, or AUC − 0.5 < 0.05 (the ratio floor).
+- Candidate proxy of X: X's cleaned score, X STRONG in another question, recovers ≥ 0.9 of this answer's
+  AUC − 0.5 on its galaxies. When both directions qualify, the decision-path ancestor stays STRONG, else
+  the higher AUC.
+- SEPARATE: a candidate whose own score's AUC within 10 equal-count bins of d_X has a bootstrap 95% CI above
+  its shuffled-label maximum.
+- PROXY of X: a candidate that is not SEPARATE.
+- STRONG: otherwise.
+
+`proxy_root` is where the chain through X ends (a STRONG or SEPARATE answer). The page should use the root;
+`proxy_of` is the immediate X. The label string reads `PROXY of <X>`; both fields are null for every other label.
 
 **Rules.** Row 7 of `axes_d`/`axes_s`/`axes_r` equals `spiral_d`/`spiral_s`/`spiral_r` byte for byte (`d` asserted on write; all three checked 21 Nov).
 `probe_basis`, `readout` and `coords` are unchanged: the old QR axes stay readable. No answer is THIN in A1's

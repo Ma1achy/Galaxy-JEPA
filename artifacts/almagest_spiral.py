@@ -188,9 +188,23 @@ LOG_TF = {"size": np.log, "magnitude": lambda v: v, "snr": np.log, "psf": np.log
 
 
 def rank_fit(train_col: np.ndarray):
+    """Train empirical CDF, held inside [0.5/n, 1 − 0.5/n] so the normal score stays finite.
+
+    Raises on a non-finite value, at fit and at apply: searchsorted would rank NaN past every value and the
+    clip would silently turn it into the top rank — a missing nuisance must be dropped upstream, never imputed.
+    """
+    train_col = np.asarray(train_col, dtype=np.float64)
+    if not np.isfinite(train_col).all():
+        raise ValueError(f"rank_fit: {int((~np.isfinite(train_col)).sum())} non-finite train value(s); drop them upstream")
     srt = np.sort(train_col)
-    n = srt.size  # train empirical CDF, held inside [0.5/n, 1 − 0.5/n] so the normal score stays finite
-    return lambda v: np.clip(np.searchsorted(srt, v, side="right") / n, 0.5 / n, 1 - 0.5 / n)
+    n = srt.size
+
+    def apply(v):
+        v = np.asarray(v, dtype=np.float64)
+        if not np.isfinite(v).all():
+            raise ValueError(f"rank_fit: {int((~np.isfinite(v)).sum())} non-finite value(s) to rank; drop them upstream")
+        return np.clip(np.searchsorted(srt, v, side="right") / n, 0.5 / n, 1 - 0.5 / n)
+    return apply
 
 
 def covariates(N: np.ndarray, fits) -> np.ndarray:
