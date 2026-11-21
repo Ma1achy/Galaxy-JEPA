@@ -11,7 +11,8 @@ B2 RESAMPLES IMAGES. It is an intervention test, separate from the training pipe
 moves when a galaxy is made to look more distant.
 
 Stamps are a fixed 256 px at the native 0.396″/px (not scaled to galaxy size); petroRad_r enters pretraining only as
-the JEPA target-sampling box. Run: .venv/bin/python artifacts/almagest_visibility.py b1|b2
+the JEPA target-sampling box. Run: .venv/bin/python artifacts/almagest_visibility.py b1|b1b|b2
+(b1b: B1 on galaxies with question reach ≥ median and vote agreement ≥ 0.8, label agreement per decile; 21 Nov)
 """
 from __future__ import annotations
 
@@ -138,6 +139,111 @@ def fig_b1(recs) -> None:
     fig.supxlabel("decile of petroRad_r / psfWidth_r (test, per answer)", fontsize=8)
     fig.supylabel("AUC (dotted: untrained max)", fontsize=8)
     fig.tight_layout(); fig.savefig(DOCS / "a1_visibility_b1.png", dpi=130); plt.close(fig)
+
+
+# --- B1b: B1 on well-voted, high-agreement galaxies ---------------------------------------------------------
+AGREE_MIN = 0.8  # max answer fraction within the question (user brief, 21 Nov)
+THIN = 10        # a decile with fewer than THIN of either class is flagged thin
+
+
+def step_b1b() -> None:
+    """B1 repeated on test galaxies whose question reach ≥ the answer's test median and whose vote agreement
+    (the question's max answer fraction) ≥ 0.8. Declared choices: the probes are B1's (fitted on the same train
+    rows, unfiltered), so only the evaluated population changes; the decile edges are B1's (all eligible test
+    galaxies), so the curves are comparable bin for bin; the reach median is over the answer's eligible test rows.
+    Beside the curves: label agreement per decile over all eligible test galaxies."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    out = json.loads((DOCS / "a1_axes.json").read_text())
+    b1 = json.loads((DOCS / "a1_visibility_b1.json").read_text())["answers"]
+    feats = good_answers(out)
+    assert set(feats) == set(b1), "B1b must cover B1's answers"
+    d = AXS.Data(untrained=True)
+    names = [k for k in d.mats if k != "A1"]
+    res = d.lab.nuisance_value("size", d.union).astype(float) / d.lab.nuisance_value("psf", d.union).astype(float)
+    spec = d.lab.scheme.by_name
+    recs = {}
+    for f in feats:
+        t0 = time.perf_counter()
+        tr, te = d.rows(f)
+        y_tr, _ = d.yv(f, tr); y_te, _ = d.yv(f, te)
+        ok = np.isfinite(res[te])
+        te, y_te = te[ok], y_te[ok]
+        sib = [g for g, sp in spec.items() if sp.question == spec[f].question]
+        fr = np.column_stack([np.asarray(d.lab.vote_fraction(g, d.union[te]), dtype=np.float64) for g in sib])
+        agree = np.nanmax(fr, 1)
+        reach = d.reach(f, te)
+        keep = (reach >= np.nanmedian(reach)) & (agree >= AGREE_MIN)
+        scores = {}
+        for enc in ["A1"] + names:
+            for kind, M in (("cleaned", d.clean[enc]), ("raw", d.mats[enc])):
+                scores[enc, kind] = AXS.Probe(M[tr], y_tr, d.c).d(M[te])
+        edges = np.array([b1[f]["deciles"][0]["ratio_range"][0]] + [e["ratio_range"][1] for e in b1[f]["deciles"]])
+        b = np.clip(np.searchsorted(edges, res[te], side="right") - 1, 0, 9)
+        rng = np.random.default_rng(SEED + 500 + out["order"].index(f))
+        dec = []
+        for k in range(10):
+            m_all = np.flatnonzero(b == k)
+            m = m_all[keep[m_all]]
+            e = {"decile": k + 1, "n_all": int(m_all.size), "n": int(m.size), "n_pos": int(y_te[m].sum()),
+                 "agreement_median_all": float(np.median(agree[m_all])) if m_all.size else None,
+                 "frac_agreement_ge_0.8_all": float(np.mean(agree[m_all] >= AGREE_MIN)) if m_all.size else None,
+                 "frac_kept": float(m.size / m_all.size) if m_all.size else None}
+            e["thin"] = bool(min(e["n_pos"], e["n"] - e["n_pos"]) < THIN)
+            for kind in ("cleaned", "raw"):
+                if len(np.unique(y_te[m])) < 2:
+                    e[kind] = None
+                    continue
+                a = AXS.fast_auc(y_te[m], scores["A1", kind][m])
+                bs = [AXS.fast_auc(y_te[i], scores["A1", kind][i]) for i in (rng.choice(m, m.size) for _ in range(N_BOOT))]
+                un = [AXS.fast_auc(y_te[m], scores[n, kind][m]) for n in names]
+                e[kind] = {"auc": a, "ci95": ci(bs), "untrained_max": float(np.nanmax(un)),
+                           "clears": bool(a > np.nanmax(un) + KNEE_MARGIN), "b1_auc": b1[f]["deciles"][k][kind]["auc"]}
+            dec.append(e)
+        knee = {kind: next((e["decile"] for e in dec if e[kind] and e[kind]["clears"]), None) for kind in ("cleaned", "raw")}
+        clears = {kind: int(sum(bool(e[kind] and e[kind]["clears"]) for e in dec)) for kind in ("cleaned", "raw")}
+        recs[f] = {"label": out["labels"][f], "n_test_all": int(te.size), "n_test_kept": int(keep.sum()),
+                   "reach_median": float(np.nanmedian(reach)), "siblings": sib, "deciles": dec, "knee": knee,
+                   "deciles_clearing": clears, "b1_knee": b1[f]["knee"], "b1_deciles_clearing": {
+                       kind: int(sum(e[kind]["clears"] for e in b1[f]["deciles"])) for kind in ("cleaned", "raw")}}
+        log(f"b1b {f}: kept {keep.sum()}/{te.size}, knee {knee} (B1 {b1[f]['knee']}) ({time.perf_counter() - t0:.0f}s)")
+    res_out = {"note": "exploratory; not in the science record. " + (step_b1b.__doc__ or "").replace("\n", " "),
+               "agreement_min": AGREE_MIN, "thin_below": THIN, "answers": recs}
+    (DOCS / "a1_visibility_b1b.json").write_text(json.dumps(res_out, indent=1, default=float))
+    fig_b1b(recs)
+    log("→ docs/almagest/a1_visibility_b1b.json, a1_visibility_b1b.png")
+
+
+def fig_b1b(recs) -> None:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    fs = list(recs)
+    cols = 5
+    rows = -(-len(fs) // cols)
+    fig, axs = plt.subplots(rows, cols, figsize=(3.2 * cols, 2.5 * rows), squeeze=False)
+    x = np.arange(1, 11)
+    for ax, f in zip(axs.flat, fs):
+        dec = recs[f]["deciles"]
+        ax.plot(x, [e["cleaned"]["b1_auc"] if e["cleaned"] else np.nan for e in dec], color="#9aa7b8", lw=1.2, label="B1, all")
+        a = np.array([e["cleaned"]["auc"] if e["cleaned"] else np.nan for e in dec])
+        lo = np.array([e["cleaned"]["ci95"][0] if e["cleaned"] else np.nan for e in dec])
+        hi = np.array([e["cleaned"]["ci95"][1] if e["cleaned"] else np.nan for e in dec])
+        ax.fill_between(x, lo, hi, color="#1f5fa8", alpha=0.18, lw=0)
+        ax.plot(x, a, color="#1f5fa8", lw=1.4, label="B1b, kept")
+        thin = [e["thin"] for e in dec]
+        ax.scatter(x[thin], a[thin], s=10, facecolors="none", edgecolors="#1f5fa8", lw=0.8)
+        ax.plot(x, [e["cleaned"]["untrained_max"] if e["cleaned"] else np.nan for e in dec], color="#1f5fa8", lw=0.8, ls=":")
+        ax2 = ax.twinx()
+        ax2.bar(x, [e["frac_agreement_ge_0.8_all"] or 0 for e in dec], color="#b5651d", alpha=0.18, width=0.8)
+        ax2.set_ylim(0, 1); ax2.tick_params(labelsize=5, colors="#b5651d")
+        ax.set_title(f"{f.split('_', 2)[2] if f.count('_') >= 2 else f} (kept {recs[f]['n_test_kept']}/{recs[f]['n_test_all']})", fontsize=7)
+        ax.tick_params(labelsize=6); ax.set_ylim(0.4, 1.0); ax.set_zorder(ax2.get_zorder() + 1); ax.patch.set_visible(False)
+    for ax in list(axs.flat)[len(fs):]:
+        ax.axis("off")
+    axs.flat[0].legend(fontsize=6, loc="lower right")
+    fig.supxlabel("decile of petroRad_r / psfWidth_r (B1's edges); bars: share of all eligible test galaxies with agreement ≥ 0.8", fontsize=8)
+    fig.supylabel("cleaned AUC (dotted: untrained max; open: thin decile)", fontsize=8)
+    fig.tight_layout(); fig.savefig(DOCS / "a1_visibility_b1b.png", dpi=130); plt.close(fig)
 
 
 # --- B2 ------------------------------------------------------------------------------------------------
@@ -440,7 +546,7 @@ def sheet_b2(st, d, sample, tgt, cosmo, N) -> None:
 
 def main() -> None:
     step = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"b1": step_b1, "b2": step_b2}.get(step, lambda: (_ for _ in ()).throw(SystemExit(__doc__)))()
+    {"b1": step_b1, "b1b": step_b1b, "b2": step_b2}.get(step, lambda: (_ for _ in ()).throw(SystemExit(__doc__)))()
 
 
 if __name__ == "__main__":

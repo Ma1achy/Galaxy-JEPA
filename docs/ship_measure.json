@@ -1,0 +1,137 @@
+{
+ "ids": {
+  "cache_stamps": 1057317,
+  "stamps_f16_bytes": 415753961472,
+  "stamp_bytes": 393216,
+  "pretrain_rows": 826968,
+  "probe_rows": 230349,
+  "pretrain_probe_overlap": 0,
+  "sets": {
+   "pretrain_train (A1's split)": {
+    "n": 810491,
+    "in_cache": 810491,
+    "gb": 318.698029056
+   },
+   "pretrain_monitor (2%)": {
+    "n": 16477,
+    "in_cache": 16477,
+    "gb": 6.479020032
+   },
+   "probe_v2 (all rows)": {
+    "n": 230349,
+    "in_cache": 230349,
+    "gb": 90.576912384
+   }
+  },
+  "union_needed": {
+   "n": 1057317,
+   "in_cache": 1057317,
+   "gb": 415.753961472
+  },
+  "cache_rows_not_needed": {
+   "n": 0,
+   "gb": 0.0
+  },
+  "excluded_pretrain_not_in_split": 0
+ },
+ "zstd": {
+  "zstd": "*** Zstandard CLI (64-bit) v1.5.5, by Yann Collet ***",
+  "threads": "-T0 (all cores)",
+  "load_start": [
+   4.85498046875,
+   6.435546875,
+   8.45703125
+  ],
+  "stamps.f16 (32 \u00d7 64 MiB random pieces)": {
+   "raw_bytes": 2139095040,
+   "level_3": {
+    "ratio": 1.1147619706760805,
+    "s_per_gb": 3.9456354052194773,
+    "seconds": 8.440089124953374
+   },
+   "level_19": {
+    "ratio": 1.1148414297151776,
+    "s_per_gb": 39.00868865408851,
+    "seconds": 83.443292416865
+   }
+  },
+  "stamps.f16, byte-plane shuffled (same pieces)": {
+   "raw_bytes": 2139095040,
+   "level_3": {
+    "ratio": 1.2066291228427186,
+    "s_per_gb": 1.022676645981925,
+    "seconds": 2.1876025409437716
+   }
+  },
+  "probe_columns.f64 (whole)": {
+   "raw_bytes": 685141416,
+   "level_3": {
+    "ratio": 29.485840206993494,
+    "s_per_gb": 1.2336549261620748,
+    "seconds": 0.8452280829660594
+   },
+   "level_19": {
+    "ratio": 40.13256923416211,
+    "s_per_gb": 10.598979514966034,
+    "seconds": 7.261799833038822
+   }
+  },
+  "index.json (whole)": {
+   "raw_bytes": 26436636,
+   "level_3": {
+    "ratio": 5.210471700325853,
+    "s_per_gb": 1.6451412382562733,
+    "seconds": 0.043492000084370375
+   },
+   "level_19": {
+    "ratio": 10.283235726110606,
+    "s_per_gb": 299.2225069822308,
+    "seconds": 7.910436500096694
+   }
+  },
+  "petro_rad_arcsec.f64 (whole)": {
+   "raw_bytes": 8458536,
+   "level_3": {
+    "ratio": 1.3074748568948311,
+    "s_per_gb": 5.548965569086477,
+    "seconds": 0.04693612502887845
+   },
+   "level_19": {
+    "ratio": 2.118192033067545,
+    "s_per_gb": 221.25536853915753,
+    "seconds": 1.8714964999817312
+   }
+  },
+  "pretrain_v2/metadata.csv (whole)": {
+   "raw_bytes": 104638758,
+   "level_3": {
+    "ratio": 2.3474356350477645,
+    "s_per_gb": 1.2293911007887897,
+    "seconds": 0.12864195788279176
+   },
+   "level_19": {
+    "ratio": 2.930202142942972,
+    "s_per_gb": 323.0978489340313,
+    "seconds": 33.80855762492865
+   }
+  },
+  "probe_v2/metadata.csv (whole)": {
+   "raw_bytes": 125322625,
+   "level_3": {
+    "ratio": 3.472143530508647,
+    "s_per_gb": 1.019228707350739,
+    "seconds": 0.12773241708055139
+   },
+   "level_19": {
+    "ratio": 5.31259259855878,
+    "s_per_gb": 182.21140902529825,
+    "seconds": 22.835212083999068
+   }
+  },
+  "load_end": [
+   14.53857421875,
+   12.37451171875,
+   10.70703125
+  ]
+ }
+}

@@ -250,3 +250,57 @@ Exploratory; not the pre-stated test.
 4. **B2, correlated-noise control:** a footprint with no galaxy, to measure A1's response to the texture edge.
 5. **Cleaner:** `rank_fit` raises on NaN (done 21 Nov); any 8×8 nuisance lookup must yield finite values or drop the row, declared.
 6. **Held fixed:** the 2.5 × R_petro JEPA masking box.
+
+## B1b — B1 on well-voted, high-agreement galaxies (21 Nov, exploratory)
+
+Code: `almagest_visibility.py b1b`. Outputs: `a1_visibility_b1b.{json,png}`. The figure shows B1 (grey) and
+B1b (blue, with CI), the untrained maximum dotted, thin deciles as open markers, and bars for each
+decile's share of all eligible test galaxies with agreement ≥ 0.8.
+
+**Filter:** keep test galaxies with question reach ≥ the answer's median and vote agreement (the
+question's maximum answer fraction, over all its answers) ≥ 0.8.
+
+**Declared choices:**
+- the probes are B1's, fitted on the same unfiltered train rows, so only the evaluated population changes;
+- the decile edges are B1's, so the curves compare bin for bin;
+- a decile is **thin** when it has fewer than 10 of either class.
+
+Kept: 6.7% of eligible test galaxies (t10 winding) to 44% (t02 edge-on).
+
+| answer | kept | thin deciles | deciles clearing, B1 → B1b | agreement ≥ 0.8, d1 / d10 | cleaned AUC d1, B1 → B1b | d10, B1 → B1b |
+|---|---|---|---|---|---|---|
+| smooth | 11,093 | 1 | 9 → 8 | 0.72 / 0.58 | 0.658 → 0.702 | 0.875 → 0.958 |
+| edge-on yes | 15,213 | 0 | 10 → 10 | 0.77 / 0.87 | 0.705 → 0.821 | 0.899 → 0.956 |
+| bar | 11,371 | 1 | 7 → 9 | 0.84 / 0.67 | 0.533 → 0.585 | 0.632 → 0.659 |
+| spiral | 9,404 | 0 | 8 → 9 | 0.76 / 0.72 | 0.562 → 0.620 | 0.844 → 0.872 |
+| just-noticeable bulge | 2,127 | 1 | 0 → 6 | 0.32 / 0.23 | 0.539 → 0.517 | 0.654 → 0.791 |
+| odd yes | 14,056 | 0 | 7 → 3 | 0.80 / 0.56 | 0.743 → 0.861 | 0.658 → 0.730 |
+| ring | 2,223 | 0 | 7 → 9 | 0.28 / 0.20 | 0.585 → 0.760 | 0.726 → 0.766 |
+| disturbed | 2,223 | 0 | 1 → 9 | 0.28 / 0.20 | 0.617 → 0.806 | 0.625 → 0.853 |
+| irregular | 2,223 | 1 | 5 → 8 | 0.28 / 0.20 | 0.598 → 0.741 | 0.714 → 0.829 |
+| merger | 2,223 | 5 | 1 → 4 | 0.28 / 0.20 | 0.618 → 0.798 | 0.652 → 0.812 |
+| rounded bulge (t09) | 4,371 | 0 | 6 → 10 | 0.72 / 0.62 | 0.517 → 0.615 | 0.706 → 0.819 |
+| tight winding | 1,356 | 0 | 2 → 7 | 0.74 / 0.22 | 0.561 → 0.582 | 0.617 → 0.717 |
+| 2 arms | 3,057 | 0 | 4 → 6 | 0.77 / 0.31 | 0.527 → 0.523 | 0.570 → 0.565 |
+
+All 30 answers are in the JSON. **Not readable (thin):** dominant bulge (10 of 10 deciles thin; d1 AUC 0.21
+on a handful of positives), lens/arc (10), dust lane (8), merger (5).
+
+**Reading (exploratory; nothing is a claim):**
+
+1. **Label agreement does not fall at low resolution.** The share with agreement ≥ 0.8 is usually equal or
+   higher in decile 1 than in decile 10: bar 0.84 / 0.67, odd 0.80 / 0.56, tight winding 0.74 / 0.22, arm
+   count 0.77 / 0.31. Poorly resolved galaxies get confident, one-sided votes (the prevalence shift noted
+   in B1). So B1's late knees are **not** explained by noisier labels where resolution is poor.
+2. **The filtered set is easier at every resolution, for the untrained encoders too.**
+   - Knees move earlier for most answers: bar 4 → 1, disturbed 5 → 2, merger 7 → 1, t09 rounded 5 → 1,
+     tight winding clears 2 → 7 deciles.
+   - But odd yes / no clears **fewer** deciles (8 → 3) while its d1 AUC rises 0.74 → 0.86: the untrained
+     maximum rose with it.
+   - The comparison against untrained encoders, not raw AUC, is what keeps this honest.
+3. **High-agreement galaxies at low resolution are the visually obvious ones.** The filter conditions on
+   "obvious to volunteers", which is itself resolution-dependent. B1b therefore cannot separate "A1
+   resolves less" from "the remaining low-resolution galaxies are the obvious cases". That separation
+   needs an intervention (B2b), not a selection.
+4. **For 8×8:** state the resolution curve on both populations, and pre-register which is primary.
+   Pre-register a thin-decile rule (here: fewer than 10 of either class) before the curves are seen.
