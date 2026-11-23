@@ -97,3 +97,49 @@ and r/i background, though the step counts differ (2,000 against 6,413). No arm 
   (about 44 h per 100k steps).
 - **Suggested check for the rented run:** the same statistics on unconditional samples every 10k steps,
   with a stop rule written in advance.
+
+## Rented 128-px renderer: recipe change and stop rule (user, 21 Nov; written before the run)
+
+**Recipe change:** v-prediction (v = √ᾱ·ε − √(1−ᾱ)·x0) and **no x0 clamp**, with fixes 1 (unit variance) and 2
+(sky subtraction) kept. The v sampler passed the exact-answer Gaussian check before any training. For
+N(0, 1), N(0, 0.44²), N(0.5, 0.3²) and N(−0.2, 1.5²) it returns means within 0.002 and SDs within 1.5%,
+and per-image levels match the expected noise (`almagest_diffusion_smoke.py oracle`). It is adopted for the
+rental only if the 64-px v-pred smoke (below) shows a mean bias of about 0 and no systematic offset.
+
+**Stop rule for the rented run:**
+- **Monitoring:** report this document's table (mean, SD, background ring-level IQR, background noise, % of
+  images with a channel offset > 1 own-noise SD; 64 unconditional samples against 64 inputs, per band)
+  every 10k steps.
+- **Stop at 50k steps** if any of these holds:
+  - the background IQR is **> 3 × real** in any band;
+  - **> 25%** of images have an offset > 1 SD;
+  - the mean level is beyond **± 0.2** in any band.
+
+  Units are those of the rendered sample (normalised-stamp x with the median sky added back), compared
+  with the real inputs' row.
+
+## v-prediction smoke (22 Nov): the rental recipe
+
+Arm `full_v`: fixes 1 and 2, v-prediction, **no clamp**, 2,000 steps at batch 32 (0.86 h). The swap guard
+killed attempt 1 (other sessions' memory), and the run resumed from its 500-step checkpoint. Same evaluation
+as above: 64 unconditional samples against 64 inputs. Sheet: `diffusion_smoke_v_samples.png` (rows 1–2
+inputs, rows 3–4 samples).
+
+| model units, g / r / i | mean | SD | ring level IQR | ring noise | offset > 1 SD |
+|---|---|---|---|---|---|
+| inputs | +0.03 / +0.04 / +0.02 | 1.05 / 1.05 / 1.03 | 0.019 / 0.019 / 0.023 | 0.36 / 0.38 / 0.47 | 0% |
+| **v-pred, no clamp** | **−0.04 / −0.04 / −0.04** | 0.85 / 0.86 / 0.86 | **0.027 / 0.028 / 0.049** | 0.37 / 0.38 / 0.45 | **0%** |
+| ε, percentile clamp (`full`, above) | +1.16 / +1.29 / +1.30 | 1.78 / 1.71 / 1.70 | 0.82 / 0.69 / 1.05 | 0.63 / 0.70 / 0.81 | 77% |
+
+- **Mean bias is about 0** (−0.04 in every band), and **no image is offset.** The background IQR is 1.4 / 1.5
+  / 2.1 × real, and the background noise matches the inputs to within 0.02.
+- **The remaining difference is undertraining, not offset.** SD is 0.85 against 1.05: the samples carry clean
+  sky, field sources and compact central objects, but fewer prominent central galaxies than the inputs.
+- **Against the stop rule at 2,000 steps:** IQR ≤ 2.1 × real (limit 3×), 0% offset (limit 25%), mean −0.04
+  (limit ± 0.2). It **passes**, so v-prediction with no clamp is the rental recipe.
+
+**Units for the stop rule (to confirm).** The rendered samples add back the *median* sky, while each real
+input keeps its own sky level. In rendered units the samples' ring IQR (0.008–0.017) is therefore smaller
+than the inputs' (0.028–0.052) by construction, and the IQR test would be blind. The rule should be
+evaluated on sky-subtracted model units for both sides: IQR, offsets and mean. In this run the mean is
+−0.04 in both unit systems.

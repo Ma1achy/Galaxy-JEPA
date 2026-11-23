@@ -17,7 +17,7 @@ stamp file. There is no separate probe cache.
 | `index.json` | 26 MB |
 | `petro_rad_arcsec.f64` | 8 MB |
 | corpus metadata: `pretrain_v2/metadata.csv` 105 MB, `probe_v2/metadata.csv` 125 MB, two `manifest.json` | 230 MB |
-| **total** | **≈ 416.7 GB** |
+| **total** | **≈ 416.7 GB** (+ about 0.84 GB of v1 split inputs; see below) |
 
 What the grid reads, by stamp:
 
@@ -31,10 +31,34 @@ What the grid reads, by stamp:
 
 - **The minimum set is the whole cache.** The two corpora do not overlap (objID dedup), every pretraining
   stamp is in the split, and there are no stale rows.
-- **The one possible cut is the probe corpus.** If every probe step on the box read only the ladder's
-  74,825-galaxy union, its stamps would be 29.4 GB, not 90.6 GB, saving 61 GB (15%). This needs
-  confirming against the harness's in-run probe points and the ladder drivers before it is relied on. It
-  would also mean a new subset `index.json`, so it is not recommended unless the uplink is slow.
+- **Probe rows outside the ladder's union are read (checked 21 Nov), so the reduced set is not shipped by
+  default.**
+
+  | step | probe galaxies read | evidence |
+  |---|---|---|
+  | JEPA training (`aligned_train` → `m2_long_run`) | no stamps; probe `metadata.csv` ids for the dedup only | `aligned_train.py:57-58` forces `--no-probe` |
+  | **MoCo / MAE training, in-run trajectory probe** (default; `--no-probe` skips it) | **195,677**: v1's full split, uncapped (`prepare(ckpt, 0)`) | `baseline_run.py:250-256`, `aligned_c2.py:39`; banks `c2_moco_s24_000101308` and `c2_a2_traj4_000101308` each hold 195,677 ids |
+  | E4 untrained bank, E3, E7, p2, r0, s2, t1 | the 74,825 union (identical split, MAX_TRAIN 40,000 stride, minus the nine) | `p1_untrained_bank.py:52`, `o1_matched.py:156`, `r_nonlinear.py:61`, `j4_spread_controls.py:100-135` |
+
+  - **Probe stamps needed:** the union alone is 29.4 GB; with the in-run probe it is 195,677 galaxies,
+    76.9 GB; everything is 90.6 GB.
+  - **Shipping the union only would also need two code changes.** Both launch gates refuse a partial cache:
+    `aligned_launch.sh:65` (cache n must equal the metadata rows) and `j1_preflight.py:219` (cache n must
+    equal pretrain + probe). The sidecars would also have to be rewritten for a subset index.
+  - **The saving is 61 GB, 15% of the upload.**
+  - **Decision (user):** either run every arm with `--no-probe` and ship the union (with the gate changes),
+    or ship the full probe corpus as planned.
+- **Newly found box requirement: v1's cache, for the identical split.** `_identical_split` rebuilds v1's
+  split from v1's cache at a hard-coded path (`j4_spread_controls.py:58`,
+  `/Volumes/X10 Pro/galaxy-jepa/runs/full/cache/…`). On the box it needs:
+  - v1's `index.json` (26 MB) and `probe_columns.f64` (685 MB);
+  - v1's corpus `data/probe/metadata.csv` (125 MB);
+  - a `stamps.f16` of the right size (415,757,500,416 B). `TensorCache` memmaps it but the split never
+    reads a pixel, so a sparse file made with `truncate -s` serves. That is to be confirmed on the box
+    smoke.
+
+  The path must be adapted on the box (an environment override, not an edit to the frozen constant), and
+  the manifest gets a v1 section.
 - **The box does not need the FITS files** (`data/*/*.fits`): `bake_cache` skips every id already in the
   cache without opening its FITS.
 

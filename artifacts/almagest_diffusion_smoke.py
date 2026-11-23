@@ -87,6 +87,59 @@ class Prep:
         return {k: getattr(self, k).tolist() for k in ("m", "sd", "lo", "hi", "sky_median")} | {"sky_on": self.sky_on}
 
 
+def loss_v(net, x0, c, ab, gen):
+    """The pilot's loss with the target swapped: v = √ᾱ ε − √(1−ᾱ) x0 (Salimans & Ho 2022); same t, noise, dropout."""
+    b = x0.shape[0]
+    t = torch.randint(0, D.T_STEPS, (b,), device=x0.device, generator=gen)
+    n = torch.randn(x0.shape, device=x0.device, generator=gen)
+    a = ab[t][:, None, None, None]
+    xt = a.sqrt() * x0 + (1 - a).sqrt() * n
+    drop = torch.rand(b, device=x0.device, generator=gen) < D.P_UNCOND
+    return torch.nn.functional.mse_loss(net(xt, t, c, drop), a.sqrt() * n - (1 - a).sqrt() * x0)
+
+
+def ddim_v(vfn, x, ab, steps=100):
+    """DDIM η = 0 driven by a v-predictor `vfn(x, t)`, no clamp: x0 = √ᾱ x − √(1−ᾱ) v, ε = √(1−ᾱ) x + √ᾱ v."""
+    ts = torch.linspace(D.T_STEPS - 1, 0, steps, device=x.device).long()
+    for i, t in enumerate(ts):
+        v = vfn(x, t)
+        a = ab[t]
+        a_prev = ab[ts[i + 1]] if i + 1 < len(ts) else torch.tensor(1.0, device=x.device)
+        x0 = a.sqrt() * x - (1 - a).sqrt() * v
+        e = (1 - a).sqrt() * x + a.sqrt() * v
+        x = a_prev.sqrt() * x0 + (1 - a_prev).sqrt() * e
+    return x
+
+
+@torch.no_grad()
+def sample_v(net, n, ab, gen, dev, cond=None):
+    """w = 0 (cond None: the null branch) or w = 1 (cond given), v-prediction, no clamp."""
+    x = torch.randn(n, 3, D.RES, D.RES, device=dev, generator=gen)
+    c = torch.zeros(n, 384, device=dev) if cond is None else cond
+    drop = torch.full((n,), cond is None, dtype=torch.bool, device=dev)
+    return ddim_v(lambda x_, t: net(x_, t.repeat(n), c, drop), x, ab)
+
+
+def step_oracle() -> dict:
+    """Planted check of the v sampler: exact E[v | x_t] for Gaussian data x0 ~ N(μ, s²) must return (μ, s)."""
+    ab = D.schedule(torch.device("cpu"))
+    out = {}
+    for mu, s in ((0.0, 1.0), (0.0, 0.44), (0.5, 0.3), (-0.2, 1.5)):
+        def vfn(x, t, mu=mu, s=s):
+            a = ab[t]
+            den = a * s * s + 1 - a
+            e = (1 - a).sqrt() * (x - a.sqrt() * mu) / den
+            x0 = mu + a.sqrt() * s * s * (x - a.sqrt() * mu) / den
+            return a.sqrt() * e - (1 - a).sqrt() * x0
+        x = ddim_v(vfn, torch.randn(64, 3, 64, 64, generator=torch.Generator().manual_seed(0)), ab)
+        lvl = x.mean((2, 3))
+        out[f"N({mu},{s}^2)"] = {"mean": float(x.mean()), "sd": float(x.std()), "per_image_level_sd": float(lvl.std()),
+                                 "expected_level_sd": s / 64}
+        assert abs(float(x.mean()) - mu) < 0.02 and abs(float(x.std()) / s - 1) < 0.03, out
+    print(json.dumps(out, indent=1))
+    return out
+
+
 @torch.no_grad()
 def sample_uncond(net, n, ab, gen, dev, lo, hi, steps=100):
     """DDIM η = 0, unconditional branch only (w = 0), x0 clamped per channel to [lo, hi]."""
@@ -134,7 +187,8 @@ def stats_table(z_in, z_s, x_in, x_s) -> dict:
 
 
 def step_run(arm: str, steps: int, bs: int, lr: float = 2e-4) -> None:
-    sky_on = arm == "full"
+    sky_on = arm in ("full", "full_v")
+    vpred = arm == "full_v"  # v-prediction, no clamp (user, 21 Nov); fixes 1 and 2 kept
     out = D.OUT / f"smoke_{arm}"
     out.mkdir(parents=True, exist_ok=True)
     x64 = np.load(D.OUT / "train_x64.npy", mmap_mode="r")
@@ -152,7 +206,7 @@ def step_run(arm: str, steps: int, bs: int, lr: float = 2e-4) -> None:
     ab = D.schedule(dev)
     gen = torch.Generator(device=dev).manual_seed(D.SEED)
     log = open(out / "train_log.jsonl", "a")
-    log.write(json.dumps({"event": "start", "arm": arm, "params": npar, "batch": bs, "steps": steps, "prep": prep.state(),
+    log.write(json.dumps({"event": "start", "arm": arm, "pred": "v" if vpred else "eps", "params": npar, "batch": bs, "steps": steps, "prep": prep.state(),
                           **D.machine()}) + "\n")
     t0, last, sm, start = time.perf_counter(), time.perf_counter(), None, 1
     part = out / "partial.pt"  # resume after a swap-guard kill: weights, optimiser, both RNGs, the loss EMA
@@ -166,7 +220,7 @@ def step_run(arm: str, steps: int, bs: int, lr: float = 2e-4) -> None:
         i = np.sort(rng.choice(len(x64), bs, replace=False))
         x0 = torch.from_numpy(prep.fwd(np.asarray(x64[i], dtype=np.float32), sky[i])).to(dev)
         c = torch.from_numpy(bank.cond(bank.emb[i])).to(dev)
-        loss = D.loss_fn(net, x0, c, ab, gen)
+        loss = loss_v(net, x0, c, ab, gen) if vpred else D.loss_fn(net, x0, c, ab, gen)
         opt.zero_grad(set_to_none=True)
         loss.backward()
         nn.utils.clip_grad_norm_(net.parameters(), 1.0)
@@ -191,7 +245,7 @@ def step_run(arm: str, steps: int, bs: int, lr: float = 2e-4) -> None:
                             "elapsed": time.perf_counter() - t0}, part)
             print(f"{arm} step {step} loss {sm if sm is None else round(sm, 4)} {rec['steps_per_s_window']:.2f} it/s", file=sys.stderr, flush=True)
     train_s = time.perf_counter() - t0
-    torch.save({"ema": ema.state_dict(), "step": steps, "prep": prep.state(), "batch": bs, "train_seconds": train_s,
+    torch.save({"ema": ema.state_dict(), "step": steps, "prep": prep.state(), "pred": "v" if vpred else "eps", "batch": bs, "train_seconds": train_s,
                 "final_loss_ema": sm}, out / "smoke.pt")
     log.write(json.dumps({"event": "end", "train_seconds": train_s, **D.machine()}) + "\n")
     log.close()
@@ -216,7 +270,13 @@ def step_eval(arm: str, w1: bool = False) -> None:
     x64 = np.load(D.OUT / "train_x64.npy", mmap_mode="r")
     sky = np.load(SKY)["sky"]
     ev = np.sort(np.random.default_rng(D.SEED + 31).choice(len(x64), 64, replace=False))
-    if w1:  # conditioned on the 64 evaluation galaxies' own A1 embeddings (train galaxies: a fit check, not a test)
+    vpred = ck.get("pred") == "v"
+    if vpred:
+        bank = D.Bank("train")
+        cond = torch.from_numpy(bank.cond(bank.emb[ev])).to(dev) if w1 else None
+        zs = torch.cat([sample_v(ema, 16, ab, g2, dev, None if cond is None else cond[k:k + 16]).float()
+                        for k in range(0, 64, 16)]).cpu().numpy()
+    elif w1:  # conditioned on the 64 evaluation galaxies' own A1 embeddings (train galaxies: a fit check, not a test)
         bank = D.Bank("train")
         cond = torch.from_numpy(bank.cond(bank.emb[ev])).to(dev)
         zs = torch.cat([sample_cond(ema, cond[k:k + 16], ab, g2, dev, prep.lo, prep.hi).float()
@@ -225,7 +285,8 @@ def step_eval(arm: str, w1: bool = False) -> None:
         zs = torch.cat([sample_uncond(ema, 16, ab, g2, dev, prep.lo, prep.hi).float() for _ in range(4)]).cpu().numpy()
     x_in = np.asarray(x64[ev], dtype=np.float32)
     z_in = prep.fwd(x_in, sky[ev])
-    res = {"arm": arm, "guidance": "w = 1, own embeddings" if w1 else "w = 0", "fixes": {"1_unit_variance": True, "2_sky_subtraction": prep.sky_on, "3_percentile_clamp": True},
+    res = {"arm": arm, "guidance": "w = 1, own embeddings" if w1 else "w = 0", "pred": "v" if vpred else "eps",
+           "fixes": {"1_unit_variance": True, "2_sky_subtraction": prep.sky_on, "3_percentile_clamp": not vpred},
            "steps": ck["step"], "batch": ck["batch"], "train_seconds": ck["train_seconds"],
            "final_loss_ema": ck["final_loss_ema"], "prep": st,
            "stats": stats_table(z_in, zs, x_in, prep.inv(zs)), "machine_end": D.machine()}
@@ -239,14 +300,16 @@ def step_eval(arm: str, w1: bool = False) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("step", choices=["sky", "run", "eval"])
-    ap.add_argument("arm", nargs="?", choices=["full", "nosky"])
+    ap.add_argument("step", choices=["sky", "run", "eval", "oracle"])
+    ap.add_argument("arm", nargs="?", choices=["full", "nosky", "full_v"])
     ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--w1", action="store_true", help="eval: conditional samples on the eval galaxies' own embeddings")
     a = ap.parse_args()
     if a.step == "sky":
         step_sky()
+    elif a.step == "oracle":
+        step_oracle()
     elif a.step == "run":
         step_run(a.arm, a.steps, a.batch)
     else:

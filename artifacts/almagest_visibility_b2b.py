@@ -254,9 +254,207 @@ def step_fetch() -> None:
     log("b2b fetched all chunks")
 
 
+def _fetched() -> tuple[dict, dict]:
+    files, reasons = {}, {}
+    for ch in sorted((B2B / "cut").glob("chunk*")):
+        for f in ch.glob("*.fits"):
+            files[f.stem] = f
+        for r in csv.DictReader(open(ch / "reasons.csv", newline="")):
+            reasons[r["reason"]] = reasons.get(r["reason"], 0) + int(r["n"])
+    return files, reasons
+
+
+def bake(st, path) -> np.ndarray:
+    """The cache's own bake path (data/cache.py:593): load_fits_stamp → the parity-locked pipeline → fp16."""
+    from galaxy_jepa.data.sources import load_fits_stamp
+    return np.asarray(st.pipe(load_fits_stamp(path)), dtype=np.float16)
+
+
+def step_finish() -> None:
+    import torch
+    from astropy.cosmology import Planck18 as cosmo
+    import almagest_diffusion as DF
+    prep = json.loads((B2B / "prep.json").read_text())
+    files, reasons = _fetched()
+    d = AXS.Data(untrained=False)
+    st = V.Stretch()
+    sample = np.asarray(prep["sample_rows"]); oids = np.asarray(prep["oids"], dtype=np.int64)
+    res = {"cut_reasons": reasons, "n_files": len(files)}
+    # --- gate: the no-change rows must reproduce the cache pixel for pixel before anything is scored -------------
+    par = []
+    for k in prep["planted"]:
+        tag = f"{oids[k]}_p"
+        if tag not in files:
+            par.append({"tag": tag, "status": "not_cut"})
+            continue
+        new, old = bake(st, files[tag]), st.cache.get(int(oids[k]))
+        same = np.array_equal(new.view(np.uint16), np.asarray(old, dtype=np.float16).view(np.uint16))
+        par.append({"tag": tag, "status": "identical" if same else "differs",
+                    "n_px_differ": int((new != old).sum()), "max_abs": float(np.max(np.abs(new.astype(np.float32) - old.astype(np.float32))))})
+    n_id = sum(p["status"] == "identical" for p in par); n_cut = sum(p["status"] != "not_cut" for p in par)
+    res["planted_parity"] = {"n_rows": len(par), "n_cut": n_cut, "n_identical": n_id,
+                             "n_not_cut_outside_frame": len(par) - n_cut, "rows": par}
+    gate = n_cut > 0 and n_id == n_cut
+    res["planted_parity"]["pass"] = gate
+    (DOCS_OUT := V.DOCS / "a1_visibility_b2b.json").write_text(json.dumps(res, indent=1, default=float))
+    log(f"b2b parity: {n_id}/{n_cut} cut no-change rows identical to the cache ({len(par) - n_cut} not cut)")
+    if not gate:
+        sys.exit("b2b: the no-change rows do not reproduce the cache pixel for pixel; nothing scored (see the JSON)")
+    # --- build the simulated stamps --------------------------------------------------------------------------------
+    kc = {row["tag"]: row for row in csv.DictReader(open(B2B / "kc_out.csv", newline=""))}
+    N = {n: d.lab.nuisance_value(n, d.union).astype(float) for n in S.NUIS}
+    tgt = {float(k): v for k, v in prep["targets"].items()}
+    rng = np.random.default_rng(V.SEED + 99)
+    dev = DF.device()
+    enc = DF.a1_encoder(dev)
+    E, meta = {}, {}
+    for z in V.Z_TARGETS:
+        key = f"z={z:.2f}"
+        ks = [k for k in prep["selection"][key] if f"{oids[k]}_z{int(round(z * 100)):02d}" in files]
+        ys, mt = [], []
+        for k in ks:
+            i = sample[k]
+            z0, p0 = float(N["redshift"][i]), float(N["psf"][i])
+            f, f_eff, g, n_src, s_aa = geometry(z0, z, cosmo)
+            dm = np.array([float(kc[str(oids[k])][f"dm_{b}_{z:.2f}"]) for b in "gri"])
+            from galaxy_jepa.data.sources import load_fits_stamp
+            x256 = np.asarray(load_fits_stamp(files[f"{oids[k]}_z{int(round(z * 100)):02d}"]), dtype=np.float64)
+            add = psf_add_px(f_eff, s_aa, p0, tgt[z]["psf_fwhm_arcsec"])
+            xs, sig_add = finish_stamp(x256, n_src, g, dm, add, tgt[z]["sky_sigma_linear"], rng)
+            ys.append(np.asarray(st.pipe(xs.astype(np.float32)), dtype=np.float16))
+            mt.append({"k": k, "f": f, "f_eff": f_eff, "g": g, "n_src": n_src, "psf_add_px": add, "dm": dm.tolist(),
+                       "r_sim": float(N["magnitude"][i] - 2.5 * np.log10(g) + dm[1])})
+        E[key] = np.concatenate([DF.embed(enc, torch.from_numpy(np.stack(ys[j:j + 64]).astype(np.float32)), dev)
+                                 for j in range(0, len(ys), 64)]) if ys else np.zeros((0, 384), np.float32)
+        meta[key] = mt
+        log(f"b2b {key}: built and embedded {len(ks)} (selected {len(prep['selection'][key])})")
+    own = d.mats["A1"]
+    np.savez(B2B / "embeddings.npz", **{k.replace("=", "_"): v for k, v in E.items()},
+             **{f"k_{k.replace('=', '_')}": np.array([m_["k"] for m_ in meta[k]]) for k in meta})
+    # --- scores: Δ against each galaxy's own native embedding (the parity gate makes that the no-change baseline) ---
+    out = json.loads((V.DOCS / "a1_axes.json").read_text())
+    order = out["order"]
+    arrs = {f: np.load(V.AX / f"{f}.npz") for f in order}
+    test_rows = np.flatnonzero(np.isin(d.union, np.asarray(d.setup.test_ids)) & d.ok)
+    cl = d.cleaner["A1"]
+
+    def snr_at(z, mags):
+        v = np.full(len(mags), np.nan)
+        for j, mg in enumerate(mags):
+            m = (np.abs(N["redshift"][test_rows] - z) < 0.01) & (np.abs(N["magnitude"][test_rows] - mg) < 0.25)
+            if m.sum() >= 20:
+                v[j] = np.median(N["snr"][test_rows][m])
+        return v
+    Nsim, okc = {}, {}
+    for z in V.Z_TARGETS:
+        key = f"z={z:.2f}"
+        rows_ = sample[[m_["k"] for m_ in meta[key]]]
+        mags = np.array([m_["r_sim"] for m_ in meta[key]])
+        cols = {"size": N["size"][rows_] * np.array([m_["f_eff"] for m_ in meta[key]]), "magnitude": mags,
+                "snr": snr_at(z, mags), "psf": np.full(len(rows_), tgt[z]["psf_fwhm_arcsec"]), "redshift": np.full(len(rows_), z)}
+        Nsim[key] = np.column_stack([cols[n] for n in S.NUIS])
+        okc[key] = np.isfinite(Nsim[key]).all(1)  # cleaned scores need every nuisance (rank_fit raises on NaN)
+    common = set.intersection(*[{m_["k"] for m_ in meta[k]} for k in meta])
+    per = {}
+    for f in order:
+        tr, te = d.rows(f)
+        y_tr, _ = d.yv(f, tr)
+        Pr = AXS.Probe(own[tr], y_tr, d.c)
+        sd = {"cleaned": float(np.nanstd(d.clean["A1"][te] @ arrs[f]["we"])), "raw": float(np.nanstd(Pr.d(own[te])))}
+        e = {"label": out["labels"][f], "sd_test": sd}
+        for z in V.Z_TARGETS:
+            key = f"z={z:.2f}"
+            rows_ = sample[[m_["k"] for m_ in meta[key]]]
+            if not len(rows_):
+                continue
+            Xs = E[key].astype(np.float64)
+            raw = Pr.d(Xs) - Pr.d(own[rows_])
+            m = okc[key]
+            cln = (cl(Xs[m], Nsim[key][m]) - d.clean["A1"][rows_[m]]) @ arrs[f]["we"]
+            cm = np.array([m_["k"] in common for m_ in meta[key]])
+            for kind, dv, msk in (("raw", raw, None), ("cleaned", cln, None), ("raw_common", raw, cm), ("cleaned_common", cln, cm[m])):
+                dv_ = dv if msk is None else dv[msk]
+                if not len(dv_):
+                    continue
+                bs = [np.mean(dv_[rng.integers(0, len(dv_), len(dv_))]) for _ in range(V.N_BOOT)]
+                base = "cleaned" if kind.startswith("cleaned") else "raw"
+                e.setdefault(kind, {})[key] = {"n": int(len(dv_)), "mean_delta_in_test_sd": float(np.mean(dv_) / sd[base]),
+                                               "ci95_in_test_sd": [c / sd[base] for c in ci(bs)]}
+        per[f] = e
+    # --- nuisance movement (B2's method) and nearest-neighbour specz -------------------------------------------------
+    trm = np.isin(d.union, np.asarray(d.setup.train_ids)) & d.ok
+    Nt = np.column_stack([N[n][trm] for n in S.NUIS]); mu_n, sd_n = Nt.mean(0), Nt.std(0)
+    A = np.column_stack([np.ones(trm.sum()), (Nt - mu_n) / sd_n])
+    Bc = np.linalg.lstsq(A, own[trm], rcond=None)[0][1:]
+    move, nn = {}, {}
+    R_ = own[d.ok]; Rn = R_ / np.linalg.norm(R_, axis=1, keepdims=True); zR = N["redshift"][d.ok]; idR = np.flatnonzero(d.ok)
+    for z in V.Z_TARGETS:
+        key = f"z={z:.2f}"
+        rows_ = sample[[m_["k"] for m_ in meta[key]]]
+        if not len(rows_):
+            continue
+        dx = E[key].astype(np.float64) - own[rows_]
+        implied = np.linalg.lstsq(Bc.T, dx.T, rcond=None)[0].T
+        Nown = np.column_stack([N[n][rows_] for n in S.NUIS])
+        actual = (Nsim[key] - Nown) / sd_n
+        move[key] = {n: {"implied_mean_sd": float(np.mean(implied[:, j])), "actual_mean_sd": float(np.nanmean(actual[:, j]))}
+                     for j, n in enumerate(S.NUIS)}
+        Q = E[key].astype(np.float64); Q /= np.linalg.norm(Q, axis=1, keepdims=True)
+        med = []
+        for s0 in range(0, len(Q), 512):
+            sim = Q[s0:s0 + 512] @ Rn.T
+            for r_, gi in enumerate(rows_[s0:s0 + 512]):
+                sim[r_, idR == gi] = -2
+            top = np.argpartition(-sim, V.NN_K, axis=1)[:, :V.NN_K]
+            med += list(np.nanmedian(zR[top], axis=1))
+        nn[key] = {"nn_median_specz_median": float(np.median(med)), "own_specz_median": float(np.median(N["redshift"][rows_])),
+                   "real_galaxies_at_z_specz": z}
+    res.update({"n_built": {k: len(v) for k, v in meta.items()}, "n_common": len(common),
+                "n_cleaned": {k: int(v.sum()) for k, v in okc.items()},
+                "geometry": {k: {"f_eff_median": float(np.median([m_["f_eff"] for m_ in v])),
+                                 "n_src_median": float(np.median([m_["n_src"] for m_ in v])),
+                                 "dm_median_gri": np.median([m_["dm"] for m_ in v], axis=0).tolist(),
+                                 "r_sim_max": float(max(m_["r_sim"] for m_ in v))} for k, v in meta.items() if v},
+                "psf_check": prep["psf_check"], "targets": prep["targets"], "declared": prep["declared"],
+                "scores": per, "nuisance_movement": move, "nearest_neighbours": nn})
+    DOCS_OUT.write_text(json.dumps(res, indent=1, default=float))
+    sheet_b2b(st, d, sample, oids, files, meta, prep, cosmo, N, tgt, kc)
+    log(f"→ {DOCS_OUT}, a1_visibility_b2b_examples.png")
+
+
+def sheet_b2b(st, d, sample, oids, files, meta, prep, cosmo, N, tgt, kc) -> None:
+    from PIL import Image, ImageDraw, ImageFont
+    import almagest_diffusion as DF
+    common = sorted(set.intersection(*[{m_["k"] for m_ in v} for v in meta.values()]))[:6]
+    rng = np.random.default_rng(1)
+    T, G, H = 256, 8, 22
+    im = Image.new("RGB", (4 * (T + G) + G, H + len(common) * (T + G) + G), (250, 249, 246))
+    dr = ImageDraw.Draw(im)
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 13)
+    except OSError:
+        font = ImageFont.load_default()
+    for j, lab in enumerate(["own (cache)", "z = 0.07", "z = 0.10", "z = 0.13"]):
+        dr.text((G + j * (T + G), 4), lab, fill=(29, 27, 25), font=font)
+    for r, k in enumerate(common):
+        i = sample[k]
+        tiles = [np.asarray(st.cache.get(int(oids[k])), np.float32)]
+        for z in V.Z_TARGETS:
+            from galaxy_jepa.data.sources import load_fits_stamp
+            f, f_eff, g, n_src, s_aa = geometry(float(N["redshift"][i]), z, cosmo)
+            dm = np.array([float(kc[str(oids[k])][f"dm_{b}_{z:.2f}"]) for b in "gri"])
+            x256 = np.asarray(load_fits_stamp(files[f"{oids[k]}_z{int(round(z * 100)):02d}"]), np.float64)
+            xs, _ = finish_stamp(x256, n_src, g, dm, psf_add_px(f_eff, s_aa, float(N["psf"][i]), tgt[z]["psf_fwhm_arcsec"]),
+                                 tgt[z]["sky_sigma_linear"], rng)
+            tiles.append(np.asarray(st.pipe(xs.astype(np.float32)), np.float32))
+        for j, t in enumerate(tiles):
+            im.paste(Image.fromarray(DF.show(t)), (G + j * (T + G), H + r * (T + G)))
+    im.save(V.DOCS / "a1_visibility_b2b_examples.png", optimize=True)
+
+
 def main() -> None:
     step = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"prep": step_prep, "submit": step_submit, "fetch": step_fetch}.get(
+    {"prep": step_prep, "submit": step_submit, "fetch": step_fetch, "finish": step_finish}.get(
         step, lambda: (_ for _ in ()).throw(SystemExit(__doc__)))()
 
 
