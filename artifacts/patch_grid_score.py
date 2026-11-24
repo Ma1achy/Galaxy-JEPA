@@ -19,6 +19,8 @@ DOC, OUT = REPO / "docs/patch_grid", REPO / "runs/almagest/patch_grid"
 OBJ, PATCH = ("jepa", "moco", "mae"), (16, 8, 4)
 STEPS = ((16, 8), (8, 4))
 SESOI, NEGLIGIBLE, MIN_ANSWERS, LOWDEC = 0.02, 0.005, 5, 5
+EQUIV = SESOI  # NO CHANGE iff |G| + b <= EQUIV (user, 24 Nov)
+RHO_GATE = 0.5
 GROUPS = {
     "G1": ["smooth", "features", "edge-on yes", "edge-on no", "completely round", "cigar", "odd yes", "odd no", "no bulge"],
     "G2": ["bar", "no bar", "spiral", "no spiral", "ring", "lens/arc", "obvious bulge", "in between", "loose winding", "2 arms", "bulge-shape no bulge"],
@@ -60,13 +62,13 @@ def seeds_of(L, o, p):
 # Bar b = max(SESOI/2, K_n · S / √n), S = the larger of the two steps' SDs of G_s over seeds (the larger noise sets the bar, as max(S_A, S_X) does in
 # baselines_comparison.md), n = seeds valid at both sizes. K_n is calibrated by Monte Carlo at the observed noise (`calibrate`): the smallest K on a
 # 0.05 grid whose false GAIN-or-LOSS rate and false DIFFERS rate are ≤ 2.5% in every regime (docs/patch_grid/calibration.json).
-K_N = {3: None, 2: None}  # filled from calibration.json by load_K(); None means not calibrated and the code refuses to score
+K_N = {3: None, 2: None, "3s": None, "2s": None}  # "3s"/"2s": one step only (8 → 4 not run), S from that step alone; filled from calibration.json by load_K(); None means not calibrated and the code refuses to score
 CAL = DOC / "calibration.json"
 
 
 def load_K():
     c = json.loads(CAL.read_text())
-    K_N.update({int(k): v for k, v in c["K"].items()})
+    K_N.update({(int(k) if k.isdigit() else k): v for k, v in c["K"].items()})
     return K_N
 
 
@@ -87,18 +89,18 @@ def step_raw(L, o, p, q, answers):
     return {**rec, "G_s": Gs.tolist(), "G": float(Gs.mean()), "S": float(Gs.std(ddof=1)), "delta_answers": dict(zip(ok, D.mean(0))), "state": None}
 
 
-def step_state(rec, S):
+def step_state(rec, S, single=False):
     """First match, with the group's shared noise S (the larger of the two steps' SDs) and K for this many pairs."""
     if rec["state"] == "INSUFFICIENT":
         return rec
-    k = K_N[rec["n_pairs"]]
+    k = K_N[f"{rec['n_pairs']}s" if single else rec["n_pairs"]]
     if k is None:
         raise RuntimeError("K is not calibrated: run `calibrate` first")
     G, n = rec["G"], rec["n_pairs"]
     b = max(SESOI / 2, k * S / np.sqrt(n))
     d = np.array(list(rec["delta_answers"].values()))
     pos, neg = float((d > 0).mean()), float((d < 0).mean())
-    st = ("GAIN" if G > b and pos >= 2 / 3 else "LOSS" if G < -b and neg >= 2 / 3 else "NO CHANGE" if abs(G) <= NEGLIGIBLE and b <= SESOI else "UNRESOLVED")
+    st = ("GAIN" if G > b and pos >= 2 / 3 else "LOSS" if G < -b and neg >= 2 / 3 else "NO CHANGE" if abs(G) + b <= EQUIV else "UNRESOLVED")
     if st == "UNRESOLVED" and (min(rec["G_s"]) <= -SESOI / 2 and max(rec["G_s"]) >= SESOI / 2):
         rec = {**rec, "label": "the seeds disagree in sign"}
     return {**rec, "S_used": float(S), "bar": float(b), "frac_pos": pos, "frac_neg": neg, "state": st, "marked": n < 3}
@@ -106,6 +108,9 @@ def step_state(rec, S):
 
 def group_reading(a, b):
     """Combine the states of 16 → 8 (a) and 8 → 4 (b), first match of §6's table."""
+    if b == "NOT RUN":  # staged design: the 8 → 4 arms were not run for this objective (gate failed)
+        return {"INSUFFICIENT": "INSUFFICIENT", "LOSS": "WORSE WITH SMALLER PATCHES (16->8; 8->4 not run)", "GAIN": "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN",
+                "NO CHANGE": "NO CHANGE 16->8; 8->4 NOT RUN"}.get(a, "UNRESOLVED (8->4 not run)")
     if "INSUFFICIENT" in (a, b):
         return "INSUFFICIENT"
     if "LOSS" in (a, b):
@@ -117,13 +122,16 @@ def group_reading(a, b):
 
 def objective_pair(r1, r2, S1, S2):
     """D(o1, o2) for one group and step, paired by seed: D_s = G_s(o1) − G_s(o2) over seeds valid in both."""
+    if "NOT RUN" in (r1["state"], r2["state"]):
+        return {"state": "NOT RUN"}
     if "INSUFFICIENT" in (r1["state"], r2["state"]):
         return {"state": "INSUFFICIENT"}
     ss = [s for s in r1["seeds"] if s in r2["seeds"]]
     if len(ss) < 2:
         return {"state": "INSUFFICIENT"}
     a = np.array([r1["G_s"][r1["seeds"].index(s)] - r2["G_s"][r2["seeds"].index(s)] for s in ss])
-    n, k = len(ss), K_N[len(ss)]
+    n = len(ss)
+    k = max(K_N[n], K_N[f"{n}s"] if r1.get("single") or r2.get("single") else 0)
     D, b = float(a.mean()), max(SESOI / 2, k * max(S1, S2) * np.sqrt(2 / n))
     st = "DIFFERS" if abs(D) > b else "SAME" if abs(D) <= NEGLIGIBLE and r1["bar"] <= SESOI and r2["bar"] <= SESOI else "UNRESOLVED"
     return {"D": D, "bar": float(b), "state": st, "sign": "+" if D > 0 else "-"}
@@ -140,18 +148,52 @@ def device(gpu, mac, mac_seed_auc):
     return out
 
 
-def score(auc, un, counts, groups=GROUPS):
-    return score_L(all_L(auc, un, counts), groups)
+def score(auc, un, counts, groups=GROUPS, not_run=()):
+    return score_L(all_L(auc, un, counts), groups, not_run)
 
 
-def score_L(L, groups=GROUPS):
+# --- the blind ρ gate (staged design, user 24 Nov) ---------------------------------------------------------------------
+def rho_hat(M16, M8):
+    """M: (n seeds, A answers) of L (or of the deciles-1–5 mean AUC: the untrained maximum is the same for every seed and centres away) at each
+    patch size. Seed effects = M minus each answer's mean over the seeds, at each size; ρ̂ = the Pearson correlation over all (answer, seed) pairs.
+    Answers undefined in any seed at either size are dropped. NaN when nothing varies or < 2 seeds. Returns ρ̂ alone: nothing else is computed."""
+    M16, M8 = np.asarray(M16, float), np.asarray(M8, float)
+    ok = np.isfinite(M16).all(0) & np.isfinite(M8).all(0)
+    if M16.shape[0] < 2 or ok.sum() < MIN_ANSWERS:
+        return float("nan")
+    a = (M16[:, ok] - M16[:, ok].mean(0)).ravel()
+    b = (M8[:, ok] - M8[:, ok].mean(0)).ravel()
+    d = np.sqrt((a * a).sum() * (b * b).sum())
+    return float((a * b).sum() / d) if d > 0 else float("nan")
+
+
+def gate_decision(o, r):
+    """The staged rule on ρ̂ alone; MoCo's 4×4 runs whatever ρ̂ is."""
+    if o == "moco":
+        return "RUN 4x4 (always)"
+    return "RUN 4x4" if r >= RHO_GATE else "NOT RUN: planted power at rho-hat cannot resolve" if np.isfinite(r) else "NOT RUN: rho-hat not estimable"
+
+
+def gate(L, o):
+    """(ρ̂, decision) for one objective from {(o, p, s): {answer: L}}: only seeds present at both sizes are used."""
+    ss = [s for s in seeds_of(L, o, 16) if s in seeds_of(L, o, 8)]
+    ans = list(KEY)
+    r = rho_hat([[L[o, 16, s][a] for a in ans] for s in ss], [[L[o, 8, s][a] for a in ans] for s in ss]) if ss else float("nan")
+    return r, gate_decision(o, r)
+
+
+def score_L(L, groups=GROUPS, not_run=()):
+    """not_run: objectives whose 8 → 4 arms the gate stopped."""
     out = {"steps": {}, "readings": {}, "objective_pairs": {}}
     Sg = {}
     for o in OBJ:
         for g, ans in groups.items():
-            raw = {f"{p}->{q}": step_raw(L, o, p, q, ans) for p, q in STEPS}
+            raw = {f"{p}->{q}": step_raw(L, o, p, q, ans) for p, q in STEPS if not (o in not_run and q == 4)}
+            single = o in not_run
             Sg[o, g] = max((r["S"] for r in raw.values() if r["state"] is None), default=0.0)
-            st = {k: step_state(r, Sg[o, g]) for k, r in raw.items()}
+            st = {k: {**step_state(r, Sg[o, g], single), "single": single} for k, r in raw.items()}
+            if single:
+                st["8->4"] = {"state": "NOT RUN"}
             out["steps"][o, g] = st
             out["readings"][o, g] = group_reading(st["16->8"]["state"], st["8->4"]["state"])
     for g in groups:
@@ -202,7 +244,8 @@ def step_plants():
             for g in GROUPS:
                 for p, v in zip(PATCH, spec[g]):
                     t[o, p][g] = v
-        cells[name] = score(*synth(t, rng, **kw))
+        not_run = kw.pop("not_run", ())
+        cells[name] = score(*synth(t, rng, **kw), not_run=not_run)
         return cells[name]
     stay = lambda g: (base[g],) * 3  # noqa: E731
     up = lambda a, b=None: {g: (base[g], base[g] + a, base[g] + (b if b is not None else a)) for g in GROUPS}  # noqa: E731
@@ -213,13 +256,20 @@ def step_plants():
     plant("no change then gain", {"*": {g: (base[g], base[g], base[g] + 0.05) for g in GROUPS}}, **noise)
     plant("loss at 8->4", {"*": {g: (base[g], base[g], base[g] - 0.05) for g in GROUPS}}, **noise)
     plant("loss at 16->8", {"*": {g: (base[g], base[g] - 0.05, base[g] - 0.05) for g in GROUPS}}, **noise)
-    plant("gain then unresolved", {"*": {g: (base[g], base[g] + 0.06, base[g] + 0.067) for g in GROUPS}}, sd=0.001)  # 8→4 Δ ≈ 0.007: between NEGLIGIBLE and B_g
-    plant("unresolved", {"*": {g: (base[g], base[g] + 0.008, base[g] + 0.009) for g in GROUPS}}, **noise)
+    # With |G| + b <= 0.02 and almost no noise the bar is 0.01, so NO CHANGE and GAIN meet at 0.01 and leave no gap: UNRESOLVED needs real seed noise.
+    for k in range(6):
+        plant(f"gain then unresolved {k}", {"*": {g: (base[g], base[g] + 0.30, base[g] + 0.312) for g in GROUPS}}, sd=0.02, shared=0.8)
+        plant(f"unresolved {k}", {"*": {g: (base[g], base[g] + 0.012, base[g] + 0.02) for g in GROUPS}}, sd=0.02, shared=0.8)
     plant("insufficient (rare answers)", {"*": up(0.05)}, few=GROUPS["G1"][:5] + GROUPS["G2"][:7] + GROUPS["G3"][:6], **noise)
     plant("insufficient (two of three seeds voided at 8)", {"*": up(0.05)}, drop=tuple((o, 8, s) for o in OBJ for s in (0, 1)), **noise)
     plant("one seed voided", {"*": up(0.05)}, drop=(("jepa", 4, 1),), **noise)
     plant("MAE > JEPA > MoCo", {"mae": up(0.12), "jepa": up(0.05), "moco": up(0.0), "*": up(0.0)}, **noise)
     plant("objectives differ by SESOI-ish (unresolved)", {"mae": up(0.058), "jepa": up(0.05), "moco": up(0.05), "*": up(0.05)}, **noise)
+    # the gate's NOT RUN readings: JEPA and MAE stopped at 8, one planted case for each 16 → 8 state
+    for nm_, spec in (("gain", up(0.05)), ("no change", {g: stay(g) for g in GROUPS}), ("loss", {g: (base[g], base[g] - 0.05, base[g]) for g in GROUPS}),
+                      ("noisy", {g: (base[g], base[g] + 0.02, base[g]) for g in GROUPS})):
+        plant(f"8->4 not run: {nm_}", {"*": spec}, not_run=("jepa", "mae"), **({"sd": 0.02, "shared": 0.8} if nm_ == "noisy" else noise))
+    plant("8->4 not run: insufficient", {"*": up(0.05)}, not_run=("jepa", "mae"), few=GROUPS["G1"][:5] + GROUPS["G2"][:7] + GROUPS["G3"][:6], **noise)
     readings = {n: {f"{o}/{g}": c["readings"][o, g] for o in OBJ for g in GROUPS} for n, c in cells.items()}
     steps = {n: sorted({v["state"] for st in c["steps"].values() for v in st.values()}) for n, c in cells.items()}
     obj = {n: sorted({v["state"] for v in c["objective_pairs"].values()}) for n, c in cells.items()}
@@ -231,8 +281,9 @@ def step_plants():
                "objective states": sorted({s for v in obj.values() for s in v}), "device states": sorted({v["jepa"]["state"] for v in dev.values()})}
     need = {"step states": {"INSUFFICIENT", "GAIN", "LOSS", "NO CHANGE", "UNRESOLVED"},
             "group readings": {"INSUFFICIENT", "WORSE WITH SMALLER PATCHES", "PATCH-LIMITED TO A PSF FLOOR", "PATCH-LIMITED BELOW 8 px", "PATCH-LIMITED; FLOOR UNRESOLVED",
-                               "DATA-LIMITED AT 16 px", "LIMITED BELOW 8 px ONLY (unexpected)", "UNRESOLVED"},
-            "objective states": {"INSUFFICIENT", "DIFFERS", "SAME", "UNRESOLVED"}, "device states": {"DEVICE EFFECT", "NO DEVICE EFFECT"}}
+                               "DATA-LIMITED AT 16 px", "LIMITED BELOW 8 px ONLY (unexpected)", "UNRESOLVED", "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN",
+                               "NO CHANGE 16->8; 8->4 NOT RUN", "UNRESOLVED (8->4 not run)"},
+            "objective states": {"INSUFFICIENT", "DIFFERS", "SAME", "UNRESOLVED", "NOT RUN"}, "device states": {"DEVICE EFFECT", "NO DEVICE EFFECT"}}
     missing = {k: sorted(need[k] - set(reached[k])) for k in need}
     out = {"reached": reached, "missing": missing, "readings": readings, "step_states": steps, "objective_states": obj, "device": dev}
     DOC.mkdir(parents=True, exist_ok=True)
@@ -286,9 +337,11 @@ def steps_vec(N, e8=0.0, e4=0.0):
     return out, S
 
 
-def t_stats(N, n):
+def t_stats(N, n, single=False):
     """Per draw: the K above which GAIN or LOSS stops being called at each step (0 when the sign or size floor already blocks it)."""
     steps, S = steps_vec(N)
+    if single:
+        steps, S = steps[:1], steps[0][1]
     t = []
     for G, _, pos, neg, _ in steps:
         fl = (np.abs(G) > SESOI / 2) & np.where(G > 0, pos >= 2 / 3, neg >= 2 / 3)
@@ -300,7 +353,7 @@ def step_calibrate():
     sp = json.loads((OUT / "spread.json").read_text())
     rng = np.random.default_rng(20261124)
     R, rows = 20000, []
-    worst = {2: [], 3: []}
+    worst = {2: [], 3: [], "2s": [], "3s": []}
     for n in (2, 3):
         for kind in ("raw", "cleaned"):
             nm = noise_model(sp, kind)
@@ -313,6 +366,10 @@ def step_calibrate():
                             k = float(max(np.quantile(x, 1 - FALSE) for x in t))
                             rows.append({"n": n, "kind": kind, "cell": f"{o}/{g}", "noise": nz, "rho": rho, "scale": sc, "K_needed": k})
                             worst[n].append(k)
+                            ts = t_stats(draw(rng, R, n, A, tau * sc, sig * sc, rho, nz), n, single=True)
+                            ks = float(np.quantile(ts[0], 1 - FALSE))
+                            rows.append({"n": f"{n}s", "kind": kind, "cell": f"{o}/{g}", "noise": nz, "rho": rho, "scale": sc, "K_needed": ks})
+                            worst[f"{n}s"].append(ks)
             for (o1, o2) in (("jepa", "mae"), ("jepa", "moco"), ("mae", "moco")):
                 for g in GROUPS:
                     A = len(GROUPS[g])
@@ -328,12 +385,12 @@ def step_calibrate():
                                 worst[n].append(k)
     # 3 decimals of headroom are meaningless at R = 20,000: round up to the 0.05 grid
     K = {str(n): float(np.ceil(max(v) / 0.05) * 0.05) for n, v in worst.items()}
-    top = {n: sorted((r for r in rows if r["n"] == n), key=lambda r: -r["K_needed"])[:5] for n in (2, 3)}
+    top = {str(n): sorted((r for r in rows if r["n"] == n), key=lambda r: -r["K_needed"])[:5] for n in (2, 3, "2s", "3s")}
     out = {"rule": "smallest K on a 0.05 grid with false GAIN-or-LOSS and false DIFFERS rates <= 2.5% in every regime", "K": K, "draws_per_regime": R, "n_regimes": len(rows), "worst_regimes": top,
            "quantiles_of_K_needed_n3": np.percentile([r["K_needed"] for r in rows if r["n"] == 3], [0, 25, 50, 75, 90, 99, 100]).tolist(),
            "noise_model_raw": {f"{o}/{g}": v for (o, g), v in noise_model(sp, "raw").items()}, "noise_model_cleaned": {f"{o}/{g}": v for (o, g), v in noise_model(sp, "cleaned").items()}}
     CAL.write_text(json.dumps(out, indent=1, default=float))
-    print(K, out["quantiles_of_K_needed_n3"]); print(top[3][:3])
+    print(K, out["quantiles_of_K_needed_n3"]); print(top["3"][:2], top["3s"][:2])
 
 
 def decide(N, n, e8=0.0, e4=0.0):
@@ -342,7 +399,7 @@ def decide(N, n, e8=0.0, e4=0.0):
     b = np.maximum(SESOI / 2, K_N[n] * S / np.sqrt(n))
     codes = []
     for G, _, pos, neg, _ in steps:
-        codes.append(np.select([(G > b) & (pos >= 2 / 3), (G < -b) & (neg >= 2 / 3), (np.abs(G) <= NEGLIGIBLE) & (b <= SESOI)], [0, 1, 2], 3))
+        codes.append(np.select([(G > b) & (pos >= 2 / 3), (G < -b) & (neg >= 2 / 3), np.abs(G) + b <= EQUIV], [0, 1, 2], 3))
     return codes, steps, b
 
 
@@ -410,11 +467,113 @@ def step_power():
                         rec["E_equiv_for_P50"] = float(np.quantile(G + b, 0.5))
                         rec["E_bar_for_P50_given_small_G"] = float(np.quantile(b[G <= NEGLIGIBLE], 0.5)) if (G <= NEGLIGIBLE).any() else None
                         rec["P_absG_le_NEGLIGIBLE"] = float((G <= NEGLIGIBLE).mean())
+                        G1, S1 = st[0][0], st[0][1]  # one step only (the 8 → 4 arms not run): S from 16 → 8 alone, K single
+                        bs = np.maximum(SESOI / 2, K_N[f"{n}s"] * S1 / np.sqrt(n))
+                        rec["single_step"] = {"P_NO_CHANGE_at_0": float((np.abs(G1) + bs <= EQUIV).mean()), "P_GAIN_at": {}}
+                        for dlt in grid:
+                            s2, S2 = steps_vec(N, e8=dlt, e4=dlt)
+                            g2, p2 = s2[0][0], s2[0][2]
+                            bb = np.maximum(SESOI / 2, K_N[f"{n}s"] * s2[0][1] / np.sqrt(n))
+                            rec["single_step"]["P_GAIN_at"][str(dlt)] = float(((g2 > bb) & (p2 >= 2 / 3)).mean())
+                        pg = list(rec["single_step"]["P_GAIN_at"].values())
+                        rec["single_step"]["delta80"] = next((float(np.interp(0.8, [pg[k - 1], pg[k]], [grid[k - 1], grid[k]])) for k in range(1, len(pg)) if pg[k] >= 0.8 > pg[k - 1]), None)
                         out["cells"][f"{kind}/{o}/{g}/{nz}/rho{rho}/n{n}"] = rec
     (DOC / "power.json").write_text(json.dumps(out, indent=1, default=float))
     for kind in ("raw",):
         for (o, g) in [(o, g) for o in OBJ for g in GROUPS]:
             print(o, g, *(f"| {nz} rho {r}: Δ80 {out['cells'][f'{kind}/{o}/{g}/{nz}/rho{r}/n3']['delta80']} P(NC|0) {out['cells'][f'{kind}/{o}/{g}/{nz}/rho{r}/n3']['P_at_0']['NO CHANGE']:.2f} E80 {out['cells'][f'{kind}/{o}/{g}/{nz}/rho{r}/n3']['E_equiv_for_P80']:.3f}" for nz in KINDS for r in (0.0, 1.0)))
+
+
+def rho_vec(L16, L8):
+    """Vector form of rho_hat on (R, n, A) noise."""
+    a = (L16 - L16.mean(1, keepdims=True)).reshape(len(L16), -1)
+    b = (L8 - L8.mean(1, keepdims=True)).reshape(len(L8), -1)
+    return (a * b).sum(1) / np.sqrt((a * a).sum(1) * (b * b).sum(1))
+
+
+def step_gate():
+    """Plants for the ρ gate: (1) planted Δ never moves ρ̂; (2) bias and spread of ρ̂ against the true correlation; (3) ρ̂ against the mean Δ;
+    (4) every gate decision reached; (5) the gate's pass rate by true ρ."""
+    load_K()
+    sp = json.loads((OUT / "spread.json").read_text())
+    rng = np.random.default_rng(13)
+    nm = noise_model(sp, "raw")
+    allA = [a for g in GROUPS.values() for a in g]
+    out = {"1_invariance": {}, "2_bias": {}, "3_independence": {}, "4_decisions": {}, "5_pass_rate": {}}
+    # 1: exact invariance to any planted shift, uniform, per-answer, or per-objective
+    worst = 0.0
+    for _ in range(2000):
+        n = 3
+        a16, a8 = rng.normal(size=(n, 30)) * 0.05, rng.normal(size=(n, 30)) * 0.05
+        base = rho_hat(a16, a8)
+        for shift in (0.05, -0.2, rng.normal(size=30) * 0.1):
+            worst = max(worst, abs(rho_hat(a16, a8 + shift) - base), abs(rho_hat(a16 + shift, a8) - base))
+    out["1_invariance"] = {"largest_change_over_6000_planted_shifts": worst, "draws": 2000}
+    # 2–3, 5 at the observed noise, per objective
+    for o in OBJ:
+        tg = np.concatenate([np.full(len(GROUPS[g]), nm[o, g][0]) for g in GROUPS])
+        sg = np.concatenate([np.full(len(GROUPS[g]), nm[o, g][1]) for g in GROUPS])
+        R = 20000
+        for rho in (0.0, 0.25, 0.5, 0.75, 1.0):
+            c = rng.normal(size=(R, 3, 1))
+            u = [np.sqrt(rho) * c + np.sqrt(1 - rho) * rng.normal(size=(R, 3, 1)) for _ in range(2)]
+            L16 = tg * u[0] + sg * rng.normal(size=(R, 3, 30))
+            L8 = tg * u[1] + sg * rng.normal(size=(R, 3, 30))
+            r = rho_vec(L16, L8)
+            meanD = np.median(L8 - L16, axis=2).mean(1)  # the group-style mean Δ of a null, per draw
+            truth = float(rho * (tg ** 2).sum() / ((tg ** 2) + (sg ** 2)).sum())
+            out["2_bias"][f"{o}/rho{rho}"] = {"true_run_level_rho": rho, "true_pooled_correlation": truth, "mean_rhohat": float(r.mean()), "sd_rhohat": float(r.std()),
+                                              "bias_vs_pooled": float(r.mean() - truth), "pass_rate_ge_0.5": float((r >= RHO_GATE).mean())}
+            out["3_independence"][f"{o}/rho{rho}"] = {"pearson_rhohat_vs_mean_delta": float(np.corrcoef(r, meanD)[0, 1]),
+                                                      "mean_rhohat_when_mean_delta_planted_0.05": float(rho_vec(L16, L8 + 0.05).mean() - r.mean())}
+    # 4: decisions through the scalar `gate`, with three, two, one seeds and undefined answers
+    def mk(n16, n8, drop=0, noise=0.0, share=0.0):
+        L, c = {}, rng.normal(size=(3, 30)) * 0.05
+        for o in OBJ:
+            for s in range(3):
+                if s < n16:
+                    L[o, 16, s] = dict(zip(allA, 0.1 + c[s]))
+                if s < n8:
+                    L[o, 8, s] = dict(zip(allA, 0.1 + (c[s] if share else rng.normal(size=30) * 0.05)))
+                    if drop and s == 0:
+                        for a in allA[:26]:
+                            L[o, 8, s][a] = float("nan")
+        return L
+    for name, L in (("shared seeds (rho 1)", mk(3, 3, share=1)), ("no sharing, 2 seeds at 8", mk(3, 2)), ("one seed at 8", mk(3, 1)), ("26 answers undefined", mk(3, 3, drop=1))):
+        out["4_decisions"][name] = {o: list(gate(L, o)) for o in OBJ}
+    seen = {d for v in out["4_decisions"].values() for (_, d) in v.values()}
+    # a draw whose ρ̂ is finite and below 0.5, for JEPA
+    for _ in range(200):
+        L = mk(3, 3)
+        r, d = gate(L, "jepa")
+        if np.isfinite(r) and r < RHO_GATE:
+            out["4_decisions"]["independent seeds, low rho-hat"] = {"jepa": [r, d]}
+            seen.add(d)
+            break
+    need = {"RUN 4x4 (always)", "RUN 4x4", "NOT RUN: planted power at rho-hat cannot resolve", "NOT RUN: rho-hat not estimable"}
+    out["missing_decisions"] = sorted(need - seen)
+    # 5: conditional false-call rate at 8 → 4 given the gate passes (Δ = 0, every group; JEPA, rho 0 / 0.5 / 1)
+    cond = {}
+    for rho in (0.0, 0.5, 1.0):
+        A = len(allA)
+        N = draw(rng, 20000, 3, A, 1.0, 0.0, rho, "gauss")  # unit run-level effect; scaled per answer below
+        tg = np.concatenate([np.full(len(GROUPS[g]), nm["jepa", g][0]) for g in GROUPS])
+        sg = np.concatenate([np.full(len(GROUPS[g]), nm["jepa", g][1]) for g in GROUPS])
+        Z = N * tg + sg * rng.normal(size=N.shape)
+        r = rho_vec(Z[:, :, 0], Z[:, :, 1])
+        for g, ans in GROUPS.items():
+            idx = [allA.index(a) for a in ans]
+            codes, _, _ = decide(Z[:, :, :, idx], 3)
+            p = r >= RHO_GATE
+            cond[f"rho{rho}/{g}"] = {"pass_rate": float(p.mean()), "false_GAIN_or_LOSS_8to4_given_pass": float(np.isin(codes[1][p], [0, 1]).mean()) if p.any() else None,
+                                     "false_unconditional": float(np.isin(codes[1], [0, 1]).mean())}
+    out["6_conditional_false_call_after_the_gate"] = cond
+    (DOC / "plants_gate.json").write_text(json.dumps(out, indent=1, default=float))
+    print("invariance: largest change", worst)
+    print("missing decisions:", out["missing_decisions"])
+    for k, v in out["2_bias"].items():
+        print(k, "true pooled %.2f mean rhohat %.2f sd %.2f pass %.2f | corr with mean Δ %.3f" % (v["true_pooled_correlation"], v["mean_rhohat"], v["sd_rhohat"], v["pass_rate_ge_0.5"], out["3_independence"][k]["pearson_rhohat_vs_mean_delta"]))
+    print(cond)
 
 
 def step_observed():

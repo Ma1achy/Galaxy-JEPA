@@ -1,30 +1,23 @@
 {
  "rule": "smallest K on a 0.05 grid with false GAIN-or-LOSS and false DIFFERS rates <= 2.5% in every regime",
  "K": {
-  "2": 5.550000000000001,
-  "3": 3.2
+  "2": 5.6000000000000005,
+  "3": 3.2,
+  "2s": 26.05,
+  "3s": 6.4
  },
  "draws_per_regime": 20000,
- "n_regimes": 1080,
+ "n_regimes": 1728,
  "worst_regimes": {
   "2": [
    {
     "n": 2,
-    "kind": "cleaned",
-    "cell": "mae/G1",
-    "noise": "gauss",
-    "rho": 0.0,
-    "scale": 1.0,
-    "K_needed": 5.503137517021657
-   },
-   {
-    "n": 2,
     "kind": "raw",
-    "cell": "mae/G2",
+    "cell": "jepa/G1",
     "noise": "gauss",
-    "rho": 0.0,
+    "rho": 0.5,
     "scale": 2.0,
-    "K_needed": 5.404759767694468
+    "K_needed": 5.597446577322542
    },
    {
     "n": 2,
@@ -32,46 +25,46 @@
     "cell": "mae/G1",
     "noise": "gauss",
     "rho": 0.5,
-    "scale": 2.0,
-    "K_needed": 5.401069905971312
+    "scale": 1.0,
+    "K_needed": 5.552888766486056
    },
    {
     "n": 2,
     "kind": "cleaned",
-    "cell": "jepa/G3",
+    "cell": "mae/G1",
     "noise": "gauss",
     "rho": 0.0,
     "scale": 2.0,
-    "K_needed": 5.398319297016834
+    "K_needed": 5.53395908934046
+   },
+   {
+    "n": 2,
+    "kind": "raw",
+    "cell": "mae/G1",
+    "noise": "gauss",
+    "rho": 0.0,
+    "scale": 0.5,
+    "K_needed": 5.488510434404653
    },
    {
     "n": 2,
     "kind": "cleaned",
-    "cell": "mae/G3",
+    "cell": "jepa/G1",
     "noise": "gauss",
     "rho": 0.0,
-    "scale": 2.0,
-    "K_needed": 5.398202083938148
+    "scale": 1.0,
+    "K_needed": 5.48274908402392
    }
   ],
   "3": [
    {
     "n": 3,
-    "kind": "cleaned",
-    "cell": "mae/G1",
+    "kind": "raw",
+    "cell": "mae/G3",
     "noise": "gauss",
     "rho": 0.5,
     "scale": 2.0,
-    "K_needed": 3.1521038147284397
-   },
-   {
-    "n": 3,
-    "kind": "raw",
-    "cell": "jepa/G1",
-    "noise": "gauss",
-    "rho": 0.0,
-    "scale": 2.0,
-    "K_needed": 3.144268865995366
+    "K_needed": 3.172743506241653
    },
    {
     "n": 3,
@@ -80,36 +73,139 @@
     "noise": "gauss",
     "rho": 0.0,
     "scale": 2.0,
-    "K_needed": 3.1381071980832944
+    "K_needed": 3.165616388136563
    },
    {
     "n": 3,
     "kind": "cleaned",
-    "cell": "mae/G1",
+    "cell": "jepa/G3",
     "noise": "gauss",
     "rho": 0.0,
-    "scale": 1.0,
-    "K_needed": 3.1375773982834243
+    "scale": 2.0,
+    "K_needed": 3.160887580329156
    },
    {
     "n": 3,
+    "kind": "cleaned",
+    "cell": "jepa/G2",
+    "noise": "gauss",
+    "rho": 0.0,
+    "scale": 2.0,
+    "K_needed": 3.1578803969907767
+   },
+   {
+    "n": 3,
+    "kind": "raw",
+    "cell": "jepa/G1",
+    "noise": "gauss",
+    "rho": 0.5,
+    "scale": 1.0,
+    "K_needed": 3.1559091149963097
+   }
+  ],
+  "2s": [
+   {
+    "n": "2s",
+    "kind": "raw",
+    "cell": "jepa/G1",
+    "noise": "gauss",
+    "rho": 0.0,
+    "scale": 2.0,
+    "K_needed": 26.04262843331736
+   },
+   {
+    "n": "2s",
+    "kind": "cleaned",
+    "cell": "mae/G1",
+    "noise": "gauss",
+    "rho": 0.5,
+    "scale": 1.0,
+    "K_needed": 25.575816508549376
+   },
+   {
+    "n": "2s",
     "kind": "cleaned",
     "cell": "jepa/G1",
     "noise": "gauss",
     "rho": 0.0,
-    "scale": 1.0,
-    "K_needed": 3.1320683675770074
+    "scale": 2.0,
+    "K_needed": 25.39944651377834
+   },
+   {
+    "n": "2s",
+    "kind": "cleaned",
+    "cell": "mae/G1",
+    "noise": "gauss",
+    "rho": 0.0,
+    "scale": 2.0,
+    "K_needed": 24.831758589856275
+   },
+   {
+    "n": "2s",
+    "kind": "cleaned",
+    "cell": "mae/G1",
+    "noise": "gauss",
+    "rho": 0.5,
+    "scale": 2.0,
+    "K_needed": 24.499298507813467
+   }
+  ],
+  "3s": [
+   {
+    "n": "3s",
+    "kind": "raw",
+    "cell": "mae/G2",
+    "noise": "gauss",
+    "rho": 0.0,
+    "scale": 2.0,
+    "K_needed": 6.361552366502406
+   },
+   {
+    "n": "3s",
+    "kind": "cleaned",
+    "cell": "mae/G1",
+    "noise": "gauss",
+    "rho": 0.0,
+    "scale": 2.0,
+    "K_needed": 6.319856290781167
+   },
+   {
+    "n": "3s",
+    "kind": "raw",
+    "cell": "jepa/G1",
+    "noise": "gauss",
+    "rho": 0.5,
+    "scale": 2.0,
+    "K_needed": 6.305666051391554
+   },
+   {
+    "n": "3s",
+    "kind": "cleaned",
+    "cell": "jepa/G3",
+    "noise": "gauss",
+    "rho": 0.0,
+    "scale": 2.0,
+    "K_needed": 6.278889513571047
+   },
+   {
+    "n": "3s",
+    "kind": "cleaned",
+    "cell": "jepa/G1",
+    "noise": "gauss",
+    "rho": 0.5,
+    "scale": 2.0,
+    "K_needed": 6.250480279151246
    }
   ]
  },
  "quantiles_of_K_needed_n3": [
   0.0,
   0.0,
-  1.7093371229605392,
-  2.1926758357101446,
-  2.857604490427609,
-  3.130302777063659,
-  3.1521038147284397
+  1.7154435608670782,
+  2.1979611294788857,
+  2.857362662117875,
+  3.1515947968686073,
+  3.172743506241653
  ],
  "noise_model_raw": {
   "jepa/G1": [

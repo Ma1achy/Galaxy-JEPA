@@ -1,0 +1,8 @@
+# Patch-grid overlay: MAE at patch 4, bf16 (docs/patch_grid/prereg.md §2–3).
+base: configs/mae.yaml
+autocast: bf16
+model:
+  patch_size: 4
+objective:            # 16-px groups are masked and normalised, at every patch size (mae_grouped)
+  name: mae_grouped
+  mask_group_px: 16

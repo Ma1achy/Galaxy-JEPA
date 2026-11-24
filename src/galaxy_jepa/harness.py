@@ -62,6 +62,7 @@ from galaxy_jepa.data.transforms import AsinhStretch, NormalisationFreeze, Pipel
 from galaxy_jepa.models.vit import VisionTransformer, load_frozen_encoder
 from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, _to_device, train_jepa
 from galaxy_jepa.objectives.mae import Mae, MaeConfig
+from galaxy_jepa.objectives.mae_grouped import GroupedMae, GroupedMaeConfig
 from galaxy_jepa.objectives.moco import Moco, MocoConfig
 from galaxy_jepa.objectives.sigreg import DEFAULT_DOMAIN as SIGREG_DEFAULT_DOMAIN
 from galaxy_jepa.objectives.sigreg import DEFAULT_QUAD_POINTS as SIGREG_DEFAULT_QUAD_POINTS
@@ -404,10 +405,27 @@ class MaeObjectiveConfig(RunConfig):
         return MaeConfig(**self.model_dump(exclude={"name"}), seed=seed)
 
 
+class GroupedMaeObjectiveConfig(MaeObjectiveConfig):
+    """MAE with 16-px group masking (the patch grid, ``docs/patch_grid/prereg.md`` §3). A separate
+    block, so ``MaeObjectiveConfig`` and every MAE run's ``config_hash`` stay where they were."""
+
+    name: Literal["mae_grouped"] = "mae_grouped"  # type: ignore[assignment]
+    mask_group_px: int = 16
+
+    def to_mae_config(self, *, seed: int) -> GroupedMaeConfig:
+        return GroupedMaeConfig(**self.model_dump(exclude={"name"}), seed=seed)
+
+
 class MocoRunConfig(RunBase):
     """A MoCo baseline run: M's run configuration with MoCo's objective block (D12)."""
 
     objective: MocoObjectiveConfig = Field(default_factory=MocoObjectiveConfig)
+
+
+class GroupedMaeRunConfig(RunBase):
+    """An MAE run of the patch grid (16-px groups at every patch size)."""
+
+    objective: GroupedMaeObjectiveConfig = Field(default_factory=GroupedMaeObjectiveConfig)
 
 
 class MaeRunConfig(RunBase):
@@ -479,6 +497,8 @@ def build_objective(
         return Jepa(encoder, config)
     if isinstance(config, MocoConfig):
         return Moco(encoder, config)
+    if isinstance(config, GroupedMaeConfig):  # before MaeConfig: it is one
+        return GroupedMae(encoder, config)
     if isinstance(config, MaeConfig):
         return Mae(encoder, config)
     raise TypeError(f"no objective is built from a {type(config).__name__}")

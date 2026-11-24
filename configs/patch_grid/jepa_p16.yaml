@@ -1,0 +1,5 @@
+# Patch-grid overlay: JEPA at patch 16, bf16 (docs/patch_grid/prereg.md §2–3).
+base: configs/pretrain_v2.yaml
+autocast: bf16
+model:
+  patch_size: 16

@@ -117,7 +117,9 @@ class MaeDecoder(nn.Module):
     def forward(self, visible: torch.Tensor, vis_idx: torch.Tensor) -> torch.Tensor:
         b, _, _ = visible.shape
         x = self.mask_token.expand(b, self.n_tokens, -1).clone()
-        x = x.scatter(1, vis_idx.unsqueeze(-1).expand(-1, -1, x.shape[-1]), self.embed(visible))
+        # Under autocast the embedding is bf16 and the mask token fp32; `.to` is a no-op in fp32.
+        src = self.embed(visible).to(x.dtype)
+        x = x.scatter(1, vis_idx.unsqueeze(-1).expand(-1, -1, x.shape[-1]), src)
         x = x + cast(torch.Tensor, self.pos_embed)
         for block in self.blocks:
             x = block(x)

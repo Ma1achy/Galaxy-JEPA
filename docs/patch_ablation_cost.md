@@ -181,6 +181,28 @@ The extra seed, per objective-and-size, from the hours-per-seed table:
 
 The prices are the assumed rates above, unconfirmed.
 
+## Decided 24 Nov (user): the staged plan
+
+The grid runs in two stages with a blind ρ gate between them (`docs/patch_grid/prereg.md` §2a). Stage 1 is all three objectives at patch 16 and 8, seeds 0, 1 and 2; stage 2
+is the 4×4 arms the gate passes (MoCo's always). Hours are from the per-seed table above, and carry its ± 30% uncertainty.
+
+| | H100 GPU-h | H100 cost | A100 GPU-h | A100 cost |
+|---|---|---|---|---|
+| **stage 1** (18 encoders, patch 16 and 8; p8 bank; embeddings; set-up 2–3 h) | **15–26** | **$30–91** | **19–32** | **$25–64** |
+| + MoCo 4×4 only (JEPA and MAE gated off) | 23–45 | $46–158 | 37–68 | $48–136 |
+| + MoCo and JEPA | 31–62 | $62–217 | 57–105 | $74–210 |
+| + MoCo and MAE | 36–71 | $72–249 | 69–125 | $90–250 |
+| **full grid, every ρ̂ passes** (as 24 Nov, unchanged) | **44–84** | **$88–294** | **91–165** | **$118–330** |
+| full grid + the 128-px renderer | 46–87 | $92–305 | 95–173 | $124–346 |
+
+- **Totals are cumulative.** Stage 2 by itself: MoCo 8–19 H100-h, JEPA 8–17, MAE 13–26 (patch-4 bank and embeddings included once, about 1–5 h).
+- **What the gate buys:** if it stops JEPA and MAE the bill falls from 44–84 to 23–45. At the planted noise, the chance that it passes is 20% at ρ = 0 and 79% at ρ = 1 for JEPA,
+  18% and 76% for MAE (`flags.md` D2), so this plan ends with every ρ̂ passing only part of the time even in the best case.
+- **The gate on the box.** It needs the 18 encoders' embeddings (patch 16 and 8), which is minutes of GPU, and the probes' CPU work (30 answers × 18 encoders, small). If the box
+  is released between the stages, add a second set-up of 2–3 h and another cache pull; if it is kept, the decision has to be made while the meter runs (about half an hour of it).
+- **JEPA's patch-4 masks are precomputed on the box's CPUs.** Measured on the loaded Mac: 0.6 s per batch at grid 64 (64 batches in 40 s), so 101,308 steps are about
+  17 core-hours per seed, 50 for three. On 16 cores it is about an hour per seed; it can run beside stage 1's GPU work, so it adds little wall-clock if the box has the cores. Output about 33 MB per seed. A box with few CPU cores is the wrong box.
+
 ## Design notes the cost depends on (written before the decisions above)
 
 1. **Flash attention means bf16 or fp16.** The fused kernels do not run in fp32, and PyTorch's SDPA falls

@@ -1,0 +1,8 @@
+# Patch-grid overlay: MOCO at patch 16, bf16 (docs/patch_grid/prereg.md §2–3).
+base: configs/moco.yaml
+autocast: bf16
+model:
+  patch_size: 16
+objective:            # the window covers the same sky at every patch size (10–14 tokens of 16 px)
+  window_min: 10
+  window_max: 14
