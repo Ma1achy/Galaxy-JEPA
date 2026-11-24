@@ -44,7 +44,7 @@ the record. Nothing was reconciled silently: the draft's own text is unchanged e
    its final 500-step mean loss is more than 50% above its lowest 500-step rolling mean, or the loss is non-finite.
    It fires on none of the nine (rises: A1 5%, A2 36%, A3 28%, MoCo and MAE 0%).
 
-**6. Two-seed spread at 8 and 4 is unknown.** The power in section C applies the patch-16 seed spread at all sizes.
+**6. The seed spread at 8 and 4 is unknown.** The power in section D applies the patch-16 noise at all sizes, with three values of ρ.
 
 **7. The collapse bar differs by objective in the code of record.** The draft cites one bar. F8 settled
    that for MoCo and MAE only the hard floor (2.0) gates; the soft floor (2.5), fitted to JEPA traces, is
@@ -52,8 +52,8 @@ the record. Nothing was reconciled silently: the draft's own text is unchanged e
    traces the effective rank's lowest value is 7.7 (JEPA, early steps) and at least 19.1 after the grace period, so
    either reading would have passed them all.
 
-**8. The seeds at 8 and 4 share train_seed with the Mac runs, so the "third and fourth seed's worth" in §8 is not
-   new seeds.** GPU seeds 0 and 1 repeat A1's and A2's init and data order on a different device and precision.
+**8. The GPU seeds share train_seed with the Mac runs, so the "third and fourth seed's worth" in §8 is not
+   new seeds.** GPU seeds 0, 1 and 2 repeat A1's, A2's and A3's init and data order on a different device and precision.
    They add device noise, not independent seed draws, and can't be pooled with A1–A3 as a seed spread.
 
 ## B. The evaluation set
@@ -69,7 +69,7 @@ the record. Nothing was reconciled silently: the draft's own text is unchanged e
 
 **10. A decile with few of a class.** Dust lane has only 24–34 minority-class test galaxies per decile in deciles
     1–5; the other 29 have at least 111. A decile-level AUC from 24 is rough (the 95% CI is about ± 0.12), and
-    L for dust lane may be dominated by it. Its raw L for A1 is −0.024, the only negative one.
+    L for dust lane may be dominated by it. Its raw L for A1 is −0.024, A1's only negative one.
     [AMBIGUOUS 1]: I count an answer as defined if every decile 1–5 has ≥ 10 of each class.
 
 **11. The probes' train split is the 39,997-galaxy capped one, not the full 160,849.** "The ladder's recipe" used
@@ -91,81 +91,105 @@ the record. Nothing was reconciled silently: the draft's own text is unchanged e
 
 `artifacts/patch_grid_score.py` implements §5–§6. It reads no image, embedding or checkpoint.
 
-**[AMBIGUOUS 1–6], each a choice the draft leaves open:**
+**Choices the draft left open, as coded now:**
 1. An answer's decile counts as defined with ≥ 10 of each class; L is defined only if deciles 1–5 all are.
-2. With three seeds, the per-answer spread is the mean over the three pairs' |difference|. With two it is
-   |L(0) − L(1)|, as drafted.
-3. "Pooled across the two patch sizes" = one median over both sizes' lists of per-answer spreads.
-4. If a size has one valid seed (the other voided), its spread list is empty; if neither size yields any spread the
-   step is INSUFFICIENT. A step with one valid seed on one side is scored and marked.
-5. D(o1, o2) is the median over answers of the per-answer Δ difference, not the difference of the medians.
-6. The Mac spread in the device control is the median over answers of (max − min) over A1–A3.
+2. An answer counts in a step only if its L is defined at both sizes in every valid seed.
+3. Fewer than 2 seeds valid at both sizes = INSUFFICIENT; with exactly 2, K₂ applies and the result is marked.
+4. The Mac spread in the device control is the median over answers of (max − min) over A1–A3.
+   (The drafted spread-based items 2, 3, 4 and 5 are gone: they belonged to the replaced rule.)
 
-**Also open:** "seeds pair by train_seed" changes nothing in Δ, which is a difference of seed means; §6's group table
-has no row for GAIN then LOSS or NO CHANGE then UNRESOLVED beyond "WORSE" and "otherwise", which I take as written.
+**Also open:** §6's group table has no row for GAIN then LOSS or NO CHANGE then UNRESOLVED beyond "WORSE" and "otherwise", which I take as written.
 
 **Plants (D28).** *Synthetic inputs, seed noise SD 0.001:* every step state, every group reading (including WORSE at both
 steps and LIMITED BELOW 8 px ONLY), every objective-comparison state and both device states are reached
 (`plants.json`). *At the observed seed spread:* see the numbers below.
 
-## D. Power at the observed patch-16 seed spread, and what it says about the plants
+## D. The paired design (user, 24 Nov): K, plants and power
 
-Nine Mac encoders at patch 16 (A1–A3, MoCo and MAE seeds 0–2), B1's probes and deciles, raw and cleaned.
-`runs/almagest/patch_grid/spread.json` (local), `power.json`, `plants_observed.json`. The JEPA AUCs match the ladder's
-record to the digit (edge-on yes: 0.765 / 0.837 / 0.776 for A1 / A2 / A3). The power model applies the patch-16 seed SD, and the share
-of it that is common to all answers, at patch 8 and 4. Neither is known for those sizes (flag 6).
+Nine Mac encoders at patch 16 (A1–A3, MoCo and MAE seeds 0–2), B1's probes and deciles, raw and cleaned (`runs/almagest/patch_grid/spread.json`,
+local). The JEPA AUCs match the ladder's record to the digit (edge-on yes 0.765 / 0.837 / 0.776 for A1 / A2 / A3). The earlier two-seed,
+spread-based design had to be replaced: its s_g was 0.013–0.047 for JEPA and MAE, so at two seeds Δ80 was 0.070 or not
+reached by 0.08, and NO CHANGE was unreachable (git `09346a5`). The reason is seed 1, which runs high for JEPA and MAE (see "The seed-1 effect").
 
-**15. Two-seed JEPA and MAE cannot resolve the expected effects, and their NO CHANGE is unreachable.**
-   Raw embeddings, 2 seeds. Δ80 is the group-median Δ that reads GAIN with 80% probability.
-   P(NC | 0) is the probability that a true Δ of 0 reads NO CHANGE:
+**Noise model.** Per objective and group, from the three seeds' L values: run-level SD τ (encoder-wide shift of the group mean) and answer-level
+residual SD σ. **ρ** is how much of a seed's run-level effect is shared between patch sizes (0 none, 1 all). Patch 16 alone can't give it, so every
+number below is at ρ = 0, 0.5 and 1. If a seed runs high because of its data order or initialisation in a way that persists across patch sizes, ρ is near
+1; if not, near 0. The seed-1 effect appearing in two objectives, for the same seed, suggests data order or a shared seed state, but
+MoCo (same seed) doesn't show it. This is not evidence for either end.
 
-   | arm | group | s_g (median, all pairs) | Δ80 | P(NC \| 0) | false GAIN + LOSS at 0 |
-   |---|---|---|---|---|---|
-   | JEPA | G1 | 0.035 | not reached by 0.08 | 0.00 | 5% |
-   | JEPA | G2 | 0.021 | 0.072 | 0.01 | 6% |
-   | JEPA | G3 | 0.013 | 0.070 | 0.01 | 11% |
-   | MoCo | G1 | 0.006 | 0.0135 | 0.98 | 0% |
-   | MoCo | G2 | 0.004 | 0.013 | 1.00 | 0% |
-   | MoCo | G3 | 0.003 | 0.013 | 1.00 | 0% |
-   | MAE | G1 | 0.047 | not reached | 0.00 | 4% |
-   | MAE | G2 | 0.023 | not reached | 0.01 | 7% |
-   | MAE | G3 | 0.016 | not reached | 0.01 | 12% |
+**Calibration.** K₃ = 3.2, K₂ = 5.55 (1,080 regime cells, 20,000 draws each; half, one and twice the observed noise; Gaussian and "one seed in three far off" noise;
+three ρ; the baselines' K is 3.0). False GAIN-or-LOSS per cell ≤ 2.5% by construction; at the observed noise it is 0–2.4%. Over
+the 18 group-and-step cells of one objective family that is at most 0.45 expected false calls.
 
-   - Cleaned embeddings are the same to within 0.015 in Δ80 (JEPA G2 0.063, G3 0.063; G1 0.073).
-   - §9's own trigger is met: G2 needs Δ ≈ 0.072 for JEPA, above 0.03, and MAE is not reached by 0.08.
-   - **A third seed does not help under the drafted bar.** Three seeds give JEPA 0.078 / 0.070 / 0.061 for G1 / G2 / G3.
-     The bar is 2 × the *spread*, not 2 × a standard error, so it does not shrink with more seeds.
-   - **It does reach GAIN and LOSS for large effects,** but the states that carry H_psf (NO CHANGE at 8 → 4, so PATCH-LIMITED TO
-     A PSF FLOOR and DATA-LIMITED AT 16 px) need s_g ≤ 0.010 and do not occur in practice for JEPA or MAE. Run at the observed spread,
-     the planted "no change" reads UNRESOLVED; "gain then floor" reads PATCH-LIMITED; FLOOR UNRESOLVED. SAME between
-     objectives is rare (about 0.6% of pair-reads). That is a D28 failure for those states.
-   - The false-call rate at Δ = 0 is 4–12% per JEPA or MAE group with two seeds. s_g from two draws is sometimes small by luck,
-     and the bar then drops to its floor of 0.01.
+**Plants.** Low-noise synthetic: all step states, all group readings, all objective states and both device states reached (`plants.json`). Scalar and
+vector paths agree on 5,400 of 5,400 steps. At the observed noise, the largest probability with which each reading occurs over the planted cases
+(`plants_observed.json`, raw):
 
-**16. Almost all of that spread is seed 1.** The known, parked seed-1 puzzle (`docs/findings_summary.md`): training seed 1 runs high on v2
-   for JEPA (A2) and MAE, not for MoCo. Median |L(seed i) − L(seed j)| per group, raw:
+| reading | JEPA ρ = 0 | JEPA ρ = 1 | MoCo (either) | MAE ρ = 0 | MAE ρ = 1 |
+|---|---|---|---|---|---|
+| PATCH-LIMITED BELOW 8 px | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| WORSE WITH SMALLER PATCHES | 0.99 | 1.00 | 1.00 | 0.91 | 1.00 |
+| PATCH-LIMITED; FLOOR UNRESOLVED | 0.97 | 0.85 | 0.89 | 0.97 | 0.89 |
+| PATCH-LIMITED TO A PSF FLOOR | **0.16** | 1.00 | 1.00 | **0.04** | 0.97 |
+| DATA-LIMITED AT 16 px | **0.09** | 0.99 | 1.00 | **0.02** | 0.95 |
+| LIMITED BELOW 8 px ONLY | **0.16** | 1.00 | 1.00 | **0.05** | 0.97 |
 
-   | | pair 0–1 | pair 0–2 | pair 1–2 |
-   |---|---|---|---|
-   | JEPA G1 / G2 / G3 | 0.053 / 0.016 / 0.012 | 0.006 / 0.005 / 0.005 | 0.046 / 0.031 / 0.017 |
-   | MAE G1 / G2 / G3 | 0.063 / 0.033 / 0.019 | 0.008 / 0.003 / 0.007 | 0.071 / 0.032 / 0.022 |
-   | MoCo G1 / G2 / G3 | 0.006 / 0.004 / 0.003 | 0.006 / 0.004 / 0.003 | 0.006 / 0.001 / 0.002 |
+**Power, 3 paired seeds, raw (cleaned in `power.json`, similar).** Δ80 = the group-median Δ that reads GAIN with 80% probability. P(NC | 0) =
+the probability that a true Δ of 0 reads NO CHANGE. Cells are ρ = 0 / 0.5 / 1.
 
-   - The draft fixes seeds 0 and 1, so s_g is inflated about 2.5–10 × for JEPA and MAE by one seed.
-   - Swapping seed 1 for seed 2 would shrink it, but the seeds would then have been chosen after seeing this. Keep all three.
-   - The same seed runs high in two objectives, so data order and initial weights (shared within a seed) are suspects. If the
-     effect carries across patch sizes, a **paired** Δ (same seed, two sizes) cancels it, and the draft's s_g does not use the pairing.
+| | Δ80 | P(NC \| 0) | false GAIN + LOSS at 0 |
+|---|---|---|---|
+| JEPA G1 | 0.148 / 0.107 / 0.025 | 0.00 / 0.00 / 0.45 | 2.4 / 2.4 / 0.9% |
+| JEPA G2 | 0.067 / 0.049 / 0.018 | 0.02 / 0.05 / 0.80 | 2.4 / 2.2 / 0.1% |
+| JEPA G3 | 0.036 / 0.026 / 0.013 | 0.16 / 0.40 / 1.00 | 1.9 / 1.2 / 0% |
+| MoCo G1 | 0.017 / 0.014 / 0.013 | 0.82 / 0.94 / 1.00 | 0.2 / 0 / 0% |
+| MoCo G2 | 0.013 / 0.013 / 0.013 | 0.99 / 0.99 / 1.00 | 0% |
+| MoCo G3 | 0.013 / 0.013 / 0.013 | 1.00 / 1.00 / 1.00 | 0% |
+| MAE G1 | 0.190 / 0.138 / 0.042 | 0.00 / 0.00 / 0.09 | 2.4 / 2.4 / 1.7% |
+| MAE G2 | 0.075 / 0.054 / 0.014 | 0.01 / 0.04 / 0.97 | 2.4 / 2.4 / 0% |
+| MAE G3 | 0.051 / 0.037 / 0.014 | 0.05 / 0.15 / 0.97 | 2.2 / 2.0 / 0% |
 
-**17. Proposed changes to the rule, for the user to decide (none applied):**
-   - **(a) Bar on the paired Δ.** Seeds pair by train_seed, so take Δ_s per seed and use the spread of Δ_s across seeds, not of L.
-     Whether it is smaller depends on the seed effect being the same at every patch size, which patch 16 alone can't tell.
-     Plants must cover both cases.
-   - **(b) Calibrate the bar** (K × the standard error of the paired mean, as in `baselines_comparison.md`, where K = 3.0 was swept to a
-     2.5% false-call rate) instead of 2 × spread. This makes the bar shrink with seeds and fixes the false-call rate.
-   - **(c) Three seeds (0, 1, 2)**, all with Mac partners, instead of two. It adds 9 encoders: about 50% more GPU time.
-   - **(d) Restate the expected outcome** if the rule stays: JEPA and MAE will read GAIN, LOSS or UNRESOLVED; only MoCo can
-     establish NO CHANGE.
-   - My recommendation: (a) + (b) + (c), with the null plant at the observed spread re-run before any hash.
+**Reading.**
+- **The G2 answer depends on ρ.** If a seed's effect carries across sizes, JEPA G2 is resolved at Δ ≈ 0.018 and its NO CHANGE is reached 80% of the
+  time. If it doesn't, JEPA G2 needs 0.067 and NO CHANGE is all but unreachable (2%), as with the old design.
+- **The design cannot say which it is before the first runs.** After them, the paired differences' own spread will show: ρ is estimable
+  from the GPU seeds' L at two sizes, and S is computed from that, so the bar follows it.
+- **JEPA and MAE G1 stay poor even at ρ = 1** (NO CHANGE reached 45% and 9%), because G1's answer-level noise is also large. G1 was predicted DATA-LIMITED, so
+  a null for it is the result we could most want, and it is the one we are least able to see.
+
+**15. NO CHANGE is unreachable for JEPA and MAE at ρ = 0, and for G1 at any ρ. The smallest equivalence bounds (nothing loosened).**
+   Two ways to loosen, reported only. The bound is E. "Reached" = P(NC | 0) ≥ 80%.
+   - *Equivalence form,* |G| + b ≤ E (as the baselines' SAME). The smallest E for 80% (50%), ρ = 0 / 0.5 / 1:
+
+     | | JEPA | MAE | MoCo |
+     |---|---|---|---|
+     | G1 | 0.165 / 0.118 / 0.028 (0.124 / 0.089 / 0.021) | 0.211 / 0.152 / 0.047 (0.159 / 0.115 / 0.035) | 0.019 / 0.015 / 0.012 |
+     | G2 | 0.074 / 0.054 / 0.019 (0.056 / 0.041 / 0.015) | 0.084 / 0.060 / 0.014 (0.063 / 0.045 / 0.012) | 0.013 / 0.013 / 0.012 |
+     | G3 | 0.041 / 0.029 / 0.012 (0.031 / 0.022 / 0.011) | 0.057 / 0.041 / 0.014 (0.043 / 0.031 / 0.012) | 0.012 at all ρ |
+
+     At E = SESOI = 0.02 it is reached for JEPA G2 and G3 and MAE G2 and G3 only if ρ is near 1. A ρ = 0 world needs E ≥ 0.041 (JEPA G3) to 0.211 (MAE G1).
+   - *Keeping the drafted form* (|G| ≤ NEGLIGIBLE and b ≤ E): E can't carry it past the probability that |G| ≤ 0.005, which is the ceiling whatever E is.
+     For JEPA G1 / G2 / G3 that is 14 / 29 / 51% at ρ = 0 and 69 / 86 / 100% at ρ = 1 (MAE 11 / 26 / 38% and 46 / 97 / 97%). So
+     80% would need NEGLIGIBLE widened too.
+
+**The seed-1 effect** (parked; not resolved here). Median |L(seed i) − L(seed j)| per group, raw:
+
+| | pair 0–1 | pair 0–2 | pair 1–2 |
+|---|---|---|---|
+| JEPA G1 / G2 / G3 | 0.053 / 0.016 / 0.012 | 0.006 / 0.005 / 0.005 | 0.046 / 0.031 / 0.017 |
+| MAE G1 / G2 / G3 | 0.063 / 0.033 / 0.019 | 0.008 / 0.003 / 0.007 | 0.071 / 0.032 / 0.022 |
+| MoCo G1 / G2 / G3 | 0.006 / 0.004 / 0.003 | 0.006 / 0.004 / 0.003 | 0.006 / 0.001 / 0.002 |
+
+- Seed 1 stays in (user, 24 Nov). ρ is the quantity that decides whether it costs us the result.
+- **A cheap test before the rental:** can't be done at patch 16, because all nine patch-16 runs exist. The first paired step (JEPA patch 16 vs 8, seeds 0 and 1) on
+  the rented box is the earliest estimate of ρ. Once estimated, ρ is recorded, but the rule and its K stay as hashed.
+
+**16. Device control.** The rule compares the GPU–Mac paired difference with the Mac A1–A3 seed spread, a median over answers of 0.027 AUC (0.040 in G1), most of it seed 1.
+   Against that, a real device effect smaller than that reads NO DEVICE EFFECT. Not changed; flagged.
+
+**17. Ambiguities in the paired rule, coded as follows.** (a) S is the larger of the two steps' SDs; (b) G is the mean over seeds of the per-seed group medians;
+   (c) with one seed VOID, K₂ applies and the result is marked; (d) the objective comparison uses the paired formula with
+   max(S_o1, S_o2) · √(2/n); (e) the untrained bank's 3-seed maximum enters L at both sizes, so its noise is in L at each size and is not separately modelled.
 
 ## E. Frozen evaluation set
 
@@ -175,8 +199,11 @@ dust lane 24, features 111, no bar 122, smooth 136, dominant bulge 140.
 
 ## For the user, in one place
 
-1. Raw or cleaned as primary (the draft says raw; nothing in the power differs much).
-2. Seed count and bar (flags 15–17).
-3. B2b: whether it stays in §8 (no token, so not run).
-4. The divergence rule (flag 5) and whether F8's split collapse bar (flag 7) holds.
-5. Permission to write and test the new GPU configs, grouped MAE masking and pixel-scaled MoCo windows (flags 1–4) before the hash.
+Decided 24 Nov: paired design, three seeds, raw primary, B2b out of §8. Still open, none of them settled by me:
+
+1. **Equivalence bound (item 15).** Keep the form as it is (NO CHANGE then needs ρ near 1 for JEPA and MAE), or move to |G| + b ≤ E, with which E.
+2. **The divergence rule (item 5)** and whether F8's split collapse bar (item 7) holds.
+3. **Permission to write and test** the patch-8/4 configs, the GPU launcher, MAE's 16-px grouping and the scaled MoCo windows (items 1–4),
+   which must exist before the hash.
+4. The group memberships that mix raw and cleaned knees (item 9), the untrained bank (item 13: 3 seeds or 30) and the 39,997 train split (item 11).
+5. The "sky per patch" reading of JEPA's masking (item 4).

@@ -56,41 +56,52 @@ def seeds_of(L, o, p):
     return sorted(s for (oo, pp, s) in L if (oo, pp) == (o, p))
 
 
-def seed_mean(L, o, p, a):
-    v = [L[o, p, s][a] for s in seeds_of(L, o, p)]
-    return float(np.mean(v)) if v and np.isfinite(v).all() else float("nan")
+# Paired rule (user, 24 Nov): Δ_s(a) = L(seed s at q) − L(seed s at p); G_s = median over the group's answers of Δ_s(a); G = mean over seeds of G_s.
+# Bar b = max(SESOI/2, K_n · S / √n), S = the larger of the two steps' SDs of G_s over seeds (the larger noise sets the bar, as max(S_A, S_X) does in
+# baselines_comparison.md), n = seeds valid at both sizes. K_n is calibrated by Monte Carlo at the observed noise (`calibrate`): the smallest K on a
+# 0.05 grid whose false GAIN-or-LOSS rate and false DIFFERS rate are ≤ 2.5% in every regime (docs/patch_grid/calibration.json).
+K_N = {3: None, 2: None}  # filled from calibration.json by load_K(); None means not calibrated and the code refuses to score
+CAL = DOC / "calibration.json"
 
 
-def spread(L, o, p, answers):
-    """Per-answer |L(s0) − L(s1)| of the pair; [AMBIGUOUS 2] with 3 seeds the per-answer value is the mean over the pairs."""
-    ss = seeds_of(L, o, p)
-    if len(ss) < 2:
-        return []
-    out = []
-    for a in answers:
-        v = [L[o, p, s][a] for s in ss]
-        if np.isfinite(v).all():
-            out.append(float(np.mean([abs(v[i] - v[j]) for i in range(len(v)) for j in range(i)])))
-    return out
+def load_K():
+    c = json.loads(CAL.read_text())
+    K_N.update({int(k): v for k, v in c["K"].items()})
+    return K_N
 
 
-def step(L, o, p, q, answers):
-    """One group, objective, step: medians, bar and state (first match)."""
-    d = {a: seed_mean(L, o, q, a) - seed_mean(L, o, p, a) for a in answers}
-    ok = [a for a in answers if np.isfinite(d[a])]
-    # s_g: the median over the group and both patch sizes of the per-answer spreads ([AMBIGUOUS 3] pooled = one median over both lists)
-    sp = spread(L, o, p, ok) + spread(L, o, q, ok)
-    n = [len(seeds_of(L, o, x)) for x in (p, q)]
-    rec = {"n_answers": len(ok), "n_seeds": n, "delta": {a: d[a] for a in ok}}
-    if len(ok) < MIN_ANSWERS or min(n) == 0 or not sp:  # [AMBIGUOUS 4] no spread at all (a size with one seed on both sides) is INSUFFICIENT
+def paired(L, o, p, q, answers):
+    """(seeds used, answers used, Δ (n, A)): seeds valid at both sizes; answers defined (finite L) in every one of them."""
+    ss = [s for s in seeds_of(L, o, p) if s in seeds_of(L, o, q)]
+    ok = [a for a in answers if ss and all(np.isfinite(L[o, p, s][a]) and np.isfinite(L[o, q, s][a]) for s in ss)]
+    D = np.array([[L[o, q, s][a] - L[o, p, s][a] for a in ok] for s in ss]) if ss and ok else np.zeros((0, 0))
+    return ss, ok, D
+
+
+def step_raw(L, o, p, q, answers):
+    ss, ok, D = paired(L, o, p, q, answers)
+    rec = {"n_answers": len(ok), "seeds": ss, "answers": ok, "n_pairs": len(ss)}
+    if len(ok) < MIN_ANSWERS or len(ss) < 2:  # [AMBIGUOUS 4'] fewer than 2 paired seeds: no noise estimate, so INSUFFICIENT
         return {**rec, "state": "INSUFFICIENT"}
-    med, s_g = float(np.median([d[a] for a in ok])), float(np.median(sp))
-    bar = max(SESOI / 2, 2 * s_g)
-    pos, neg = np.mean([d[a] > 0 for a in ok]), np.mean([d[a] < 0 for a in ok])
-    st = ("GAIN" if med > bar and pos >= 2 / 3 else "LOSS" if med < -bar and neg >= 2 / 3 else
-          "NO CHANGE" if abs(med) <= NEGLIGIBLE and s_g <= SESOI / 2 else "UNRESOLVED")
-    return {**rec, "median": med, "s_g": s_g, "bar": bar, "frac_pos": float(pos), "frac_neg": float(neg), "state": st,
-            "marked_single_seed": bool(min(n) < 2)}
+    Gs = np.median(D, 1)
+    return {**rec, "G_s": Gs.tolist(), "G": float(Gs.mean()), "S": float(Gs.std(ddof=1)), "delta_answers": dict(zip(ok, D.mean(0))), "state": None}
+
+
+def step_state(rec, S):
+    """First match, with the group's shared noise S (the larger of the two steps' SDs) and K for this many pairs."""
+    if rec["state"] == "INSUFFICIENT":
+        return rec
+    k = K_N[rec["n_pairs"]]
+    if k is None:
+        raise RuntimeError("K is not calibrated: run `calibrate` first")
+    G, n = rec["G"], rec["n_pairs"]
+    b = max(SESOI / 2, k * S / np.sqrt(n))
+    d = np.array(list(rec["delta_answers"].values()))
+    pos, neg = float((d > 0).mean()), float((d < 0).mean())
+    st = ("GAIN" if G > b and pos >= 2 / 3 else "LOSS" if G < -b and neg >= 2 / 3 else "NO CHANGE" if abs(G) <= NEGLIGIBLE and b <= SESOI else "UNRESOLVED")
+    if st == "UNRESOLVED" and (min(rec["G_s"]) <= -SESOI / 2 and max(rec["G_s"]) >= SESOI / 2):
+        rec = {**rec, "label": "the seeds disagree in sign"}
+    return {**rec, "S_used": float(S), "bar": float(b), "frac_pos": pos, "frac_neg": neg, "state": st, "marked": n < 3}
 
 
 def group_reading(a, b):
@@ -104,17 +115,18 @@ def group_reading(a, b):
             ("NO CHANGE", "GAIN"): "LIMITED BELOW 8 px ONLY (unexpected)"}.get((a, b), "UNRESOLVED")
 
 
-def objective_pair(s1, s2, answers):
-    """D(o1, o2) for one group and step; [AMBIGUOUS 5] D = median over answers of the per-answer Δ difference, not the difference of medians."""
-    if "INSUFFICIENT" in (s1["state"], s2["state"]):
+def objective_pair(r1, r2, S1, S2):
+    """D(o1, o2) for one group and step, paired by seed: D_s = G_s(o1) − G_s(o2) over seeds valid in both."""
+    if "INSUFFICIENT" in (r1["state"], r2["state"]):
         return {"state": "INSUFFICIENT"}
-    same = [a for a in answers if a in s1["delta"] and a in s2["delta"]]
-    if len(same) < MIN_ANSWERS:
+    ss = [s for s in r1["seeds"] if s in r2["seeds"]]
+    if len(ss) < 2:
         return {"state": "INSUFFICIENT"}
-    D = float(np.median([s1["delta"][a] - s2["delta"][a] for a in same]))
-    bar = max(SESOI / 2, 2 * np.sqrt(s1["s_g"] ** 2 + s2["s_g"] ** 2))
-    st = ("DIFFERS" if abs(D) > bar else "SAME" if abs(D) <= NEGLIGIBLE and max(s1["s_g"], s2["s_g"]) <= SESOI / 2 else "UNRESOLVED")
-    return {"D": D, "bar": float(bar), "state": st, "sign": "+" if D > 0 else "-"}
+    a = np.array([r1["G_s"][r1["seeds"].index(s)] - r2["G_s"][r2["seeds"].index(s)] for s in ss])
+    n, k = len(ss), K_N[len(ss)]
+    D, b = float(a.mean()), max(SESOI / 2, k * max(S1, S2) * np.sqrt(2 / n))
+    st = "DIFFERS" if abs(D) > b else "SAME" if abs(D) <= NEGLIGIBLE and r1["bar"] <= SESOI and r2["bar"] <= SESOI else "UNRESOLVED"
+    return {"D": D, "bar": float(b), "state": st, "sign": "+" if D > 0 else "-"}
 
 
 def device(gpu, mac, mac_seed_auc):
@@ -129,22 +141,28 @@ def device(gpu, mac, mac_seed_auc):
 
 
 def score(auc, un, counts, groups=GROUPS):
-    L = all_L(auc, un, counts)
+    return score_L(all_L(auc, un, counts), groups)
+
+
+def score_L(L, groups=GROUPS):
     out = {"steps": {}, "readings": {}, "objective_pairs": {}}
+    Sg = {}
     for o in OBJ:
         for g, ans in groups.items():
-            st = {f"{p}->{q}": step(L, o, p, q, ans) for p, q in STEPS}
+            raw = {f"{p}->{q}": step_raw(L, o, p, q, ans) for p, q in STEPS}
+            Sg[o, g] = max((r["S"] for r in raw.values() if r["state"] is None), default=0.0)
+            st = {k: step_state(r, Sg[o, g]) for k, r in raw.items()}
             out["steps"][o, g] = st
             out["readings"][o, g] = group_reading(st["16->8"]["state"], st["8->4"]["state"])
-    for g, ans in groups.items():
+    for g in groups:
         for (o1, o2) in (("jepa", "mae"), ("jepa", "moco"), ("mae", "moco")):
             for st in ("16->8", "8->4"):
-                out["objective_pairs"][o1, o2, g, st] = objective_pair(out["steps"][o1, g][st], out["steps"][o2, g][st], ans)
+                out["objective_pairs"][o1, o2, g, st] = objective_pair(out["steps"][o1, g][st], out["steps"][o2, g][st], Sg[o1, g], Sg[o2, g])
     return out
 
 
 # --- synthetic inputs for the plants: per-decile AUC = untrained max + margin, the margin set so that L is what the plant asks for ------
-def synth(target, rng, seeds=2, sd=0.0, shared=0.0, drop=(), n_pos=400, few=()):
+def synth(target, rng, seeds=3, sd=0.0, shared=0.0, drop=(), n_pos=400, few=()):
     """target[(o, p)][group] → the group's L at that patch size (answers get group L ± a small offset); per-seed answer noise sd, shared
     fraction `shared`; drop = arms voided; few = answers with too few positives."""
     auc, un, counts = {}, {}, {}
@@ -171,6 +189,7 @@ def synth(target, rng, seeds=2, sd=0.0, shared=0.0, drop=(), n_pos=400, few=()):
 
 def step_plants():
     """Every step state, group reading, objective state and device state, by construction; sd = the observed spread's scale is tested in `power`."""
+    load_K()
     rng = np.random.default_rng(1)
     cells = {}
     base = {"G1": 0.10, "G2": 0.06, "G3": 0.03}
@@ -197,7 +216,7 @@ def step_plants():
     plant("gain then unresolved", {"*": {g: (base[g], base[g] + 0.06, base[g] + 0.067) for g in GROUPS}}, sd=0.001)  # 8→4 Δ ≈ 0.007: between NEGLIGIBLE and B_g
     plant("unresolved", {"*": {g: (base[g], base[g] + 0.008, base[g] + 0.009) for g in GROUPS}}, **noise)
     plant("insufficient (rare answers)", {"*": up(0.05)}, few=GROUPS["G1"][:5] + GROUPS["G2"][:7] + GROUPS["G3"][:6], **noise)
-    plant("insufficient (both seeds voided at 8)", {"*": up(0.05)}, drop=tuple((o, 8, s) for o in OBJ for s in (0, 1)), **noise)
+    plant("insufficient (two of three seeds voided at 8)", {"*": up(0.05)}, drop=tuple((o, 8, s) for o in OBJ for s in (0, 1)), **noise)
     plant("one seed voided", {"*": up(0.05)}, drop=(("jepa", 4, 1),), **noise)
     plant("MAE > JEPA > MoCo", {"mae": up(0.12), "jepa": up(0.05), "moco": up(0.0), "*": up(0.0)}, **noise)
     plant("objectives differ by SESOI-ish (unresolved)", {"mae": up(0.058), "jepa": up(0.05), "moco": up(0.05), "*": up(0.05)}, **noise)
@@ -223,94 +242,217 @@ def step_plants():
 
 
 ENCS = {"jepa": ("A1", "A2", "A3"), "moco": ("moco0", "moco1", "moco2"), "mae": ("mae0", "mae1", "mae2")}
+RHOS, KINDS, SCALES, FALSE = (0.0, 0.5, 1.0), ("gauss", "outlier"), (0.5, 1.0, 2.0), 0.025
 
 
-def seed_stats(sp, kind):
-    """{objective: (per-answer seed SD {answer: sd}, shared fraction, pooled SD)} from the three patch-16 Mac seeds. Shared fraction r = the part
-    of the variance common to every answer of an encoder (a seed's whole-embedding quality), estimated over all answers of that objective.
-    Answers whose L is undefined in any seed are dropped and named."""
-    out, dropped = {}, []
+def noise_model(sp, kind):
+    """{(objective, group): (tau, sigma)} from the three patch-16 Mac seeds: tau = run-level SD of the group mean of L over seeds (the encoder-wide
+    shift, answer noise removed); sigma = answer-level residual SD (pooled over answers, 2 df each). Also the raw per-seed group means, for the record."""
+    out = {}
     for o, encs in ENCS.items():
-        v = {a: np.array([sp["L"][kind][e][KEY[a]] for e in encs]) for a in KEY}
-        bad = [a for a in KEY if not np.isfinite(v[a]).all()]
-        dropped += [(o, a) for a in bad]
-        keep = [a for a in KEY if a not in bad]
-        m = np.array([v[a] for a in keep])  # (answers, 3)
-        var = m.var(1, ddof=1)
-        d = np.array([m[:, i] - m[:, j] for i in range(3) for j in range(i)])  # (pairs, answers)
-        r = max(0.0, (np.mean(d.mean(1) ** 2) / 2 - var.mean() / len(keep)) / var.mean())
-        sds = dict(zip(keep, np.sqrt(var)))
-        med = float(np.median(list(sds.values())))
-        sds.update({a: med for a in bad})  # an undefined answer needs an SD to be drawn; it is INSUFFICIENT in any real run
-        out[o] = {"sd": sds, "shared": float(np.clip(r, 0, 0.99)), "pooled": float(np.sqrt(var.mean())), "median_sd": med,
-                  "observed_s_g": {g: float(np.median([np.mean(np.abs(d[:, keep.index(a)])) for a in ans if a in keep])) for g, ans in GROUPS.items()}}
-    return out, dropped
+        for g, ans in GROUPS.items():
+            v = np.array([[sp["L"][kind][e][KEY[a]] for e in encs] for a in ans])  # (A, 3)
+            assert np.isfinite(v).all(), (o, g)
+            A = v.shape[0]
+            m = v.mean(0)  # group mean per seed
+            res = v - v.mean(1, keepdims=True) - m[None] + m.mean()
+            sig = float(np.sqrt((res ** 2).sum() / ((A - 1) * 2)))
+            tau = float(np.sqrt(max(0.0, m.var(ddof=1) - sig ** 2 / A)))
+            out[o, g] = (tau, sig)
+    return out
+
+
+def draw(rng, R, n, A, tau, sig, rho, kind, sizes=3):
+    """Noise of L: (R, n seeds, sizes, A answers) = run-level u (correlation rho across patch sizes within a seed) + answer-level jitter (independent)."""
+    def z(shape):
+        if kind == "gauss":
+            return rng.normal(size=shape)
+        return (rng.random(shape) < 1 / 3) * np.sqrt(3) * rng.normal(size=shape)  # one seed in three runs far off; unit variance
+    common = z((R, n, 1))
+    u = np.sqrt(rho) * common + np.sqrt(1 - rho) * z((R, n, sizes))
+    return tau * u[..., None] + sig * rng.normal(size=(R, n, sizes, A))
+
+
+def steps_vec(N, e8=0.0, e4=0.0):
+    """Both steps of one objective and group from noise N: per-seed medians, G, S (shared), and the sign fractions. Vector form of step_raw/step_state."""
+    D1 = N[:, :, 1] - N[:, :, 0] + e8
+    D2 = N[:, :, 2] - N[:, :, 1] + (e4 - e8)
+    out = []
+    for D in (D1, D2):
+        Gs = np.median(D, 2)
+        d = D.mean(1)
+        out.append((Gs.mean(1), Gs.std(1, ddof=1), (d > 0).mean(1), (d < 0).mean(1), Gs))
+    S = np.maximum(out[0][1], out[1][1])
+    return out, S
+
+
+def t_stats(N, n):
+    """Per draw: the K above which GAIN or LOSS stops being called at each step (0 when the sign or size floor already blocks it)."""
+    steps, S = steps_vec(N)
+    t = []
+    for G, _, pos, neg, _ in steps:
+        fl = (np.abs(G) > SESOI / 2) & np.where(G > 0, pos >= 2 / 3, neg >= 2 / 3)
+        t.append(np.where(fl, np.abs(G) * np.sqrt(n) / np.maximum(S, 1e-12), 0.0))
+    return np.array(t)
+
+
+def step_calibrate():
+    sp = json.loads((OUT / "spread.json").read_text())
+    rng = np.random.default_rng(20261124)
+    R, rows = 20000, []
+    worst = {2: [], 3: []}
+    for n in (2, 3):
+        for kind in ("raw", "cleaned"):
+            nm = noise_model(sp, kind)
+            for (o, g), (tau, sig) in nm.items():
+                A = len(GROUPS[g])
+                for nz in KINDS:
+                    for rho in RHOS:
+                        for sc in SCALES:
+                            t = t_stats(draw(rng, R, n, A, tau * sc, sig * sc, rho, nz), n)
+                            k = float(max(np.quantile(x, 1 - FALSE) for x in t))
+                            rows.append({"n": n, "kind": kind, "cell": f"{o}/{g}", "noise": nz, "rho": rho, "scale": sc, "K_needed": k})
+                            worst[n].append(k)
+            for (o1, o2) in (("jepa", "mae"), ("jepa", "moco"), ("mae", "moco")):
+                for g in GROUPS:
+                    A = len(GROUPS[g])
+                    for nz in KINDS:
+                        for rho in RHOS:
+                            s1, S1 = steps_vec(draw(rng, R, n, A, *nm[o1, g], rho, nz))
+                            s2, S2 = steps_vec(draw(rng, R, n, A, *nm[o2, g], rho, nz))
+                            for a, b in zip(s1, s2):
+                                D = a[0] - b[0]
+                                t = np.where(np.abs(D) > SESOI / 2, np.abs(D) / np.maximum(np.maximum(S1, S2) * np.sqrt(2 / n), 1e-12), 0.0)
+                                k = float(np.quantile(t, 1 - FALSE))
+                                rows.append({"n": n, "kind": kind, "cell": f"{o1}-{o2}/{g}", "noise": nz, "rho": rho, "scale": 1.0, "K_needed": k})
+                                worst[n].append(k)
+    # 3 decimals of headroom are meaningless at R = 20,000: round up to the 0.05 grid
+    K = {str(n): float(np.ceil(max(v) / 0.05) * 0.05) for n, v in worst.items()}
+    top = {n: sorted((r for r in rows if r["n"] == n), key=lambda r: -r["K_needed"])[:5] for n in (2, 3)}
+    out = {"rule": "smallest K on a 0.05 grid with false GAIN-or-LOSS and false DIFFERS rates <= 2.5% in every regime", "K": K, "draws_per_regime": R, "n_regimes": len(rows), "worst_regimes": top,
+           "quantiles_of_K_needed_n3": np.percentile([r["K_needed"] for r in rows if r["n"] == 3], [0, 25, 50, 75, 90, 99, 100]).tolist(),
+           "noise_model_raw": {f"{o}/{g}": v for (o, g), v in noise_model(sp, "raw").items()}, "noise_model_cleaned": {f"{o}/{g}": v for (o, g), v in noise_model(sp, "cleaned").items()}}
+    CAL.write_text(json.dumps(out, indent=1, default=float))
+    print(K, out["quantiles_of_K_needed_n3"]); print(top[3][:3])
+
+
+def decide(N, n, e8=0.0, e4=0.0):
+    """Vector states for both steps: integer codes 0 GAIN, 1 LOSS, 2 NO CHANGE, 3 UNRESOLVED; plus |G| and the bar of step 1."""
+    steps, S = steps_vec(N, e8, e4)
+    b = np.maximum(SESOI / 2, K_N[n] * S / np.sqrt(n))
+    codes = []
+    for G, _, pos, neg, _ in steps:
+        codes.append(np.select([(G > b) & (pos >= 2 / 3), (G < -b) & (neg >= 2 / 3), (np.abs(G) <= NEGLIGIBLE) & (b <= SESOI)], [0, 1, 2], 3))
+    return codes, steps, b
+
+
+def step_check():
+    """The scalar path (score_L) and the vector path must agree draw by draw."""
+    load_K()
+    rng = np.random.default_rng(5)
+    bad = 0
+    for trial in range(300):
+        n = int(rng.integers(2, 4))
+        L = {}
+        Ns = {}
+        for o in OBJ:
+            A = [a for v in GROUPS.values() for a in v]
+            N = draw(rng, 1, n, len(A), 0.02, 0.01, 0.5, "gauss")[0]
+            off = rng.normal(size=3) * 0.03
+            for pi, p in enumerate(PATCH):
+                for s in range(n):
+                    L[o, p, s] = dict(zip(A, 0.1 + off[pi] + N[s, pi]))
+            Ns[o] = (N, off, A)
+        r = score_L(L)
+        for o in OBJ:
+            N, off, A = Ns[o]
+            for g, ans in GROUPS.items():
+                idx = [A.index(a) for a in ans]
+                codes, st, b = decide(N[None][:, :, :, idx], n, e8=off[1] - off[0], e4=off[2] - off[0])
+                for k, key in enumerate(("16->8", "8->4")):
+                    name = ("GAIN", "LOSS", "NO CHANGE", "UNRESOLVED")[int(codes[k][0])]
+                    bad += name != r["steps"][o, g][key]["state"]
+    print("scalar and vector paths disagree on", bad, "of", 300 * 18, "steps")
+    assert bad == 0
 
 
 def step_power():
-    """Monte Carlo at the observed patch-16 seed spread, per objective and kind: 2 and 3 seeds; the same seed SD is assumed at 8 and 4 (unknown)."""
+    load_K()
     sp = json.loads((OUT / "spread.json").read_text())
-    out = {"source": sp["note"], "assumption": "seed SD and shared fraction at patch 16 are applied at 8 and 4; neither is known", "kinds": {}}
-    grid = [0.0, 0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.035, 0.04, 0.05, 0.06, 0.08]
+    grid = [0, .005, .01, .015, .02, .025, .03, .035, .04, .05, .06, .07, .08, .1, .12, .15, .2, .3]
+    out = {"K": K_N, "note": "n = 3 paired seeds unless stated; noise model from the three Mac patch-16 seeds per objective (tau run-level, sigma answer-level); rho = how much of a "
+           "seed's run-level effect is shared between patch sizes (unknown; 0 none, 1 all)", "cells": {}}
+    R = 20000
     for kind in ("raw", "cleaned"):
-        st, dropped = seed_stats(sp, kind)
-        out["kinds"][kind] = {"dropped_answers": dropped, "observed": {o: {k: v for k, v in x.items() if k != "sd"} for o, x in st.items()}, "power": {}}
-        for o in OBJ:
-            for n_seed in (2, 3):
-                for g, ans in GROUPS.items():
-                    rng, N, tab = np.random.default_rng(7), 400, {}
-                    sig = np.array([st[o]["sd"][a] for a in ans])
-                    r, pooled = st[o]["shared"], st[o]["pooled"]
-                    for dlt in grid:
-                        cnt = {k: 0 for k in ("GAIN", "NO CHANGE", "UNRESOLVED", "LOSS", "INSUFFICIENT")}
-                        for _ in range(N):
-                            L = {}
-                            for p, off in ((16, 0.0), (8, dlt)):
-                                for s in range(n_seed):
-                                    z = rng.normal() * pooled * np.sqrt(r) + rng.normal(size=len(ans)) * np.sqrt(1 - r) * sig
-                                    L[o, p, s] = dict(zip(ans, off + z))
-                            cnt[step(L, o, 16, 8, ans)["state"]] += 1
-                        tab[dlt] = {k: c / N for k, c in cnt.items()}
-                    pg = [tab[x]["GAIN"] for x in grid]
-                    d80 = next((float(np.interp(0.8, [pg[k - 1], pg[k]], [grid[k - 1], grid[k]])) for k in range(1, len(pg)) if pg[k] >= 0.8 > pg[k - 1]), None)
-                    out["kinds"][kind]["power"][f"{o}/{n_seed}/{g}"] = {"s_g_observed_pairs": st[o]["observed_s_g"][g], "delta_80pct_GAIN": d80, "P_at_0": tab[0.0],
-                                                                         "P_GAIN": dict(zip(map(str, grid), pg)), "P_NO_CHANGE_at_0": tab[0.0]["NO CHANGE"]}
+        nm = noise_model(sp, kind)
+        for (o, g), (tau, sig) in nm.items():
+            A = len(GROUPS[g])
+            for nz in KINDS:
+                for rho in RHOS:
+                    for n in (3, 2):
+                        rng = np.random.default_rng(99)
+                        N = draw(rng, R, n, A, tau, sig, rho, nz)
+                        codes, _, _ = decide(N, n)
+                        pn = {0: 0, 1: 0, 2: 0, 3: 0}
+                        for c, v in zip(*np.unique(codes[0], return_counts=True)):
+                            pn[int(c)] = v / R
+                        rec = {"tau": tau, "sigma": sig, "P_at_0": {"GAIN": pn[0], "LOSS": pn[1], "NO CHANGE": pn[2], "UNRESOLVED": pn[3]}}
+                        pg = []
+                        for dlt in grid:
+                            c, _, _ = decide(N, n, e8=dlt, e4=dlt)
+                            pg.append(float((c[0] == 0).mean()))
+                        rec["P_GAIN"] = dict(zip(map(str, grid), pg))
+                        rec["delta80"] = next((float(np.interp(0.8, [pg[k - 1], pg[k]], [grid[k - 1], grid[k]])) for k in range(1, len(pg)) if pg[k] >= 0.8 > pg[k - 1]), None)
+                        # equivalence bound: the smallest E at which NO CHANGE would be reached, under the equivalence form |G| + b <= E (the baselines' SAME)
+                        st, S = steps_vec(N)
+                        G = np.abs(st[0][0]); b = np.maximum(SESOI / 2, K_N[n] * S / np.sqrt(n))
+                        rec["E_equiv_for_P80"] = float(np.quantile(G + b, 0.8))
+                        rec["E_equiv_for_P50"] = float(np.quantile(G + b, 0.5))
+                        rec["E_bar_for_P50_given_small_G"] = float(np.quantile(b[G <= NEGLIGIBLE], 0.5)) if (G <= NEGLIGIBLE).any() else None
+                        rec["P_absG_le_NEGLIGIBLE"] = float((G <= NEGLIGIBLE).mean())
+                        out["cells"][f"{kind}/{o}/{g}/{nz}/rho{rho}/n{n}"] = rec
     (DOC / "power.json").write_text(json.dumps(out, indent=1, default=float))
-    for kind, b in out["kinds"].items():
-        for k, v in b["power"].items():
-            print(kind, k, f"s_g {v['s_g_observed_pairs']:.4f} Δ80 {v['delta_80pct_GAIN']} P(NO CHANGE|0) {v['P_NO_CHANGE_at_0']:.2f} P(UNRES|0) {v['P_at_0']['UNRESOLVED']:.2f}")
+    for kind in ("raw",):
+        for (o, g) in [(o, g) for o in OBJ for g in GROUPS]:
+            print(o, g, *(f"| {nz} rho {r}: Δ80 {out['cells'][f'{kind}/{o}/{g}/{nz}/rho{r}/n3']['delta80']} P(NC|0) {out['cells'][f'{kind}/{o}/{g}/{nz}/rho{r}/n3']['P_at_0']['NO CHANGE']:.2f} E80 {out['cells'][f'{kind}/{o}/{g}/{nz}/rho{r}/n3']['E_equiv_for_P80']:.3f}" for nz in KINDS for r in (0.0, 1.0)))
 
 
 def step_observed():
-    """The step plants again at the observed seed spread (§9): what share of draws give the intended state, and which states are reached at all."""
+    """The planted readings at the observed noise: for each case, the share of draws in each group reading (vector states composed by group_reading)."""
+    load_K()
     sp = json.loads((OUT / "spread.json").read_text())
+    cases = {"no change": (0, 0), "gain then floor": (.06, .06), "gain then gain": (.06, .12), "no change then gain": (0, .06), "loss then stay": (-.06, -.06), "stay then loss": (0, -.06),
+             "large gain then floor": (.15, .15), "huge gain then gain": (.25, .5), "gain then small": (.06, .067)}
+    name = ("GAIN", "LOSS", "NO CHANGE", "UNRESOLVED")
     out = {"kinds": {}}
-    b = {"G1": 0.10, "G2": 0.06, "G3": 0.03}
-    cases = {"no change": (0, 0), "gain then floor": (.05, .05), "gain then gain": (.05, .10), "no change then gain": (0, .05), "loss then loss-recover": (-.05, -.05),
-             "gain then small": (.06, .067), "sub-bar": (.008, .009), "large gain then floor": (.08, .08)}
     for kind in ("raw", "cleaned"):
-        st, _ = seed_stats(sp, kind)
-        sd, sh = {o: st[o]["sd"] for o in OBJ}, {o: st[o]["shared"] for o in OBJ}
+        nm = noise_model(sp, kind)
         res = {}
-        for name, (a8, a4) in cases.items():
-            rng, N = np.random.default_rng(11), 200
-            t = {(o, p): {g: b[g] + {16: 0, 8: a8, 4: a4}[p] for g in GROUPS} for o in OBJ for p in PATCH}
-            cnt, pairs, stp = {}, {}, {}
-            for _ in range(N):
-                r = score(*synth(t, rng, sd=sd, shared=sh, seeds=2))
-                for o in OBJ:
-                    for g in GROUPS:
-                        key = r["readings"][o, g].split(" (")[0]
-                        cnt[f"{o}/{g}"] = {**cnt.get(f"{o}/{g}", {}), key: cnt.get(f"{o}/{g}", {}).get(key, 0) + 1}
-                        for s in ("16->8", "8->4"):
-                            k = r["steps"][o, g][s]["state"]
-                            stp[k] = stp.get(k, 0) + 1
-                for v in r["objective_pairs"].values():
-                    pairs[v["state"]] = pairs.get(v["state"], 0) + 1
-            res[name] = {"reading_share": {k: {kk: vv / N for kk, vv in v.items()} for k, v in cnt.items()}, "step_states_seen": stp, "objective_states_seen": pairs}
+        for cn, (a8, a4) in cases.items():
+            for (o, g), (tau, sig) in nm.items():
+                for rho in (0.0, 1.0):
+                    rng = np.random.default_rng(3)
+                    R = 4000
+                    N = draw(rng, R, 3, len(GROUPS[g]), tau, sig, rho, "gauss")
+                    codes, _, _ = decide(N, 3, a8, a4)
+                    cnt = {}
+                    for i, j in zip(*codes):
+                        r = group_reading(name[i], name[j]).split(" (")[0]
+                        cnt[r] = cnt.get(r, 0) + 1
+                    res[f"{cn}/{o}/{g}/rho{rho}"] = {k: v / R for k, v in sorted(cnt.items(), key=lambda kv: -kv[1])}
         out["kinds"][kind] = res
-        print(kind, {n: {k: max(v, key=v.get) for k, v in r["reading_share"].items() if k.startswith("jepa")} for n, r in res.items()})
+    reach = {}
+    for kind, res in out["kinds"].items():
+        for o in OBJ:
+            for rho in (0.0, 1.0):
+                for k, v in res.items():
+                    if f"/{o}/" in k and k.endswith(f"rho{rho}"):
+                        for rd, p in v.items():
+                            reach.setdefault(f"{kind}/{o}/rho{rho}", {})[rd] = max(reach.get(f"{kind}/{o}/rho{rho}", {}).get(rd, 0), p)
+    out["max_share_of_each_reading_over_cases"] = reach
     (DOC / "plants_observed.json").write_text(json.dumps(out, indent=1, default=float))
+    for k, v in reach.items():
+        print(k, {a: round(b, 2) for a, b in sorted(v.items(), key=lambda kv: -kv[1])})
 
 
 if __name__ == "__main__":

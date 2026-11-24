@@ -1,6 +1,7 @@
-# Patch-size grid 16 → 8 → 4 (D11): pre-registration (DRAFT v0, browser draft; not hashed)
+# Patch-size grid 16 → 8 → 4 (D11): pre-registration (DRAFT v1: the user's decisions of 24 Nov applied; not hashed)
 
-**Status.** [CC] items completed 24 Nov by Claude Code; mismatches and ambiguities are in
+**Status.** [CC] items completed 24 Nov by Claude Code, then the user's decisions of 24 Nov applied (paired design,
+three seeds, raw primary, B2b removed); mismatches and ambiguities are in
 `docs/patch_grid/flags.md` and were not reconciled here. Still a draft, still unhashed.
 Design draft written 24 Nov 2026 from B1, B1b, Part A and the cost estimate
 (`docs/patch_ablation_cost.md`). Nothing here is hashed. Claude Code completes the operational
@@ -11,7 +12,8 @@ the rental starts only after the hash is committed and pushed.
 
 **What this draft was written from.** `docs/almagest/a1_visibility_report.md` (B1, B1b),
 `docs/axes/a_report.md` (Part A), `docs/patch_ablation_cost.md`, and the chat record of the decisions
-of 21 Nov. No 8×8 or 4×4 result exists. B2b's numbers are not yet available: §8 says how they enter.
+of 21 Nov. No 8×8 or 4×4 result exists. B2b has not run and is not part of this pre-registration (user, 24 Nov); it will be a later
+exploratory analysis.
 
 ---
 
@@ -39,24 +41,25 @@ morphology at every resolution. But structure (bar, spiral, ring) appears only a
 
 | objective | patch | seeds (train_seed) | role |
 |---|---|---|---|
-| JEPA | 16 (GPU, bf16) | 0, 1 | GPU reference; device/precision control against Mac A1 (seed 0), A2 (seed 1) |
-| JEPA | 8 | 0, 1 | |
-| JEPA | 4 | 0, 1 | |
-| MoCo | 16 (GPU, bf16) | 0, 1 | GPU reference; control against the Mac MoCo runs |
-| MoCo | 8 | 0, 1 | |
-| MoCo | 4 | 0, 1 | |
-| MAE | 16 (GPU, bf16) | 0, 1 | GPU reference; control against the Mac MAE runs |
-| MAE | 8 | 0, 1 | |
-| MAE | 4 | 0, 1 | |
+| JEPA | 16 (GPU, bf16) | 0, 1, 2 | GPU reference; device/precision control against Mac A1 (seed 0), A2 (seed 1), A3 (seed 2) |
+| JEPA | 8 | 0, 1, 2 | |
+| JEPA | 4 | 0, 1, 2 | |
+| MoCo | 16 (GPU, bf16) | 0, 1, 2 | GPU reference; control against the Mac MoCo runs |
+| MoCo | 8 | 0, 1, 2 | |
+| MoCo | 4 | 0, 1, 2 | |
+| MAE | 16 (GPU, bf16) | 0, 1, 2 | GPU reference; control against the Mac MAE runs |
+| MAE | 8 | 0, 1, 2 | |
+| MAE | 4 | 0, 1, 2 | |
 
-18 trained encoders. Untrained banks: 3 seeds per patch size per objective architecture, as for patch 16.
+27 trained encoders (3 objectives × 3 patch sizes × 3 seeds). Untrained banks: 3 seeds per patch size per objective architecture, as for patch 16.
 **[CC, completed 24 Nov]** All three objectives have a paired device control. By train_seed, the Mac
 runs (`runs/`, hashed in the baselines comparison, `artifacts/baselines_comparison.md`) are:
 - seed 0: A1 (`m_v2`), `moco_s0`, `mae_s0`;
 - seed 1: A2 (`m_v2_s1`), `moco_s1`, `mae_s1`;
-- seed 2 (no GPU partner in this grid): A3 (`m_v2_s2`), `moco_s2`, `mae_s2`.
+- seed 2: A3 (`m_v2_s2`), `moco_s2`, `mae_s2`.
 
-The Mac runs trained on MPS without autocast (fp32), so device and precision change together.
+The Mac runs trained on MPS without autocast (fp32), so device and precision change together. Seed 1 is kept although it is known to run high for
+JEPA and MAE (`findings_summary.md`, the seed-1 puzzle). It was not removed after being seen.
 
 ### 3. Recipe held fixed
 
@@ -117,8 +120,7 @@ The Mac runs trained on MPS without autocast (fp32), so device and precision cha
   E[category] within the same deciles.
 - **[CC, completed 24 Nov]** As implemented, the Scheme-1 ladder probes use **raw** embeddings: cleaning exists
   only in the Almagest code (`artifacts/almagest_spiral.py`), which B1 and Part A used. Either choice runs, and the
-  scoring code reports both. The choice of primary is the user's; the draft's choice:
-  **raw primary** (the decile already controls apparent size, and B1 showed the cleaner can distort
+  scoring code reports both. **Decided (user, 24 Nov): raw is primary** (the decile already controls apparent size, and B1 showed the cleaner can distort
   within-decile comparisons, e.g. no bulge), cleaned reported beside it.
 
 ### 5. Primary statistic
@@ -130,11 +132,17 @@ For encoder e (objective o, patch p, seed s) and answer a:
   - Deciles 1–5 are where B1 placed the knees for G2 and G3, so a resolution gain shows up here first.
   - Margins are taken against the untrained encoders **of the same patch size**, so a change in what an
     untrained 4×4 ViT already reads is not credited to training.
-- **Step change** for objective o, from patch p to patch q: Δ(o, a, p→q) = mean over seeds of L at q
-  minus mean over seeds of L at p. Seeds pair by train_seed.
-- **Group statistic:** the median of Δ over the answers in the group.
-- **Seed spread:** for each (o, p), the |L(seed 0) − L(seed 1)| per answer; the group's spread s_g is
-  the median of those over the group, pooled across the two patch sizes in the step.
+- **Paired step change** for objective o, from patch p to patch q, seed s, answer a: Δ_s(a) = L(o, q, s, a) − L(o, p, s, a)
+  (user, 24 Nov). Seed s at q is compared only with seed s at p.
+- **Group statistic:** G_s = the median of Δ_s(a) over the group's answers; G = the mean of G_s over the seeds valid at both sizes
+  (n of them; three unless an arm is VOID).
+- **Paired noise:** S = the larger of the two steps' SDs of G_s over seeds, for that objective and group (the larger
+  noise sets the bar, as max(S_A, S_X) does in the baselines comparison).
+- **Bar:** b = max(SESOI/2, K_n · S / √n). K_n is calibrated by Monte Carlo, not chosen: the smallest value on a 0.05 grid whose
+  false GAIN-or-LOSS rate and false DIFFERS rate are at most 2.5% in every noise regime (the observed patch-16 noise of every
+  objective and group, raw and cleaned, at half, one and twice its size; with one seed in three running far off; with the
+  run-level seed effect shared between patch sizes fully, half or not at all): **K₃ = 3.2, K₂ = 5.55** (n = 2 only if a seed is VOID;
+  `docs/patch_grid/calibration.json`). Baselines: K = 3.0.
 - **Secondary, descriptive:** the full-sample existence AUC per answer and arm; the knee per answer,
   defined on the CI as the first decile d where deciles d and d+1 both have their bootstrap 95% CI lower
   bound above the untrained maximum (1,000 galaxy resamples within decile), or NONE; and the ordinal τ
@@ -142,18 +150,19 @@ For encoder e (objective o, patch p, seed s) and answer a:
 
 ### 6. States (D27: every outcome has one; first match applies)
 
-Constants, consistent with the baselines comparison: **SESOI = 0.02** and **NEGLIGIBLE = 0.005** AUC.
-Bar for a step: B_g = max(SESOI/2, 2 · s_g) = max(0.01, 2 · s_g).
+Constants, consistent with the baselines comparison: **SESOI = 0.02** and **NEGLIGIBLE = 0.005** AUC. Bars: §5.
 
 **Per group, per objective, per step (16 → 8 and 8 → 4):**
 
 | # | condition | step state |
 |---|---|---|
-| 1 | fewer than 5 answers in the group have a defined L at both sizes | INSUFFICIENT |
-| 2 | median Δ > B_g, and at least 2/3 of the group's answers have Δ > 0 | GAIN |
-| 3 | median Δ < −B_g, and at least 2/3 have Δ < 0 | LOSS |
-| 4 | \|median Δ\| ≤ NEGLIGIBLE and s_g ≤ SESOI/2 | NO CHANGE |
-| 5 | otherwise | UNRESOLVED |
+| 1 | fewer than 5 answers have a defined L at both sizes in every valid seed, or fewer than 2 seeds are valid at both sizes | INSUFFICIENT |
+| 2 | G > b, and at least 2/3 of the group's answers have mean Δ(a) > 0 | GAIN |
+| 3 | G < −b, and at least 2/3 have mean Δ(a) < 0 | LOSS |
+| 4 | \|G\| ≤ NEGLIGIBLE and b ≤ SESOI | NO CHANGE |
+| 5 | otherwise (with the label "seeds disagree in sign" if some G_s ≥ +SESOI/2 and some ≤ −SESOI/2) | UNRESOLVED |
+
+NO CHANGE's second condition is the draft's s_g ≤ SESOI/2 carried over (the drafted bar was 2 · s_g, so that meant a bar ≤ SESOI).
 
 **Per group, per objective, combining the two steps:**
 
@@ -173,14 +182,14 @@ Bar for a step: B_g = max(SESOI/2, 2 · s_g) = max(0.01, 2 · s_g).
 - G2 and G3: PATCH-LIMITED TO A PSF FLOOR for JEPA.
 - Arm count and winding (descriptive, §5): τ in deciles 4–7 rises at 8 × 8 and changes little at 4 × 4.
 
-**Objective comparison (Q2), per group and step:** D(o1, o2) = Δ(o1) − Δ(o2), using the same answers.
-Bar: max(SESOI/2, 2 · √(s_o1² + s_o2²)).
+**Objective comparison (Q2), per group and step:** D = the mean over seeds of G_s(o1) − G_s(o2), paired by seed.
+Bar: max(SESOI/2, K_n · max(S_o1, S_o2) · √(2/n)), as the baselines comparison's family bar.
 
 | # | condition | state |
 |---|---|---|
 | 1 | either objective INSUFFICIENT | INSUFFICIENT |
 | 2 | \|D\| > bar | DIFFERS (sign reported) |
-| 3 | \|D\| ≤ NEGLIGIBLE and both spreads ≤ SESOI/2 | SAME |
+| 3 | \|D\| ≤ NEGLIGIBLE and both objectives' step bars b ≤ SESOI | SAME |
 | 4 | otherwise | UNRESOLVED |
 
 Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoCo in Δ for G2 and G3 at 16 → 8.
@@ -222,28 +231,23 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
   at 8 × 8 or 4 × 4?
 - **Part A on every arm:** the ordinal-versus-free shares and gaps for arm count, winding, bulge and
   roundness.
-- **B2b on every arm, if B2b has run on A1 by then:** the per-answer score shift with simulated redshift.
-  Prediction: smaller shifts at 8 × 8 for G2 and G3, if the patch was the limit. If B2b has not run by the
-  hash, this item is dropped from the pre-registration and run later as exploratory.
-- **Patch-16 GPU references** also give a third and fourth seed's worth of JEPA at patch 16, which is
-  added to the run-noise estimate for future comparisons.
+- **Patch-16 GPU references** also give three more patch-16 runs per objective (device and precision differ from the Mac's, and the
+  train_seeds repeat A1–A3's, so these are not new independent seeds: `flags.md` 8).
 
 ### 9. D28: planted tests, before the hash **[CC: code and plants written 24 Nov; results in `docs/patch_grid/flags.md`]**
 
-- Synthetic L curves for all 18 encoders and 30 answers at the observed seed spread, run through the
+- Synthetic L curves for all 27 encoders and 30 answers at the observed seed spread, run through the
   identical scoring path. Plants must reach every step state, every group reading (including WORSE and
   LIMITED BELOW 8 px ONLY) and every objective-comparison state.
-- **Power, stated plainly:** with 2 seeds per arm, report the smallest group-median Δ that reads GAIN
-  with 80% probability at the observed s_g, and the probability that a true Δ of 0 reads NO CHANGE. If
-  80% power needs Δ > 0.03 for G2, report it before the hash; the user then decides whether to add a
-  third seed per arm.
+- **Power, stated plainly:** three seeds, the paired bar: the smallest group-median Δ that reads GAIN with 80% probability, and the probability
+  that a true Δ of 0 reads NO CHANGE, per objective and group (`docs/patch_grid/power.json`, summarised in `flags.md` D). If
+  NO CHANGE is unreachable for JEPA or MAE, the smallest equivalence bound at which it becomes reachable is reported and nothing is loosened.
 
 ---
 
 ## Notes outside the hashed section
 
 - The renderer run shares the rental but is not part of this pre-registration.
-- Cost from `docs/patch_ablation_cost.md`: full grid plus all three patch-16 controls is roughly 30–57
+- Cost from `docs/patch_ablation_cost.md` (three seeds per arm, patch-16 references included): roughly 44–82
   H100-hours.
-- Open for the user before the hash: (1) raw or cleaned as primary (draft: raw); (2) a third seed if the
-  power check in §9 says 2 seeds cannot resolve the expected effects; (3) whether B2b stays in §8.
+- The seed-1 effect, the divergence rule (§7) and the collapse bar (§7) are still open: `docs/patch_grid/flags.md`.

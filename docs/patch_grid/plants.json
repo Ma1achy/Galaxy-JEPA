@@ -134,7 +134,7 @@
    "mae/G2": "INSUFFICIENT",
    "mae/G3": "INSUFFICIENT"
   },
-  "insufficient (both seeds voided at 8)": {
+  "insufficient (two of three seeds voided at 8)": {
    "jepa/G1": "INSUFFICIENT",
    "jepa/G2": "INSUFFICIENT",
    "jepa/G3": "INSUFFICIENT",
@@ -213,7 +213,7 @@
   "insufficient (rare answers)": [
    "INSUFFICIENT"
   ],
-  "insufficient (both seeds voided at 8)": [
+  "insufficient (two of three seeds voided at 8)": [
    "INSUFFICIENT"
   ],
   "one seed voided": [
@@ -257,7 +257,7 @@
   "insufficient (rare answers)": [
    "INSUFFICIENT"
   ],
-  "insufficient (both seeds voided at 8)": [
+  "insufficient (two of three seeds voided at 8)": [
    "INSUFFICIENT"
   ],
   "one seed voided": [

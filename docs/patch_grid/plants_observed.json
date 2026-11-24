@@ -1,962 +1,1612 @@
 {
  "kinds": {
   "raw": {
-   "no change": {
-    "reading_share": {
-     "jepa/G1": {
-      "UNRESOLVED": 0.965,
-      "WORSE WITH SMALLER PATCHES": 0.025,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01
-     },
-     "jepa/G2": {
-      "UNRESOLVED": 0.905,
-      "WORSE WITH SMALLER PATCHES": 0.07,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.025
-     },
-     "jepa/G3": {
-      "UNRESOLVED": 0.875,
-      "WORSE WITH SMALLER PATCHES": 0.11,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015
-     },
-     "moco/G1": {
-      "DATA-LIMITED AT 16 px": 0.975,
-      "UNRESOLVED": 0.025
-     },
-     "moco/G2": {
-      "DATA-LIMITED AT 16 px": 1.0
-     },
-     "moco/G3": {
-      "DATA-LIMITED AT 16 px": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.94,
-      "WORSE WITH SMALLER PATCHES": 0.04,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.855,
-      "WORSE WITH SMALLER PATCHES": 0.125,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.86,
-      "WORSE WITH SMALLER PATCHES": 0.115,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.025
-     }
-    },
-    "step_states_seen": {
-     "UNRESOLVED": 2203,
-     "NO CHANGE": 1217,
-     "LOSS": 97,
-     "GAIN": 83
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3350,
-     "DIFFERS": 230,
-     "SAME": 20
-    }
+   "no change/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.96525,
+    "WORSE WITH SMALLER PATCHES": 0.02625,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00825,
+    "PATCH-LIMITED BELOW 8 px": 0.00025
    },
-   "gain then floor": {
-    "reading_share": {
-     "jepa/G1": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.36,
-      "UNRESOLVED": 0.63,
-      "WORSE WITH SMALLER PATCHES": 0.01
-     },
-     "jepa/G2": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.465,
-      "UNRESOLVED": 0.445,
-      "PATCH-LIMITED BELOW 8 px": 0.03,
-      "WORSE WITH SMALLER PATCHES": 0.04,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.015,
-      "LIMITED BELOW 8 px ONLY": 0.005
-     },
-     "jepa/G3": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.49,
-      "UNRESOLVED": 0.42,
-      "PATCH-LIMITED BELOW 8 px": 0.03,
-      "WORSE WITH SMALLER PATCHES": 0.05,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.01
-     },
-     "moco/G1": {
-      "PATCH-LIMITED TO A PSF FLOOR": 0.99,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01
-     },
-     "moco/G2": {
-      "PATCH-LIMITED TO A PSF FLOOR": 1.0
-     },
-     "moco/G3": {
-      "PATCH-LIMITED TO A PSF FLOOR": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.755,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.225,
-      "WORSE WITH SMALLER PATCHES": 0.02
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.58,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.35,
-      "WORSE WITH SMALLER PATCHES": 0.055,
-      "PATCH-LIMITED BELOW 8 px": 0.015
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.585,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.335,
-      "WORSE WITH SMALLER PATCHES": 0.045,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.015,
-      "PATCH-LIMITED BELOW 8 px": 0.02
-     }
-    },
-    "step_states_seen": {
-     "GAIN": 1157,
-     "UNRESOLVED": 1786,
-     "NO CHANGE": 613,
-     "LOSS": 44
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3350,
-     "DIFFERS": 230,
-     "SAME": 20
-    }
+   "no change/jepa/G1/rho1.0": {
+    "UNRESOLVED": 0.66325,
+    "DATA-LIMITED AT 16 px": 0.32475,
+    "WORSE WITH SMALLER PATCHES": 0.0055,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.003,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.002,
+    "LIMITED BELOW 8 px ONLY": 0.0015
    },
-   "gain then gain": {
-    "reading_share": {
-     "jepa/G1": {
-      "PATCH-LIMITED BELOW 8 px": 0.155,
-      "UNRESOLVED": 0.63,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.215
-     },
-     "jepa/G2": {
-      "PATCH-LIMITED BELOW 8 px": 0.335,
-      "UNRESOLVED": 0.455,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.205,
-      "LIMITED BELOW 8 px ONLY": 0.005
-     },
-     "jepa/G3": {
-      "PATCH-LIMITED BELOW 8 px": 0.395,
-      "UNRESOLVED": 0.425,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.18
-     },
-     "moco/G1": {
-      "PATCH-LIMITED BELOW 8 px": 1.0
-     },
-     "moco/G2": {
-      "PATCH-LIMITED BELOW 8 px": 1.0
-     },
-     "moco/G3": {
-      "PATCH-LIMITED BELOW 8 px": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.765,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.205,
-      "PATCH-LIMITED BELOW 8 px": 0.03
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.59,
-      "PATCH-LIMITED BELOW 8 px": 0.145,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.265
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.6,
-      "PATCH-LIMITED BELOW 8 px": 0.195,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.205
-     }
-    },
-    "step_states_seen": {
-     "GAIN": 2251,
-     "UNRESOLVED": 1348,
-     "NO CHANGE": 1
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3350,
-     "DIFFERS": 230,
-     "SAME": 20
-    }
+   "no change/jepa/G2/rho0.0": {
+    "UNRESOLVED": 0.96375,
+    "WORSE WITH SMALLER PATCHES": 0.022,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0075,
+    "DATA-LIMITED AT 16 px": 0.00325,
+    "LIMITED BELOW 8 px ONLY": 0.002,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.0015
    },
-   "no change then gain": {
-    "reading_share": {
-     "jepa/G1": {
-      "UNRESOLVED": 0.97,
-      "WORSE WITH SMALLER PATCHES": 0.015,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01,
-      "PATCH-LIMITED BELOW 8 px": 0.005
-     },
-     "jepa/G2": {
-      "UNRESOLVED": 0.935,
-      "LIMITED BELOW 8 px ONLY": 0.005,
-      "PATCH-LIMITED BELOW 8 px": 0.015,
-      "WORSE WITH SMALLER PATCHES": 0.03,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015
-     },
-     "jepa/G3": {
-      "LIMITED BELOW 8 px ONLY": 0.02,
-      "UNRESOLVED": 0.885,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015,
-      "WORSE WITH SMALLER PATCHES": 0.06,
-      "PATCH-LIMITED BELOW 8 px": 0.02
-     },
-     "moco/G1": {
-      "LIMITED BELOW 8 px ONLY": 0.985,
-      "UNRESOLVED": 0.015
-     },
-     "moco/G2": {
-      "LIMITED BELOW 8 px ONLY": 1.0
-     },
-     "moco/G3": {
-      "LIMITED BELOW 8 px ONLY": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.96,
-      "WORSE WITH SMALLER PATCHES": 0.02,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.905,
-      "WORSE WITH SMALLER PATCHES": 0.07,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01,
-      "PATCH-LIMITED BELOW 8 px": 0.015
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.895,
-      "WORSE WITH SMALLER PATCHES": 0.07,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.025,
-      "PATCH-LIMITED BELOW 8 px": 0.01
-     }
-    },
-    "step_states_seen": {
-     "UNRESOLVED": 1765,
-     "GAIN": 1177,
-     "NO CHANGE": 605,
-     "LOSS": 53
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3350,
-     "DIFFERS": 230,
-     "SAME": 20
-    }
+   "no change/jepa/G2/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.6975,
+    "UNRESOLVED": 0.30025,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.001,
+    "WORSE WITH SMALLER PATCHES": 0.001,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00025
    },
-   "loss then loss-recover": {
-    "reading_share": {
-     "jepa/G1": {
-      "WORSE WITH SMALLER PATCHES": 0.43,
-      "UNRESOLVED": 0.57
-     },
-     "jepa/G2": {
-      "WORSE WITH SMALLER PATCHES": 0.62,
-      "UNRESOLVED": 0.38
-     },
-     "jepa/G3": {
-      "WORSE WITH SMALLER PATCHES": 0.63,
-      "UNRESOLVED": 0.37
-     },
-     "moco/G1": {
-      "WORSE WITH SMALLER PATCHES": 1.0
-     },
-     "moco/G2": {
-      "WORSE WITH SMALLER PATCHES": 1.0
-     },
-     "moco/G3": {
-      "WORSE WITH SMALLER PATCHES": 1.0
-     },
-     "mae/G1": {
-      "WORSE WITH SMALLER PATCHES": 0.3,
-      "UNRESOLVED": 0.7
-     },
-     "mae/G2": {
-      "WORSE WITH SMALLER PATCHES": 0.5,
-      "UNRESOLVED": 0.5
-     },
-     "mae/G3": {
-      "WORSE WITH SMALLER PATCHES": 0.485,
-      "UNRESOLVED": 0.515
-     }
-    },
-    "step_states_seen": {
-     "LOSS": 1202,
-     "UNRESOLVED": 1734,
-     "NO CHANGE": 612,
-     "GAIN": 52
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3350,
-     "DIFFERS": 230,
-     "SAME": 20
-    }
+   "no change/jepa/G3/rho0.0": {
+    "UNRESOLVED": 0.877,
+    "DATA-LIMITED AT 16 px": 0.08975,
+    "WORSE WITH SMALLER PATCHES": 0.019,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.006,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.005,
+    "LIMITED BELOW 8 px ONLY": 0.00325
    },
-   "gain then small": {
-    "reading_share": {
-     "jepa/G1": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.485,
-      "UNRESOLVED": 0.505,
-      "WORSE WITH SMALLER PATCHES": 0.005,
-      "PATCH-LIMITED BELOW 8 px": 0.005
-     },
-     "jepa/G2": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.57,
-      "UNRESOLVED": 0.335,
-      "PATCH-LIMITED BELOW 8 px": 0.05,
-      "WORSE WITH SMALLER PATCHES": 0.025,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.02
-     },
-     "jepa/G3": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.595,
-      "UNRESOLVED": 0.305,
-      "PATCH-LIMITED BELOW 8 px": 0.055,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.02,
-      "WORSE WITH SMALLER PATCHES": 0.02,
-      "LIMITED BELOW 8 px ONLY": 0.005
-     },
-     "moco/G1": {
-      "PATCH-LIMITED TO A PSF FLOOR": 0.135,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.81,
-      "PATCH-LIMITED BELOW 8 px": 0.055
-     },
-     "moco/G2": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.88,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.11,
-      "PATCH-LIMITED BELOW 8 px": 0.01
-     },
-     "moco/G3": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.945,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.05,
-      "PATCH-LIMITED BELOW 8 px": 0.005
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.67,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.32,
-      "WORSE WITH SMALLER PATCHES": 0.005,
-      "PATCH-LIMITED BELOW 8 px": 0.005
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.48,
-      "PATCH-LIMITED BELOW 8 px": 0.025,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.455,
-      "WORSE WITH SMALLER PATCHES": 0.035,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.005
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.45,
-      "PATCH-LIMITED BELOW 8 px": 0.045,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.455,
-      "WORSE WITH SMALLER PATCHES": 0.035,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.015
-     }
-    },
-    "step_states_seen": {
-     "GAIN": 1344,
-     "UNRESOLVED": 2159,
-     "NO CHANGE": 72,
-     "LOSS": 25
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3350,
-     "DIFFERS": 230,
-     "SAME": 20
-    }
+   "no change/jepa/G3/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.99375,
+    "UNRESOLVED": 0.00625
    },
-   "sub-bar": {
-    "reading_share": {
-     "jepa/G1": {
-      "UNRESOLVED": 0.96,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02,
-      "WORSE WITH SMALLER PATCHES": 0.02
-     },
-     "jepa/G2": {
-      "UNRESOLVED": 0.9,
-      "LIMITED BELOW 8 px ONLY": 0.005,
-      "WORSE WITH SMALLER PATCHES": 0.05,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.045
-     },
-     "jepa/G3": {
-      "UNRESOLVED": 0.87,
-      "WORSE WITH SMALLER PATCHES": 0.075,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.055
-     },
-     "moco/G1": {
-      "PATCH-LIMITED TO A PSF FLOOR": 0.15,
-      "UNRESOLVED": 0.8,
-      "DATA-LIMITED AT 16 px": 0.05
-     },
-     "moco/G2": {
-      "UNRESOLVED": 0.905,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.08,
-      "DATA-LIMITED AT 16 px": 0.015
-     },
-     "moco/G3": {
-      "UNRESOLVED": 0.915,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.08,
-      "DATA-LIMITED AT 16 px": 0.005
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.95,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.03,
-      "WORSE WITH SMALLER PATCHES": 0.02
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.9,
-      "WORSE WITH SMALLER PATCHES": 0.08,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.87,
-      "WORSE WITH SMALLER PATCHES": 0.09,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.04
-     }
-    },
-    "step_states_seen": {
-     "UNRESOLVED": 2730,
-     "GAIN": 173,
-     "NO CHANGE": 630,
-     "LOSS": 67
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3350,
-     "DIFFERS": 230,
-     "SAME": 20
-    }
+   "no change/moco/G1/rho0.0": {
+    "DATA-LIMITED AT 16 px": 0.73025,
+    "UNRESOLVED": 0.26625,
+    "WORSE WITH SMALLER PATCHES": 0.0025,
+    "LIMITED BELOW 8 px ONLY": 0.00075,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
    },
-   "large gain then floor": {
-    "reading_share": {
-     "jepa/G1": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.72,
-      "UNRESOLVED": 0.265,
-      "WORSE WITH SMALLER PATCHES": 0.01,
-      "PATCH-LIMITED BELOW 8 px": 0.005
-     },
-     "jepa/G2": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.72,
-      "UNRESOLVED": 0.185,
-      "PATCH-LIMITED BELOW 8 px": 0.035,
-      "WORSE WITH SMALLER PATCHES": 0.04,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.02
-     },
-     "jepa/G3": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.75,
-      "UNRESOLVED": 0.14,
-      "PATCH-LIMITED BELOW 8 px": 0.04,
-      "WORSE WITH SMALLER PATCHES": 0.05,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.02
-     },
-     "moco/G1": {
-      "PATCH-LIMITED TO A PSF FLOOR": 0.99,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01
-     },
-     "moco/G2": {
-      "PATCH-LIMITED TO A PSF FLOOR": 1.0
-     },
-     "moco/G3": {
-      "PATCH-LIMITED TO A PSF FLOOR": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.45,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.525,
-      "WORSE WITH SMALLER PATCHES": 0.02,
-      "PATCH-LIMITED BELOW 8 px": 0.005
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.245,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.645,
-      "WORSE WITH SMALLER PATCHES": 0.055,
-      "PATCH-LIMITED BELOW 8 px": 0.05,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.005
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.2,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.685,
-      "WORSE WITH SMALLER PATCHES": 0.045,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.02,
-      "PATCH-LIMITED BELOW 8 px": 0.05
-     }
-    },
-    "step_states_seen": {
-     "GAIN": 1551,
-     "UNRESOLVED": 1393,
-     "NO CHANGE": 612,
-     "LOSS": 44
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3350,
-     "DIFFERS": 230,
-     "SAME": 20
-    }
+   "no change/moco/G1/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.9985,
+    "UNRESOLVED": 0.0015
+   },
+   "no change/moco/G2/rho0.0": {
+    "DATA-LIMITED AT 16 px": 0.97925,
+    "UNRESOLVED": 0.02075
+   },
+   "no change/moco/G2/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.9945,
+    "UNRESOLVED": 0.0055
+   },
+   "no change/moco/G3/rho0.0": {
+    "DATA-LIMITED AT 16 px": 0.998,
+    "UNRESOLVED": 0.002
+   },
+   "no change/moco/G3/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.99875,
+    "UNRESOLVED": 0.00125
+   },
+   "no change/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.965,
+    "WORSE WITH SMALLER PATCHES": 0.02675,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00825
+   },
+   "no change/mae/G1/rho1.0": {
+    "UNRESOLVED": 0.93175,
+    "DATA-LIMITED AT 16 px": 0.0475,
+    "WORSE WITH SMALLER PATCHES": 0.0125,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00425,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00225,
+    "LIMITED BELOW 8 px ONLY": 0.00175
+   },
+   "no change/mae/G2/rho0.0": {
+    "UNRESOLVED": 0.9635,
+    "WORSE WITH SMALLER PATCHES": 0.0225,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00975,
+    "DATA-LIMITED AT 16 px": 0.002,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00125,
+    "LIMITED BELOW 8 px ONLY": 0.001
+   },
+   "no change/mae/G2/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.938,
+    "UNRESOLVED": 0.062
+   },
+   "no change/mae/G3/rho0.0": {
+    "UNRESOLVED": 0.948,
+    "WORSE WITH SMALLER PATCHES": 0.02175,
+    "DATA-LIMITED AT 16 px": 0.01575,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.009,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.003,
+    "LIMITED BELOW 8 px ONLY": 0.0025
+   },
+   "no change/mae/G3/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.9455,
+    "UNRESOLVED": 0.05425,
+    "WORSE WITH SMALLER PATCHES": 0.00025
+   },
+   "gain then floor/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.8115,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.1715,
+    "WORSE WITH SMALLER PATCHES": 0.012,
+    "PATCH-LIMITED BELOW 8 px": 0.00475,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
+   },
+   "gain then floor/jepa/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.53975,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.454,
+    "WORSE WITH SMALLER PATCHES": 0.00325,
+    "PATCH-LIMITED BELOW 8 px": 0.003
+   },
+   "gain then floor/jepa/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.69125,
+    "UNRESOLVED": 0.27575,
+    "WORSE WITH SMALLER PATCHES": 0.01275,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.0115,
+    "PATCH-LIMITED BELOW 8 px": 0.00875
+   },
+   "gain then floor/jepa/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.7955,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.20375,
+    "WORSE WITH SMALLER PATCHES": 0.0005,
+    "PATCH-LIMITED BELOW 8 px": 0.00025
+   },
+   "gain then floor/jepa/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.8165,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.1605,
+    "WORSE WITH SMALLER PATCHES": 0.01,
+    "PATCH-LIMITED BELOW 8 px": 0.0085,
+    "UNRESOLVED": 0.0045
+   },
+   "gain then floor/jepa/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99575,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00425
+   },
+   "gain then floor/moco/G1/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.81775,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.18075,
+    "PATCH-LIMITED BELOW 8 px": 0.001,
+    "WORSE WITH SMALLER PATCHES": 0.0005
+   },
+   "gain then floor/moco/G1/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.9995,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0005
+   },
+   "gain then floor/moco/G2/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.98975,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01025
+   },
+   "gain then floor/moco/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99775,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00225
+   },
+   "gain then floor/moco/G3/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99875,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00125
+   },
+   "gain then floor/moco/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99925,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00075
+   },
+   "gain then floor/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.8835,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.1005,
+    "WORSE WITH SMALLER PATCHES": 0.01275,
+    "PATCH-LIMITED BELOW 8 px": 0.003,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
+   },
+   "gain then floor/mae/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.86625,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.09325,
+    "UNRESOLVED": 0.0265,
+    "WORSE WITH SMALLER PATCHES": 0.00825,
+    "PATCH-LIMITED BELOW 8 px": 0.00575
+   },
+   "gain then floor/mae/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.592,
+    "UNRESOLVED": 0.38125,
+    "WORSE WITH SMALLER PATCHES": 0.01275,
+    "PATCH-LIMITED BELOW 8 px": 0.00775,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00625
+   },
+   "gain then floor/mae/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.97075,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02925
+   },
+   "gain then floor/mae/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.843,
+    "UNRESOLVED": 0.09125,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.04425,
+    "WORSE WITH SMALLER PATCHES": 0.0115,
+    "PATCH-LIMITED BELOW 8 px": 0.01
+   },
+   "gain then floor/mae/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.97025,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02975
+   },
+   "gain then gain/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.812,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.122,
+    "PATCH-LIMITED BELOW 8 px": 0.066
+   },
+   "gain then gain/jepa/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/jepa/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.5905,
+    "UNRESOLVED": 0.27575,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.13375
+   },
+   "gain then gain/jepa/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/jepa/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.99,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0055,
+    "UNRESOLVED": 0.0045
+   },
+   "gain then gain/jepa/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G1/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.88525,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.087,
+    "PATCH-LIMITED BELOW 8 px": 0.02625,
+    "WORSE WITH SMALLER PATCHES": 0.0015
+   },
+   "gain then gain/mae/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.95725,
+    "UNRESOLVED": 0.0265,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01625
+   },
+   "gain then gain/mae/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.465,
+    "UNRESOLVED": 0.38125,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.15375
+   },
+   "gain then gain/mae/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/mae/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.85125,
+    "UNRESOLVED": 0.09125,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0575
+   },
+   "gain then gain/mae/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "no change then gain/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.97275,
+    "WORSE WITH SMALLER PATCHES": 0.01425,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00875,
+    "PATCH-LIMITED BELOW 8 px": 0.00425
+   },
+   "no change then gain/jepa/G1/rho1.0": {
+    "UNRESOLVED": 0.53875,
+    "LIMITED BELOW 8 px ONLY": 0.454,
+    "PATCH-LIMITED BELOW 8 px": 0.005,
+    "WORSE WITH SMALLER PATCHES": 0.00225
+   },
+   "no change then gain/jepa/G2/rho0.0": {
+    "UNRESOLVED": 0.96775,
+    "LIMITED BELOW 8 px ONLY": 0.0115,
+    "PATCH-LIMITED BELOW 8 px": 0.0105,
+    "WORSE WITH SMALLER PATCHES": 0.0095,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00075
+   },
+   "no change then gain/jepa/G2/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.80125,
+    "UNRESOLVED": 0.197,
+    "PATCH-LIMITED BELOW 8 px": 0.00125,
+    "WORSE WITH SMALLER PATCHES": 0.0005
+   },
+   "no change then gain/jepa/G3/rho0.0": {
+    "UNRESOLVED": 0.81725,
+    "LIMITED BELOW 8 px ONLY": 0.1615,
+    "PATCH-LIMITED BELOW 8 px": 0.01225,
+    "WORSE WITH SMALLER PATCHES": 0.009
+   },
+   "no change then gain/jepa/G3/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.99775,
+    "UNRESOLVED": 0.00225
+   },
+   "no change then gain/moco/G1/rho0.0": {
+    "LIMITED BELOW 8 px ONLY": 0.82275,
+    "UNRESOLVED": 0.175,
+    "WORSE WITH SMALLER PATCHES": 0.002,
+    "PATCH-LIMITED BELOW 8 px": 0.00025
+   },
+   "no change then gain/moco/G1/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.999,
+    "UNRESOLVED": 0.001
+   },
+   "no change then gain/moco/G2/rho0.0": {
+    "LIMITED BELOW 8 px ONLY": 0.9885,
+    "UNRESOLVED": 0.0115
+   },
+   "no change then gain/moco/G2/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.99675,
+    "UNRESOLVED": 0.00325
+   },
+   "no change then gain/moco/G3/rho0.0": {
+    "LIMITED BELOW 8 px ONLY": 0.99925,
+    "UNRESOLVED": 0.00075
+   },
+   "no change then gain/moco/G3/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.9995,
+    "UNRESOLVED": 0.0005
+   },
+   "no change then gain/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.97225,
+    "WORSE WITH SMALLER PATCHES": 0.0155,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0095,
+    "PATCH-LIMITED BELOW 8 px": 0.00275
+   },
+   "no change then gain/mae/G1/rho1.0": {
+    "UNRESOLVED": 0.893,
+    "LIMITED BELOW 8 px ONLY": 0.09475,
+    "PATCH-LIMITED BELOW 8 px": 0.00775,
+    "WORSE WITH SMALLER PATCHES": 0.0045
+   },
+   "no change then gain/mae/G2/rho0.0": {
+    "UNRESOLVED": 0.9695,
+    "PATCH-LIMITED BELOW 8 px": 0.012,
+    "WORSE WITH SMALLER PATCHES": 0.01,
+    "LIMITED BELOW 8 px ONLY": 0.007,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0015
+   },
+   "no change then gain/mae/G2/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.96425,
+    "UNRESOLVED": 0.03575
+   },
+   "no change then gain/mae/G3/rho0.0": {
+    "UNRESOLVED": 0.92975,
+    "LIMITED BELOW 8 px ONLY": 0.04575,
+    "PATCH-LIMITED BELOW 8 px": 0.01425,
+    "WORSE WITH SMALLER PATCHES": 0.01025
+   },
+   "no change then gain/mae/G3/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.97,
+    "UNRESOLVED": 0.02975,
+    "WORSE WITH SMALLER PATCHES": 0.00025
+   },
+   "loss then stay/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.80925,
+    "WORSE WITH SMALLER PATCHES": 0.19075
+   },
+   "loss then stay/jepa/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/jepa/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.72275,
+    "UNRESOLVED": 0.27725
+   },
+   "loss then stay/jepa/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/jepa/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.99125,
+    "UNRESOLVED": 0.00875
+   },
+   "loss then stay/jepa/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G1/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.87525,
+    "WORSE WITH SMALLER PATCHES": 0.12475
+   },
+   "loss then stay/mae/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 0.977,
+    "UNRESOLVED": 0.023
+   },
+   "loss then stay/mae/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.61075,
+    "UNRESOLVED": 0.38925
+   },
+   "loss then stay/mae/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/mae/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.90975,
+    "UNRESOLVED": 0.09025
+   },
+   "loss then stay/mae/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.81125,
+    "WORSE WITH SMALLER PATCHES": 0.18775,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.001
+   },
+   "stay then loss/jepa/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/jepa/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.719,
+    "UNRESOLVED": 0.281
+   },
+   "stay then loss/jepa/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/jepa/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.994,
+    "UNRESOLVED": 0.006
+   },
+   "stay then loss/jepa/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G1/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.87425,
+    "WORSE WITH SMALLER PATCHES": 0.12475,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.001
+   },
+   "stay then loss/mae/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 0.977,
+    "UNRESOLVED": 0.023
+   },
+   "stay then loss/mae/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.6225,
+    "UNRESOLVED": 0.3775
+   },
+   "stay then loss/mae/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/mae/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.90675,
+    "UNRESOLVED": 0.09325
+   },
+   "stay then loss/mae/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "large gain then floor/jepa/G1/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.792,
+    "UNRESOLVED": 0.18425,
+    "WORSE WITH SMALLER PATCHES": 0.012,
+    "PATCH-LIMITED BELOW 8 px": 0.0115,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
+   },
+   "large gain then floor/jepa/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.53975,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.454,
+    "WORSE WITH SMALLER PATCHES": 0.00325,
+    "PATCH-LIMITED BELOW 8 px": 0.003
+   },
+   "large gain then floor/jepa/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.9665,
+    "WORSE WITH SMALLER PATCHES": 0.01275,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.0115,
+    "PATCH-LIMITED BELOW 8 px": 0.00925
+   },
+   "large gain then floor/jepa/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.7955,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.20375,
+    "WORSE WITH SMALLER PATCHES": 0.0005,
+    "PATCH-LIMITED BELOW 8 px": 0.00025
+   },
+   "large gain then floor/jepa/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.821,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.1605,
+    "WORSE WITH SMALLER PATCHES": 0.01,
+    "PATCH-LIMITED BELOW 8 px": 0.0085
+   },
+   "large gain then floor/jepa/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99575,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00425
+   },
+   "large gain then floor/moco/G1/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.81775,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.18075,
+    "PATCH-LIMITED BELOW 8 px": 0.001,
+    "WORSE WITH SMALLER PATCHES": 0.0005
+   },
+   "large gain then floor/moco/G1/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.9995,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0005
+   },
+   "large gain then floor/moco/G2/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.98975,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01025
+   },
+   "large gain then floor/moco/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99775,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00225
+   },
+   "large gain then floor/moco/G3/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99875,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00125
+   },
+   "large gain then floor/moco/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99925,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00075
+   },
+   "large gain then floor/mae/G1/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.59775,
+    "UNRESOLVED": 0.37925,
+    "WORSE WITH SMALLER PATCHES": 0.01225,
+    "PATCH-LIMITED BELOW 8 px": 0.0105,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
+   },
+   "large gain then floor/mae/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.89275,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.09325,
+    "WORSE WITH SMALLER PATCHES": 0.00825,
+    "PATCH-LIMITED BELOW 8 px": 0.00575
+   },
+   "large gain then floor/mae/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.9725,
+    "WORSE WITH SMALLER PATCHES": 0.01275,
+    "PATCH-LIMITED BELOW 8 px": 0.0085,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00625
+   },
+   "large gain then floor/mae/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.97075,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02925
+   },
+   "large gain then floor/mae/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.93425,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.04425,
+    "WORSE WITH SMALLER PATCHES": 0.0115,
+    "PATCH-LIMITED BELOW 8 px": 0.01
+   },
+   "large gain then floor/mae/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.97025,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02975
+   },
+   "huge gain then gain/jepa/G1/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.9905,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00525,
+    "UNRESOLVED": 0.00425
+   },
+   "huge gain then gain/jepa/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/jepa/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/jepa/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/jepa/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/jepa/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G1/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G1/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.9295,
+    "UNRESOLVED": 0.04275,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02775
+   },
+   "huge gain then gain/mae/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then small/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.81175,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.17325,
+    "WORSE WITH SMALLER PATCHES": 0.00775,
+    "PATCH-LIMITED BELOW 8 px": 0.00725
+   },
+   "gain then small/jepa/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.711,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.22125,
+    "PATCH-LIMITED BELOW 8 px": 0.06775
+   },
+   "gain then small/jepa/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.685,
+    "UNRESOLVED": 0.27575,
+    "PATCH-LIMITED BELOW 8 px": 0.023,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.011,
+    "WORSE WITH SMALLER PATCHES": 0.00525
+   },
+   "gain then small/jepa/G2/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.65775,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.25975,
+    "PATCH-LIMITED BELOW 8 px": 0.0825
+   },
+   "gain then small/jepa/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.83875,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.102,
+    "PATCH-LIMITED BELOW 8 px": 0.05325,
+    "UNRESOLVED": 0.0045,
+    "WORSE WITH SMALLER PATCHES": 0.0015
+   },
+   "gain then small/jepa/G3/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.853,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.1115,
+    "PATCH-LIMITED BELOW 8 px": 0.0355
+   },
+   "gain then small/moco/G1/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.6575,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.25125,
+    "PATCH-LIMITED BELOW 8 px": 0.09125
+   },
+   "gain then small/moco/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.87925,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.09625,
+    "PATCH-LIMITED BELOW 8 px": 0.0245
+   },
+   "gain then small/moco/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.793,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.157,
+    "PATCH-LIMITED BELOW 8 px": 0.05
+   },
+   "gain then small/moco/G2/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.84575,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.12125,
+    "PATCH-LIMITED BELOW 8 px": 0.033
+   },
+   "gain then small/moco/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.888,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.08875,
+    "PATCH-LIMITED BELOW 8 px": 0.02325
+   },
+   "gain then small/moco/G3/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.889,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.089,
+    "PATCH-LIMITED BELOW 8 px": 0.022
+   },
+   "gain then small/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.88475,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.1005,
+    "WORSE WITH SMALLER PATCHES": 0.01,
+    "PATCH-LIMITED BELOW 8 px": 0.00475
+   },
+   "gain then small/mae/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.8675,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.068,
+    "PATCH-LIMITED BELOW 8 px": 0.03725,
+    "UNRESOLVED": 0.0265,
+    "WORSE WITH SMALLER PATCHES": 0.00075
+   },
+   "gain then small/mae/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.58775,
+    "UNRESOLVED": 0.38125,
+    "PATCH-LIMITED BELOW 8 px": 0.02,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00625,
+    "WORSE WITH SMALLER PATCHES": 0.00475
+   },
+   "gain then small/mae/G2/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.727,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.19875,
+    "PATCH-LIMITED BELOW 8 px": 0.07425
+   },
+   "gain then small/mae/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.8295,
+    "UNRESOLVED": 0.09125,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.0385,
+    "PATCH-LIMITED BELOW 8 px": 0.0375,
+    "WORSE WITH SMALLER PATCHES": 0.00325
+   },
+   "gain then small/mae/G3/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.729,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.19025,
+    "PATCH-LIMITED BELOW 8 px": 0.08075
    }
   },
   "cleaned": {
-   "no change": {
-    "reading_share": {
-     "jepa/G1": {
-      "UNRESOLVED": 0.96,
-      "WORSE WITH SMALLER PATCHES": 0.03,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01
-     },
-     "jepa/G2": {
-      "UNRESOLVED": 0.9,
-      "WORSE WITH SMALLER PATCHES": 0.075,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02,
-      "DATA-LIMITED AT 16 px": 0.005
-     },
-     "jepa/G3": {
-      "UNRESOLVED": 0.89,
-      "WORSE WITH SMALLER PATCHES": 0.095,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015
-     },
-     "moco/G1": {
-      "DATA-LIMITED AT 16 px": 0.99,
-      "UNRESOLVED": 0.01
-     },
-     "moco/G2": {
-      "DATA-LIMITED AT 16 px": 1.0
-     },
-     "moco/G3": {
-      "DATA-LIMITED AT 16 px": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.965,
-      "WORSE WITH SMALLER PATCHES": 0.02,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.855,
-      "WORSE WITH SMALLER PATCHES": 0.125,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.02
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.855,
-      "WORSE WITH SMALLER PATCHES": 0.12,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.025
-     }
-    },
-    "step_states_seen": {
-     "UNRESOLVED": 2193,
-     "NO CHANGE": 1228,
-     "LOSS": 93,
-     "GAIN": 86
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3351,
-     "DIFFERS": 224,
-     "SAME": 25
-    }
+   "no change/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.96525,
+    "WORSE WITH SMALLER PATCHES": 0.0265,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.008,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
    },
-   "gain then floor": {
-    "reading_share": {
-     "jepa/G1": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.47,
-      "UNRESOLVED": 0.52,
-      "WORSE WITH SMALLER PATCHES": 0.01
-     },
-     "jepa/G2": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.54,
-      "UNRESOLVED": 0.375,
-      "PATCH-LIMITED BELOW 8 px": 0.03,
-      "WORSE WITH SMALLER PATCHES": 0.035,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.015,
-      "LIMITED BELOW 8 px ONLY": 0.005
-     },
-     "jepa/G3": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.555,
-      "UNRESOLVED": 0.355,
-      "WORSE WITH SMALLER PATCHES": 0.045,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.015,
-      "PATCH-LIMITED BELOW 8 px": 0.025,
-      "LIMITED BELOW 8 px ONLY": 0.005
-     },
-     "moco/G1": {
-      "PATCH-LIMITED TO A PSF FLOOR": 0.99,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01
-     },
-     "moco/G2": {
-      "PATCH-LIMITED TO A PSF FLOOR": 1.0
-     },
-     "moco/G3": {
-      "PATCH-LIMITED TO A PSF FLOOR": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.765,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.225,
-      "WORSE WITH SMALLER PATCHES": 0.01
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.58,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.355,
-      "WORSE WITH SMALLER PATCHES": 0.05,
-      "PATCH-LIMITED BELOW 8 px": 0.015
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.575,
-      "PATCH-LIMITED BELOW 8 px": 0.03,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.335,
-      "WORSE WITH SMALLER PATCHES": 0.045,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.015
-     }
-    },
-    "step_states_seen": {
-     "GAIN": 1211,
-     "UNRESOLVED": 1732,
-     "NO CHANGE": 618,
-     "LOSS": 39
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3351,
-     "DIFFERS": 224,
-     "SAME": 25
-    }
+   "no change/jepa/G1/rho1.0": {
+    "UNRESOLVED": 0.57075,
+    "DATA-LIMITED AT 16 px": 0.4215,
+    "WORSE WITH SMALLER PATCHES": 0.003,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00225,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00175,
+    "LIMITED BELOW 8 px ONLY": 0.00075
    },
-   "gain then gain": {
-    "reading_share": {
-     "jepa/G1": {
-      "PATCH-LIMITED BELOW 8 px": 0.26,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.22,
-      "UNRESOLVED": 0.52
-     },
-     "jepa/G2": {
-      "PATCH-LIMITED BELOW 8 px": 0.41,
-      "UNRESOLVED": 0.38,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.205,
-      "LIMITED BELOW 8 px ONLY": 0.005
-     },
-     "jepa/G3": {
-      "PATCH-LIMITED BELOW 8 px": 0.43,
-      "UNRESOLVED": 0.355,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.21,
-      "LIMITED BELOW 8 px ONLY": 0.005
-     },
-     "moco/G1": {
-      "PATCH-LIMITED BELOW 8 px": 1.0
-     },
-     "moco/G2": {
-      "PATCH-LIMITED BELOW 8 px": 1.0
-     },
-     "moco/G3": {
-      "PATCH-LIMITED BELOW 8 px": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.77,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.2,
-      "PATCH-LIMITED BELOW 8 px": 0.03
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.595,
-      "PATCH-LIMITED BELOW 8 px": 0.155,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.25
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.59,
-      "PATCH-LIMITED BELOW 8 px": 0.18,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.23
-     }
-    },
-    "step_states_seen": {
-     "GAIN": 2354,
-     "UNRESOLVED": 1244,
-     "NO CHANGE": 2
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3351,
-     "DIFFERS": 224,
-     "SAME": 25
-    }
+   "no change/jepa/G2/rho0.0": {
+    "UNRESOLVED": 0.96,
+    "WORSE WITH SMALLER PATCHES": 0.02225,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00725,
+    "DATA-LIMITED AT 16 px": 0.0065,
+    "LIMITED BELOW 8 px ONLY": 0.00225,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00175
    },
-   "no change then gain": {
-    "reading_share": {
-     "jepa/G1": {
-      "UNRESOLVED": 0.965,
-      "WORSE WITH SMALLER PATCHES": 0.02,
-      "PATCH-LIMITED BELOW 8 px": 0.01,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.005
-     },
-     "jepa/G2": {
-      "UNRESOLVED": 0.925,
-      "LIMITED BELOW 8 px ONLY": 0.01,
-      "PATCH-LIMITED BELOW 8 px": 0.02,
-      "WORSE WITH SMALLER PATCHES": 0.04,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.005
-     },
-     "jepa/G3": {
-      "LIMITED BELOW 8 px ONLY": 0.035,
-      "UNRESOLVED": 0.88,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015,
-      "WORSE WITH SMALLER PATCHES": 0.05,
-      "PATCH-LIMITED BELOW 8 px": 0.02
-     },
-     "moco/G1": {
-      "LIMITED BELOW 8 px ONLY": 1.0
-     },
-     "moco/G2": {
-      "LIMITED BELOW 8 px ONLY": 1.0
-     },
-     "moco/G3": {
-      "LIMITED BELOW 8 px ONLY": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.975,
-      "WORSE WITH SMALLER PATCHES": 0.01,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.895,
-      "WORSE WITH SMALLER PATCHES": 0.075,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015,
-      "PATCH-LIMITED BELOW 8 px": 0.015
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.89,
-      "WORSE WITH SMALLER PATCHES": 0.075,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.025,
-      "PATCH-LIMITED BELOW 8 px": 0.01
-     }
-    },
-    "step_states_seen": {
-     "UNRESOLVED": 1705,
-     "GAIN": 1229,
-     "NO CHANGE": 612,
-     "LOSS": 54
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3351,
-     "DIFFERS": 224,
-     "SAME": 25
-    }
+   "no change/jepa/G2/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.7105,
+    "UNRESOLVED": 0.28775,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00075,
+    "WORSE WITH SMALLER PATCHES": 0.00075,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00025
    },
-   "loss then loss-recover": {
-    "reading_share": {
-     "jepa/G1": {
-      "WORSE WITH SMALLER PATCHES": 0.52,
-      "UNRESOLVED": 0.48
-     },
-     "jepa/G2": {
-      "WORSE WITH SMALLER PATCHES": 0.655,
-      "UNRESOLVED": 0.345
-     },
-     "jepa/G3": {
-      "WORSE WITH SMALLER PATCHES": 0.68,
-      "UNRESOLVED": 0.32
-     },
-     "moco/G1": {
-      "WORSE WITH SMALLER PATCHES": 1.0
-     },
-     "moco/G2": {
-      "WORSE WITH SMALLER PATCHES": 1.0
-     },
-     "moco/G3": {
-      "WORSE WITH SMALLER PATCHES": 1.0
-     },
-     "mae/G1": {
-      "WORSE WITH SMALLER PATCHES": 0.275,
-      "UNRESOLVED": 0.725
-     },
-     "mae/G2": {
-      "WORSE WITH SMALLER PATCHES": 0.515,
-      "UNRESOLVED": 0.485
-     },
-     "mae/G3": {
-      "WORSE WITH SMALLER PATCHES": 0.49,
-      "UNRESOLVED": 0.51
-     }
-    },
-    "step_states_seen": {
-     "LOSS": 1238,
-     "UNRESOLVED": 1688,
-     "NO CHANGE": 618,
-     "GAIN": 56
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3351,
-     "DIFFERS": 224,
-     "SAME": 25
-    }
+   "no change/jepa/G3/rho0.0": {
+    "UNRESOLVED": 0.9255,
+    "DATA-LIMITED AT 16 px": 0.03875,
+    "WORSE WITH SMALLER PATCHES": 0.021,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.007,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00475,
+    "LIMITED BELOW 8 px ONLY": 0.003
    },
-   "gain then small": {
-    "reading_share": {
-     "jepa/G1": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.56,
-      "UNRESOLVED": 0.415,
-      "PATCH-LIMITED BELOW 8 px": 0.015,
-      "WORSE WITH SMALLER PATCHES": 0.01
-     },
-     "jepa/G2": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.635,
-      "UNRESOLVED": 0.265,
-      "PATCH-LIMITED BELOW 8 px": 0.055,
-      "WORSE WITH SMALLER PATCHES": 0.025,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.02
-     },
-     "jepa/G3": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.65,
-      "UNRESOLVED": 0.24,
-      "PATCH-LIMITED BELOW 8 px": 0.06,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.025,
-      "WORSE WITH SMALLER PATCHES": 0.025
-     },
-     "moco/G1": {
-      "PATCH-LIMITED TO A PSF FLOOR": 0.105,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.85,
-      "PATCH-LIMITED BELOW 8 px": 0.045
-     },
-     "moco/G2": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 1.0
-     },
-     "moco/G3": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.985,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.015
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.7,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.29,
-      "WORSE WITH SMALLER PATCHES": 0.01
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.475,
-      "PATCH-LIMITED BELOW 8 px": 0.035,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.45,
-      "WORSE WITH SMALLER PATCHES": 0.04
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.46,
-      "PATCH-LIMITED BELOW 8 px": 0.05,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.435,
-      "WORSE WITH SMALLER PATCHES": 0.04,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.015
-     }
-    },
-    "step_states_seen": {
-     "GAIN": 1373,
-     "UNRESOLVED": 2161,
-     "NO CHANGE": 36,
-     "LOSS": 30
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3351,
-     "DIFFERS": 224,
-     "SAME": 25
-    }
+   "no change/jepa/G3/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.985,
+    "UNRESOLVED": 0.015
    },
-   "sub-bar": {
-    "reading_share": {
-     "jepa/G1": {
-      "UNRESOLVED": 0.97,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.015,
-      "WORSE WITH SMALLER PATCHES": 0.015
-     },
-     "jepa/G2": {
-      "UNRESOLVED": 0.895,
-      "LIMITED BELOW 8 px ONLY": 0.005,
-      "WORSE WITH SMALLER PATCHES": 0.05,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.05
-     },
-     "jepa/G3": {
-      "UNRESOLVED": 0.88,
-      "WORSE WITH SMALLER PATCHES": 0.055,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.06,
-      "LIMITED BELOW 8 px ONLY": 0.005
-     },
-     "moco/G1": {
-      "PATCH-LIMITED TO A PSF FLOOR": 0.095,
-      "UNRESOLVED": 0.88,
-      "DATA-LIMITED AT 16 px": 0.025
-     },
-     "moco/G2": {
-      "UNRESOLVED": 0.99,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.01
-     },
-     "moco/G3": {
-      "UNRESOLVED": 0.975,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.025
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.96,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.03,
-      "WORSE WITH SMALLER PATCHES": 0.01
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.875,
-      "WORSE WITH SMALLER PATCHES": 0.095,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.03
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.865,
-      "WORSE WITH SMALLER PATCHES": 0.095,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.04
-     }
-    },
-    "step_states_seen": {
-     "UNRESOLVED": 2760,
-     "GAIN": 143,
-     "NO CHANGE": 633,
-     "LOSS": 64
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3351,
-     "DIFFERS": 224,
-     "SAME": 25
-    }
+   "no change/moco/G1/rho0.0": {
+    "DATA-LIMITED AT 16 px": 0.925,
+    "UNRESOLVED": 0.075
    },
-   "large gain then floor": {
-    "reading_share": {
-     "jepa/G1": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.815,
-      "UNRESOLVED": 0.165,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.005,
-      "WORSE WITH SMALLER PATCHES": 0.01,
-      "PATCH-LIMITED BELOW 8 px": 0.005
-     },
-     "jepa/G2": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.755,
-      "UNRESOLVED": 0.14,
-      "PATCH-LIMITED BELOW 8 px": 0.04,
-      "WORSE WITH SMALLER PATCHES": 0.035,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.03
-     },
-     "jepa/G3": {
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.805,
-      "UNRESOLVED": 0.09,
-      "WORSE WITH SMALLER PATCHES": 0.045,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.025,
-      "PATCH-LIMITED BELOW 8 px": 0.035
-     },
-     "moco/G1": {
-      "PATCH-LIMITED TO A PSF FLOOR": 0.99,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.01
-     },
-     "moco/G2": {
-      "PATCH-LIMITED TO A PSF FLOOR": 1.0
-     },
-     "moco/G3": {
-      "PATCH-LIMITED TO A PSF FLOOR": 1.0
-     },
-     "mae/G1": {
-      "UNRESOLVED": 0.495,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.49,
-      "WORSE WITH SMALLER PATCHES": 0.01,
-      "PATCH-LIMITED BELOW 8 px": 0.005
-     },
-     "mae/G2": {
-      "UNRESOLVED": 0.25,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.64,
-      "PATCH-LIMITED BELOW 8 px": 0.055,
-      "WORSE WITH SMALLER PATCHES": 0.05,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.005
-     },
-     "mae/G3": {
-      "UNRESOLVED": 0.225,
-      "PATCH-LIMITED; FLOOR UNRESOLVED": 0.65,
-      "PATCH-LIMITED BELOW 8 px": 0.06,
-      "WORSE WITH SMALLER PATCHES": 0.045,
-      "PATCH-LIMITED TO A PSF FLOOR": 0.02
-     }
-    },
-    "step_states_seen": {
-     "GAIN": 1579,
-     "UNRESOLVED": 1366,
-     "NO CHANGE": 616,
-     "LOSS": 39
-    },
-    "objective_states_seen": {
-     "UNRESOLVED": 3351,
-     "DIFFERS": 224,
-     "SAME": 25
-    }
+   "no change/moco/G1/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.99725,
+    "UNRESOLVED": 0.00275
+   },
+   "no change/moco/G2/rho0.0": {
+    "DATA-LIMITED AT 16 px": 0.9845,
+    "UNRESOLVED": 0.0155
+   },
+   "no change/moco/G2/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.99725,
+    "UNRESOLVED": 0.00275
+   },
+   "no change/moco/G3/rho0.0": {
+    "DATA-LIMITED AT 16 px": 0.92175,
+    "UNRESOLVED": 0.078,
+    "WORSE WITH SMALLER PATCHES": 0.00025
+   },
+   "no change/moco/G3/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.93575,
+    "UNRESOLVED": 0.064,
+    "WORSE WITH SMALLER PATCHES": 0.00025
+   },
+   "no change/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.96475,
+    "WORSE WITH SMALLER PATCHES": 0.027,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00825
+   },
+   "no change/mae/G1/rho1.0": {
+    "UNRESOLVED": 0.90125,
+    "DATA-LIMITED AT 16 px": 0.0785,
+    "WORSE WITH SMALLER PATCHES": 0.0115,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00375,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.003,
+    "LIMITED BELOW 8 px ONLY": 0.002
+   },
+   "no change/mae/G2/rho0.0": {
+    "UNRESOLVED": 0.96325,
+    "WORSE WITH SMALLER PATCHES": 0.02275,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.009,
+    "DATA-LIMITED AT 16 px": 0.00225,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00175,
+    "LIMITED BELOW 8 px ONLY": 0.001
+   },
+   "no change/mae/G2/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.9565,
+    "UNRESOLVED": 0.0435
+   },
+   "no change/mae/G3/rho0.0": {
+    "UNRESOLVED": 0.95,
+    "WORSE WITH SMALLER PATCHES": 0.0215,
+    "DATA-LIMITED AT 16 px": 0.0145,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00875,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.003,
+    "LIMITED BELOW 8 px ONLY": 0.00225
+   },
+   "no change/mae/G3/rho1.0": {
+    "DATA-LIMITED AT 16 px": 0.908,
+    "UNRESOLVED": 0.0915,
+    "WORSE WITH SMALLER PATCHES": 0.00025,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
+   },
+   "gain then floor/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.72275,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.2585,
+    "WORSE WITH SMALLER PATCHES": 0.01225,
+    "PATCH-LIMITED BELOW 8 px": 0.00575,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00075
+   },
+   "gain then floor/jepa/G1/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.55775,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.43875,
+    "PATCH-LIMITED BELOW 8 px": 0.00175,
+    "WORSE WITH SMALLER PATCHES": 0.00175
+   },
+   "gain then floor/jepa/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.7545,
+    "UNRESOLVED": 0.20425,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.01975,
+    "WORSE WITH SMALLER PATCHES": 0.013,
+    "PATCH-LIMITED BELOW 8 px": 0.0085
+   },
+   "gain then floor/jepa/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.806,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.19325,
+    "WORSE WITH SMALLER PATCHES": 0.0005,
+    "PATCH-LIMITED BELOW 8 px": 0.00025
+   },
+   "gain then floor/jepa/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.86925,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.08375,
+    "UNRESOLVED": 0.02675,
+    "WORSE WITH SMALLER PATCHES": 0.011,
+    "PATCH-LIMITED BELOW 8 px": 0.00925
+   },
+   "gain then floor/jepa/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.9905,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0095
+   },
+   "gain then floor/moco/G1/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.95525,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.04475
+   },
+   "gain then floor/moco/G1/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99875,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00125
+   },
+   "gain then floor/moco/G2/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99275,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00725
+   },
+   "gain then floor/moco/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99875,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00125
+   },
+   "gain then floor/moco/G3/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.955,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.045
+   },
+   "gain then floor/moco/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.965,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.035
+   },
+   "gain then floor/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.89175,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.09225,
+    "WORSE WITH SMALLER PATCHES": 0.01275,
+    "PATCH-LIMITED BELOW 8 px": 0.003,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
+   },
+   "gain then floor/mae/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.831,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.1475,
+    "UNRESOLVED": 0.00875,
+    "WORSE WITH SMALLER PATCHES": 0.0075,
+    "PATCH-LIMITED BELOW 8 px": 0.00525
+   },
+   "gain then floor/mae/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.653,
+    "UNRESOLVED": 0.31675,
+    "WORSE WITH SMALLER PATCHES": 0.013,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.0095,
+    "PATCH-LIMITED BELOW 8 px": 0.00775
+   },
+   "gain then floor/mae/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.9785,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0215
+   },
+   "gain then floor/mae/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.83475,
+    "UNRESOLVED": 0.104,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.04,
+    "WORSE WITH SMALLER PATCHES": 0.01125,
+    "PATCH-LIMITED BELOW 8 px": 0.01
+   },
+   "gain then floor/mae/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.948,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.052
+   },
+   "gain then gain/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.72275,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.15075,
+    "PATCH-LIMITED BELOW 8 px": 0.12575,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00075
+   },
+   "gain then gain/jepa/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/jepa/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.69075,
+    "UNRESOLVED": 0.20425,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.105
+   },
+   "gain then gain/jepa/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/jepa/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.94925,
+    "UNRESOLVED": 0.02675,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.024
+   },
+   "gain then gain/jepa/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G1/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/moco/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.893,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.083,
+    "PATCH-LIMITED BELOW 8 px": 0.0225,
+    "WORSE WITH SMALLER PATCHES": 0.0015
+   },
+   "gain then gain/mae/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.98325,
+    "UNRESOLVED": 0.00875,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.008
+   },
+   "gain then gain/mae/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.543,
+    "UNRESOLVED": 0.31675,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.14025
+   },
+   "gain then gain/mae/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then gain/mae/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.8345,
+    "UNRESOLVED": 0.104,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0615
+   },
+   "gain then gain/mae/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "no change then gain/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.97175,
+    "WORSE WITH SMALLER PATCHES": 0.01425,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00625,
+    "PATCH-LIMITED BELOW 8 px": 0.006,
+    "LIMITED BELOW 8 px ONLY": 0.001,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00075
+   },
+   "no change then gain/jepa/G1/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.5535,
+    "UNRESOLVED": 0.44125,
+    "PATCH-LIMITED BELOW 8 px": 0.004,
+    "WORSE WITH SMALLER PATCHES": 0.00125
+   },
+   "no change then gain/jepa/G2/rho0.0": {
+    "UNRESOLVED": 0.96075,
+    "LIMITED BELOW 8 px ONLY": 0.0185,
+    "PATCH-LIMITED BELOW 8 px": 0.01125,
+    "WORSE WITH SMALLER PATCHES": 0.0095
+   },
+   "no change then gain/jepa/G2/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.8125,
+    "UNRESOLVED": 0.18625,
+    "PATCH-LIMITED BELOW 8 px": 0.001,
+    "WORSE WITH SMALLER PATCHES": 0.00025
+   },
+   "no change then gain/jepa/G3/rho0.0": {
+    "UNRESOLVED": 0.889,
+    "LIMITED BELOW 8 px ONLY": 0.08725,
+    "PATCH-LIMITED BELOW 8 px": 0.01375,
+    "WORSE WITH SMALLER PATCHES": 0.01
+   },
+   "no change then gain/jepa/G3/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.99425,
+    "UNRESOLVED": 0.00575
+   },
+   "no change then gain/moco/G1/rho0.0": {
+    "LIMITED BELOW 8 px ONLY": 0.96025,
+    "UNRESOLVED": 0.03975
+   },
+   "no change then gain/moco/G1/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.9985,
+    "UNRESOLVED": 0.0015
+   },
+   "no change then gain/moco/G2/rho0.0": {
+    "LIMITED BELOW 8 px ONLY": 0.991,
+    "UNRESOLVED": 0.009
+   },
+   "no change then gain/moco/G2/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.9985,
+    "UNRESOLVED": 0.0015
+   },
+   "no change then gain/moco/G3/rho0.0": {
+    "LIMITED BELOW 8 px ONLY": 0.959,
+    "UNRESOLVED": 0.04075,
+    "WORSE WITH SMALLER PATCHES": 0.00025
+   },
+   "no change then gain/moco/G3/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.96425,
+    "UNRESOLVED": 0.0355,
+    "WORSE WITH SMALLER PATCHES": 0.00025
+   },
+   "no change then gain/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.97225,
+    "WORSE WITH SMALLER PATCHES": 0.01575,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0095,
+    "PATCH-LIMITED BELOW 8 px": 0.0025
+   },
+   "no change then gain/mae/G1/rho1.0": {
+    "UNRESOLVED": 0.8445,
+    "LIMITED BELOW 8 px ONLY": 0.1435,
+    "PATCH-LIMITED BELOW 8 px": 0.00775,
+    "WORSE WITH SMALLER PATCHES": 0.00425
+   },
+   "no change then gain/mae/G2/rho0.0": {
+    "UNRESOLVED": 0.9675,
+    "PATCH-LIMITED BELOW 8 px": 0.01275,
+    "WORSE WITH SMALLER PATCHES": 0.01,
+    "LIMITED BELOW 8 px ONLY": 0.00925,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0005
+   },
+   "no change then gain/mae/G2/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.9765,
+    "UNRESOLVED": 0.0235
+   },
+   "no change then gain/mae/G3/rho0.0": {
+    "UNRESOLVED": 0.934,
+    "LIMITED BELOW 8 px ONLY": 0.04175,
+    "PATCH-LIMITED BELOW 8 px": 0.014,
+    "WORSE WITH SMALLER PATCHES": 0.01025
+   },
+   "no change then gain/mae/G3/rho1.0": {
+    "LIMITED BELOW 8 px ONLY": 0.94875,
+    "UNRESOLVED": 0.05075,
+    "WORSE WITH SMALLER PATCHES": 0.00025,
+    "PATCH-LIMITED BELOW 8 px": 0.00025
+   },
+   "loss then stay/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.7315,
+    "WORSE WITH SMALLER PATCHES": 0.2685
+   },
+   "loss then stay/jepa/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/jepa/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.801,
+    "UNRESOLVED": 0.199
+   },
+   "loss then stay/jepa/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/jepa/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.96775,
+    "UNRESOLVED": 0.03225
+   },
+   "loss then stay/jepa/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G1/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/moco/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.887,
+    "WORSE WITH SMALLER PATCHES": 0.113
+   },
+   "loss then stay/mae/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 0.99175,
+    "UNRESOLVED": 0.00825
+   },
+   "loss then stay/mae/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.6805,
+    "UNRESOLVED": 0.3195
+   },
+   "loss then stay/mae/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "loss then stay/mae/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.8985,
+    "UNRESOLVED": 0.1015
+   },
+   "loss then stay/mae/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.7315,
+    "WORSE WITH SMALLER PATCHES": 0.26775,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00075
+   },
+   "stay then loss/jepa/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/jepa/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.79175,
+    "UNRESOLVED": 0.20825
+   },
+   "stay then loss/jepa/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/jepa/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.97025,
+    "UNRESOLVED": 0.02975
+   },
+   "stay then loss/jepa/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G1/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/moco/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.882,
+    "WORSE WITH SMALLER PATCHES": 0.11625,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00175
+   },
+   "stay then loss/mae/G1/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 0.99125,
+    "UNRESOLVED": 0.00875
+   },
+   "stay then loss/mae/G2/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.68575,
+    "UNRESOLVED": 0.31425
+   },
+   "stay then loss/mae/G2/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "stay then loss/mae/G3/rho0.0": {
+    "WORSE WITH SMALLER PATCHES": 0.89725,
+    "UNRESOLVED": 0.10275
+   },
+   "stay then loss/mae/G3/rho1.0": {
+    "WORSE WITH SMALLER PATCHES": 1.0
+   },
+   "large gain then floor/jepa/G1/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.90375,
+    "UNRESOLVED": 0.0715,
+    "WORSE WITH SMALLER PATCHES": 0.01225,
+    "PATCH-LIMITED BELOW 8 px": 0.01175,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00075
+   },
+   "large gain then floor/jepa/G1/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.55775,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.43875,
+    "PATCH-LIMITED BELOW 8 px": 0.00175,
+    "WORSE WITH SMALLER PATCHES": 0.00175
+   },
+   "large gain then floor/jepa/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.95825,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.01975,
+    "WORSE WITH SMALLER PATCHES": 0.013,
+    "PATCH-LIMITED BELOW 8 px": 0.009
+   },
+   "large gain then floor/jepa/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.806,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.19325,
+    "WORSE WITH SMALLER PATCHES": 0.0005,
+    "PATCH-LIMITED BELOW 8 px": 0.00025
+   },
+   "large gain then floor/jepa/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.896,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.08375,
+    "WORSE WITH SMALLER PATCHES": 0.011,
+    "PATCH-LIMITED BELOW 8 px": 0.00925
+   },
+   "large gain then floor/jepa/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.9905,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0095
+   },
+   "large gain then floor/moco/G1/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.95525,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.04475
+   },
+   "large gain then floor/moco/G1/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99875,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00125
+   },
+   "large gain then floor/moco/G2/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99275,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00725
+   },
+   "large gain then floor/moco/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.99875,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00125
+   },
+   "large gain then floor/moco/G3/rho0.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.955,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.045
+   },
+   "large gain then floor/moco/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.965,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.035
+   },
+   "large gain then floor/mae/G1/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.5545,
+    "UNRESOLVED": 0.4225,
+    "WORSE WITH SMALLER PATCHES": 0.01225,
+    "PATCH-LIMITED BELOW 8 px": 0.0105,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
+   },
+   "large gain then floor/mae/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.83975,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.1475,
+    "WORSE WITH SMALLER PATCHES": 0.0075,
+    "PATCH-LIMITED BELOW 8 px": 0.00525
+   },
+   "large gain then floor/mae/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.969,
+    "WORSE WITH SMALLER PATCHES": 0.013,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.0095,
+    "PATCH-LIMITED BELOW 8 px": 0.0085
+   },
+   "large gain then floor/mae/G2/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.9785,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.0215
+   },
+   "large gain then floor/mae/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.93875,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.04,
+    "WORSE WITH SMALLER PATCHES": 0.01125,
+    "PATCH-LIMITED BELOW 8 px": 0.01
+   },
+   "large gain then floor/mae/G3/rho1.0": {
+    "PATCH-LIMITED TO A PSF FLOOR": 0.948,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.052
+   },
+   "huge gain then gain/jepa/G1/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.9995,
+    "UNRESOLVED": 0.00025,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.00025
+   },
+   "huge gain then gain/jepa/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/jepa/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/jepa/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/jepa/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/jepa/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G1/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/moco/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G1/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 0.90075,
+    "UNRESOLVED": 0.06125,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.038
+   },
+   "huge gain then gain/mae/G1/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G2/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G2/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G3/rho0.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "huge gain then gain/mae/G3/rho1.0": {
+    "PATCH-LIMITED BELOW 8 px": 1.0
+   },
+   "gain then small/jepa/G1/rho0.0": {
+    "UNRESOLVED": 0.72275,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.26,
+    "PATCH-LIMITED BELOW 8 px": 0.00975,
+    "WORSE WITH SMALLER PATCHES": 0.00725,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.00025
+   },
+   "gain then small/jepa/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.6885,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.23825,
+    "PATCH-LIMITED BELOW 8 px": 0.07325
+   },
+   "gain then small/jepa/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.74975,
+    "UNRESOLVED": 0.20425,
+    "PATCH-LIMITED BELOW 8 px": 0.0265,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.015,
+    "WORSE WITH SMALLER PATCHES": 0.0045
+   },
+   "gain then small/jepa/G2/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.65975,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.25675,
+    "PATCH-LIMITED BELOW 8 px": 0.0835
+   },
+   "gain then small/jepa/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.867,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.059,
+    "PATCH-LIMITED BELOW 8 px": 0.04475,
+    "UNRESOLVED": 0.02675,
+    "WORSE WITH SMALLER PATCHES": 0.0025
+   },
+   "gain then small/jepa/G3/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.8115,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.1385,
+    "PATCH-LIMITED BELOW 8 px": 0.05
+   },
+   "gain then small/moco/G1/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.71725,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.20075,
+    "PATCH-LIMITED BELOW 8 px": 0.082
+   },
+   "gain then small/moco/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.862,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.1085,
+    "PATCH-LIMITED BELOW 8 px": 0.0295
+   },
+   "gain then small/moco/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.80475,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.149,
+    "PATCH-LIMITED BELOW 8 px": 0.04625
+   },
+   "gain then small/moco/G2/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.86325,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.11,
+    "PATCH-LIMITED BELOW 8 px": 0.02675
+   },
+   "gain then small/moco/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.71125,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.20375,
+    "PATCH-LIMITED BELOW 8 px": 0.085
+   },
+   "gain then small/moco/G3/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.719,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.1975,
+    "PATCH-LIMITED BELOW 8 px": 0.0835
+   },
+   "gain then small/mae/G1/rho0.0": {
+    "UNRESOLVED": 0.89225,
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.09325,
+    "WORSE WITH SMALLER PATCHES": 0.01025,
+    "PATCH-LIMITED BELOW 8 px": 0.00425
+   },
+   "gain then small/mae/G1/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.848,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.0985,
+    "PATCH-LIMITED BELOW 8 px": 0.04425,
+    "UNRESOLVED": 0.00875,
+    "WORSE WITH SMALLER PATCHES": 0.0005
+   },
+   "gain then small/mae/G2/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.6495,
+    "UNRESOLVED": 0.31675,
+    "PATCH-LIMITED BELOW 8 px": 0.02075,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.0085,
+    "WORSE WITH SMALLER PATCHES": 0.0045
+   },
+   "gain then small/mae/G2/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.7465,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.185,
+    "PATCH-LIMITED BELOW 8 px": 0.0685
+   },
+   "gain then small/mae/G3/rho0.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.81975,
+    "UNRESOLVED": 0.104,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.03675,
+    "PATCH-LIMITED BELOW 8 px": 0.036,
+    "WORSE WITH SMALLER PATCHES": 0.0035
+   },
+   "gain then small/mae/G3/rho1.0": {
+    "PATCH-LIMITED; FLOOR UNRESOLVED": 0.70225,
+    "PATCH-LIMITED TO A PSF FLOOR": 0.21,
+    "PATCH-LIMITED BELOW 8 px": 0.08775
    }
+  }
+ },
+ "max_share_of_each_reading_over_cases": {
+  "raw/jepa/rho0.0": {
+   "UNRESOLVED": 0.97275,
+   "WORSE WITH SMALLER PATCHES": 0.994,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.9665,
+   "PATCH-LIMITED BELOW 8 px": 1.0,
+   "DATA-LIMITED AT 16 px": 0.08975,
+   "LIMITED BELOW 8 px ONLY": 0.1615,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.1605
+  },
+  "raw/jepa/rho1.0": {
+   "UNRESOLVED": 0.66325,
+   "DATA-LIMITED AT 16 px": 0.99375,
+   "WORSE WITH SMALLER PATCHES": 1.0,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.99575,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.853,
+   "LIMITED BELOW 8 px ONLY": 0.99775,
+   "PATCH-LIMITED BELOW 8 px": 1.0
+  },
+  "raw/moco/rho0.0": {
+   "DATA-LIMITED AT 16 px": 0.998,
+   "UNRESOLVED": 0.26625,
+   "WORSE WITH SMALLER PATCHES": 1.0,
+   "LIMITED BELOW 8 px ONLY": 0.99925,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.99875,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.888,
+   "PATCH-LIMITED BELOW 8 px": 1.0
+  },
+  "raw/moco/rho1.0": {
+   "DATA-LIMITED AT 16 px": 0.99875,
+   "UNRESOLVED": 0.0055,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.9995,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.889,
+   "PATCH-LIMITED BELOW 8 px": 1.0,
+   "LIMITED BELOW 8 px ONLY": 0.9995,
+   "WORSE WITH SMALLER PATCHES": 1.0
+  },
+  "raw/mae/rho0.0": {
+   "UNRESOLVED": 0.97225,
+   "WORSE WITH SMALLER PATCHES": 0.90975,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.9725,
+   "DATA-LIMITED AT 16 px": 0.01575,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.04425,
+   "LIMITED BELOW 8 px ONLY": 0.04575,
+   "PATCH-LIMITED BELOW 8 px": 1.0
+  },
+  "raw/mae/rho1.0": {
+   "UNRESOLVED": 0.93175,
+   "DATA-LIMITED AT 16 px": 0.9455,
+   "WORSE WITH SMALLER PATCHES": 1.0,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.89275,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.97075,
+   "LIMITED BELOW 8 px ONLY": 0.97,
+   "PATCH-LIMITED BELOW 8 px": 1.0
+  },
+  "cleaned/jepa/rho0.0": {
+   "UNRESOLVED": 0.97175,
+   "WORSE WITH SMALLER PATCHES": 0.97025,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.95825,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.08375,
+   "DATA-LIMITED AT 16 px": 0.03875,
+   "LIMITED BELOW 8 px ONLY": 0.08725,
+   "PATCH-LIMITED BELOW 8 px": 1.0
+  },
+  "cleaned/jepa/rho1.0": {
+   "UNRESOLVED": 0.57075,
+   "DATA-LIMITED AT 16 px": 0.985,
+   "WORSE WITH SMALLER PATCHES": 1.0,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.9905,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.8115,
+   "LIMITED BELOW 8 px ONLY": 0.99425,
+   "PATCH-LIMITED BELOW 8 px": 1.0
+  },
+  "cleaned/moco/rho0.0": {
+   "DATA-LIMITED AT 16 px": 0.9845,
+   "UNRESOLVED": 0.078,
+   "WORSE WITH SMALLER PATCHES": 1.0,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.99275,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.80475,
+   "PATCH-LIMITED BELOW 8 px": 1.0,
+   "LIMITED BELOW 8 px ONLY": 0.991
+  },
+  "cleaned/moco/rho1.0": {
+   "DATA-LIMITED AT 16 px": 0.99725,
+   "UNRESOLVED": 0.064,
+   "WORSE WITH SMALLER PATCHES": 1.0,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.99875,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.86325,
+   "PATCH-LIMITED BELOW 8 px": 1.0,
+   "LIMITED BELOW 8 px ONLY": 0.9985
+  },
+  "cleaned/mae/rho0.0": {
+   "UNRESOLVED": 0.97225,
+   "WORSE WITH SMALLER PATCHES": 0.8985,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.969,
+   "DATA-LIMITED AT 16 px": 0.0145,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.04,
+   "LIMITED BELOW 8 px ONLY": 0.04175,
+   "PATCH-LIMITED BELOW 8 px": 1.0
+  },
+  "cleaned/mae/rho1.0": {
+   "UNRESOLVED": 0.90125,
+   "DATA-LIMITED AT 16 px": 0.9565,
+   "WORSE WITH SMALLER PATCHES": 1.0,
+   "PATCH-LIMITED; FLOOR UNRESOLVED": 0.848,
+   "PATCH-LIMITED TO A PSF FLOOR": 0.9785,
+   "LIMITED BELOW 8 px ONLY": 0.9765,
+   "PATCH-LIMITED BELOW 8 px": 1.0
   }
  }
 }

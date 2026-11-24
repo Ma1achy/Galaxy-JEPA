@@ -152,6 +152,35 @@ assumed rates. Nothing is booked.
 **R2:** the shipping layer was designed but never built. Do not build it yet; the transfer route depends on
 the upload speed. The storage and transfer figures below stand as the R2 option's cost.
 
+## Decided 24 Nov (user): three seeds per arm
+
+The grid is now **three seeds (train_seed 0, 1, 2) for every arm, including all three patch-16 GPU references** (27 trained encoders),
+because the two-seed design could not resolve the JEPA's and MAE's effects (`docs/patch_grid/flags.md`). Seed 1 stays in.
+
+The extra seed, per objective-and-size, from the hours-per-seed table:
+
+| extra (third) seed of | H100 | A100 |
+|---|---|---|
+| patch 8, three objectives | 2.1–3.6 h | 3.3–6.1 h |
+| patch 4, three objectives | 9.1–18.2 h | 22.6–41.5 h |
+| patch 16, three objectives | 2.1–3.6 h | 2.1–3.3 h |
+| **total added** | **13–25 h** | **28–51 h** |
+
+| | H100 GPU-h | H100 cost | A100 GPU-h | A100 cost |
+|---|---|---|---|---|
+| full grid, 2 seeds, + patch-16 controls (as decided 21 Nov) | 30–57 | $60–200 | 62–112 | $81–224 |
+| **full grid, 3 seeds, + patch-16 references** | **44–84** | **$88–294** | **91–165** | **$118–330** |
+| the same + the 128-px renderer | 46–87 | $92–305 | 95–173 | $124–346 |
+
+- The 3-seed totals allow 0.5–2 h for the nine extra encoders' ladder embeddings. Untrained banks are not per seed and don't change.
+- Wall-clock on one H100, serially: about 2–4 days. Two to four GPUs on one box cut it proportionally.
+- Retained output grows with the encoders: ≤ 45 GB for the three-seed grid (was ≤ 30 GB).
+- **The masker's CPU cost at patch 4 is not in these hours.** On this loaded Mac, the JEPA masker takes 0.50 s per batch at a 64 × 64 grid, against 0.044 s at
+  16 × 16 (measured 24 Nov). Over 101,308 steps that is about 14 h of CPU time per run. It can hide in loader workers on a rented box, but a
+  serial masker would dominate the JEPA patch-4 wall-clock. The 200-step timed smoke must measure it.
+
+The prices are the assumed rates above, unconfirmed.
+
 ## Design notes the cost depends on (written before the decisions above)
 
 1. **Flash attention means bf16 or fp16.** The fused kernels do not run in fp32, and PyTorch's SDPA falls
