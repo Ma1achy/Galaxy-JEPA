@@ -1,6 +1,8 @@
 # Patch-size grid 16 → 8 → 4 (D11): pre-registration (DRAFT v0, browser draft; not hashed)
 
-**Status.** Design draft written 24 Nov 2026 from B1, B1b, Part A and the cost estimate
+**Status.** [CC] items completed 24 Nov by Claude Code; mismatches and ambiguities are in
+`docs/patch_grid/flags.md` and were not reconciled here. Still a draft, still unhashed.
+Design draft written 24 Nov 2026 from B1, B1b, Part A and the cost estimate
 (`docs/patch_ablation_cost.md`). Nothing here is hashed. Claude Code completes the operational
 detail marked **[CC]**, writes and runs the planted tests (D28), and reports them. Then the user
 approves the hash. The hash covers the section from "## Pre-registration" to the next level-2
@@ -48,8 +50,13 @@ morphology at every resolution. But structure (bar, spiral, ring) appears only a
 | MAE | 4 | 0, 1 | |
 
 18 trained encoders. Untrained banks: 3 seeds per patch size per objective architecture, as for patch 16.
-**[CC]** Confirm the Mac MoCo/MAE seeds that pair with GPU seeds 0 and 1, or state that only JEPA has a
-paired device control.
+**[CC, completed 24 Nov]** All three objectives have a paired device control. By train_seed, the Mac
+runs (`runs/`, hashed in the baselines comparison, `artifacts/baselines_comparison.md`) are:
+- seed 0: A1 (`m_v2`), `moco_s0`, `mae_s0`;
+- seed 1: A2 (`m_v2_s1`), `moco_s1`, `mae_s1`;
+- seed 2 (no GPU partner in this grid): A3 (`m_v2_s2`), `moco_s2`, `mae_s2`.
+
+The Mac runs trained on MPS without autocast (fp32), so device and precision change together.
 
 ### 3. Recipe held fixed
 
@@ -64,7 +71,33 @@ paired device control.
 - Positional embeddings sin-cos from each grid; a new patch-embedding layer at each size.
 - The 2.5 × R_petro masking box depends on galaxy size. It is held fixed, and this is recorded as a known
   way size enters training (B0).
-- **[CC]** Pin the code of record (SHA-1) for every arm's launcher and config before the hash.
+- **[CC, completed 24 Nov as far as it can be]** SHA-1 of the code of record as it stands:
+
+  | file | SHA-1 |
+  |---|---|
+  | `artifacts/aligned_train.py` (A1–A3 launcher) | `c25432afc00e1ebb107a3f714d970f44842ccb4a` |
+  | `artifacts/aligned_launch.sh` | `e7566a33ef4ed4d2e545ccd2e02ca815d0a2d67d` |
+  | `artifacts/m2_long_run.py` | `5c8c70155cdc90043838c1adb2c40a06dc38fb2e` |
+  | `artifacts/baseline_run.py` (MoCo, MAE) | `fafc5583deacb2385ce5e9e23c17f9edc72635a5` |
+  | `configs/pretrain_v2.yaml` | `c232b054f42114c9ad6e5e76dbc8c8c342ebf838` |
+  | `configs/moco.yaml` | `8aa9d3ddaed785e34751477eb925d163bb45d89e` |
+  | `configs/mae.yaml` | `4ccbd4be31b55d993558780a27b8854b8e9e9018` |
+  | `configs/probe.yaml` | `c0ddb4e322b70e90adfaf6b2d7760ba42003d28b` |
+  | `src/galaxy_jepa/objectives/jepa.py` | `992653bcc3164fefe9530625f1bf909a0ea7ed51` |
+  | `src/galaxy_jepa/objectives/moco.py` | `00e52331967d062c706207c85b2bde8868505d5b` |
+  | `src/galaxy_jepa/objectives/mae.py` | `3bb939a8b2cb24f863489b63ad5986b656ba0d0c` |
+  | `src/galaxy_jepa/objectives/loop.py` | `4853f30a971c4eef8a488f69a491807e5c1ba18b` |
+  | `src/galaxy_jepa/masking/blocks.py` | `2120144c2ba8fc83dee47b659013e0dd9efc84db` |
+  | `src/galaxy_jepa/models/vit.py` | `c5f3d35daad4b4986f063e3657c96eda6415f592` |
+  | `src/galaxy_jepa/callbacks/collapse.py` | `88133c65de5b29935008ff569c578237e31bfa68` |
+  | `src/galaxy_jepa/harness.py` | `11d457d5586b7ca71d6efff142fc32ba4f21e866` |
+  | `artifacts/almagest_visibility.py` (B1) | `9e1c0e112c272af91b246278ca6ecb38bec27018` |
+  | `artifacts/almagest_axes.py` | `92235371250cdee52d9d29295ebce3a3e5f411c6` |
+  | `artifacts/patch_grid_score.py` (scoring, plants) | re-pinned at the hash |
+
+  **Not pinnable yet:** the patch-8 and patch-4 configs, the GPU bf16 launcher, MAE's 16-px grouping and
+  the patch-scaled MoCo windows do not exist (`flags.md` 1–3). They must be written and tested before the
+  hash, and their SHA-1s added to this table.
 
 ### 4. Evaluation set, frozen before any training
 
@@ -82,7 +115,9 @@ paired device control.
   - The groups are fixed now from A1's B1 results and do not change after any new result.
 - **Ordinal axes (Part A):** arm count and winding, scored as Kendall τ of the ordinal score with
   E[category] within the same deciles.
-- **[CC]** State whether probes use raw or cleaned embeddings for the primary reading. The draft's choice:
+- **[CC, completed 24 Nov]** As implemented, the Scheme-1 ladder probes use **raw** embeddings: cleaning exists
+  only in the Almagest code (`artifacts/almagest_spiral.py`), which B1 and Part A used. Either choice runs, and the
+  scoring code reports both. The choice of primary is the user's; the draft's choice:
   **raw primary** (the decile already controls apparent size, and B1 showed the cleaner can distort
   within-decile comparisons, e.g. no bulge), cleaned reported beside it.
 
@@ -161,7 +196,11 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
 ### 7. Validity, exclusions and what stops the run
 
 - **Collapse.** The effective-rank collapse monitor runs on every arm at the project's existing bar
-  **[CC: cite it]**. An arm that collapses is VOID. It is rerun once with the same seed and recipe. A
+  (**[CC, completed 24 Nov]** `collapse_floor` in `configs/pretrain_v2.yaml`, and in `moco.yaml` and
+  `mae.yaml`: min_effective_rank 2.5, grace fraction 0.10, hard floor 2.0 after step 100, three consecutive
+  readings. It was re-derived at D17, made active at D21, and lives in `src/galaxy_jepa/callbacks/collapse.py`.
+  **This bar is not the same for every objective in the code of record:** F8 settled that for MoCo and MAE
+  only the hard floor gates, and the soft floor is reported. See `flags.md` 7). An arm that collapses is VOID. It is rerun once with the same seed and recipe. A
   second collapse leaves it VOID, and the groups are scored without it, marked. Seeds are never swapped
   or chosen.
 - **Divergence.** NaN loss or a loss above the run's step-1,000 value after step 20,000 counts as
@@ -189,7 +228,7 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
 - **Patch-16 GPU references** also give a third and fourth seed's worth of JEPA at patch 16, which is
   added to the run-noise estimate for future comparisons.
 
-### 9. D28: planted tests, before the hash **[CC]**
+### 9. D28: planted tests, before the hash **[CC: code and plants written 24 Nov; results in `docs/patch_grid/flags.md`]**
 
 - Synthetic L curves for all 18 encoders and 30 answers at the observed seed spread, run through the
   identical scoring path. Plants must reach every step state, every group reading (including WORSE and

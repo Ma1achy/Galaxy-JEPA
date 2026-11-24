@@ -1,0 +1,291 @@
+{
+ "reached": {
+  "step states": [
+   "GAIN",
+   "INSUFFICIENT",
+   "LOSS",
+   "NO CHANGE",
+   "UNRESOLVED"
+  ],
+  "group readings": [
+   "DATA-LIMITED AT 16 px",
+   "INSUFFICIENT",
+   "LIMITED BELOW 8 px ONLY (unexpected)",
+   "PATCH-LIMITED BELOW 8 px",
+   "PATCH-LIMITED TO A PSF FLOOR",
+   "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "UNRESOLVED",
+   "WORSE WITH SMALLER PATCHES"
+  ],
+  "objective states": [
+   "DIFFERS",
+   "INSUFFICIENT",
+   "SAME",
+   "UNRESOLVED"
+  ],
+  "device states": [
+   "DEVICE EFFECT",
+   "NO DEVICE EFFECT"
+  ]
+ },
+ "missing": {
+  "step states": [],
+  "group readings": [],
+  "objective states": [],
+  "device states": []
+ },
+ "readings": {
+  "no change": {
+   "jepa/G1": "DATA-LIMITED AT 16 px",
+   "jepa/G2": "DATA-LIMITED AT 16 px",
+   "jepa/G3": "DATA-LIMITED AT 16 px",
+   "moco/G1": "DATA-LIMITED AT 16 px",
+   "moco/G2": "DATA-LIMITED AT 16 px",
+   "moco/G3": "DATA-LIMITED AT 16 px",
+   "mae/G1": "DATA-LIMITED AT 16 px",
+   "mae/G2": "DATA-LIMITED AT 16 px",
+   "mae/G3": "DATA-LIMITED AT 16 px"
+  },
+  "gain then floor": {
+   "jepa/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "jepa/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "jepa/G3": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G3": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G3": "PATCH-LIMITED TO A PSF FLOOR"
+  },
+  "gain then gain": {
+   "jepa/G1": "PATCH-LIMITED BELOW 8 px",
+   "jepa/G2": "PATCH-LIMITED BELOW 8 px",
+   "jepa/G3": "PATCH-LIMITED BELOW 8 px",
+   "moco/G1": "PATCH-LIMITED BELOW 8 px",
+   "moco/G2": "PATCH-LIMITED BELOW 8 px",
+   "moco/G3": "PATCH-LIMITED BELOW 8 px",
+   "mae/G1": "PATCH-LIMITED BELOW 8 px",
+   "mae/G2": "PATCH-LIMITED BELOW 8 px",
+   "mae/G3": "PATCH-LIMITED BELOW 8 px"
+  },
+  "no change then gain": {
+   "jepa/G1": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "jepa/G2": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "jepa/G3": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "moco/G1": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "moco/G2": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "moco/G3": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "mae/G1": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "mae/G2": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "mae/G3": "LIMITED BELOW 8 px ONLY (unexpected)"
+  },
+  "loss at 8->4": {
+   "jepa/G1": "WORSE WITH SMALLER PATCHES (8->4)",
+   "jepa/G2": "WORSE WITH SMALLER PATCHES (8->4)",
+   "jepa/G3": "WORSE WITH SMALLER PATCHES (8->4)",
+   "moco/G1": "WORSE WITH SMALLER PATCHES (8->4)",
+   "moco/G2": "WORSE WITH SMALLER PATCHES (8->4)",
+   "moco/G3": "WORSE WITH SMALLER PATCHES (8->4)",
+   "mae/G1": "WORSE WITH SMALLER PATCHES (8->4)",
+   "mae/G2": "WORSE WITH SMALLER PATCHES (8->4)",
+   "mae/G3": "WORSE WITH SMALLER PATCHES (8->4)"
+  },
+  "loss at 16->8": {
+   "jepa/G1": "WORSE WITH SMALLER PATCHES (16->8)",
+   "jepa/G2": "WORSE WITH SMALLER PATCHES (16->8)",
+   "jepa/G3": "WORSE WITH SMALLER PATCHES (16->8)",
+   "moco/G1": "WORSE WITH SMALLER PATCHES (16->8)",
+   "moco/G2": "WORSE WITH SMALLER PATCHES (16->8)",
+   "moco/G3": "WORSE WITH SMALLER PATCHES (16->8)",
+   "mae/G1": "WORSE WITH SMALLER PATCHES (16->8)",
+   "mae/G2": "WORSE WITH SMALLER PATCHES (16->8)",
+   "mae/G3": "WORSE WITH SMALLER PATCHES (16->8)"
+  },
+  "gain then unresolved": {
+   "jepa/G1": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "jepa/G2": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "jepa/G3": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "moco/G1": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "moco/G2": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "moco/G3": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "mae/G1": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "mae/G2": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "mae/G3": "PATCH-LIMITED; FLOOR UNRESOLVED"
+  },
+  "unresolved": {
+   "jepa/G1": "UNRESOLVED",
+   "jepa/G2": "UNRESOLVED",
+   "jepa/G3": "UNRESOLVED",
+   "moco/G1": "UNRESOLVED",
+   "moco/G2": "UNRESOLVED",
+   "moco/G3": "UNRESOLVED",
+   "mae/G1": "UNRESOLVED",
+   "mae/G2": "UNRESOLVED",
+   "mae/G3": "UNRESOLVED"
+  },
+  "insufficient (rare answers)": {
+   "jepa/G1": "INSUFFICIENT",
+   "jepa/G2": "INSUFFICIENT",
+   "jepa/G3": "INSUFFICIENT",
+   "moco/G1": "INSUFFICIENT",
+   "moco/G2": "INSUFFICIENT",
+   "moco/G3": "INSUFFICIENT",
+   "mae/G1": "INSUFFICIENT",
+   "mae/G2": "INSUFFICIENT",
+   "mae/G3": "INSUFFICIENT"
+  },
+  "insufficient (both seeds voided at 8)": {
+   "jepa/G1": "INSUFFICIENT",
+   "jepa/G2": "INSUFFICIENT",
+   "jepa/G3": "INSUFFICIENT",
+   "moco/G1": "INSUFFICIENT",
+   "moco/G2": "INSUFFICIENT",
+   "moco/G3": "INSUFFICIENT",
+   "mae/G1": "INSUFFICIENT",
+   "mae/G2": "INSUFFICIENT",
+   "mae/G3": "INSUFFICIENT"
+  },
+  "one seed voided": {
+   "jepa/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "jepa/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "jepa/G3": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G3": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G3": "PATCH-LIMITED TO A PSF FLOOR"
+  },
+  "MAE > JEPA > MoCo": {
+   "jepa/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "jepa/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "jepa/G3": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G1": "DATA-LIMITED AT 16 px",
+   "moco/G2": "DATA-LIMITED AT 16 px",
+   "moco/G3": "DATA-LIMITED AT 16 px",
+   "mae/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G3": "PATCH-LIMITED TO A PSF FLOOR"
+  },
+  "objectives differ by SESOI-ish (unresolved)": {
+   "jepa/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "jepa/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "jepa/G3": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "moco/G3": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G2": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G3": "PATCH-LIMITED TO A PSF FLOOR"
+  }
+ },
+ "step_states": {
+  "no change": [
+   "NO CHANGE"
+  ],
+  "gain then floor": [
+   "GAIN",
+   "NO CHANGE"
+  ],
+  "gain then gain": [
+   "GAIN"
+  ],
+  "no change then gain": [
+   "GAIN",
+   "NO CHANGE"
+  ],
+  "loss at 8->4": [
+   "LOSS",
+   "NO CHANGE"
+  ],
+  "loss at 16->8": [
+   "LOSS",
+   "NO CHANGE"
+  ],
+  "gain then unresolved": [
+   "GAIN",
+   "UNRESOLVED"
+  ],
+  "unresolved": [
+   "NO CHANGE",
+   "UNRESOLVED"
+  ],
+  "insufficient (rare answers)": [
+   "INSUFFICIENT"
+  ],
+  "insufficient (both seeds voided at 8)": [
+   "INSUFFICIENT"
+  ],
+  "one seed voided": [
+   "GAIN",
+   "NO CHANGE"
+  ],
+  "MAE > JEPA > MoCo": [
+   "GAIN",
+   "NO CHANGE"
+  ],
+  "objectives differ by SESOI-ish (unresolved)": [
+   "GAIN",
+   "NO CHANGE"
+  ]
+ },
+ "objective_states": {
+  "no change": [
+   "SAME"
+  ],
+  "gain then floor": [
+   "SAME"
+  ],
+  "gain then gain": [
+   "SAME"
+  ],
+  "no change then gain": [
+   "SAME"
+  ],
+  "loss at 8->4": [
+   "SAME"
+  ],
+  "loss at 16->8": [
+   "SAME"
+  ],
+  "gain then unresolved": [
+   "SAME"
+  ],
+  "unresolved": [
+   "SAME"
+  ],
+  "insufficient (rare answers)": [
+   "INSUFFICIENT"
+  ],
+  "insufficient (both seeds voided at 8)": [
+   "INSUFFICIENT"
+  ],
+  "one seed voided": [
+   "SAME"
+  ],
+  "MAE > JEPA > MoCo": [
+   "DIFFERS",
+   "SAME"
+  ],
+  "objectives differ by SESOI-ish (unresolved)": [
+   "SAME",
+   "UNRESOLVED"
+  ]
+ },
+ "device": {
+  "no effect": {
+   "jepa": {
+    "median_abs_diff": 0.00019999999999997797,
+    "mac_spread": 0.0020000000000000018,
+    "state": "NO DEVICE EFFECT"
+   }
+  },
+  "effect": {
+   "jepa": {
+    "median_abs_diff": 0.050000000000000044,
+    "mac_spread": 0.0020000000000000018,
+    "state": "DEVICE EFFECT"
+   }
+  }
+ }
+}
