@@ -136,3 +136,6 @@ brief verbatim `cfaed329…`; hashed and committed before any real fit, 065e30d)
 - **Strips (`a_strips.png`).** Roundness orders clearly (round → edge-on). Bulge orders only loosely. Winding and arm
   count show little visible ordering, consistent with their small LL gaps. Slices with few galaxies at the extremes are
   individual galaxies, not averages.
+
+**A-bis (24 Nov, hashed separately):** the arm-count question with the covariate in the baseline. Cleaned MOSTLY ONE AXIS, raw ONE AXIS; see
+`a_bis_report.md`. The SEVERAL reading above stays on the record.

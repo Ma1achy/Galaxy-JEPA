@@ -394,7 +394,11 @@ def sample(net, cond, ab, gen, w=1.0, steps=100):
     for i, t in enumerate(ts):
         tb = t.repeat(b)
         ec = net(x, tb, cond, yes)
-        e = ec if w == 1.0 else net(x, tb, cond, no) + w * (ec - net(x, tb, cond, no))
+        if w == 1.0:
+            e = ec
+        else:  # one unconditional pass (24 Nov: it was computed twice)
+            eu = net(x, tb, cond, no)
+            e = eu + w * (ec - eu)
         a = ab[t]
         a_prev = ab[ts[i + 1]] if i + 1 < len(ts) else torch.tensor(1.0, device=dev)
         x0 = ((x - (1 - a).sqrt() * e) / a.sqrt()).clamp(-2.0, 6.0)
