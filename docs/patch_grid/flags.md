@@ -218,6 +218,9 @@ dust lane 24, features 111, no bar 122, smooth 136, dominant bulge 140.
 - **Not smoked: CUDA, flash attention, batch 32, the loader workers.** MoCo p4 on MPS pushed swap up by about 8 GB, so patch-4 smokes moved to the CPU. The 200-step timed smoke per arm on the rented box
   (§7) is the first real test of those.
 - **Mask check:** 64 steps at grid 64 built and 1,024 galaxies compared with `MultiBlockMasker.sample`: 0 batches differ. The rental repeats the check on the full build for each seed.
+- **The gate's `auc` step on a real embedding** (A2, raw, from the repo root) reproduces `spread.json` for all 30 answers × 10 deciles with a largest difference of 0.0. It needs this Mac's
+  ladder data (A1's encoder, the label sidecars), so the stage-1 embeddings come home, or that data goes to the box, before the gate can run.
+  The rental doesn't yet have the embedding step as its own script; the per-arm embedding and untrained-bank code still has to be chosen and pinned.
 - **Pins:** `artifacts/patch_grid_pins.py` checks the files in §3's table; the launcher calls it before any real run (not for smokes or `--plan`).
 - The full test suite passes (647).
 
@@ -231,3 +234,4 @@ Decided 24 Nov: paired design, three seeds, raw primary, B2b out of §8; |G| + b
 4. **SAME for objective pairs (C.7)** stays in the drafted form unless you say otherwise.
 5. The group memberships that mix raw and cleaned knees (item 9), the untrained bank of 3 seeds or 30 (item 13) and the 39,997 train split (item 11).
 6. JEPA's masking is the same sky only in distribution (item 4).
+7. **Still unwritten (section F):** the step that embeds the union with each trained arm and the untrained banks at patch 8 and 4 on the box. Probes, scoring and the gate are written; the code that produces their inputs at patch 8 and 4 isn't pinned yet. Say whether it must be before the hash (I think it should).
