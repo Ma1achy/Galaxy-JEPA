@@ -169,6 +169,8 @@ BULGE = {"gzd5": ("bulge-size", ["none", "small", "moderate", "large", "dominant
 def decals_counts(setup):
     """object_id → per-campaign DECaLS counts for our union (the Brief AA match: nearest within 3″, one row per galaxy)."""
     import aa2_decals as A2
+    ext = A.REPO / "artifacts/out/ext"  # Almagest's environment moves R.OUT; the Brief AA files are read where they were verified
+    A2.CAMPAIGNS = {c: ext / p.name for c, p in A2.CAMPAIGNS.items()}
     t = A2.ours(setup)
     dec = A2.load_decals()
     camp = {}

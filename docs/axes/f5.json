@@ -1,0 +1,3002 @@
+{
+ "n_train": 39997,
+ "n_test": 34828,
+ "explained_variance_ratio_pca": [
+  0.10752425660342604,
+  0.06713993631693868,
+  0.05989205969457122,
+  0.05405958024378563,
+  0.04654078533225769,
+  0.04288509993392254,
+  0.03943546896386455,
+  0.03384767619085118,
+  0.0326376390780654,
+  0.03078279101798763,
+  0.030164068210955637,
+  0.02734630076993249,
+  0.025352966724876448,
+  0.02355841154060111,
+  0.02186575954342323,
+  0.021071092339705236,
+  0.018649026546296032,
+  0.017298548330379266,
+  0.016253294492727482,
+  0.01575295047889505
+ ],
+ "ica_iterations": 54,
+ "measurements_available": [
+  "concentration_R90/R50",
+  "expAB_r",
+  "deVAB_r",
+  "fracDeV_r",
+  "petroR50_r",
+  "g_minus_r_observed_model",
+  "log_mass_mpa",
+  "log_ssfr_mpa",
+  "redshift_spec",
+  "simard_BT_r"
+ ],
+ "note": "Simard disc parameters, Sersic n and statmorph are not in this run (Part B); ordinals are cleaned scores",
+ "components": {
+  "pca1": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.1108453696927858,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.04827982905223329,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.04878010602442184,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.08801862194910334,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.02083561982071533,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.10932954489007103,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.07004373771444956,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.13149589393904879,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.009768232415799754,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.07718838584786544,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.16151196474759164,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.17403468625366933,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.004983730770909667,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.09058345224978956,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     0.174
+    ],
+    [
+     "ordinal: arm count",
+     -0.162
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     -0.131
+    ]
+   ]
+  },
+  "pca2": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.07918078269506808,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.01380564881953906,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.013924209231785263,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.07465501832200111,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.04086578799581579,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.13521566374201596,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.07391558071471552,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.13294588311303288,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.028584957998856894,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.07833505385868847,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.05142327140227565,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.08494782282130621,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.03300187573095355,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.06001111002194917,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "measure: g_minus_r_observed_model",
+     -0.135
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     0.133
+    ],
+    [
+     "ordinal: winding",
+     -0.085
+    ]
+   ]
+  },
+  "pca3": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.08548299491946904,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.017350163072525935,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.016332454359164927,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.08519950583284545,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.019896200806464658,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.07277582280188812,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.032745701651400574,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.08188086721997372,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.0011898447144797727,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.049074935989711334,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.18769327777188258,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.11080451557699136,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.2836733264601932,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.007181821392921034,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     -0.284
+    ],
+    [
+     "ordinal: arm count",
+     0.188
+    ],
+    [
+     "ordinal: winding",
+     -0.111
+    ]
+   ]
+  },
+  "pca4": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.04553543095492968,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.02232382939710064,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.02461928238712921,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.02022132749161929,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.016755750280891667,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.04929611903645536,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.02262200705902281,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.06242264688049956,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.010833330265996954,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.034391431479996674,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.03383752335477498,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.0866105837470775,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.11742629681932332,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.014012446439875231,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     0.117
+    ],
+    [
+     "ordinal: winding",
+     -0.087
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     0.062
+    ]
+   ]
+  },
+  "pca5": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.10625026880226988,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.06691310769174791,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.06799541857180703,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.08045237137290981,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.0024175412957985723,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.0775537252863566,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.038795333097631425,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.0970292072756626,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.007456476789665177,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.07905342379530503,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.15440135108053302,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.15783073672376485,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.036730533769343585,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.12405601824492701,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     -0.158
+    ],
+    [
+     "ordinal: arm count",
+     0.154
+    ],
+    [
+     "ordinal: roundness",
+     0.124
+    ]
+   ]
+  },
+  "pca6": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.2100185579500305,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.11121262873938097,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.11645239181912638,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.1825833180702602,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.01027675203348003,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.1575829340994184,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.08805983288608962,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.18680026615653703,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.0026931311043938175,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.1661621037310075,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.24454788778468198,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.3439127054261093,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.2192654980188353,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.2251740715253701,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     -0.344
+    ],
+    [
+     "ordinal: arm count",
+     0.245
+    ],
+    [
+     "ordinal: roundness",
+     0.225
+    ]
+   ]
+  },
+  "pca7": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.04474202783650727,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.10777067939685427,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.10785380804228455,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.047748314765029685,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.044966006028234896,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.13667481086098582,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.06388314983771362,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.12614999183377962,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.020473386316632473,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.03378189073541081,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.033014607898466754,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.12641228643751795,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.141868321067149,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.23252871123408875,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: roundness",
+     0.233
+    ],
+    [
+     "ordinal: bulge prominence",
+     0.142
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     0.137
+    ]
+   ]
+  },
+  "pca8": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.16748198798702837,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.017120073135141505,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.014091529967993484,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.1532216665135757,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.04525374040643997,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.2214147262522858,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.12331009312559103,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.2272729994275811,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.04042959569535602,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.14851763865085332,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.17428324751661828,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.10370308559778509,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.176615111223606,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.05536695946070707,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "measure: log_ssfr_mpa",
+     0.227
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.221
+    ],
+    [
+     "ordinal: bulge prominence",
+     -0.177
+    ]
+   ]
+  },
+  "pca9": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.14293994913967567,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.08714957607154794,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.08686971025780717,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.09547424583416082,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.005226119769906558,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.06046173026146383,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.03056509027455375,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.079731427016311,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.009054880806453051,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.09353743908247232,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.2558716840183737,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.2641804887820118,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.041687432600947996,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.18328847850026703,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     -0.264
+    ],
+    [
+     "ordinal: arm count",
+     0.256
+    ],
+    [
+     "ordinal: roundness",
+     0.183
+    ]
+   ]
+  },
+  "pca10": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.0423891410200954,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.016422515450023177,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.015776502528151905,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.01962329276394539,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.009774104525657287,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.045728076690995,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.02684818788007454,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.05867084799033653,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.017816692289983362,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.014386705040540336,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.12396658854400912,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.0614133506491779,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.030259358937175095,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.028145483258098396,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: arm count",
+     0.124
+    ],
+    [
+     "ordinal: winding",
+     -0.061
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     0.059
+    ]
+   ]
+  },
+  "pca11": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.06673589253444469,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.05568057200130449,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.057690555123352145,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.0674437213129516,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.03345822402883359,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.11650805620215998,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.059124750748227296,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.11357505927905798,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.021718467718837692,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.051713570606249884,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.07628929309413371,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.03136134448897237,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.1554696169715897,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.11731098387755363,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     -0.155
+    ],
+    [
+     "ordinal: roundness",
+     -0.117
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.117
+    ]
+   ]
+  },
+  "pca12": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.14798056299426812,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.050635512312610285,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.05453246802757201,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.14291477285638224,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.028052255477058426,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.13588361800269874,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.08027575850339451,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.15660896902029717,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.007244658837429369,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.13325590579089414,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.12370758369550174,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.2052967782114382,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.07916876696598109,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.07876819270577601,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     0.205
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     -0.157
+    ],
+    [
+     "measure: concentration_R90/R50",
+     0.148
+    ]
+   ]
+  },
+  "pca13": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.05836119205643614,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.07521819224651272,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.07883615217864373,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.049438656306319155,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.009461207449137777,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.022310820675271507,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.023465258857759762,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.034415901060530885,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.003522691514064464,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.05562651018747589,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.0654125316181237,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.14400329711233725,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.06769499297712867,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.15519002991574035,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: roundness",
+     -0.155
+    ],
+    [
+     "ordinal: winding",
+     0.144
+    ],
+    [
+     "measure: deVAB_r",
+     0.079
+    ]
+   ]
+  },
+  "pca14": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.23002657413255748,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.05404788628401026,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.055743675096103146,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.19172897236214317,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.03890835402831955,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.21400205451385265,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.10943284229195374,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.24254977407570413,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.011564102532788771,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.19308886868494274,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.23015989914723584,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.2760375684546517,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.15829117263601655,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.11262897579544105,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     -0.276
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     0.243
+    ],
+    [
+     "ordinal: arm count",
+     0.23
+    ]
+   ]
+  },
+  "pca15": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.07917764709745914,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.15991731087914315,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.16367942079804748,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.086126983891979,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.0005083878795734347,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.021820206179974114,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.0053914912871640365,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.012815501417569064,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.0052364922269310535,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.09157167244883782,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.03206067145879432,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.21771620938753464,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.021410658314381274,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.29953486011057723,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: roundness",
+     0.3
+    ],
+    [
+     "ordinal: winding",
+     -0.218
+    ],
+    [
+     "measure: deVAB_r",
+     -0.164
+    ]
+   ]
+  },
+  "pca16": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.10342862964478046,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.059472405139774746,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.056732064992417536,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.09040047950073574,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.014097413025143356,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.08173854319261024,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.05780330634087563,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.10530416772975792,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.01757758539491506,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.08968434334540402,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.08076811185974678,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.11887580129154182,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.04347398711531592,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.12342673301491898,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: roundness",
+     -0.123
+    ],
+    [
+     "ordinal: winding",
+     0.119
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     -0.105
+    ]
+   ]
+  },
+  "pca17": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.05856836241407225,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.07231888134906579,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.0751545205050162,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.040977438149519964,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.013842018157117332,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.014031839475340325,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.024400407572381544,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.04228495923416599,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.0058246041686000885,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.040335602912571336,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.07064483712705649,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.1549529148419289,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.1485075591398343,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.15286790842066245,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     0.155
+    ],
+    [
+     "ordinal: roundness",
+     -0.153
+    ],
+    [
+     "ordinal: bulge prominence",
+     -0.149
+    ]
+   ]
+  },
+  "pca18": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.14511751143751195,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.010617758854564518,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.0076343209028523805,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.12056642018048469,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.04671872282703495,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.14981748958332125,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.0856606495601934,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.15687403146590795,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.03230629169992162,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.1042590972347867,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.18479416688198616,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.1283381719773382,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.10534829823460597,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.026418638440377347,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: arm count",
+     0.185
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     0.157
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.15
+    ]
+   ]
+  },
+  "pca19": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.02198205860961338,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.020895421524753204,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.018363368858114893,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.002414051694714285,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -5.4796447470669034e-05,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.0027997341056214403,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.014095626945850195,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.009421753135800752,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.011014027232858919,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.01238946616204656,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.040311885753392014,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.0717570903240678,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.0911299017613658,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.06251145150544539,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     0.091
+    ],
+    [
+     "ordinal: winding",
+     -0.072
+    ],
+    [
+     "ordinal: roundness",
+     0.063
+    ]
+   ]
+  },
+  "pca20": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.05621929469634295,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.020842970585463024,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.024599877181457955,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.07877313367002255,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.004019045004200274,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.0813822578423985,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.05303859065155691,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.09574826462261606,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.004476040068574213,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.058275273212254834,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.009421848911344207,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.01614229733991681,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.15459842504200055,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.008054530060430588,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     0.155
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     -0.096
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     0.081
+    ]
+   ]
+  },
+  "ica1": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.04899059843175993,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.03769363480861985,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.04048848559721816,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.012364358296963586,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.03567375630584381,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.0764749956369349,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.023009004345118125,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.08351249240957279,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.0340297571894433,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.0050052773167412025,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.13883694238040287,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.04769934123734919,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.05628181818042413,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.06072357802534292,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: arm count",
+     -0.139
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     -0.084
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     0.076
+    ]
+   ]
+  },
+  "ica2": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.006310053365861845,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.05411107861356578,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.05353313806808209,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.008550236820212638,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.013323465963877644,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.06665585378273389,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.036362450193079474,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.05975023050786111,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.01811637118150405,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.009662590084051495,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.04670240294347663,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.08743239604988765,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.05818474917154084,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.12186521291457121,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: roundness",
+     0.122
+    ],
+    [
+     "ordinal: winding",
+     -0.087
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     0.067
+    ]
+   ]
+  },
+  "ica3": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.09121789319763023,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.013686361315744716,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.015151753004867312,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.07621496083470329,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.016139376070063372,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.08463698460210368,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.05083689187193079,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.10519056332909554,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.010909224966302254,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.0661554946190918,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.06911004936681214,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.04936320773360472,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.07976609949443722,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.027546443879243234,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "measure: log_ssfr_mpa",
+     -0.105
+    ],
+    [
+     "measure: concentration_R90/R50",
+     0.091
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     0.085
+    ]
+   ]
+  },
+  "ica4": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.02706126113998976,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.13075952064289786,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.1314441501638456,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.013459455104670672,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.007580921159876056,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.11775609316129054,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.05273656420621206,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.10036315245926093,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.0006425765995648154,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.0005774560582270263,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.11696246832770459,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.09580281232491776,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.09545909417302967,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.25016392669561205,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: roundness",
+     0.25
+    ],
+    [
+     "measure: deVAB_r",
+     -0.131
+    ],
+    [
+     "measure: expAB_r",
+     -0.131
+    ]
+   ]
+  },
+  "ica5": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.07826208593771912,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.06519009582575457,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.06245976180467399,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.09790627920298205,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.04577272569998583,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.14639007919515484,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.0598417181353621,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.14205999859358484,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.007816234241143966,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.08180754758409263,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.009217387552273141,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.02321153703143958,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.30244798085237046,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.1395447355718285,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     -0.302
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.146
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     0.142
+    ]
+   ]
+  },
+  "ica6": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.03100203525168362,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.018251130153673724,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.015005110350874333,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.05610180020024298,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.013060530158223706,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.06529540729557257,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.033775324688103035,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.05442239818061561,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.0032119416494462262,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.04643580580635054,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.02337542735686373,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.010237165273420884,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.2127955139811225,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.0647541800548956,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     0.213
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     0.065
+    ],
+    [
+     "ordinal: roundness",
+     0.065
+    ]
+   ]
+  },
+  "ica7": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.059832306922778286,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.03518423970740315,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.03473169584856064,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.06221433384125594,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.026266485387284117,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.10012742686707247,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.04256466436664907,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.08166849932531593,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.008694366046750876,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.05907608100662557,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.03661291395020706,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.02051655946710555,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.08389450100311124,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.071202250041816,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "measure: g_minus_r_observed_model",
+     0.1
+    ],
+    [
+     "ordinal: bulge prominence",
+     0.084
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     -0.082
+    ]
+   ]
+  },
+  "ica8": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.040122521180887764,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.02360145776938602,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.030619535798684313,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.026413428916535423,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.03896537780354114,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.05686924640340766,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.0160291122220017,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.06667732710978166,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.02036809817514412,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.029062933140756485,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.05990573706257082,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.01883726033416178,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.011384464054725622,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.01960201915470798,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "measure: log_ssfr_mpa",
+     0.067
+    ],
+    [
+     "ordinal: arm count",
+     0.06
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.057
+    ]
+   ]
+  },
+  "ica9": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.0262726338804947,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.052660873215205864,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.05450705086751907,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.030067552029120512,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.012917609536742522,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.09606911502786734,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.0413016949080344,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.08610765858250168,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.016661369383694554,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.013216305265696676,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.05049709953105405,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.05351233878522227,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.1860221480623688,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.10354178028066721,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     -0.186
+    ],
+    [
+     "ordinal: roundness",
+     -0.104
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.096
+    ]
+   ]
+  },
+  "ica10": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.04599534341160143,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.018811566382939165,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.019508329103638967,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.02847660817067232,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.022948231634902352,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.05606859213848274,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.031002112674854622,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.04769075619596272,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.02949832804116267,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.01729316660807475,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.09324438274904628,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.03180144683043236,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.015334341229584481,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.051557571154471835,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: arm count",
+     -0.093
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     0.056
+    ],
+    [
+     "ordinal: roundness",
+     0.052
+    ]
+   ]
+  },
+  "ica11": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.07753202538766557,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.021198578313072387,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.021920185933941506,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.08090418101954659,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.016073319978997413,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.04375764697490553,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.025665949841577586,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.05641689200013551,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.00717106002710116,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.0479999259834474,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.19976228072185967,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.13987512556502582,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.26025825138282216,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.07941363818188216,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     -0.26
+    ],
+    [
+     "ordinal: arm count",
+     0.2
+    ],
+    [
+     "ordinal: winding",
+     -0.14
+    ]
+   ]
+  },
+  "ica12": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.06319459917355853,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.08880783761200656,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.09054165254298586,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.08437873572904993,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.009804894490898766,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.042307411230633155,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.03917268839708365,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.06544118345844123,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.00854033846291442,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.07786468159553457,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.06812571184406396,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.09400986525995687,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.03480728022973282,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.15962134979333667,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: roundness",
+     -0.16
+    ],
+    [
+     "ordinal: winding",
+     0.094
+    ],
+    [
+     "measure: deVAB_r",
+     0.091
+    ]
+   ]
+  },
+  "ica13": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.14096228697794344,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.025434216683826748,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.028973692590918868,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.1146294475335517,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.05682724199438559,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.1462813297461298,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.06894338739791073,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.1404093481908604,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.02537004724454054,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.1091085434183006,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.19698805480357118,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.08682202540931683,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.14603042141935074,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.032664994569640136,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: arm count",
+     0.197
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.146
+    ],
+    [
+     "ordinal: bulge prominence",
+     -0.146
+    ]
+   ]
+  },
+  "ica14": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.008392514781832512,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.05375595116530655,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.054743494343852186,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.010789252430828154,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.029613739521790448,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.029344835789015616,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.013803615401395028,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.024421717705928974,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.02025011834867546,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.003233192827340779,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.007705504916788272,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.01631635268536262,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.12804288386696985,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.09430952372810515,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     -0.128
+    ],
+    [
+     "ordinal: roundness",
+     -0.094
+    ],
+    [
+     "measure: deVAB_r",
+     0.055
+    ]
+   ]
+  },
+  "ica15": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.05686817445636288,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.021083766487322016,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.01890260937032826,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.059774864401486244,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.014242101562227483,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.08963133823816666,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.04280442163647087,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.08476951325715057,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.011097310561000492,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.04145837181884371,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.10111083613677595,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.025699438694808147,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.21126167657875494,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.056913600451690784,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     -0.211
+    ],
+    [
+     "ordinal: arm count",
+     0.101
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.09
+    ]
+   ]
+  },
+  "ica16": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.3597512781880472,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.1782157508978314,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.18501347355798733,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.3012275602611717,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.02462973355368314,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.2876962293328065,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.16134154373808554,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.33896087387348917,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.025534350782424775,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.2960774523135969,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.3526646644998753,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.5412401932534411,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.17981806684513102,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.34289698784630374,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     0.541
+    ],
+    [
+     "measure: concentration_R90/R50",
+     0.36
+    ],
+    [
+     "ordinal: arm count",
+     -0.353
+    ]
+   ]
+  },
+  "ica17": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.04371373024703759,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": -0.02021255863583855,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": -0.018448954844045466,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.04808050740049413,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.03671923806130437,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.02259288948573244,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.007169428254545659,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.026508663417739758,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.015982861631248693,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.04110893510915378,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.061595170401164176,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": -0.05264460607468013,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.1352731456630067,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.039795457744728986,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     -0.135
+    ],
+    [
+     "ordinal: arm count",
+     0.062
+    ],
+    [
+     "ordinal: winding",
+     -0.053
+    ]
+   ]
+  },
+  "ica18": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": -0.04809778562614026,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.09514672661074636,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.0910904683896817,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": -0.0430446810670331,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.004504730086869933,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": -0.10198678055147226,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": -0.056739900219625335,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": 0.09867186562843265,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.01097588832905837,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": -0.009644958771515782,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.056983228037845085,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.028308693545479033,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": -0.0743014525792186,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.18814145526295048,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: roundness",
+     -0.188
+    ],
+    [
+     "measure: g_minus_r_observed_model",
+     -0.102
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     0.099
+    ]
+   ]
+  },
+  "ica19": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.055848998165364754,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.011918530135440393,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.015084575942289947,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.08171490990658159,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": -0.020021132042724512,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.07840334243927446,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.05559240797661875,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.09031131081976693,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": 0.019879561820268614,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.06577288967570467,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": 0.010103752197523961,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.00561695986020095,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.18055112257496897,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": 0.007150779007775675,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: bulge prominence",
+     0.181
+    ],
+    [
+     "measure: log_ssfr_mpa",
+     -0.09
+    ],
+    [
+     "measure: fracDeV_r",
+     0.082
+    ]
+   ]
+  },
+  "ica20": {
+   "targets": {
+    "measure: concentration_R90/R50": {
+     "rho": 0.061512597452443404,
+     "n": 34821
+    },
+    "measure: expAB_r": {
+     "rho": 0.044804467754822615,
+     "n": 34828
+    },
+    "measure: deVAB_r": {
+     "rho": 0.046873270664836014,
+     "n": 34828
+    },
+    "measure: fracDeV_r": {
+     "rho": 0.07468719336255215,
+     "n": 34828
+    },
+    "measure: petroR50_r": {
+     "rho": 0.005724522451882792,
+     "n": 34821
+    },
+    "measure: g_minus_r_observed_model": {
+     "rho": 0.04283756127559888,
+     "n": 34828
+    },
+    "measure: log_mass_mpa": {
+     "rho": 0.01870098695701721,
+     "n": 27663
+    },
+    "measure: log_ssfr_mpa": {
+     "rho": -0.0443369378272137,
+     "n": 27178
+    },
+    "measure: redshift_spec": {
+     "rho": -0.01580021153075079,
+     "n": 27685
+    },
+    "measure: simard_BT_r": {
+     "rho": 0.05950681524587393,
+     "n": 34131
+    },
+    "ordinal: arm count": {
+     "rho": -0.027742970398601567,
+     "n": 34828
+    },
+    "ordinal: winding": {
+     "rho": 0.08373098091883553,
+     "n": 34828
+    },
+    "ordinal: bulge prominence": {
+     "rho": 0.04734318017230697,
+     "n": 34828
+    },
+    "ordinal: roundness": {
+     "rho": -0.08053397129742612,
+     "n": 34828
+    }
+   },
+   "top3": [
+    [
+     "ordinal: winding",
+     0.084
+    ],
+    [
+     "ordinal: roundness",
+     -0.081
+    ],
+    [
+     "measure: fracDeV_r",
+     0.075
+    ]
+   ]
+  }
+ }
+}
