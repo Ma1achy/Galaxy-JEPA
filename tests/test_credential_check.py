@@ -23,6 +23,7 @@ FAKE_VALUE = "planted" + "-value-" + "0123456789abcdef"  # stands in for a .env 
 JWT = "ey" + "J" + "a" * 12 + "." + "b" * 12
 ASSIGN = "pass" + "word = " + "'" + "c" * 10 + "'"
 UUID = "-".join(["0" * 8, "1" * 4, "2" * 4, "3" * 4, "4" * 12])
+ANTHROPIC = "sk-" + "ant-" + "d" * 20
 CLEAN = "def f(x):\n    return x + 1  # nothing secret here\n"
 
 
@@ -38,17 +39,19 @@ def test_env_values_reads_values_and_skips_comments(env: Path) -> None:
 
 
 def test_short_env_values_are_not_matched() -> None:
-    assert C.scan("DEBUG=1 and 1 again", ["1"]) == (0, [0, 0, 0])
+    assert C.scan("DEBUG=1 and 1 again", ["1"]) == (0, [0, 0, 0, 0])
 
 
 @pytest.mark.parametrize(
     "text, expect",
     [
-        (f"x = {FAKE_VALUE}", (1, [0, 0, 0])),
-        (JWT, (0, [1, 0, 0])),
-        (ASSIGN, (0, [0, 1, 0])),
-        (UUID, (0, [0, 0, 1])),
-        (CLEAN, (0, [0, 0, 0])),
+        (f"x = {FAKE_VALUE}", (1, [0, 0, 0, 0])),
+        (JWT, (0, [1, 0, 0, 0])),
+        (ASSIGN, (0, [0, 1, 0, 0])),
+        (UUID, (0, [0, 0, 1, 0])),
+        (ANTHROPIC, (0, [0, 0, 0, 1])),
+        ("the sk-" + "ant- prefix alone", (0, [0, 0, 0, 0])),
+        (CLEAN, (0, [0, 0, 0, 0])),
     ],
 )
 def test_scan_counts_each_kind(text: str, expect: tuple[int, list[int]]) -> None:

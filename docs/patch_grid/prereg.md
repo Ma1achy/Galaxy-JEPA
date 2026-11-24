@@ -1,0 +1,210 @@
+# Patch-size grid 16 → 8 → 4 (D11): pre-registration (DRAFT v0, browser draft; not hashed)
+
+**Status.** Design draft written 24 Nov 2026 from B1, B1b, Part A and the cost estimate
+(`docs/patch_ablation_cost.md`). Nothing here is hashed. Claude Code completes the operational
+detail marked **[CC]**, writes and runs the planted tests (D28), and reports them. Then the user
+approves the hash. The hash covers the section from "## Pre-registration" to the next level-2
+heading (SHA-1, trailing newline). It comes **before any trained 8×8 or 4×4 checkpoint exists**:
+the rental starts only after the hash is committed and pushed.
+
+**What this draft was written from.** `docs/almagest/a1_visibility_report.md` (B1, B1b),
+`docs/axes/a_report.md` (Part A), `docs/patch_ablation_cost.md`, and the chat record of the decisions
+of 21 Nov. No 8×8 or 4×4 result exists. B2b's numbers are not yet available: §8 says how they enter.
+
+---
+
+## Pre-registration
+
+### 1. Question
+
+SDSS seeing is about 1.4″, so the PSF FWHM is about 3.5 px at 0.396″/px. A1 reads first-order
+morphology at every resolution. But structure (bar, spiral, ring) appears only above R_petro ≈ 4–5 × PSF
+(B1 knee at decile 3–4), and fine detail (dust lane, disturbed, merger, dominant bulge) only above
+≈ 6–10 × PSF. Arm count and winding order only in the best-resolved deciles (Part A).
+
+**Q1.** Is that limit set by the 16-px patch (architecture) or by the PSF (data)?
+**Q2.** Does the answer differ by objective (JEPA, MoCo, MAE)?
+
+**Hypotheses, stated in advance:**
+- **H_patch:** at 16×16 the patch limits resolution, so halving it to 8×8 lets structure and fine
+  detail be read in smaller galaxies.
+- **H_psf:** a 4-px patch is about one PSF width, so 8 → 4 adds little beyond 16 → 8.
+- **Objective ordering (weakly held, from design):** MAE, which reconstructs pixels, gains most from
+  smaller patches; JEPA, which predicts in latent space, gains less; MoCo, whose augmentations blur
+  fine detail, gains least.
+
+### 2. Arms
+
+| objective | patch | seeds (train_seed) | role |
+|---|---|---|---|
+| JEPA | 16 (GPU, bf16) | 0, 1 | GPU reference; device/precision control against Mac A1 (seed 0), A2 (seed 1) |
+| JEPA | 8 | 0, 1 | |
+| JEPA | 4 | 0, 1 | |
+| MoCo | 16 (GPU, bf16) | 0, 1 | GPU reference; control against the Mac MoCo runs |
+| MoCo | 8 | 0, 1 | |
+| MoCo | 4 | 0, 1 | |
+| MAE | 16 (GPU, bf16) | 0, 1 | GPU reference; control against the Mac MAE runs |
+| MAE | 8 | 0, 1 | |
+| MAE | 4 | 0, 1 | |
+
+18 trained encoders. Untrained banks: 3 seeds per patch size per objective architecture, as for patch 16.
+**[CC]** Confirm the Mac MoCo/MAE seeds that pair with GPU seeds 0 and 1, or state that only JEPA has a
+paired device control.
+
+### 3. Recipe held fixed
+
+- A1's recipe: 810,491 train stamps, batch 32, 101,308 steps (4 epochs), cosine over 253,270 steps stopped
+  at 101,308. The same cache and images for every arm.
+- bf16 with flash attention on every GPU arm, including the patch-16 references.
+- **Masking fixed in pixels, not tokens:**
+  - JEPA: target blocks and the 2.5 × R_petro box cover the same sky at every patch size (cost doc table).
+  - MoCo: windows scale with pixels (10–14 tokens at 16; 20–28 at 8; 40–56 at 4).
+  - MAE: masking in 16-px groups. The normalised pixel target is computed over the 16-px group, identical
+    to patch 16, so only the encoder token size changes.
+- Positional embeddings sin-cos from each grid; a new patch-embedding layer at each size.
+- The 2.5 × R_petro masking box depends on galaxy size. It is held fixed, and this is recorded as a known
+  way size enters training (B0).
+- **[CC]** Pin the code of record (SHA-1) for every arm's launcher and config before the hash.
+
+### 4. Evaluation set, frozen before any training
+
+- Probes: the Scheme-1 L2-logistic probes, the ladder's recipe, fitted per encoder on the frozen train
+  split; evaluated on the frozen test split.
+- **Resolution deciles:** B1's decile edges in R_petro_r / psfWidth_r, per answer, taken from A1's test
+  galaxies and frozen. The same galaxies sit in the same decile for every arm.
+- **Answers:** the 30 STRONG or SEPARATE answers from relabel2, grouped by B1:
+  - **G1, first-order** (clear at every resolution): smooth, features, edge-on yes, edge-on no,
+    completely round, cigar, odd yes, odd no, no bulge.
+  - **G2, structure** (knee at decile 2–4): bar, no bar, spiral, no spiral, ring, lens/arc, obvious bulge,
+    in between, loose winding, 2 arms, bulge-shape no bulge.
+  - **G3, fine** (knee ≥ 5, or none): dominant bulge, dust lane, disturbed, irregular, other, merger, bulge
+    rounded, tight winding, just noticeable, can't tell (arms).
+  - The groups are fixed now from A1's B1 results and do not change after any new result.
+- **Ordinal axes (Part A):** arm count and winding, scored as Kendall τ of the ordinal score with
+  E[category] within the same deciles.
+- **[CC]** State whether probes use raw or cleaned embeddings for the primary reading. The draft's choice:
+  **raw primary** (the decile already controls apparent size, and B1 showed the cleaner can distort
+  within-decile comparisons, e.g. no bulge), cleaned reported beside it.
+
+### 5. Primary statistic
+
+For encoder e (objective o, patch p, seed s) and answer a:
+
+- **Low-resolution margin** L(e, a) = the mean over deciles 1–5 of [AUC(e, a, d) − max over untrained
+  seeds at the same o and p of AUC(u, a, d)].
+  - Deciles 1–5 are where B1 placed the knees for G2 and G3, so a resolution gain shows up here first.
+  - Margins are taken against the untrained encoders **of the same patch size**, so a change in what an
+    untrained 4×4 ViT already reads is not credited to training.
+- **Step change** for objective o, from patch p to patch q: Δ(o, a, p→q) = mean over seeds of L at q
+  minus mean over seeds of L at p. Seeds pair by train_seed.
+- **Group statistic:** the median of Δ over the answers in the group.
+- **Seed spread:** for each (o, p), the |L(seed 0) − L(seed 1)| per answer; the group's spread s_g is
+  the median of those over the group, pooled across the two patch sizes in the step.
+- **Secondary, descriptive:** the full-sample existence AUC per answer and arm; the knee per answer,
+  defined on the CI as the first decile d where deciles d and d+1 both have their bootstrap 95% CI lower
+  bound above the untrained maximum (1,000 galaxy resamples within decile), or NONE; and the ordinal τ
+  per decile for arm count and winding.
+
+### 6. States (D27: every outcome has one; first match applies)
+
+Constants, consistent with the baselines comparison: **SESOI = 0.02** and **NEGLIGIBLE = 0.005** AUC.
+Bar for a step: B_g = max(SESOI/2, 2 · s_g) = max(0.01, 2 · s_g).
+
+**Per group, per objective, per step (16 → 8 and 8 → 4):**
+
+| # | condition | step state |
+|---|---|---|
+| 1 | fewer than 5 answers in the group have a defined L at both sizes | INSUFFICIENT |
+| 2 | median Δ > B_g, and at least 2/3 of the group's answers have Δ > 0 | GAIN |
+| 3 | median Δ < −B_g, and at least 2/3 have Δ < 0 | LOSS |
+| 4 | \|median Δ\| ≤ NEGLIGIBLE and s_g ≤ SESOI/2 | NO CHANGE |
+| 5 | otherwise | UNRESOLVED |
+
+**Per group, per objective, combining the two steps:**
+
+| # | 16 → 8 | 8 → 4 | group reading |
+|---|---|---|---|
+| 1 | INSUFFICIENT in either | | INSUFFICIENT |
+| 2 | LOSS in either | | WORSE WITH SMALLER PATCHES (say which step) |
+| 3 | GAIN | NO CHANGE | **PATCH-LIMITED TO A PSF FLOOR** (H_patch and H_psf both supported) |
+| 4 | GAIN | GAIN | **PATCH-LIMITED BELOW 8 px** (H_psf not supported) |
+| 5 | GAIN | UNRESOLVED | PATCH-LIMITED; FLOOR UNRESOLVED |
+| 6 | NO CHANGE | NO CHANGE | **DATA-LIMITED AT 16 px** (H_patch not supported) |
+| 7 | NO CHANGE | GAIN | LIMITED BELOW 8 px ONLY (unexpected; report as such) |
+| 8 | otherwise | | UNRESOLVED |
+
+**Predicted readings, stated so they can fail:**
+- G1: DATA-LIMITED AT 16 px, or a small GAIN (it is already resolved at decile 1).
+- G2 and G3: PATCH-LIMITED TO A PSF FLOOR for JEPA.
+- Arm count and winding (descriptive, §5): τ in deciles 4–7 rises at 8 × 8 and changes little at 4 × 4.
+
+**Objective comparison (Q2), per group and step:** D(o1, o2) = Δ(o1) − Δ(o2), using the same answers.
+Bar: max(SESOI/2, 2 · √(s_o1² + s_o2²)).
+
+| # | condition | state |
+|---|---|---|
+| 1 | either objective INSUFFICIENT | INSUFFICIENT |
+| 2 | \|D\| > bar | DIFFERS (sign reported) |
+| 3 | \|D\| ≤ NEGLIGIBLE and both spreads ≤ SESOI/2 | SAME |
+| 4 | otherwise | UNRESOLVED |
+
+Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoCo in Δ for G2 and G3 at 16 → 8.
+
+**Device/precision control (not a reading on Q1 or Q2):**
+- For each objective with a Mac counterpart, the per-answer full-sample AUC of the GPU patch-16 run against
+  the Mac run with the same train_seed.
+- **DEVICE EFFECT** if the median absolute paired difference exceeds the Mac A1–A3 seed spread for the
+  same answers; otherwise **NO DEVICE EFFECT**.
+- Either way, every Q1 and Q2 comparison uses the GPU patch-16 runs as the reference. The Mac runs are
+  never mixed into a step change.
+
+### 7. Validity, exclusions and what stops the run
+
+- **Collapse.** The effective-rank collapse monitor runs on every arm at the project's existing bar
+  **[CC: cite it]**. An arm that collapses is VOID. It is rerun once with the same seed and recipe. A
+  second collapse leaves it VOID, and the groups are scored without it, marked. Seeds are never swapped
+  or chosen.
+- **Divergence.** NaN loss or a loss above the run's step-1,000 value after step 20,000 counts as
+  divergence and is handled as collapse.
+- **Timing smoke.** A 200-step timed smoke per arm on the rented box comes first. It may change the GPU
+  type or the order of runs, never the recipe.
+- **Cache parity.** The launcher refuses to train unless the shipped cache passes the manifest SHA-1 check
+  and the pipeline_hash matches (shipping plan).
+- **Blindness.**
+  - Decile edges, group membership, probes' recipe and untrained banks are frozen before any trained
+    checkpoint exists.
+  - The scoring code is pinned by SHA-1 before any trained 8 × 8 or 4 × 4 record is opened.
+  - The outputs are listed in an outputs.sha1 manifest before scoring, as for the M comparison.
+
+### 8. Secondary analyses (descriptive; no states)
+
+- **Labels per arm:** the 37-axis relabel2 pipeline (STRONG / SEPARATE / PROXY / WEAK / NOISE) on every
+  trained arm. In particular, do the NOISE answers (boxy bulge, 3 arms, more than 4 arms) become stable
+  at 8 × 8 or 4 × 4?
+- **Part A on every arm:** the ordinal-versus-free shares and gaps for arm count, winding, bulge and
+  roundness.
+- **B2b on every arm, if B2b has run on A1 by then:** the per-answer score shift with simulated redshift.
+  Prediction: smaller shifts at 8 × 8 for G2 and G3, if the patch was the limit. If B2b has not run by the
+  hash, this item is dropped from the pre-registration and run later as exploratory.
+- **Patch-16 GPU references** also give a third and fourth seed's worth of JEPA at patch 16, which is
+  added to the run-noise estimate for future comparisons.
+
+### 9. D28: planted tests, before the hash **[CC]**
+
+- Synthetic L curves for all 18 encoders and 30 answers at the observed seed spread, run through the
+  identical scoring path. Plants must reach every step state, every group reading (including WORSE and
+  LIMITED BELOW 8 px ONLY) and every objective-comparison state.
+- **Power, stated plainly:** with 2 seeds per arm, report the smallest group-median Δ that reads GAIN
+  with 80% probability at the observed s_g, and the probability that a true Δ of 0 reads NO CHANGE. If
+  80% power needs Δ > 0.03 for G2, report it before the hash; the user then decides whether to add a
+  third seed per arm.
+
+---
+
+## Notes outside the hashed section
+
+- The renderer run shares the rental but is not part of this pre-registration.
+- Cost from `docs/patch_ablation_cost.md`: full grid plus all three patch-16 controls is roughly 30–57
+  H100-hours.
+- Open for the user before the hash: (1) raw or cleaned as primary (draft: raw); (2) a third seed if the
+  power check in §9 says 2 seeds cannot resolve the expected effects; (3) whether B2b stays in §8.

@@ -1,9 +1,9 @@
 """Credential check before a commit or push: does a diff (or a file) carry a secret?
 
 Scans for every value in the repo's `.env` (the SciServer token lives only there, CLAUDE.md
-"Token-only-in-artifacts") and for three secret shapes: a JWT, a quoted `token=`/`secret=`/
-`password=`/`api_key=` assignment, and a UUID. Prints **hit counts only**, never a value, and exits
-1 on any hit, so it can gate a commit with `&&`.
+"Token-only-in-artifacts") and for four secret shapes: a JWT, a quoted `token=`/`secret=`/
+`password=`/`api_key=` assignment, a UUID, and an Anthropic API key. Prints **hit counts only**,
+never a value, and exits 1 on any hit, so it can gate a commit with `&&`.
 
     .venv/bin/python tools/credential_check.py                     # the staged diff
     .venv/bin/python tools/credential_check.py origin/main..HEAD   # an unpushed range
@@ -27,6 +27,7 @@ PATTERNS = (
     re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
     re.compile(r"(?i)(token|secret|password|api[_-]?key)\s*[=:]\s*['\"][^'\"]{8,}"),
     re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"),
+    re.compile(r"sk-ant-[A-Za-z0-9_-]{8,}"),  # Anthropic API key; the bare prefix is no hit
 )
 MIN_VALUE_LEN = 8  # shorter .env values (flags, small ints) would match by accident
 
