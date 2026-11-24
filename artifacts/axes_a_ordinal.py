@@ -458,8 +458,8 @@ def step_sheet() -> None:
     for k, (name, r) in enumerate(out.items()):
         y0 = G + k * (5 * T + HEAD + G)
         c, rw = r["embeddings"]["cleaned"]["A1"], r["embeddings"]["raw"]["A1"]
-        dr.text((G, y0), f"{name}: {' → '.join(x.split('_', 1)[1] for x in r['categories'])}", fill=(29, 27, 25), font=font)
-        dr.text((G, y0 + 16), f"real galaxies (test), cleaned ordinal score low → high, 5 nearest per slice. Reading: cleaned {c['reading']}, raw {rw['reading']}",
+        dr.text((G, y0), f"{name}: {' > '.join(x.split('_', 1)[1] for x in r['categories'])}", fill=(29, 27, 25), font=font)
+        dr.text((G, y0 + 16), f"real galaxies (test), cleaned ordinal score low to high, 5 nearest per slice. Reading: cleaned {c['reading']}, raw {rw['reading']}",
                 fill=(90, 85, 80), font=small)
         for j, pk in enumerate(r["strip"]["picks"]):
             dr.text((G + j * T + 4, y0 + 30), f"E={np.mean(pk['expected_category']):.1f}", fill=(90, 85, 80), font=small)
