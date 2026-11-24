@@ -298,9 +298,45 @@ def step_eval(arm: str, w1: bool = False) -> None:
     print(json.dumps(res["stats"]["model_units"], default=float)[:1500])
 
 
+def step_sheet() -> None:
+    """Labelled sample sheets: v_samples redrawn (rows real / real / generated / generated), and real / generated headers
+    written into the two pilot sheets' existing top margin (the image tiles are not touched)."""
+    from PIL import Image, ImageDraw, ImageFont
+    font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 15)
+    small = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 11)
+    out = D.OUT / "smoke_full_v"
+    ck = torch.load(out / "smoke.pt", map_location="cpu")
+    prep = Prep.__new__(Prep)
+    for k in ("m", "sd", "lo", "hi", "sky_median"):
+        setattr(prep, k, np.asarray(ck["prep"][k], np.float32))
+    prep.sky_on = ck["prep"]["sky_on"]
+    x64 = np.load(D.OUT / "train_x64.npy", mmap_mode="r")
+    ev = np.sort(np.random.default_rng(D.SEED + 31).choice(len(x64), 64, replace=False))
+    x = np.asarray(x64[ev], dtype=np.float32)
+    xs = prep.inv(np.load(out / "samples_w0_64_z.npy"))
+    W, T = 110, 128
+    im = Image.new("RGB", (W + 8 * T, 4 * T), (250, 249, 246))
+    dr = ImageDraw.Draw(im)
+    for r, (name, src, a) in enumerate((("real", x, 0), ("real", x, 8), ("generated", xs, 0), ("generated", xs, 8))):
+        dr.text((10, r * T + T // 2 - 10), name, fill=(29, 27, 25) if name == "real" else (160, 60, 20), font=font)
+        for c in range(8):
+            im.paste(Image.fromarray(D.show(src[a + c])).resize((T, T), Image.NEAREST), (W + c * T, r * T))
+    im.save(D.DOCS / "diffusion_smoke_v_samples.png", optimize=True)
+    for w in ("1", "3"):
+        p = D.DOCS / f"diffusion_pilot_recon_w{w}.png"
+        im = Image.open(p).convert("RGB")
+        dr = ImageDraw.Draw(im)
+        for g in range(4):  # 4 groups of (1 real + 4 generated) 64-px columns, 12-px gaps; tiles start at y = 34
+            x0 = 12 + g * (5 * 64 + 12)
+            dr.rectangle((x0, 22, x0 + 5 * 64 - 1, 33), fill=(250, 249, 246))
+            dr.text((x0 + 2, 22), "real", fill=(29, 27, 25), font=small)
+            dr.text((x0 + 66, 22), "generated (4 columns)", fill=(160, 60, 20), font=small)
+        im.save(p, optimize=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("step", choices=["sky", "run", "eval", "oracle"])
+    ap.add_argument("step", choices=["sky", "run", "eval", "oracle", "sheet"])
     ap.add_argument("arm", nargs="?", choices=["full", "nosky", "full_v"])
     ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--batch", type=int, default=32)
@@ -310,6 +346,8 @@ def main() -> None:
         step_sky()
     elif a.step == "oracle":
         step_oracle()
+    elif a.step == "sheet":
+        step_sheet()
     elif a.step == "run":
         step_run(a.arm, a.steps, a.batch)
     else:

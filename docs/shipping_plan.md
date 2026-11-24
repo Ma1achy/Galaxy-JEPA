@@ -46,8 +46,8 @@ What the grid reads, by stamp:
     `aligned_launch.sh:65` (cache n must equal the metadata rows) and `j1_preflight.py:219` (cache n must
     equal pretrain + probe). The sidecars would also have to be rewritten for a subset index.
   - **The saving is 61 GB, 15% of the upload.**
-  - **Decision (user):** either run every arm with `--no-probe` and ship the union (with the gate changes),
-    or ship the full probe corpus as planned.
+  - **Decided (user, 24 Nov): ship the full probe corpus as planned.** No `--no-probe`, no launch-gate changes; the
+    v1 cache pieces below stay in the plan.
 - **Newly found box requirement: v1's cache, for the identical split.** `_identical_split` rebuilds v1's
   split from v1's cache at a hard-coded path (`j4_spread_controls.py:58`,
   `/Volumes/X10 Pro/galaxy-jepa/runs/full/cache/…`). On the box it needs:

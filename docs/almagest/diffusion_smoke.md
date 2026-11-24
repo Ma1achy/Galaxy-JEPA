@@ -115,15 +115,13 @@ rental only if the 64-px v-pred smoke (below) shows a mean bias of about 0 and n
   - **> 25%** of images have an offset > 1 SD;
   - the mean level is beyond **± 0.2** in any band.
 
-  Units are those of the rendered sample (normalised-stamp x with the median sky added back), compared
-  with the real inputs' row.
+  Units: sky-subtracted model units (decided 24 Nov; see the last section).
 
 ## v-prediction smoke (22 Nov): the rental recipe
 
 Arm `full_v`: fixes 1 and 2, v-prediction, **no clamp**, 2,000 steps at batch 32 (0.86 h). The swap guard
 killed attempt 1 (other sessions' memory), and the run resumed from its 500-step checkpoint. Same evaluation
-as above: 64 unconditional samples against 64 inputs. Sheet: `diffusion_smoke_v_samples.png` (rows 1–2
-inputs, rows 3–4 samples).
+as above: 64 unconditional samples against 64 inputs. Sheet: `diffusion_smoke_v_samples.png` (rows labelled real / generated; redrawn by `almagest_diffusion_smoke.py sheet`).
 
 | model units, g / r / i | mean | SD | ring level IQR | ring noise | offset > 1 SD |
 |---|---|---|---|---|---|
@@ -138,8 +136,13 @@ inputs, rows 3–4 samples).
 - **Against the stop rule at 2,000 steps:** IQR ≤ 2.1 × real (limit 3×), 0% offset (limit 25%), mean −0.04
   (limit ± 0.2). It **passes**, so v-prediction with no clamp is the rental recipe.
 
-**Units for the stop rule (to confirm).** The rendered samples add back the *median* sky, while each real
-input keeps its own sky level. In rendered units the samples' ring IQR (0.008–0.017) is therefore smaller
-than the inputs' (0.028–0.052) by construction, and the IQR test would be blind. The rule should be
-evaluated on sky-subtracted model units for both sides: IQR, offsets and mean. In this run the mean is
-−0.04 in both unit systems.
+**Units for the stop rule: decided (user, 24 Nov): sky-subtracted model units, for samples and inputs alike** (IQR,
+offsets, mean level). Reason: rendered samples add back the *median* sky while each real input keeps its own,
+so the samples' rendered ring IQR (0.008–0.017) is below the inputs' (0.028–0.052) by construction and the IQR
+test would be blind. This replaces the units sentence in the stop rule above. In this run the mean is −0.04 in
+both unit systems.
+
+**Not every colour cast is the generator's.** The red tile at top left of the sheet is a *real* galaxy: its
+i-band sky is +1.07 against about −0.15 in its neighbours. Over the 100k training images, 2.4% have a band's ring sky
+more than 0.3 from that band's median, and 2.1% have bands whose skies differ by more than 0.3 (x units). Fix 2
+removes these before training. The sheet is display-only: the model units above are unaffected.
