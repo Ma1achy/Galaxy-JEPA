@@ -254,5 +254,39 @@ def step_g2():
             path.write_text(json.dumps(out, indent=1, default=float))
 
 
+def step_g2pair():
+    """Paired bootstrap of τ_A1 − τ_untrained (mean and max of the seeds) on the same test rows, for the seven priority attributes (G2's own fits, same seeds, refitted).
+    Added after G2's table was read: the unpaired CI cannot say whether A1 beats the untrained seeds on shared galaxies. The statistic is fixed here: 1,000 resamples of the
+    test rows; "A1 clearly beats untrained" = 2.5th percentile of (τ_A1 − max over the seeds) > 0."""
+    AXS, d = A.load()
+    cat = vizier("efigi.tsv")
+    ids, src, tr0, te0, dec0 = efigi_rows(d)
+    M, ok = matrices(d, ids)
+    out = {"note": step_g2pair.__doc__, "attributes": {}}
+    for k in ("armC", "armS", "B/T", "floc", "inc", "Pert", "vDust"):
+        ai = list(ATTR).index(k)
+        v = vals(cat, k)[src]
+        m = ok & np.isfinite(v)
+        y, tr, te = v[m], tr0[m], te0[m]
+        P, _, _ = onehot(y, tr)
+        rec = {}
+        for kind in ("cleaned", "raw"):
+            S = {}
+            for enc in ENC:
+                r, ex = A.analyse(M[kind][enc][m], np.zeros(len(y)), P, np.ones(len(y)), tr, te, SEED + ai, want_models=True)
+                S[enc] = ex["Zte"] @ ex["mods"]["ord"]["w"]
+            yt = y[te]
+            rng = np.random.default_rng(SEED + 1)
+            idx = rng.integers(0, len(yt), (1000, len(yt)))
+            t = {e: float(kendalltau(S[e], yt)[0]) for e in ENC}
+            B = {e: np.array([kendalltau(S[e][i], yt[i])[0] for i in idx]) for e in ENC}
+            un = np.column_stack([B[e] for e in ENC[1:]])
+            rec[kind] = {"tau": t, "diff_vs_max_untrained": t["A1"] - max(t[e] for e in ENC[1:]), "ci": np.percentile(B["A1"] - un.max(1), [2.5, 97.5]).tolist(),
+                         "diff_vs_mean_untrained": t["A1"] - float(np.mean([t[e] for e in ENC[1:]])), "ci_mean": np.percentile(B["A1"] - un.mean(1), [2.5, 97.5]).tolist()}
+            A.log(f"G2pair {k} {kind} τ A1 {t['A1']:.3f} − max {rec[kind]['diff_vs_max_untrained']:+.3f} {np.round(rec[kind]['ci'], 3)}")
+        out["attributes"][k] = rec
+        (A.DOC / "g2pair.json").write_text(json.dumps(out, indent=1, default=float))
+
+
 if __name__ == "__main__":
     globals()["step_" + sys.argv[1]]()
