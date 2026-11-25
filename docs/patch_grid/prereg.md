@@ -397,11 +397,12 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
 - Cost from `docs/patch_ablation_cost.md`: the full grid (27 encoders), 45–87 H100-hours.
 - Open items, all reported and none reconciled: `docs/patch_grid/flags.md`.
 
-**Stage 1 engineering checklist (user, 25 Nov; outside the hash). Any failure stops the run before stage 2.** Code: `artifacts/patch_grid_stage1.py`. It is run per arm type (nine, seed 0, 2,000 steps at the real batch, one at a time on an idle GPU); items 1, 2 and 4 are also read from stage 1's real arms.
+**Stage 1 engineering checklist (user, 25 Nov; outside the hash). Any failure stops the run before stage 2.** Code: `artifacts/patch_grid_stage1.py`. It is run per arm type (nine, seed 0, 2,000 steps at the real batch, one at a time on an idle GPU);
+items 1 and 2 are also read from stage 1's real arms. **The bars were revised by the user on 25 Nov, after the hash and before any rental;** they replace a two-sided ± 30% on items 1 and a gate at 85% on item 4. The hashed section is unchanged.
 
-1. **Throughput and peak memory** per arm against the cost doc, ± 30%.
+1. **Throughput** at least 70% of the cost doc's lower estimate for the arm (the long end of its hours, so hours per seed ≤ long end / 0.70); faster always passes. **Peak memory** fails only above 90% of the card.
 2. **Loss** finite, and falling through the first 2,000 steps: mean(steps 1,501–2,000) < mean(steps 1–500). A step-by-step or window-by-window fall would fail every JEPA and MoCo run on the Mac
    (JEPA dips by step 1,000 and rises; MoCo has a start-up hump); all nine Mac runs pass this form.
 3. **Flash attention active:** the encoder, predictor and decoder run forward and backward in bf16 under a kernel context that allows flash only, so it raises if flash can't serve them.
-4. **Loader:** GPU utilisation above 85% (nvidia-smi, 1-s samples, after step 200).
+4. **GPU utilisation** (nvidia-smi, 1-s samples, after step 200) is reported, not a gate.
 5. **Checkpoint round trip:** save, reload, identical embedding on 64 galaxies.

@@ -1,6 +1,6 @@
 # Patch-size ablation 16 → 8 → 4 (D11) and the 128-px renderer: rented-GPU cost
 
-**Current plan and total: the full grid only, 27 encoders, 45–87 H100-hours ($90–305) — "Decided 25 Nov" below.** Everything above that section is the history of the estimate.
+**Current plan: the full grid only, 27 encoders, 45–87 H100-hours ($90–305) on one GPU ("Decided 25 Nov"), 51–97 billed ($102–340) as now planned on two boxes ("Decided 25 Nov, later").** Everything above that section is the history of the estimate.
 
 Estimate only (21 Nov 2026). Nothing booked, rented, launched or measured on a GPU. This supersedes
 `patch8_cost.md` for the plan as changed on 21 Nov: full 256-px stamps, no crops for the encoders; ViT-S at
@@ -204,6 +204,11 @@ engineering check with no decision attached, so **there is one budget, and no ch
 - **Wall-clock:** about 2–4 days serially on one H100; two to four GPUs on one box cut it in proportion.
 - **Retained output:** ≤ 45 GB, plus about 0.12 GB of embeddings per encoder (36 encoders ≈ 4 GB), which come home for the probes.
 - The ± 30% model uncertainty and the assumed, unconfirmed prices are as everywhere above. The older tables (two seeds, the scenarios (a)–(c), the 24 Nov three-seed table) are history, kept for the arithmetic.
+
+## Decided 25 Nov, later (user): stage 1 on 1 × H100, stage 2 on 4 × H100
+
+The arms are unchanged. Two boxes mean a second environment and pull on four billed GPUs, and a small idle tail: **51–97 GPU-hours billed ($102–340)** against the 45–87 above, for a wall-clock of 25–44 h instead of 2–4 days. The breakdown is in
+`docs/patch_grid/runbook.md` §1. Checkpoints stay on the boxes and die with them: about 6 GB comes home (embeddings, encoders, traces, the checklist), not the ≤ 45 GB above.
 
 ## Design notes the cost depends on (written before the decisions above)
 

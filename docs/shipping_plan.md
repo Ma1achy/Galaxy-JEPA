@@ -1,4 +1,13 @@
-# Shipping the cache to a rented GPU: plan (not built)
+# Shipping the cache to a rented GPU: plan
+
+**Built 25 Nov 2026 as `artifacts/ship.py` (user's decisions of 25 Nov); self-test passes; nothing uploaded yet.** Where it differs from the plan below:
+- **One chunk is staged at a time** (pack, upload, check, delete), because the SSD's 263 GB free can't hold a 345 GB staged copy. The 64-MB byte-plane blocks keep the Mac's memory flat.
+- **Bandwidth:** 6 Mbit/s from 08:00 to 23:00, uncapped overnight, by rclone's own timetable. `caffeinate` runs while it does, the swap guard stops it resumably, and a progress log and a status-line bar report it.
+- **Measured uplink (25 Nov):** about 9 Mbit/s to Cloudflare's test endpoint, 20–25 to Apple's, VPN off. At 9 Mbit/s uncapped, 345 GB takes 3.5 days. With the daytime cap, a day averages 7.1 Mbit/s (15 h at 6, 9 h at 9), so about 4.5 days.
+- **The box's token is read-only and nothing is written back:** the Mac pulls results over SSH, so "Back to the Mac" below is superseded.
+- **Pull staging is small:** each compressed chunk is deleted as soon as its raw SHA-1 passes.
+- **v1's split inputs** (index, probe columns, metadata) still ship, as decided on 24 Nov. The v1 sparse file and the launch gates of the old plan are not needed: the identical-split probes run on the Mac.
+
 
 Plan only (21 Nov 2026). No bucket created, nothing uploaded, no code written. The route (user, 21 Nov): **the
 user uploads from the Mac; the rented box never talks to SciServer**, so the SciServer token stays on the Mac.

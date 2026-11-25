@@ -6,6 +6,10 @@
     python artifacts/patch_grid_stage1.py roundtrip ARM --run DIR               # checkpoint → live encoder; save, reload: identical embedding of 64 galaxies
     python artifacts/patch_grid_stage1.py judge                                 # the table; exit 1 on any failure or missing check
 
+Bars (user, 25 Nov, after the hash; they replace the two-sided ±30% and the 85% utilisation gate): throughput at least 70% of the cost doc's lower estimate
+(= the long end of its hours; faster always passes); peak memory fails only above 90% of the card; utilisation is reported and gates nothing; loss finite and
+mean(steps 1,501–2,000) < mean(steps 1–500); flash active; checkpoint round trip identical on 64 galaxies.
+
 Run the nine smokes one at a time on an idle GPU: a shared GPU confounds rate and utilisation. No probe, AUC or score is read here.
 """
 from __future__ import annotations
@@ -28,22 +32,21 @@ sys.path.insert(0, str(REPO / "artifacts"))
 from patch_grid_run import OBJ, PATCHES, STOP, config, parse  # noqa: E402
 
 OUT = REPO / "runs/patch_grid/stage1"
-TOL = 0.30
+SLOW, CARD = 0.70, 0.90
 #: docs/patch_ablation_cost.md, H100: hours per seed (patch 16's MoCo and MAE take the patch-8 figures, as the doc's third-seed table does)
 HOURS = {("jepa", 16): (0.7, 1.1), ("moco", 16): (0.7, 1.3), ("mae", 16): (0.7, 1.2), ("jepa", 8): (0.7, 1.1), ("moco", 8): (0.7, 1.3), ("mae", 8): (0.7, 1.2),
          ("jepa", 4): (2.7, 5.3), ("moco", 4): (2.2, 4.6), ("mae", 4): (4.2, 8.3)}
-#: peak GB at batch 32. Patch 16 isn't in the doc: its own memory model at a quarter of patch 8's tokens (1.5 + (p8 − 1.5)/4)
+#: the doc's peak GB at batch 32, for the report only. Patch 16 isn't in the doc: its memory model at a quarter of patch 8's tokens (1.5 + (p8 − 1.5)/4)
 MEM = {("jepa", 8): 5.6, ("moco", 8): 5.4, ("mae", 8): 9.1, ("jepa", 4): 18.0, ("moco", 4): 17.0, ("mae", 4): 32.0}
 MEM |= {(o, 16): 1.5 + (MEM[o, 8] - 1.5) / 4 for o in OBJ}
-UTIL = 85.0
 
 
 def sample(stop: threading.Event, rows: list, gpu: str) -> None:
     while not stop.is_set():
         try:
-            q = subprocess.run(["nvidia-smi", f"--id={gpu}", "--query-gpu=utilization.gpu,memory.used", "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=5)
-            u, m = q.stdout.strip().splitlines()[0].split(",")
-            rows.append((time.time(), float(u), float(m)))
+            q = subprocess.run(["nvidia-smi", f"--id={gpu}", "--query-gpu=utilization.gpu,memory.used,memory.total", "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=5)
+            u, m, t = q.stdout.strip().splitlines()[0].split(",")
+            rows.append((time.time(), float(u), float(m), float(t)))
         except (OSError, IndexError, ValueError, subprocess.TimeoutExpired):
             pass
         stop.wait(1.0)
@@ -76,7 +79,7 @@ def watch(a) -> None:
     # a resumed arm's seconds cover this invocation only, so its rate would be overstated: the judge refuses it
     resumed = "resuming at step" in (OUT / f"{tag}.log").read_text()
     rec = {"arm": a.arm, "smoke": bool(a.smoke), "steps": n, "seconds": secs, "steps_per_s": n / secs, "hours_per_seed": STOP / (n / secs) / 3600, "resumed": resumed,
-           "peak_gb": float(peak.group(1)) if peak else None, "util_mean": float(np.mean(u)) if u else None, "util_n": len(u),
+           "peak_gb": float(peak.group(1)) if peak else None, "card_gb": rows[-1][3] * 1.048576e-3 if rows else None, "smi_used_gb": max(r[2] for r in rows) * 1.048576e-3 if rows else None, "util_mean": float(np.mean(u)) if u else None, "util_n": len(u),
            "halted": tr["halted"], "losses_2000": tr["losses"][:2000]}
     (OUT / f"{tag}.json").write_text(json.dumps(rec))
     print({k: v for k, v in rec.items() if k != "losses_2000"})
@@ -160,13 +163,12 @@ def roundtrip(a) -> None:
 
 def verdicts(arm: str, r: dict | None, fl: dict | None, rt: dict | None) -> dict[str, bool]:
     o, p, _ = parse(arm)
-    lo, hi = HOURS[o, p]
+    hi = HOURS[o, p][1]
     r = r or {}
     x = np.asarray(r.get("losses_2000") or [np.nan], float)
-    return {"throughput": bool(r) and not r["resumed"] and lo * (1 - TOL) <= r["hours_per_seed"] <= hi * (1 + TOL),
-            "memory": bool(r) and r["peak_gb"] is not None and abs(r["peak_gb"] / MEM[o, p] - 1) <= TOL,
+    return {"throughput": bool(r) and not r["resumed"] and r["hours_per_seed"] <= hi / SLOW,
+            "memory": bool(r) and r["peak_gb"] is not None and r["card_gb"] is not None and r["peak_gb"] <= CARD * r["card_gb"],
             "loss": bool(r) and len(x) == 2000 and bool(np.isfinite(x).all()) and x[1500:].mean() < x[:500].mean(),
-            "util": bool(r) and r["util_mean"] is not None and r["util_mean"] > UTIL,
             "flash": bool(fl) and fl["ok"] and fl["fp32_under_flash_only"] == "refused",
             "roundtrip": bool(rt) and rt["n"] == 64 and rt["identical"] and rt["encoder_pt_identical"] and rt["spread"] > 0 and rt["device"].startswith("cuda")}
 
@@ -188,7 +190,7 @@ def judge(_a) -> None:
                 arm = f"{o}_p{p}_s{s}"
                 r = load(f"{arm}.json")
                 if r:
-                    v = {k: x for k, x in verdicts(arm, r, None, None).items() if k in ("throughput", "memory", "loss", "util")}
+                    v = {k: x for k, x in verdicts(arm, r, None, None).items() if k in ("throughput", "memory", "loss")}
                     bad += not all(v.values())
                     print(f"{arm:12s} real", " ".join(f"{k}={'ok' if ok else 'FAIL'}" for k, ok in v.items()), f"| {r['hours_per_seed']:.2f} h, {r['peak_gb']} GB, util {r['util_mean']}")
                 else:

@@ -164,13 +164,12 @@ dust lane 24, features 111, no bar 122, smooth 136, dominant bulge 140. `docs/pa
 
 ## For the user, in one place (after the hash)
 
-Settled in the approval: power at ρ = 0 accepted and stated in advance (§6); fp32 embeddings kept; F7's 50% line as is, a voided arm rerun once; the §8 secondaries written and pinned before the final scoring. Open, before booking (`runbook.md` §2): how results
-come back from the box, `ship.py` (waits on the upload speed; the SSD's 263 GB free can't hold a 345–374 GB staged copy, so it must stream), the GPU count, and section G.
+Settled in the approval: power at ρ = 0 accepted and stated in advance (§6); fp32 embeddings kept; F7's 50% line as is, a voided arm rerun once; the §8 secondaries written and pinned before the final scoring.
+Settled after it (25 Nov): upload over R2 with `artifacts/ship.py`; results come home by the Mac over SSH, the 6 GB the scoring needs and no checkpoints; stage 1 on 1 × H100, stage 2 on 4 × H100; the checklist one-sided.
 
-## G. The stage 1 checklist (outside the hash): where its literal form may stop a sound run
+## G. The stage 1 checklist (outside the hash)
 
-Written as approved, two-sided, nothing loosened (`artifacts/patch_grid_stage1.py`; planted failures reach every item). Three places it may stop the run for a reason other than a fault; the call then is the user's.
-1. **Utilisation > 85% at patch 16 and 8.** The cost doc says those arms are step-floor-bound on an H100 (25–40 ms a step of loader and kernel launches), so the GPU may idle even with a healthy loader.
-2. **± 30% is two-sided.** An arm faster, or smaller in memory, than the doc by more than 30% also fails. The hours are read against the doc's range widened by 30%; memory against its point. Patch 16's memory isn't in the doc: it is the doc's own model at a quarter of
-   patch 8's tokens (2.5 / 2.5 / 3.4 GB for JEPA / MoCo / MAE), and patch 16's MoCo and MAE hours take the patch-8 figures, as the doc's third-seed table does.
-3. **"Falling" is mean(steps 1,501–2,000) < mean(1–500).** A monotone reading fails every JEPA and MoCo run on the Mac.
+As approved it could have stopped a sound run in three ways (utilisation at the step-floor-bound sizes; an arm faster or smaller than the doc; a monotone reading of "falling"). The user revised it on 25 Nov: one-sided throughput and memory, utilisation reported only,
+"falling" as read here. One reading of mine remains: **"the cost doc's lower estimate" is the lower throughput, the long end of the hours.** The other reading (70% of the fastest rate) would fail a patch-8 arm that took the doc's own 1.1 h.
+
+**Two boxes and §3.** §3 (hashed) says patch 16 is re-embedded on the same box, so that all arms and banks share one path. With stage 1 and stage 2 on different boxes, **all 36 embeddings are made on the stage 2 node,** and stage 1's 18 encoders (1.5 GB) are carried to it.
