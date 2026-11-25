@@ -1,0 +1,90 @@
+{
+ "rise 51%": {
+  "diverged": true,
+  "final_500_mean": 1.5100000000000005,
+  "lowest_rolling_500": 1.0000000000000007,
+  "rise_over_low": 0.5099999999999993
+ },
+ "rise 60%": {
+  "diverged": true,
+  "final_500_mean": 1.6,
+  "lowest_rolling_500": 1.0000000000000007,
+  "rise_over_low": 0.599999999999999
+ },
+ "rise 49%": {
+  "diverged": false,
+  "final_500_mean": 1.4899999999999995,
+  "lowest_rolling_500": 1.0000000000000007,
+  "rise_over_low": 0.48999999999999866
+ },
+ "early dip then flat": {
+  "diverged": false,
+  "final_500_mean": 0.12999999999999998,
+  "lowest_rolling_500": 0.12922072072072066,
+  "rise_over_low": 0.006030606197929611
+ },
+ "non-finite": {
+  "diverged": true,
+  "why": "non-finite loss"
+ },
+ "too short": {
+  "diverged": true,
+  "why": "fewer than 500 steps"
+ },
+ "mac": {
+  "m_v2": {
+   "diverged": false,
+   "final_500_mean": 0.11412944370508193,
+   "lowest_rolling_500": 0.10865445704758168,
+   "rise_over_low": 0.05038897442654067
+  },
+  "m_v2_s1": {
+   "diverged": false,
+   "final_500_mean": 0.13516382133960725,
+   "lowest_rolling_500": 0.09971932607144118,
+   "rise_over_low": 0.35544258735536216
+  },
+  "m_v2_s2": {
+   "diverged": false,
+   "final_500_mean": 0.09447661991417408,
+   "lowest_rolling_500": 0.07362956938147544,
+   "rise_over_low": 0.28313421778538306
+  },
+  "moco_s0": {
+   "diverged": false,
+   "final_500_mean": 6.2827560958862305,
+   "lowest_rolling_500": 6.28143207168579,
+   "rise_over_low": 0.0002107838125653405
+  },
+  "moco_s1": {
+   "diverged": false,
+   "final_500_mean": 6.27874835395813,
+   "lowest_rolling_500": 6.278029047966005,
+   "rise_over_low": 0.00011457512965118433
+  },
+  "moco_s2": {
+   "diverged": false,
+   "final_500_mean": 6.2804159049987796,
+   "lowest_rolling_500": 6.280264810562134,
+   "rise_over_low": 2.405860918353042e-05
+  },
+  "mae_s0": {
+   "diverged": false,
+   "final_500_mean": 0.9401262958049774,
+   "lowest_rolling_500": 0.9384919580221177,
+   "rise_over_low": 0.0017414510256477111
+  },
+  "mae_s1": {
+   "diverged": false,
+   "final_500_mean": 0.9408613094091416,
+   "lowest_rolling_500": 0.9393069293498992,
+   "rise_over_low": 0.001654815918709529
+  },
+  "mae_s2": {
+   "diverged": false,
+   "final_500_mean": 0.9394184008836747,
+   "lowest_rolling_500": 0.9388455263376236,
+   "rise_over_low": 0.000610190420021306
+  }
+ }
+}

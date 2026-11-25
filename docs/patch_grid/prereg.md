@@ -1,8 +1,8 @@
-# Patch-size grid 16 → 8 → 4 (D11): pre-registration (DRAFT v2: both sets of the user's decisions of 24 Nov applied; not hashed)
+# Patch-size grid 16 → 8 → 4 (D11): pre-registration (DRAFT v3: the user's decisions of 24 and 25 Nov applied; not hashed)
 
 **Status.** [CC] items completed 24 Nov by Claude Code, then the user's decisions of 24 Nov applied (paired design,
-three seeds, raw primary, B2b removed; then |G| + b ≤ E, the staged rental with a blind ρ gate, and the
-GPU code of record written before the hash); mismatches and ambiguities are in
+three seeds, raw primary, B2b removed; |G| + b ≤ E; the GPU code of record written before the hash), then those of 25 Nov (F7's divergence rule, no ρ gate,
+SAME in the E form, raw-only groups, the embedding code pinned); mismatches and ambiguities are in
 `docs/patch_grid/flags.md` and were not reconciled here. Still a draft, still unhashed.
 Design draft written 24 Nov 2026 from B1, B1b, Part A and the cost estimate
 (`docs/patch_ablation_cost.md`). Nothing here is hashed. Claude Code completes the operational
@@ -52,7 +52,8 @@ morphology at every resolution. But structure (bar, spiral, ring) appears only a
 | MAE | 8 | 0, 1, 2 | |
 | MAE | 4 | 0, 1, 2 | |
 
-27 trained encoders at most (3 objectives × 3 patch sizes × 3 seeds), run in two stages (§2a). Untrained banks: 3 seeds per patch size per objective architecture, as for patch 16.
+27 trained encoders (3 objectives × 3 patch sizes × 3 seeds), the whole grid, all of it run. Untrained banks: 3 seeds (0, 1, 2) per patch size. The encoder architecture is the same for all
+three objectives, so the nine banks are shared by them.
 **[CC, completed 24 Nov]** All three objectives have a paired device control. By train_seed, the Mac
 runs (`runs/`, hashed in the baselines comparison, `artifacts/baselines_comparison.md`) are:
 - seed 0: A1 (`m_v2`), `moco_s0`, `mae_s0`;
@@ -62,30 +63,13 @@ runs (`runs/`, hashed in the baselines comparison, `artifacts/baselines_comparis
 The Mac runs trained on MPS without autocast (fp32), so device and precision change together. Seed 1 is kept although it is known to run high for
 JEPA and MAE (`findings_summary.md`, the seed-1 puzzle). It was not removed after being seen.
 
-### 2a. Staged rental and the blind ρ gate (user, 24 Nov)
+### 2a. Order of the runs
 
-**Stage 1.** All three objectives at patch 16 (GPU) and patch 8, train_seeds 0, 1, 2: 18 encoders.
-
-**The gate, computed once, after stage 1 and before any stage-2 training:**
-- For each objective, the seed effects at 16 and at 8 are each seed's L minus the mean over seeds at that patch size, per answer.
-  ρ̂ is the Pearson correlation of the two sets of seed effects over all (answer, seed) pairs, raw, over the 30 answers.
-  Answers with an undefined L in any seed at either size are dropped; fewer than 5 answers, fewer than 2 seeds present at both sizes or no variation
-  make ρ̂ not estimable. A seed enters the gate only if its runs are not VOID.
-- The program is `artifacts/patch_grid_gate.py`. It prints **ρ̂ and the decision only**. It takes the untrained maximum out with the seed mean
-  (it is the same for every seed at a given size), reads no difference between patch sizes, and ρ̂ is unchanged by a shift of either size's level (D28 plants, §9).
-- **All 16 → 8 Δ scoring stays sealed until the final scoring**: no L, Δ, G or state is computed from the stage-1 encoders before the stage-2 arms
-  (or the decision not to run them) are complete.
-
-| # | condition (per objective) | decision |
-|---|---|---|
-| 1 | MoCo | its 4×4 arms run, whatever ρ̂ is |
-| 2 | JEPA or MAE, ρ̂ ≥ 0.5 | its 4×4 arms run |
-| 3 | JEPA or MAE, ρ̂ < 0.5 | its 4×4 arms don't run. Recorded: "8 → 4 not run: planted power at ρ̂ cannot resolve" |
-| 4 | JEPA or MAE, ρ̂ not estimable | its 4×4 arms don't run. Recorded: "8 → 4 not run: ρ̂ not estimable" (row 4 is mine, for D27; the user's rule has no such case) |
-
-**Stage 2.** The 4×4 arms the gate passed, at train_seeds 0, 1 and 2. **A gate that stops an objective does not touch its 16 → 8 step**, which is scored and read
-by §6 with K "3s" (§5). An objective the gate stopped has a step state of NOT RUN at 8 → 4, and its group readings are the NOT RUN rows of §6.
-ρ̂ and the decision are recorded before stage 2 starts, and are not revisited after it.
+Stage 1 (patch 16 and 8, all objectives, seeds 0–2) runs first, **as an engineering check only: no decision is attached to it** (user, 25 Nov; the blind ρ gate of the 24 Nov draft is removed).
+A stage-1 result can stop the rental only through §7's own rules (a refused pin, a collapse, a divergence). The 4×4 arms run whatever stage 1 looks like.
+- The scoring stays sealed until the whole grid is done: `artifacts/patch_grid_auc.py final` is the only program that forms a difference between patch sizes, and it refuses a partial grid.
+- **ρ̂, descriptive.** After the final scoring, ρ̂ is reported per objective for 16 → 8 and 8 → 4: each seed's L minus that patch size's per-answer mean over seeds, correlated over all (answer, seed)
+  pairs, raw. It carries no decision. It is printed beside its planted bias and SD (`plants_rho.json`): it is independent of the mean Δ (exactly) but pulled towards 0 and noisy on three seeds.
 
 ### 3. Recipe held fixed
 
@@ -93,20 +77,25 @@ by §6 with K "3s" (§5). An objective the gate stopped has a step state of NOT 
   at 101,308. The same cache and images for every arm.
 - bf16 with flash attention on every GPU arm, including the patch-16 references.
 - **Masking fixed in pixels, not tokens:**
-  - JEPA: target blocks and the 2.5 × R_petro box cover the same sky at every patch size (cost doc table).
+  - JEPA: target blocks and the 2.5 × R_petro box cover the same sky **in distribution** at every patch size, which is the intended meaning (user, 25 Nov). The block scales are fractions of the
+    grid and the draws differ with it, so a galaxy does not get the same boxes at each size. The fraction of sky masked is within about 3% at patch 8; at patch 4 the context is 18% smaller than 16 × the patch-16 count.
   - MoCo: windows scale with pixels (10–14 tokens at 16; 20–28 at 8; 40–56 at 4).
   - MAE: masking in 16-px groups. The normalised pixel target is computed over the 16-px group, identical
     to patch 16, so only the encoder token size changes.
 - Positional embeddings sin-cos from each grid; a new patch-embedding layer at each size.
 - The 2.5 × R_petro masking box depends on galaxy size. It is held fixed, and this is recorded as a known
   way size enters training (B0).
-- **Code of record for the GPU arms (written 24 Nov, before the hash):** `configs/patch_grid/<objective>_p<size>.yaml` are overlays that name a base
+- **Code of record for the GPU arms (written 24–25 Nov, before the hash):** `configs/patch_grid/<objective>_p<size>.yaml` are overlays that name a base
   config and only what differs; `artifacts/patch_grid_run.py` merges them, refuses any determining difference outside a fixed list, and runs one arm.
   MAE in 16-px groups is `objectives/mae_grouped.py` (at patch 16 it equals the Mac MAE; tested). The MoCo windows are set per size.
 - **JEPA's patch-4 masks are precomputed on the rental's CPUs**, deterministically per train_seed, by `artifacts/patch_grid_masks.py` (the reference masker's own
   draws, seeded train_seed + step; independent of the number of worker processes). `check` compares 1,024 galaxies (32 batches of 32) with `MultiBlockMasker.sample` exactly
   and any difference refuses the arm. On the Mac's CPU, 1,024 galaxies at grid 64: 0 batches differ. The launcher won't start `jepa_p4` without them, and the precomputed
   masker also compares each batch's own weight-map digest, so a batch in a different order is refused.
+- **Embedding code:** `artifacts/patch_grid_embed.py` embeds the 74,825-galaxy union (`docs/patch_grid/union_ids.npy`, SHA-1 pinned) with a trained arm, or with an untrained encoder
+  (seeds 0, 1 and 2, patch 16, 8 and 4), by the ladder's recipe: fp32, no autocast, the frozen encoder's penultimate block mean-pooled. Patch 16 is re-embedded on the same box, so all arms and banks share one path.
+  It reproduces the ladder's banked vectors on the Mac (max difference 1e-5; A2, MoCo s0 and untrained seed 1) and refuses a checkpoint whose patch size isn't the arm's.
+- **From embeddings to readings:** `artifacts/patch_grid_auc.py` (`auc`, `valid`, `final`).
 - **[CC, completed 24 Nov]** SHA-1 of the code of record:
 
   | file | SHA-1 |
@@ -142,31 +131,41 @@ by §6 with K "3s" (§5). An objective the gate stopped has a step state of NOT 
   | `configs/patch_grid/moco_p8.yaml` | `0cf54a066286f78a330ca8c825964f1c521e2f9b` |
   | `artifacts/patch_grid_run.py` | `4b761d8ae7473ecd1099cc40001bb72879ae25db` |
   | `artifacts/patch_grid_masks.py` | `7eb2669df188fcce758dc73ff289f86cc268aa11` |
-  | `artifacts/patch_grid_gate.py` | `44d2739a0c008425ad2c36e8de4ed895307ad791` |
+  | `docs/patch_grid/union_ids.npy` | `d5cba4b7debce7693a8181b69688fc1d3957260b` |
+  | `artifacts/patch_grid_embed.py` | `4396a8a1711048277c2283f3e3a7fc1e5d220748` |
+  | `artifacts/patch_grid_auc.py` | `24fa7b346e549c44bea57cc3f1d841fae79e38da` |
   | `artifacts/patch_grid_pins.py` | `10cd905d0814bbeb274c709756e53ffd30b0660b` |
-  | `artifacts/patch_grid_score.py` | `0c66b4842fdca13afa8ba057df4cdd385f4a0c60` |
+  | `artifacts/patch_grid_score.py` | `32ebcdcb2df6bca0b9478c714b8f028fce06b1e7` |
   | `artifacts/f0_preconditions.py` | `b5491b4f50f4630258928fdf0a32ec1b36a0cdf5` |
   | `artifacts/i2_sigreg_run.py` | `668858d2e1aabb455fdb1cd74e4328fc8e4fdf2b` |
   | `artifacts/patch_grid_frozen.py` | `7a603bcaeb6ae18cf860c89b7db16412e5ece451` |
   | `docs/patch_grid/frozen_deciles.json` | `f245f70a19d435a6e0b619e194f0a423c3df48d4` |
-  | `docs/patch_grid/calibration.json` | `1f7238927bc4d6860bc1630d4cd91c57c71435f2` |
+  | `docs/patch_grid/calibration.json` | `f0d8295ad7a325e20c39c6cbc91bbb94d0c7fc11` |
 
   The launcher checks every file in this table against its SHA-1 before a real run, and refuses to start on a mismatch.
 
 ### 4. Evaluation set, frozen before any training
 
-- Probes: the Scheme-1 L2-logistic probes, the ladder's recipe, fitted per encoder on the frozen train
-  split; evaluated on the frozen test split.
+- Probes: the Scheme-1 L2-logistic probes, the ladder's recipe, fitted per encoder on the frozen train split of
+  39,997 galaxies (the ladder's identical split; user, 25 Nov); evaluated on the frozen test split.
 - **Resolution deciles:** B1's decile edges in R_petro_r / psfWidth_r, per answer, taken from A1's test
   galaxies and frozen. The same galaxies sit in the same decile for every arm.
-- **Answers:** the 30 STRONG or SEPARATE answers from relabel2, grouped by B1:
-  - **G1, first-order** (clear at every resolution): smooth, features, edge-on yes, edge-on no,
-    completely round, cigar, odd yes, odd no, no bulge.
-  - **G2, structure** (knee at decile 2–4): bar, no bar, spiral, no spiral, ring, lens/arc, obvious bulge,
-    in between, loose winding, 2 arms, bulge-shape no bulge.
-  - **G3, fine** (knee ≥ 5, or none): dominant bulge, dust lane, disturbed, irregular, other, merger, bulge
-    rounded, tight winding, just noticeable, can't tell (arms).
-  - The groups are fixed now from A1's B1 results and do not change after any new result.
+- **Answers:** the 30 STRONG or SEPARATE answers from relabel2, in three groups.
+- **Groups (user, 25 Nov): defined from A1's raw B1 record alone** (`a1_visibility_b1.json`), by this rule, applied once and fixed. A decile *clears* if A1's raw AUC exceeds the untrained maximum by more than
+  0.05; the *knee* is the first decile that clears (both as B1). The first match applies:
+
+  | # | raw knee and raw deciles clearing | group |
+  |---|---|---|
+  | 1 | knee at decile 1, and at least 7 deciles clear | **G1** |
+  | 2 | knee at decile 4 or earlier, and at least 4 deciles clear | **G2** |
+  | 3 | otherwise (knee at 5 or later, no knee, or too few clearing) | **G3** |
+
+  7 is the fewest raw clearing deciles among B1's own first-order answers (odd no), and 4 the fewest among its "knee at 3–4" answers (obvious bulge). On A1's record the counts never decide a case: every
+  knee-1 answer clears at least 7 deciles and every knee-2–4 answer at least 4. The scoring code reproduces the lists from the JSON by the rule and asserts it.
+  - **G1, first-order (12):** smooth, features, edge-on yes, edge-on no, completely round, cigar, odd yes, odd no, no bulge, no bar, no spiral, ring.
+  - **G2, structure (9):** bar, spiral, lens/arc, obvious bulge, dominant bulge, in between, loose winding, 2 arms, bulge-shape no bulge.
+  - **G3, fine (9):** dust lane, disturbed, irregular, other, merger, bulge rounded, tight winding, just noticeable, can't tell (arms).
+  - Against the draft, "no bar", "no spiral" and "ring" move from G2 to G1, and "dominant bulge" from G3 to G2. The groups don't change after any new result.
 - **Ordinal axes (Part A):** arm count and winding, scored as Kendall τ of the ordinal score with
   E[category] within the same deciles.
 - **[CC, completed 24 Nov]** As implemented, the Scheme-1 ladder probes use **raw** embeddings: cleaning exists
@@ -192,8 +191,8 @@ For encoder e (objective o, patch p, seed s) and answer a:
 - **Bar:** b = max(SESOI/2, K_n · S / √n). K_n is calibrated by Monte Carlo, not chosen: the smallest value on a 0.05 grid whose
   false GAIN-or-LOSS rate and false DIFFERS rate are at most 2.5% in every noise regime (the observed patch-16 noise of every
   objective and group, raw and cleaned, at half, one and twice its size; with one seed in three running far off; with the
-  run-level seed effect shared between patch sizes fully, half or not at all): **K₃ = 3.2, K₂ = 5.6** (n = 2 only if a seed is VOID;
-  `docs/patch_grid/calibration.json`). Baselines: K = 3.0. If the gate stops an objective's 8 → 4, S has one step only, so K is calibrated for that case: **K₃ₛ = 6.4, K₂ₛ = 26.05**.
+  run-level seed effect shared between patch sizes fully, half or not at all): **K₃ = 3.2, K₂ = 5.6** (recalibrated 25 Nov on the new groups, unchanged; n = 2 only if a seed is VOID;
+  `docs/patch_grid/calibration.json`). Baselines: K = 3.0.
 - **Secondary, descriptive:** the full-sample existence AUC per answer and arm; the knee per answer,
   defined on the CI as the first decile d where deciles d and d+1 both have their bootstrap 95% CI lower
   bound above the untrained maximum (1,000 galaxy resamples within decile), or NONE; and the ordinal τ
@@ -201,7 +200,7 @@ For encoder e (objective o, patch p, seed s) and answer a:
 
 ### 6. States (D27: every outcome has one; first match applies)
 
-Constants, consistent with the baselines comparison: **SESOI = 0.02** and **NEGLIGIBLE = 0.005** AUC. Bars: §5.
+Constants: **SESOI = 0.02** AUC and **E = SESOI = 0.02** (the equivalence bound). Bars: §5.
 
 **Per group, per objective, per step (16 → 8 and 8 → 4):**
 
@@ -214,8 +213,6 @@ Constants, consistent with the baselines comparison: **SESOI = 0.02** and **NEGL
 | 5 | otherwise (with the label "seeds disagree in sign" if some G_s ≥ +SESOI/2 and some ≤ −SESOI/2) | UNRESOLVED |
 
 E is not to be widened; a group (G1 in particular) may read UNRESOLVED for that reason. GAIN and LOSS are tested before NO CHANGE, so a step with |G| > b is never NO CHANGE.
-
-A step state of NOT RUN (the gate stopped the objective) is not scored, and enters only the rows below.
 
 **Per group, per objective, combining the two steps:**
 
@@ -230,18 +227,6 @@ A step state of NOT RUN (the gate stopped the objective) is not scored, and ente
 | 7 | NO CHANGE | GAIN | LIMITED BELOW 8 px ONLY (unexpected; report as such) |
 | 8 | otherwise | | UNRESOLVED |
 
-**If 8 → 4 was NOT RUN (§2a rows 3–4), the group reading is:**
-
-| 16 → 8 | group reading |
-|---|---|
-| INSUFFICIENT | INSUFFICIENT |
-| LOSS | WORSE WITH SMALLER PATCHES (16 → 8; 8 → 4 not run) |
-| GAIN | PATCH-LIMITED AT 16 → 8; 8 → 4 NOT RUN (says nothing about the floor) |
-| NO CHANGE | NO CHANGE 16 → 8; 8 → 4 NOT RUN |
-| UNRESOLVED | UNRESOLVED (8 → 4 not run) |
-
-(These rows are mine, for D27; the user's rule did not enumerate them.)
-
 **Predicted readings, stated so they can fail:**
 - G1: DATA-LIMITED AT 16 px, or a small GAIN (it is already resolved at decile 1).
 - G2 and G3: PATCH-LIMITED TO A PSF FLOOR for JEPA.
@@ -252,10 +237,9 @@ Bar: max(SESOI/2, K_n · max(S_o1, S_o2) · √(2/n)), as the baselines comparis
 
 | # | condition | state |
 |---|---|---|
-| 0 | either objective's step is NOT RUN | NOT RUN |
 | 1 | either objective INSUFFICIENT | INSUFFICIENT |
 | 2 | \|D\| > bar | DIFFERS (sign reported) |
-| 3 | \|D\| ≤ NEGLIGIBLE and both objectives' step bars b ≤ SESOI | SAME |
+| 3 | \|D\| + b ≤ E, with b the bar above (user, 25 Nov) | SAME |
 | 4 | otherwise | UNRESOLVED |
 
 Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoCo in Δ for G2 and G3 at 16 → 8.
@@ -274,12 +258,15 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
   (**[CC, completed 24 Nov; user: the one used in A1–A3's training runs]**, `collapse_floor` in `configs/pretrain_v2.yaml`, passed to the trainer by
   `artifacts/m2_long_run.py` line 361: min_effective_rank 2.5 with a grace fraction of 0.10 of the schedule, hard floor 2.0 after step 100, three
   consecutive readings. It was re-derived at D17, made active at D21, unchanged since `11b9067` (the first A1–A3 launch) and lives in
-  `src/galaxy_jepa/callbacks/collapse.py`. **JEPA arms use it whole. MoCo and MAE arms use what the code of record applies to them:** F8 settled that only the
-  hard floor gates there and the soft floor is reported; `flags.md` 7 asks whether "A1–A3's bar" is meant to reverse that). An arm that collapses is VOID. It is rerun once with the same seed and recipe. A
+  `src/galaxy_jepa/callbacks/collapse.py`. **JEPA arms use it whole (A1–A3's bar). The hard floor (2.0, F8) gates every objective; for MoCo and MAE the soft floor is reported and does not gate** (user, 25 Nov, as coded)). An arm that collapses is VOID. It is rerun once with the same seed and recipe. A
   second collapse leaves it VOID, and the groups are scored without it, marked. Seeds are never swapped
   or chosen.
-- **Divergence.** NaN loss or a loss above the run's step-1,000 value after step 20,000 counts as
-  divergence and is handled as collapse. (User, 24 Nov: as drafted. **`flags.md` 5: applied to A1–A3's own traces this rule voids all three JEPA seeds.**)
+- **Divergence (F7's rule; user, 25 Nov).** An arm has diverged if its loss is non-finite at any step, or its final 500-step mean loss is more than 50% above its lowest 500-step rolling mean
+  (`artifacts/baselines.md` F7; `patch_grid_auc.py valid`, from the training traces). It is handled as collapse.
+  - **Why the drafted rule was wrong.** It called a loss above the run's step-1,000 value after step 20,000 a divergence. JEPA predicts in latent space against an EMA target: its loss falls fast in the first
+    thousand steps and then rises as the target moves (A1's 500-step mean peaks at 0.26 and ends at 0.114), so the step-1,000 value is a dip and not a reference. Applied to A1, A2 and A3 the drafted rule would have
+    voided all three: they are above their step-1,000 loss for 92.6%, 99.5% and 100% of the steps after 20,000. For MoCo, step 1,000 sits on the start-up hump, so the rule could hardly have fired.
+  - F7's rule fires on none of the nine Mac runs (largest rise 36%, A2) and on planted rises of 51% and 60% and on a non-finite loss; not on a planted 49% rise or a JEPA-like early dip (`plants_divergence.json`).
 - **Timing smoke.** A 200-step timed smoke per arm on the rented box comes first. It may change the GPU
   type or the order of runs, never the recipe.
 - **Cache parity.** The launcher refuses to train unless the shipped cache passes the manifest SHA-1 check
@@ -288,7 +275,7 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
   - Decile edges, group membership, probes' recipe and untrained banks are frozen before any trained
     checkpoint exists.
   - The scoring code is pinned by SHA-1 before any trained 8 × 8 or 4 × 4 record is opened.
-  - Between the stages the only program that reads a trained 8 × 8 record is `patch_grid_gate.py`.
+  - No L, Δ, G or state is computed before all 27 arms (VOID ones named) and the nine untrained banks are scored; `patch_grid_auc.py final` refuses a partial grid. Training traces and the timed smoke are read freely: they hold no score.
   - The outputs are listed in an outputs.sha1 manifest before scoring, as for the M comparison.
 
 ### 8. Secondary analyses (descriptive; no states)
@@ -301,20 +288,21 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
 - **Patch-16 GPU references** also give three more patch-16 runs per objective (device and precision differ from the Mac's, and the
   train_seeds repeat A1–A3's, so these are not new independent seeds: `flags.md` 8).
 
-### 9. D28: planted tests, before the hash **[CC: written and run 24 Nov; results in `docs/patch_grid/flags.md`]**
+### 9. D28: planted tests, before the hash **[CC: written and run 24–25 Nov; results in `docs/patch_grid/flags.md`]**
 
 - Synthetic L curves for all 27 encoders and 30 answers at the observed seed spread, run through the
-  identical scoring path. Plants reach every step state, every group reading (including WORSE at both steps, LIMITED
-  BELOW 8 px ONLY and the five NOT RUN rows), every objective-comparison state and both device states.
-- **The gate.** ρ̂ must be unchanged by any planted Δ ≠ 0: the largest change over 6,000 planted shifts is 1.7 × 10⁻¹⁶, and corr(ρ̂, mean Δ) is at most 0.02
-  in absolute value. Every decision is reached. **ρ̂ is not unbiased and this is reported, not repaired** (`flags.md` D2).
-- **Power, stated plainly:** three seeds, the paired bar: the smallest group-median Δ that reads GAIN with 80% probability, and the probability
-  that a true Δ of 0 reads NO CHANGE, per objective and group, for both steps and for the one-step case (`docs/patch_grid/power.json`, summarised in `flags.md` D).
+  identical scoring path. Plants reach every step state, every group reading (including WORSE at both steps and LIMITED
+  BELOW 8 px ONLY), every objective-comparison state (SAME in its E form) and both device states (`plants.json`).
+- The group lists are reproduced from B1's record by §4's rule, and asserted (`patch_grid_score.py check`).
+- The divergence rule's plants (`plants_divergence.json`), and ρ̂'s bias and SD (`plants_rho.json`, descriptive).
+- `final` on a planted grid built from the Mac's own patch-16 records returns the planted reading for every cell, refuses a missing arm, and scores a named VOID arm as marked.
+- **Power, stated plainly:** three seeds, the paired bar: the smallest group-median Δ that reads GAIN with 80% probability, the probability
+  that a true Δ of 0 reads NO CHANGE, and the same for DIFFERS and SAME between objectives, per objective (pair) and group, at ρ = 0 and 1 (`docs/patch_grid/power.json`, summarised in `flags.md` D).
 
 ---
 
 ## Notes outside the hashed section
 
 - The renderer run shares the rental but is not part of this pre-registration.
-- Cost from `docs/patch_ablation_cost.md`: stage 1 roughly 15–26 H100-hours; the full grid if every ρ̂ passes, 44–84.
-- The divergence rule and the MoCo and MAE reading of the collapse bar (§7) are still open: `docs/patch_grid/flags.md`.
+- Cost from `docs/patch_ablation_cost.md`: the full grid (27 encoders), 44–84 H100-hours.
+- Open items, all reported and none reconciled: `docs/patch_grid/flags.md`.

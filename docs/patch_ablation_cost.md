@@ -1,5 +1,7 @@
 # Patch-size ablation 16 → 8 → 4 (D11) and the 128-px renderer: rented-GPU cost
 
+**Current plan and total: the full grid only, 27 encoders, 45–87 H100-hours ($90–305) — "Decided 25 Nov" below.** Everything above that section is the history of the estimate.
+
 Estimate only (21 Nov 2026). Nothing booked, rented, launched or measured on a GPU. This supersedes
 `patch8_cost.md` for the plan as changed on 21 Nov: full 256-px stamps, no crops for the encoders; ViT-S at
 patch 8 and 4; JEPA plus the D12 baselines (MoCo, MAE); 2 seeds each.
@@ -181,27 +183,27 @@ The extra seed, per objective-and-size, from the hours-per-seed table:
 
 The prices are the assumed rates above, unconfirmed.
 
-## Decided 24 Nov (user): the staged plan
+## Decided 25 Nov (user): the full grid, and only the full grid
 
-The grid runs in two stages with a blind ρ gate between them (`docs/patch_grid/prereg.md` §2a). Stage 1 is all three objectives at patch 16 and 8, seeds 0, 1 and 2; stage 2
-is the 4×4 arms the gate passes (MoCo's always). Hours are from the per-seed table above, and carry its ± 30% uncertainty.
+The blind ρ gate is gone (and with it the staged cost table). All 27 encoders run: JEPA, MoCo and MAE at patch 16, 8 and 4, seeds 0, 1 and 2, all bf16 on the GPU. Stage 1 (patch 16 and 8) goes first as an
+engineering check with no decision attached, so **there is one budget, and no cheaper branch to plan for.**
 
 | | H100 GPU-h | H100 cost | A100 GPU-h | A100 cost |
 |---|---|---|---|---|
-| **stage 1** (18 encoders, patch 16 and 8; p8 bank; embeddings; set-up 2–3 h) | **15–26** | **$30–91** | **19–32** | **$25–64** |
-| + MoCo 4×4 only (JEPA and MAE gated off) | 23–45 | $46–158 | 37–68 | $48–136 |
-| + MoCo and JEPA | 31–62 | $62–217 | 57–105 | $74–210 |
-| + MoCo and MAE | 36–71 | $72–249 | 69–125 | $90–250 |
-| **full grid, every ρ̂ passes** (as 24 Nov, unchanged) | **44–84** | **$88–294** | **91–165** | **$118–330** |
-| full grid + the 128-px renderer | 46–87 | $92–305 | 95–173 | $124–346 |
+| training: 9 patch-16 + 9 patch-8 + 9 patch-4 arms | 40–76 | $80–266 | 84–153 | $109–306 |
+| set-up (environment, R2 pull, pins, timed smokes) | 2–3 | $4–11 | 2–3 | $3–6 |
+| embeddings: 27 trained encoders + 9 untrained (3 seeds × 3 sizes) over the 74,825 union | 3–8 | $6–28 | 10–25 | $13–50 |
+| **full grid** | **45–87** | **$90–305** | **96–181** | **$125–362** |
+| + the 128-px renderer | 47–90 | $94–315 | 100–189 | $130–378 |
 
-- **Totals are cumulative.** Stage 2 by itself: MoCo 8–19 H100-h, JEPA 8–17, MAE 13–26 (patch-4 bank and embeddings included once, about 1–5 h).
-- **What the gate buys:** if it stops JEPA and MAE the bill falls from 44–84 to 23–45. At the planted noise, the chance that it passes is 20% at ρ = 0 and 79% at ρ = 1 for JEPA,
-  18% and 76% for MAE (`flags.md` D2), so this plan ends with every ρ̂ passing only part of the time even in the best case.
-- **The gate on the box.** It needs the 18 encoders' embeddings (patch 16 and 8), which is minutes of GPU, and the probes' CPU work (30 answers × 18 encoders, small). If the box
-  is released between the stages, add a second set-up of 2–3 h and another cache pull; if it is kept, the decision has to be made while the meter runs (about half an hour of it).
-- **JEPA's patch-4 masks are precomputed on the box's CPUs.** Measured on the loaded Mac: 0.6 s per batch at grid 64 (64 batches in 40 s), so 101,308 steps are about
-  17 core-hours per seed, 50 for three. On 16 cores it is about an hour per seed; it can run beside stage 1's GPU work, so it adds little wall-clock if the box has the cores. Output about 33 MB per seed. A box with few CPU cores is the wrong box.
+- **The embedding row is new in size.** The grid keeps the ladder's fp32 embedding recipe (§3). An H100 has no tensor-core speed-up for fp32 (about 67 TFLOP/s peak against 989 in bf16), and a patch-4 pass over the
+  union is about 36 PFLOP: roughly 18 minutes per encoder on an H100 and an hour on an A100, for 12 patch-4 encoders. The untrained banks are 3 seeds (not the 30 of the older tables), which takes off most of what they cost
+  before. bf16 embeddings would be quicker; they would also not be the ladder's recipe.
+- **JEPA's patch-4 masks are precomputed on the box's CPUs.** Measured on the loaded Mac: 0.6 s per batch at grid 64 (64 batches in 40 s), so 101,308 steps are about 17 core-hours per seed, 50 for three. On 16 cores it is about
+  an hour per seed, run beside stage 1's GPU work. About 33 MB of output per seed. A box with few CPU cores is the wrong box.
+- **Wall-clock:** about 2–4 days serially on one H100; two to four GPUs on one box cut it in proportion.
+- **Retained output:** ≤ 45 GB, plus about 0.12 GB of embeddings per encoder (36 encoders ≈ 4 GB), which come home for the probes.
+- The ± 30% model uncertainty and the assumed, unconfirmed prices are as everywhere above. The older tables (two seeds, the scenarios (a)–(c), the 24 Nov three-seed table) are history, kept for the arithmetic.
 
 ## Design notes the cost depends on (written before the decisions above)
 

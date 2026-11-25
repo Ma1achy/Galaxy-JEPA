@@ -5,26 +5,21 @@
    "INSUFFICIENT",
    "LOSS",
    "NO CHANGE",
-   "NOT RUN",
    "UNRESOLVED"
   ],
   "group readings": [
    "DATA-LIMITED AT 16 px",
    "INSUFFICIENT",
    "LIMITED BELOW 8 px ONLY (unexpected)",
-   "NO CHANGE 16->8; 8->4 NOT RUN",
-   "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN",
    "PATCH-LIMITED BELOW 8 px",
    "PATCH-LIMITED TO A PSF FLOOR",
    "PATCH-LIMITED; FLOOR UNRESOLVED",
    "UNRESOLVED",
-   "UNRESOLVED (8->4 not run)",
    "WORSE WITH SMALLER PATCHES"
   ],
   "objective states": [
    "DIFFERS",
    "INSUFFICIENT",
-   "NOT RUN",
    "SAME",
    "UNRESOLVED"
   ],
@@ -119,7 +114,7 @@
   },
   "unresolved 0": {
    "jepa/G1": "PATCH-LIMITED; FLOOR UNRESOLVED",
-   "jepa/G2": "PATCH-LIMITED; FLOOR UNRESOLVED",
+   "jepa/G2": "UNRESOLVED",
    "jepa/G3": "UNRESOLVED",
    "moco/G1": "UNRESOLVED",
    "moco/G2": "UNRESOLVED",
@@ -162,7 +157,7 @@
    "mae/G3": "PATCH-LIMITED; FLOOR UNRESOLVED"
   },
   "unresolved 2": {
-   "jepa/G1": "LIMITED BELOW 8 px ONLY (unexpected)",
+   "jepa/G1": "UNRESOLVED",
    "jepa/G2": "UNRESOLVED",
    "jepa/G3": "UNRESOLVED",
    "moco/G1": "UNRESOLVED",
@@ -198,7 +193,7 @@
    "jepa/G1": "PATCH-LIMITED; FLOOR UNRESOLVED",
    "jepa/G2": "PATCH-LIMITED; FLOOR UNRESOLVED",
    "jepa/G3": "PATCH-LIMITED; FLOOR UNRESOLVED",
-   "moco/G1": "PATCH-LIMITED BELOW 8 px",
+   "moco/G1": "PATCH-LIMITED; FLOOR UNRESOLVED",
    "moco/G2": "PATCH-LIMITED; FLOOR UNRESOLVED",
    "moco/G3": "PATCH-LIMITED BELOW 8 px",
    "mae/G1": "PATCH-LIMITED; FLOOR UNRESOLVED",
@@ -212,7 +207,7 @@
    "moco/G1": "UNRESOLVED",
    "moco/G2": "UNRESOLVED",
    "moco/G3": "UNRESOLVED",
-   "mae/G1": "PATCH-LIMITED TO A PSF FLOOR",
+   "mae/G1": "UNRESOLVED",
    "mae/G2": "UNRESOLVED",
    "mae/G3": "UNRESOLVED"
   },
@@ -224,7 +219,7 @@
    "moco/G2": "PATCH-LIMITED; FLOOR UNRESOLVED",
    "moco/G3": "PATCH-LIMITED; FLOOR UNRESOLVED",
    "mae/G1": "PATCH-LIMITED; FLOOR UNRESOLVED",
-   "mae/G2": "PATCH-LIMITED BELOW 8 px",
+   "mae/G2": "PATCH-LIMITED; FLOOR UNRESOLVED",
    "mae/G3": "PATCH-LIMITED BELOW 8 px"
   },
   "unresolved 5": {
@@ -282,7 +277,7 @@
    "mae/G2": "PATCH-LIMITED TO A PSF FLOOR",
    "mae/G3": "PATCH-LIMITED TO A PSF FLOOR"
   },
-  "objectives differ by SESOI-ish (unresolved)": {
+  "objectives differ within E (same)": {
    "jepa/G1": "PATCH-LIMITED TO A PSF FLOOR",
    "jepa/G2": "PATCH-LIMITED TO A PSF FLOOR",
    "jepa/G3": "PATCH-LIMITED TO A PSF FLOOR",
@@ -292,61 +287,6 @@
    "mae/G1": "PATCH-LIMITED TO A PSF FLOOR",
    "mae/G2": "PATCH-LIMITED TO A PSF FLOOR",
    "mae/G3": "PATCH-LIMITED TO A PSF FLOOR"
-  },
-  "8->4 not run: gain": {
-   "jepa/G1": "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN",
-   "jepa/G2": "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN",
-   "jepa/G3": "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN",
-   "moco/G1": "PATCH-LIMITED TO A PSF FLOOR",
-   "moco/G2": "PATCH-LIMITED TO A PSF FLOOR",
-   "moco/G3": "PATCH-LIMITED TO A PSF FLOOR",
-   "mae/G1": "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN",
-   "mae/G2": "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN",
-   "mae/G3": "PATCH-LIMITED AT 16 -> 8; 8->4 NOT RUN"
-  },
-  "8->4 not run: no change": {
-   "jepa/G1": "NO CHANGE 16->8; 8->4 NOT RUN",
-   "jepa/G2": "NO CHANGE 16->8; 8->4 NOT RUN",
-   "jepa/G3": "NO CHANGE 16->8; 8->4 NOT RUN",
-   "moco/G1": "DATA-LIMITED AT 16 px",
-   "moco/G2": "DATA-LIMITED AT 16 px",
-   "moco/G3": "DATA-LIMITED AT 16 px",
-   "mae/G1": "NO CHANGE 16->8; 8->4 NOT RUN",
-   "mae/G2": "NO CHANGE 16->8; 8->4 NOT RUN",
-   "mae/G3": "NO CHANGE 16->8; 8->4 NOT RUN"
-  },
-  "8->4 not run: loss": {
-   "jepa/G1": "WORSE WITH SMALLER PATCHES (16->8; 8->4 not run)",
-   "jepa/G2": "WORSE WITH SMALLER PATCHES (16->8; 8->4 not run)",
-   "jepa/G3": "WORSE WITH SMALLER PATCHES (16->8; 8->4 not run)",
-   "moco/G1": "WORSE WITH SMALLER PATCHES (16->8)",
-   "moco/G2": "WORSE WITH SMALLER PATCHES (16->8)",
-   "moco/G3": "WORSE WITH SMALLER PATCHES (16->8)",
-   "mae/G1": "WORSE WITH SMALLER PATCHES (16->8; 8->4 not run)",
-   "mae/G2": "WORSE WITH SMALLER PATCHES (16->8; 8->4 not run)",
-   "mae/G3": "WORSE WITH SMALLER PATCHES (16->8; 8->4 not run)"
-  },
-  "8->4 not run: noisy": {
-   "jepa/G1": "UNRESOLVED (8->4 not run)",
-   "jepa/G2": "UNRESOLVED (8->4 not run)",
-   "jepa/G3": "UNRESOLVED (8->4 not run)",
-   "moco/G1": "WORSE WITH SMALLER PATCHES (8->4)",
-   "moco/G2": "WORSE WITH SMALLER PATCHES (8->4)",
-   "moco/G3": "UNRESOLVED",
-   "mae/G1": "UNRESOLVED (8->4 not run)",
-   "mae/G2": "UNRESOLVED (8->4 not run)",
-   "mae/G3": "UNRESOLVED (8->4 not run)"
-  },
-  "8->4 not run: insufficient": {
-   "jepa/G1": "INSUFFICIENT",
-   "jepa/G2": "INSUFFICIENT",
-   "jepa/G3": "INSUFFICIENT",
-   "moco/G1": "INSUFFICIENT",
-   "moco/G2": "INSUFFICIENT",
-   "moco/G3": "INSUFFICIENT",
-   "mae/G1": "INSUFFICIENT",
-   "mae/G2": "INSUFFICIENT",
-   "mae/G3": "INSUFFICIENT"
   }
  },
  "step_states": {
@@ -392,7 +332,6 @@
    "UNRESOLVED"
   ],
   "unresolved 2": [
-   "GAIN",
    "NO CHANGE",
    "UNRESOLVED"
   ],
@@ -408,7 +347,6 @@
    "UNRESOLVED"
   ],
   "unresolved 4": [
-   "GAIN",
    "NO CHANGE",
    "UNRESOLVED"
   ],
@@ -433,32 +371,9 @@
    "GAIN",
    "NO CHANGE"
   ],
-  "objectives differ by SESOI-ish (unresolved)": [
+  "objectives differ within E (same)": [
    "GAIN",
    "NO CHANGE"
-  ],
-  "8->4 not run: gain": [
-   "GAIN",
-   "NO CHANGE",
-   "NOT RUN"
-  ],
-  "8->4 not run: no change": [
-   "NO CHANGE",
-   "NOT RUN"
-  ],
-  "8->4 not run: loss": [
-   "GAIN",
-   "LOSS",
-   "NOT RUN"
-  ],
-  "8->4 not run: noisy": [
-   "LOSS",
-   "NOT RUN",
-   "UNRESOLVED"
-  ],
-  "8->4 not run: insufficient": [
-   "INSUFFICIENT",
-   "NOT RUN"
   ]
  },
  "objective_states": {
@@ -529,29 +444,8 @@
    "DIFFERS",
    "SAME"
   ],
-  "objectives differ by SESOI-ish (unresolved)": [
-   "SAME",
-   "UNRESOLVED"
-  ],
-  "8->4 not run: gain": [
-   "NOT RUN",
+  "objectives differ within E (same)": [
    "SAME"
-  ],
-  "8->4 not run: no change": [
-   "NOT RUN",
-   "SAME"
-  ],
-  "8->4 not run: loss": [
-   "NOT RUN",
-   "SAME"
-  ],
-  "8->4 not run: noisy": [
-   "NOT RUN",
-   "UNRESOLVED"
-  ],
-  "8->4 not run: insufficient": [
-   "INSUFFICIENT",
-   "NOT RUN"
   ]
  },
  "device": {
