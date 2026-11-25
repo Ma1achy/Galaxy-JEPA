@@ -1,0 +1,98 @@
+{
+ "counts": {
+  "concentration R90/R50": 74813,
+  "expAB_r": 74825,
+  "deVAB_r": 74825,
+  "fracDeV_r": 74825,
+  "petroRad_r (size)": 74825,
+  "modelMag_r (magnitude)": 74825,
+  "g-r, k-corrected z=0": 58705,
+  "log M* (MPA-JHU)": 58884,
+  "log sSFR (MPA-JHU)": 57817,
+  "Simard B/T r": 73327,
+  "Simard disc inclination": 66664,
+  "Simard bulge n (free n)": 65562,
+  "Simard bulge Re (log kpc)": 60222,
+  "Simard disc Rd (log kpc)": 66655,
+  "Simard bulge ellipticity": 60227,
+  "statmorph asymmetry": 296,
+  "statmorph gini": 296,
+  "statmorph m20": 296,
+  "statmorph smoothness": 296,
+  "statmorph sersic_n": 296
+ },
+ "sources": {
+  "concentration R90/R50": "SDSS DR17 PhotoObjAll (public SkyServer)",
+  "expAB_r": "SDSS DR17 PhotoObjAll (public SkyServer)",
+  "deVAB_r": "SDSS DR17 PhotoObjAll (public SkyServer)",
+  "fracDeV_r": "SDSS DR17 PhotoObjAll (public SkyServer)",
+  "petroRad_r (size)": "SDSS DR17 PhotoObjAll (public SkyServer)",
+  "modelMag_r (magnitude)": "SDSS DR17 PhotoObjAll (public SkyServer)",
+  "g-r, k-corrected z=0": "SDSS DR17 PhotoObjAll (public SkyServer) + kcorrect 5.1.9",
+  "log M* (MPA-JHU)": "MPA-JHU galSpecExtra via SDSS DR17",
+  "log sSFR (MPA-JHU)": "MPA-JHU galSpecExtra via SDSS DR17",
+  "simard table 1": {
+   "rows_duplicated": 0,
+   "sha1": "5b7714a2f977c81e8facc0089032f4dae92d8227",
+   "matched": 73327
+  },
+  "simard table 2": {
+   "rows_duplicated": 0,
+   "sha1": "45ba70c208190fe01a90a896a2cad050ab7453df",
+   "matched": 73306
+  },
+  "Simard B/T r": "Simard et al. 2011, VizieR J/ApJS/196/11 (Harvard mirror)",
+  "Simard disc inclination": "Simard et al. 2011, VizieR J/ApJS/196/11 (Harvard mirror)",
+  "Simard bulge n (free n)": "Simard et al. 2011, VizieR J/ApJS/196/11 (Harvard mirror)",
+  "Simard bulge Re (log kpc)": "Simard et al. 2011, VizieR J/ApJS/196/11 (Harvard mirror)",
+  "Simard disc Rd (log kpc)": "Simard et al. 2011, VizieR J/ApJS/196/11 (Harvard mirror)",
+  "Simard bulge ellipticity": "Simard et al. 2011, VizieR J/ApJS/196/11 (Harvard mirror)",
+  "statmorph asymmetry": "statmorph 0.7.3 on our r-band stamps",
+  "statmorph gini": "statmorph 0.7.3 on our r-band stamps",
+  "statmorph m20": "statmorph 0.7.3 on our r-band stamps",
+  "statmorph smoothness": "statmorph 0.7.3 on our r-band stamps",
+  "statmorph sersic_n": "statmorph 0.7.3 on our r-band stamps"
+ },
+ "statmorph": {
+  "n": 300,
+  "errors": {},
+  "flag": {
+   "0.0": 296,
+   "1.0": 4
+  },
+  "flag_sersic": {
+   "0.0": 300
+  },
+  "kept": 296,
+  "kept_sersic": 296,
+  "sn_per_pixel_p5_50": [
+   3.8761778001380947,
+   7.857328227603958
+  ],
+  "sha1": "d87d9ed676d0deaeeba3ccaa9359f8c1d7d060ad"
+ },
+ "sdss": {
+  "when": "2026-11-24 15:05",
+  "service": "public SkyServer SQL, DR17, no token",
+  "batch": 100,
+  "requested": 74825,
+  "rows": 74825,
+  "duplicate_spectrum_rows_dropped": 2,
+  "missing": 0,
+  "with_spectrum": 59318,
+  "with_mpa": 59269,
+  "sha1": "d8d1e58b575a76211bc36c44909a80b11b978b99"
+ },
+ "kcorrect_n": 58705,
+ "simard_PpS_le_0.32": {
+  "1": 0.4835950551286335,
+  "2": 0.5178616772469095
+ },
+ "licences": {
+  "SDSS": "public domain with acknowledgement",
+  "VizieR J/ApJS/196/11": "VizieR licence (rights_uri in the TSV header); cite Simard et al. 2011",
+  "MPA-JHU": "SDSS data policy",
+  "statmorph": "BSD-3",
+  "kcorrect": "BSD-3"
+ }
+}
