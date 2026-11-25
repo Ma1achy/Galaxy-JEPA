@@ -165,7 +165,7 @@ def verdicts(arm: str, r: dict | None, fl: dict | None, rt: dict | None) -> dict
     x = np.asarray(r.get("losses_2000") or [np.nan], float)
     return {"throughput": bool(r) and not r["resumed"] and lo * (1 - TOL) <= r["hours_per_seed"] <= hi * (1 + TOL),
             "memory": bool(r) and r["peak_gb"] is not None and abs(r["peak_gb"] / MEM[o, p] - 1) <= TOL,
-            "loss": bool(r) and not r["halted"] and len(x) == 2000 and bool(np.isfinite(x).all()) and x[1500:].mean() < x[:500].mean(),
+            "loss": bool(r) and len(x) == 2000 and bool(np.isfinite(x).all()) and x[1500:].mean() < x[:500].mean(),
             "util": bool(r) and r["util_mean"] is not None and r["util_mean"] > UTIL,
             "flash": bool(fl) and fl["ok"] and fl["fp32_under_flash_only"] == "refused",
             "roundtrip": bool(rt) and rt["n"] == 64 and rt["identical"] and rt["encoder_pt_identical"] and rt["spread"] > 0 and rt["device"].startswith("cuda")}

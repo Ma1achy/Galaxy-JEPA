@@ -162,16 +162,10 @@ dust lane 24, features 111, no bar 122, smooth 136, dominant bulge 140. `docs/pa
 - **Pins:** `artifacts/patch_grid_pins.py` checks the files in §3's table; the launcher and the embedding program call it before any real run (not for smokes or `--plan`).
 - The full test suite passes (647).
 
-## For the user, in one place
+## For the user, in one place (after the hash)
 
-All seven items of 25 Nov are applied. What is left to decide or to know before the hash:
-
-1. **Power at ρ = 0 (D).** Nothing but MoCo is resolved. The design answers Q1 for JEPA and MAE only if a seed's effect carries across patch sizes; whether it does is unknown until the runs exist. This is a limit you should accept knowingly.
-2. **My choices in the group rule (B.8):** the clearing counts 7 and 4. They decide no case.
-3. **fp32 embeddings (F):** they cost 3–8 H100-hours in all. Say if you would rather have bf16; it would no longer be the ladder's recipe.
-4. **F7's 50% line is close to A2's 36%** (A.1). A JEPA arm at patch 8 or 4 that rises by more than half is VOID and rerun once.
-5. The ordinal-τ secondaries (item 14) and the relabel2 secondaries are named in §8 and have no code here; they are descriptive.
-6. The 200-step timed smoke is the first test of CUDA, flash attention, batch 32 and the loader workers.
+Settled in the approval: power at ρ = 0 accepted and stated in advance (§6); fp32 embeddings kept; F7's 50% line as is, a voided arm rerun once; the §8 secondaries written and pinned before the final scoring. Open, before booking (`runbook.md` §2): how results
+come back from the box, `ship.py` (waits on the upload speed; the SSD's 263 GB free can't hold a 345–374 GB staged copy, so it must stream), the GPU count, and section G.
 
 ## G. The stage 1 checklist (outside the hash): where its literal form may stop a sound run
 
