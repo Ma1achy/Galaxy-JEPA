@@ -1,0 +1,155 @@
+{
+ "note": "R\u00b2 of each GZ axis score from 18 directions: the physical set (map's own), 18 shuffled-target w's, and 18 random directions in the cleaned space's covariance.",
+ "r2": {
+  "t01_smooth_or_features_a01_smooth": {
+   "physical": 0.838977997863772,
+   "shuffled_target_directions": 0.03208996142450371,
+   "random_directions": 0.04240993232618584
+  },
+  "t01_smooth_or_features_a02_features_or_disk": {
+   "physical": 0.8244022853681369,
+   "shuffled_target_directions": 0.035320187420238236,
+   "random_directions": 0.045293318116900516
+  },
+  "t02_edgeon_a04_yes": {
+   "physical": 0.9368552864245437,
+   "shuffled_target_directions": 0.041540423468312326,
+   "random_directions": 0.02764911230534539
+  },
+  "t02_edgeon_a05_no": {
+   "physical": 0.9369143612203591,
+   "shuffled_target_directions": 0.04811907286830641,
+   "random_directions": 0.026664460546941826
+  },
+  "t03_bar_a06_bar": {
+   "physical": 0.6902793688415998,
+   "shuffled_target_directions": 0.040957768097566793,
+   "random_directions": 0.028351798887195967
+  },
+  "t03_bar_a07_no_bar": {
+   "physical": 0.6698927121135391,
+   "shuffled_target_directions": 0.043216808403182205,
+   "random_directions": 0.035542183149103845
+  },
+  "t04_spiral_a08_spiral": {
+   "physical": 0.8765773339543774,
+   "shuffled_target_directions": 0.033891684594922755,
+   "random_directions": 0.058490987895093105
+  },
+  "t04_spiral_a09_no_spiral": {
+   "physical": 0.8752310824047249,
+   "shuffled_target_directions": 0.04127121117203225,
+   "random_directions": 0.047756791373608665
+  },
+  "t05_bulge_prominence_a10_no_bulge": {
+   "physical": 0.693873831771747,
+   "shuffled_target_directions": 0.024354109345116837,
+   "random_directions": 0.03662360949150478
+  },
+  "t05_bulge_prominence_a11_just_noticeable": {
+   "physical": 0.7978194244051346,
+   "shuffled_target_directions": 0.07073593299793446,
+   "random_directions": 0.03410089283333195
+  },
+  "t05_bulge_prominence_a12_obvious": {
+   "physical": 0.9193058401280757,
+   "shuffled_target_directions": 0.0424382177279925,
+   "random_directions": 0.054205263857353136
+  },
+  "t05_bulge_prominence_a13_dominant": {
+   "physical": 0.4841126726035918,
+   "shuffled_target_directions": 0.06613259970523144,
+   "random_directions": 0.042223150207113425
+  },
+  "t06_odd_a14_yes": {
+   "physical": 0.5201521935990643,
+   "shuffled_target_directions": 0.02967677911189559,
+   "random_directions": 0.02842987867298119
+  },
+  "t06_odd_a15_no": {
+   "physical": 0.5274213285937288,
+   "shuffled_target_directions": 0.024442753449334886,
+   "random_directions": 0.026709400881466117
+  },
+  "t07_rounded_a16_completely_round": {
+   "physical": 0.9308205952137811,
+   "shuffled_target_directions": 0.07164380922234859,
+   "random_directions": 0.04372852405674732
+  },
+  "t07_rounded_a17_in_between": {
+   "physical": 0.6719948492377148,
+   "shuffled_target_directions": 0.05551410318544436,
+   "random_directions": 0.051745646302663206
+  },
+  "t07_rounded_a18_cigar_shaped": {
+   "physical": 0.943547403094202,
+   "shuffled_target_directions": 0.04871482119690518,
+   "random_directions": 0.03081828227484462
+  },
+  "t08_odd_feature_a19_ring": {
+   "physical": 0.7187816624199326,
+   "shuffled_target_directions": 0.06675724671322092,
+   "random_directions": 0.033286797424136316
+  },
+  "t08_odd_feature_a20_lens_or_arc": {
+   "physical": 0.6196016661547525,
+   "shuffled_target_directions": 0.03539909212939285,
+   "random_directions": 0.05785370416557889
+  },
+  "t08_odd_feature_a21_disturbed": {
+   "physical": 0.42960264921055935,
+   "shuffled_target_directions": 0.045287215339529285,
+   "random_directions": 0.024514160306984834
+  },
+  "t08_odd_feature_a22_irregular": {
+   "physical": 0.6940344173274583,
+   "shuffled_target_directions": 0.029138197502963537,
+   "random_directions": 0.04254863495532624
+  },
+  "t08_odd_feature_a23_other": {
+   "physical": 0.6003815674271362,
+   "shuffled_target_directions": 0.06393496768551876,
+   "random_directions": 0.054584814664572656
+  },
+  "t08_odd_feature_a24_merger": {
+   "physical": 0.47988401439648043,
+   "shuffled_target_directions": 0.03866366869056048,
+   "random_directions": 0.03129910145337622
+  },
+  "t08_odd_feature_a38_dust_lane": {
+   "physical": 0.5555232446981804,
+   "shuffled_target_directions": 0.04135249029968446,
+   "random_directions": 0.03517908332702402
+  },
+  "t09_bulge_shape_a25_rounded": {
+   "physical": 0.6687933178837996,
+   "shuffled_target_directions": 0.04826736847289881,
+   "random_directions": 0.06365460179924587
+  },
+  "t09_bulge_shape_a27_no_bulge": {
+   "physical": 0.6554115190739952,
+   "shuffled_target_directions": 0.0466515406097503,
+   "random_directions": 0.06346483155905636
+  },
+  "t10_arms_winding_a28_tight": {
+   "physical": 0.3673508886642659,
+   "shuffled_target_directions": 0.043068322646223955,
+   "random_directions": 0.07908001701619893
+  },
+  "t10_arms_winding_a30_loose": {
+   "physical": 0.5987292197326747,
+   "shuffled_target_directions": 0.044997217796508115,
+   "random_directions": 0.050217065965201146
+  },
+  "t11_arms_number_a32_2": {
+   "physical": 0.4259286070887255,
+   "shuffled_target_directions": 0.03278785560055941,
+   "random_directions": 0.07082045978407336
+  },
+  "t11_arms_number_a37_cant_tell": {
+   "physical": 0.5769307791439313,
+   "shuffled_target_directions": 0.03322557091977263,
+   "random_directions": 0.06606690210097299
+  }
+ }
+}

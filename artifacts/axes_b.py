@@ -388,8 +388,8 @@ def step_map():
     import matplotlib.pyplot as plt
     from scipy.cluster.hierarchy import fcluster, leaves_list, linkage
     from scipy.spatial.distance import squareform
-    import plate_export as PE
     AXS, d = A.load()
+    import plate_export as PE  # after A.load: it reads f0_preconditions, whose freeze the ladder environment sets
     fit = json.loads((DOC / "b_fit.json").read_text())
     ax_ = json.loads((REPO / "docs/almagest/a1_axes.json").read_text())
     gz = [f for f in ax_["order"] if ax_["labels"][f] in ("STRONG", "SEPARATE")]

@@ -15,11 +15,11 @@
   "Simard bulge Re (log kpc)": 60222,
   "Simard disc Rd (log kpc)": 66655,
   "Simard bulge ellipticity": 60227,
-  "statmorph asymmetry": 296,
-  "statmorph gini": 296,
-  "statmorph m20": 296,
-  "statmorph smoothness": 296,
-  "statmorph sersic_n": 296
+  "statmorph asymmetry": 19626,
+  "statmorph gini": 19626,
+  "statmorph m20": 19626,
+  "statmorph smoothness": 19626,
+  "statmorph sersic_n": 19570
  },
  "sources": {
   "concentration R90/R50": "SDSS DR17 PhotoObjAll (public SkyServer)",
@@ -54,22 +54,25 @@
   "statmorph sersic_n": "statmorph 0.7.3 on our r-band stamps"
  },
  "statmorph": {
-  "n": 300,
+  "n": 20000,
   "errors": {},
   "flag": {
-   "0.0": 296,
-   "1.0": 4
+   "0.0": 19626,
+   "1.0": 292,
+   "2.0": 82
   },
   "flag_sersic": {
-   "0.0": 300
+   "0.0": 19914,
+   "2.0": 80,
+   "1.0": 6
   },
-  "kept": 296,
-  "kept_sersic": 296,
+  "kept": 19626,
+  "kept_sersic": 19570,
   "sn_per_pixel_p5_50": [
-   3.8761778001380947,
-   7.857328227603958
+   3.7434999556434194,
+   7.904850887124272
   ],
-  "sha1": "d87d9ed676d0deaeeba3ccaa9359f8c1d7d060ad"
+  "sha1": "fff496c0b9fc5432124095d0b4bbd7e3f87570e5"
  },
  "sdss": {
   "when": "2026-11-24 15:05",
