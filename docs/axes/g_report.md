@@ -82,6 +82,7 @@ GZD-1/2, N&A, AUCs) are in `g3.json`.
 
 - **GZ2 votes are the better tracker of winding and bulge; DESI is the better tracker of inclination and interaction; the rest is level.** N&A T-type and winding are unrelated for both (τ −0.08 to −0.01): winding is not a Hubble stage.
 - Human DECaLS votes (GZD-5/8) are the weakest source on the same galaxies (e.g. winding 0.40 against GZ2 0.46 and DESI 0.43 on n = 327; disturbed 0.24 against 0.41). They are ≥ 5 votes on a tree with "can't tell" answers GZ2 does not have; the source, not the people, may differ.
+- **What G3 measures.** The experts and the GZ2 voters graded the same SDSS images, so G3 measures consistency under a shared visibility limit, not accuracy against the galaxy. DESI's deeper-image advantage on inclination and interaction is the one hint of an image effect.
 - **Caveats on reading this as "labeller quality":** experts graded SDSS images, GZ2 voters SDSS images, DESI predictions and GZD voters deeper Legacy ones; DESI's model was trained on GZD votes; the expert grade has its own uncertainty.
   A gap can be the image.
 - Arm count has no expert grade in either catalogue, and no label source could be scored on it.

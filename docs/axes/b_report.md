@@ -13,6 +13,7 @@ Raw R² is much higher (0.56–0.66 for colour, concentration, mass, sSFR), and 
 - **Physics (R² ≥ 0.8):** edge-on and cigar/round (inclination, axis ratio), spiral / no-spiral (concentration, sSFR), smooth / features (concentration, bulge ellipticity), bulge *obvious* and *just noticeable*.
 - **Mostly physics (0.6–0.8):** no bulge, ring, bar, irregular, in-between, lens/arc, bulge shape, "other".
 - **Mixtures or not captured (R² < 0.6):** **dominant bulge (0.48), disturbed, merger, dust lane, odd, arm winding, arm number, can't tell.** What A1 reads there is not a sum of catalogue photometry.
+- **What the R² measures:** alignment of directions inside A1 (how much of a human axis's score the physical axes' scores reproduce), not that the human label *is* that physical quantity.
 - The control is in the table: 18 shuffled-target directions give R² 0.02–0.07 and 18 random directions 0.02–0.08 on the same rows, so these R² are not what any 18 directions would give.
 
 A correlation of scores says the two directions agree in A1; it does not say A1 *uses* the physical quantity to answer the question. Bar and ring correlate with Simard's bulge Re and ellipticity (|r| 0.5–0.7): plausibly Simard's bulge absorbing bar and ring light rather than a bar–bulge relation. Not tested here.
@@ -103,6 +104,8 @@ Union rows only, fixed split, A1 against the three untrained seeds. No flag was 
 `plate_phys.bin` (beside `plate_axes.bin`) (14.2 MB): a copy of `plate_axes.bin` with two additive sections, `phys_filter_w` and `phys_pattern` (18 × 80, unit, cleaned), and a `phys_axes` header with test ρ and the fraction of w and Σw the 80-D keeps. The original plate and all its sections are unchanged (checked).
 
 ## 7. Table: R² of each GZ2 axis by the 18 physical scores
+
+R² here is alignment of directions inside A1, not identity of the label with the quantity.
 
 | GZ2 axis | R² by 18 physical scores | R² by shuffled-target / random directions | strongest physical (r) |
 |---|---|---|---|
