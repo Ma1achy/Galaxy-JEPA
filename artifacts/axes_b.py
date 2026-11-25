@@ -352,7 +352,7 @@ def step_extras():
     used = json.loads((DOC / "c_star.json").read_text())["flags_used_single"]
     names = ["SATURATED", "EDGE", "BLENDED", "DEBLENDED_AS_MOVING", *[x for x in used if x not in ("SATURATED", "EDGE", "BLENDED")]]
     t = pd.read_csv(B / "sdss.csv", dtype={"objID": str, "flags": str}).set_index("objID").reindex([str(i) for i in d.union])
-    bits = np.array([int(x) for x in t.flags])
+    bits = np.array([int(x) for x in t["flags"]])
     trm = np.isin(d.union, np.asarray(d.setup.train_ids)) & d.ok
     for n in names:
         y = (bits & const[n] != 0).astype(int)

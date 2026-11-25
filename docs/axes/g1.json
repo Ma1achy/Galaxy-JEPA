@@ -1,0 +1,281 @@
+{
+ "radius_arcsec": 3.0,
+ "files": {
+  "efigi.tsv": {
+   "sha1": "ef26b8ea9614412dc0f31b0060f25be8c86c666d",
+   "rows": 4458
+  },
+  "efigi_sdss.tsv": {
+   "sha1": "09589da5e192dbc91be50ef86817a451fb7b49e1",
+   "rows": 4457
+  },
+  "nair2010.tsv": {
+   "sha1": "5e6215fda9dd503cb0ae73f9531fb3b7cdda2966",
+   "rows": 14034
+  }
+ },
+ "source": "VizieR (Harvard mirror): J/A+A/532/A74 efigi + sdss; J/ApJS/186/427 table2; VizieR usage terms, cite the papers; no explicit open licence stated",
+ "decile_edges_petroRad_over_psf": [
+  0.05919060057809657,
+  2.8813524106836486,
+  3.436314563704362,
+  3.907187336252135,
+  4.385393331241147,
+  4.882683529920124,
+  5.4708872340051,
+  6.200088574937909,
+  7.253052245400808,
+  9.2468249228295,
+  230.99675760336203
+ ],
+ "catalogues": {
+  "efigi": {
+   "rows": 4458,
+   "probe": {
+    "corpus_rows": 230349,
+    "matched": 2373,
+    "chance_shift_60arcsec": 1,
+    "sep_q50_q95": [
+     1.4257335601455396,
+     2.5546512551697265
+    ],
+    "per_decile": [
+     22,
+     2,
+     6,
+     6,
+     8,
+     17,
+     28,
+     55,
+     147,
+     2082
+    ],
+    "median_petroRad": 22.05301,
+    "partition": {
+     "test": 373,
+     "train": 1662,
+     "val": 338
+    },
+    "in_union": 790,
+    "dr7_objid_agrees": 2335,
+    "dr7_objid_known": 2373
+   },
+   "pretrain": {
+    "corpus_rows": 826968,
+    "matched": 219,
+    "chance_shift_60arcsec": 1,
+    "sep_q50_q95": [
+     1.2475939580405666,
+     2.5544989229746
+    ],
+    "per_decile": "no psfWidth_r in the pretrain metadata",
+    "median_petroRad": 18.28781
+   },
+   "attributes": {
+    "armC": {
+     "finite_matched": 1243,
+     "distribution": [
+      87,
+      310,
+      490,
+      293,
+      63
+     ]
+    },
+    "armS": {
+     "finite_matched": 2071,
+     "distribution": [
+      831,
+      523,
+      566,
+      134,
+      17
+     ]
+    },
+    "B/T": {
+     "finite_matched": 2370,
+     "distribution": [
+      269,
+      703,
+      728,
+      424,
+      246
+     ]
+    },
+    "floc": {
+     "finite_matched": 2373,
+     "distribution": [
+      575,
+      705,
+      828,
+      224,
+      41
+     ]
+    },
+    "inc": {
+     "finite_matched": 2373,
+     "distribution": [
+      401,
+      649,
+      590,
+      391,
+      342
+     ]
+    },
+    "Pert": {
+     "finite_matched": 2373,
+     "distribution": [
+      1396,
+      659,
+      238,
+      67,
+      13
+     ]
+    },
+    "vDust": {
+     "finite_matched": 2373,
+     "distribution": [
+      607,
+      710,
+      730,
+      269,
+      57
+     ]
+    },
+    "pDust": {
+     "finite_matched": 1051,
+     "distribution": [
+      35,
+      252,
+      617,
+      134,
+      13
+     ]
+    },
+    "spot": {
+     "finite_matched": 2373,
+     "distribution": [
+      1799,
+      449,
+      101,
+      12,
+      12
+     ]
+    },
+    "armR": {
+     "finite_matched": 1395,
+     "distribution": [
+      447,
+      90,
+      327,
+      99,
+      432
+     ]
+    },
+    "barL": {
+     "finite_matched": 2061,
+     "distribution": [
+      1036,
+      436,
+      317,
+      197,
+      75
+     ]
+    },
+    "iRing": {
+     "finite_matched": 1959,
+     "distribution": [
+      1261,
+      390,
+      194,
+      78,
+      36
+     ]
+    },
+    "oRing": {
+     "finite_matched": 1884,
+     "distribution": [
+      1691,
+      118,
+      52,
+      16,
+      7
+     ]
+    },
+    "pRing": {
+     "finite_matched": 1884,
+     "distribution": [
+      1828,
+      28,
+      13,
+      10,
+      5
+     ]
+    },
+    "cont": {
+     "finite_matched": 2373,
+     "distribution": [
+      876,
+      1249,
+      206,
+      41,
+      1
+     ]
+    },
+    "mult": {
+     "finite_matched": 2373,
+     "distribution": [
+      2122,
+      223,
+      24,
+      3,
+      1
+     ]
+    }
+   }
+  },
+  "na10": {
+   "rows": 14034,
+   "probe": {
+    "corpus_rows": 230349,
+    "matched": 11601,
+    "chance_shift_60arcsec": 1,
+    "sep_q50_q95": [
+     0.11598592113718798,
+     0.3488811766628831
+    ],
+    "per_decile": [
+     89,
+     155,
+     219,
+     346,
+     451,
+     677,
+     914,
+     1406,
+     2534,
+     4810
+    ],
+    "median_petroRad": 11.64885,
+    "partition": {
+     "test": 1709,
+     "train": 8099,
+     "val": 1793
+    },
+    "in_union": 3692
+   },
+   "pretrain": {
+    "corpus_rows": 826968,
+    "matched": 3208,
+    "chance_shift_60arcsec": 0,
+    "sep_q50_q95": [
+     0.09790253989154703,
+     0.31789390865177203
+    ],
+    "per_decile": "no psfWidth_r in the pretrain metadata",
+    "median_petroRad": 10.878039999999999
+   }
+  }
+ }
+}
