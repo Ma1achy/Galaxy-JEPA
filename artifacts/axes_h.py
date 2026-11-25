@@ -457,6 +457,100 @@ def step_h2a(enc):
         np.savez(H / f"h2a_{enc}.npz", **out)
 
 
+# --- report -------------------------------------------------------------------------------------------------------------------
+def _ll_gap(t, eta, th):
+    """LL per vote of the fitted cumulative logit on test, minus the train marginal's (ordinal targets with a fitted η and thresholds)."""
+    te = t.te
+    lp = A.ord_logp(eta.astype(float), th.astype(float))
+    m = (t.n[t.fit | t.val][:, None] * t.p[t.fit | t.val]).sum(0)
+    base = np.log(np.clip(m / m.sum(), 1e-12, None))
+    return float((t.n[te] * ((t.p[te] * lp).sum(1) - t.p[te] @ base)).sum() / t.n[te].sum())
+
+
+def step_report():
+    """docs/axes/h1.json, h2a.json. Rules fixed in the module docstring."""
+    from scipy.stats import kendalltau
+    import almagest_axes as AXS
+    z = np.load(H / "targets.npz", allow_pickle=False)
+    T, metas = load_targets(z)
+    label = {m["name"]: m["label"] for m in metas}
+    h1 = {e: np.load(H / f"h1_{e}.npz", allow_pickle=False) for e in ENC if (H / f"h1_{e}.npz").exists()}
+    h2 = {e: np.load(H / f"h2a_{e}.npz", allow_pickle=False) for e in ENC if (H / f"h2a_{e}.npz").exists()}
+    grp = lambda t: "EFIGI" if t.kind == "efigi" else "GZ"  # noqa: E731
+    out1, out2 = {"targets": {}, "note": __doc__}, {"targets": {}, "note": __doc__}
+    for t in T:
+        te_ = t.te
+        dec = z["dec"][t.rows[te_]]
+        n = int(te_.sum())
+        rng = np.random.default_rng(SEED + 7)
+        idx = [rng.integers(0, n, n) for _ in range(200)]
+        yt = t.y[te_] if t.kind == "binary" else t.p[te_] @ np.arange(1, t.K + 1)
+
+        def met(eta, i=None):
+            e, y = (eta, yt) if i is None else (eta[i], yt[i])
+            return AXS.fast_auc(y, e) if t.kind == "binary" else float(kendalltau(e, y)[0])
+        rec = {"kind": t.kind, "label": label[t.name], "n_test": n, "n_train": int((t.fit | t.val).sum()), "readouts": {}}
+        g = grp(t)
+        S = {(e, ro): h1[e][f"{ro}|{g}|real|{t.name}|eta"] for e in h1 for ro in ("mean", "grid", "attn")}
+        for (e, ro), v in S.items():
+            rec["readouts"].setdefault(ro, {})[e] = {"metric": met(v), "wd": float(h1[e][f"{ro}|{g}|real|{t.name}|wd"]), "val_loss": float(h1[e][f"{ro}|{g}|real|{t.name}|val_loss"]), "wd_at_grid_edge": bool(h1[e][f"{ro}|{g}|real|{t.name}|at_edge"])}
+            if t.kind != "binary":
+                rec["readouts"][ro][e]["ll_gap"] = _ll_gap(t, v, h1[e][f"{ro}|{g}|real|{t.name}|th"])
+        if h2 and t.kind == "binary":  # (a): the ladder's fixed-C logistic probe on block 11
+            rec["readouts"]["fixed_C_mean"] = {e: {"metric": met(h2[e][f"{BLOCK}|{t.name}"])} for e in h2}
+        if h1:
+            for ro in ("grid", "attn"):
+                a = {e: {"gain": rec["readouts"][ro][e]["metric"] - rec["readouts"]["mean"][e]["metric"]} for e in h1}
+                bs = {}
+                for e in h1:
+                    bs[e] = np.array([met(S[e, ro], i) - met(S[e, "mean"], i) for i in idx])
+                    a[e]["gain_ci"] = np.percentile(bs[e], [2.5, 97.5]).tolist()
+                un = [e for e in h1 if e != "A1"]
+                if "A1" in h1 and un:
+                    dm = bs["A1"] - np.column_stack([bs[e] for e in un]).mean(1)
+                    a["A1_gain_minus_untrained_mean"] = {"value": a["A1"]["gain"] - float(np.mean([a[e]["gain"] for e in un])), "ci": np.percentile(dm, [2.5, 97.5]).tolist(),
+                                                         "untrained_gain_range": [float(min(a[e]["gain"] for e in un)), float(max(a[e]["gain"] for e in un))]}
+                # decile breakdown of the gain (A1 and the untrained mean)
+                dd = []
+                for k in range(10):
+                    m = np.flatnonzero(dec == k)
+                    if len(m) < 30 or (t.kind == "binary" and min(yt[m].sum(), len(m) - yt[m].sum()) < 10):
+                        dd.append({"decile": k + 1, "n": int(len(m))})
+                        continue
+                    f = lambda e: met(S[e, ro], m) - met(S[e, "mean"], m)  # noqa: E731
+                    dd.append({"decile": k + 1, "n": int(len(m)), "A1": f("A1") if "A1" in h1 else None, "untrained_mean": float(np.mean([f(e) for e in un])) if un else None})
+                a["deciles"] = dd
+                rec["readouts"][ro]["gain_over_mean"] = a
+            # shuffled control
+            rec["shuffled"] = {f"{e}|{ro}": met(h1[e][f"{ro}|{g}|shuffled|{t.name}|eta"]) for e in ("A1", "untrained-s0") if e in h1 for ro in ("mean", "grid", "attn") if f"{ro}|{g}|shuffled|{t.name}|eta" in h1[e].files}
+        # H2a
+        if h2:
+            b = {}
+            for e in h2:
+                b[e] = np.array([met(h2[e][f"{k + 1}|{t.name}"]) for k in range(12)])
+            r2 = {"metric_by_block": {e: b[e].tolist() for e in b}, "label": label[t.name], "kind": t.kind}
+            if "A1" in b and len(b) > 1:
+                un = [e for e in b if e != "A1"]
+                emer = None
+                cis = []
+                for k in range(12):
+                    u = np.column_stack([[met(h2[e][f"{k + 1}|{t.name}"], i) for i in idx] for e in un]).max(1)
+                    a1 = np.array([met(h2["A1"][f"{k + 1}|{t.name}"], i) for i in idx])
+                    lo, hi = np.percentile(a1 - u, [2.5, 97.5])
+                    cis.append([float(lo), float(hi)])
+                    if emer is None and lo > 0.05:
+                        emer = k + 1
+                r2["A1_minus_max_untrained_ci_by_block"] = cis
+                r2["emergence_block"] = emer
+                r2["A1_peak_block"] = int(b["A1"].argmax()) + 1
+                r2["untrained_max_by_block"] = np.column_stack([b[e] for e in un]).max(1).tolist()
+            out2["targets"][t.name] = r2
+        out1["targets"][t.name] = rec
+        (A.DOC / "h1.json").write_text(json.dumps(out1, indent=1, default=float))
+        (A.DOC / "h2a.json").write_text(json.dumps(out2, indent=1, default=float))
+        A.log(f"report {t.name}")
+
+
 # --- selftest -----------------------------------------------------------------------------------------------------------------
 def step_selftest():
     rng = np.random.default_rng(0)
@@ -498,7 +592,7 @@ def step_selftest():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("step", choices=["plan", "selftest", "targets", "extract", "h1", "h2a"])
+    ap.add_argument("step", choices=["plan", "selftest", "targets", "extract", "h1", "h2a", "report"])
     ap.add_argument("--enc", choices=ENC)
     a = ap.parse_args()
     if a.step == "plan":
@@ -509,6 +603,8 @@ def main():
         build_targets()
     elif a.step == "extract":
         step_extract(a.enc)
+    elif a.step == "report":
+        step_report()
     elif a.step == "h1":
         step_h1(a.enc)
     else:
