@@ -1,6 +1,6 @@
 # Patch grid: box requirements and rental runbook (25 Nov 2026, second version)
 
-Nothing is booked. The pre-registration is hashed (`docs/patch_grid/prereg.sha1`, commit `bfe2871`). The boxes run the commit in **`@@BOX@@`** (section 3): the same pinned files, plus the unpinned stage 1 checker and `ship.py`.
+Nothing is booked. The pre-registration is hashed (`docs/patch_grid/prereg.sha1`, commit `bfe2871`). The boxes run the commit `b1ab4c2` (section 3): the same pinned files, plus the unpinned stage 1 checker and `ship.py`.
 Hours and prices are `docs/patch_ablation_cost.md`'s estimates, not measurements; the prices are unconfirmed. Nothing here has run on a GPU. The shipping list was dry-run on the Mac in a bare clone (pins, launch plan, embedding smoke).
 
 **Decided (user, 25 Nov):** upload over R2, `ship.py`, before booking. Results come home by the Mac pulling over SSH: only the ~6 GB the scoring needs, no checkpoints, and the boxes never hold a write token. **Stage 1 on 1 × H100; stage 2 on a 4 × H100 node, one arm per GPU.** Patch-4 masks are precomputed before stage 2 starts.
@@ -74,7 +74,7 @@ sudo apt-get update && sudo apt-get install -y git tmux zstd fio rsync unzip
 curl -fsSLO https://downloads.rclone.org/v1.76.0/rclone-v1.76.0-linux-amd64.zip && curl -fsSL https://downloads.rclone.org/v1.76.0/SHA256SUMS | grep rclone-v1.76.0-linux-amd64.zip | sha256sum -c   # Ubuntu's own rclone is too old
 unzip -j rclone-v1.76.0-linux-amd64.zip '*/rclone' && sudo install rclone /usr/local/bin/
 curl -LsSf https://astral.sh/uv/install.sh | sh && source ~/.local/bin/env
-git clone https://github.com/Ma1achy/Galaxy-JEPA.git && cd Galaxy-JEPA && git checkout @@BOX@@
+git clone https://github.com/Ma1achy/Galaxy-JEPA.git && cd Galaxy-JEPA && git checkout b1ab4c2
 uv sync --frozen --extra data --extra eval && source .venv/bin/activate
 python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(0), torch.cuda.device_count(), torch.cuda.is_bf16_supported())"
 python artifacts/patch_grid_pins.py        # must say: 101 files match
