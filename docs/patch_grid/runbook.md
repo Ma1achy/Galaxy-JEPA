@@ -1,6 +1,6 @@
 # Patch grid: box requirements and rental runbook (25 Nov 2026)
 
-Nothing is booked. The pre-registration is hashed (`docs/patch_grid/prereg.sha1`, commit `bfe2871`); the box runs that commit and no other. Hours and prices are `docs/patch_ablation_cost.md`'s estimates, not measurements, and the prices are unconfirmed.
+Nothing is booked. The pre-registration is hashed (`docs/patch_grid/prereg.sha1`, commit `bfe2871`). The box runs commit `9af2e7a`: the same pinned files, plus a fix to the unpinned stage 1 checker. Hours and prices are `docs/patch_ablation_cost.md`'s estimates, not measurements, and the prices are unconfirmed.
 Nothing in this runbook has run on a GPU. The shipping list was dry-run on the Mac in a bare clone of `bfe2871` (pins, launch plan, embedding smoke).
 
 **Three things must exist before booking:**
@@ -39,7 +39,7 @@ Budget: the full grid is 45–87 H100-hours ($90–305 at the assumed $2.00–3.
 ### 0. Before booking (Mac)
 1. Upload speed measured → `ship.py` written and tested → `[YOU]` create the bucket and two tokens: read-write (Mac `.env`) and read-only (for the box).
 2. `ship.py pack`/`push`; note the printed **manifest SHA-1**.
-3. Clean state: `git status` is clean, `python artifacts/patch_grid_pins.py` in a checkout of `bfe2871` says `101 files match`.
+3. Clean state: `git status` is clean, `python artifacts/patch_grid_pins.py` in a checkout of `9af2e7a` says `101 files match`.
 
 ### 1. Boot (clock starts)
 1. `[YOU]` Book and boot; add your SSH key. Note the hourly rate, the instance id and the start time.
@@ -54,7 +54,7 @@ Budget: the full grid is 45–87 H100-hours ($90–305 at the assumed $2.00–3.
 ```
 sudo apt-get install -y git tmux zstd fio rsync rclone
 curl -LsSf https://astral.sh/uv/install.sh | sh
-git clone https://github.com/Ma1achy/Galaxy-JEPA.git && cd Galaxy-JEPA && git checkout bfe2871
+git clone https://github.com/Ma1achy/Galaxy-JEPA.git && cd Galaxy-JEPA && git checkout 9af2e7a
 uv sync --frozen --extra data --extra eval
 source .venv/bin/activate
 python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(0), torch.cuda.is_bf16_supported())"
@@ -69,7 +69,7 @@ python artifacts/patch_grid_pins.py        # must say: 101 files match
 ### 4. R2 pull and parity
 1. `[YOU]` Write the read-only R2 keys into `~/Galaxy-JEPA/.env` by hand (`chmod 600 .env`).
 2. `python artifacts/ship.py pull --manifest-sha1 <the SHA-1 from step 0> --dest $NVME/cache` **[WAITS on ship.py]**. It checks the manifest against that SHA-1, every compressed and raw SHA-1, the row count, and the pipeline hash, then writes `cache_verified.json`.
-   `ship.py` is not in `bfe2871`. It is unpinned; copy it in by `scp` and check its SHA-1 against the Mac's.
+   `ship.py` is not in `9af2e7a`. It is unpinned; copy it in by `scp` and check its SHA-1 against the Mac's.
 3. The corpus metadata: `data/pretrain_v2/metadata.csv` (105 MB) and `data/probe_v2/metadata.csv` (125 MB), in those directories, from the same pull. The split needs them. No FITS and no v1 cache: the identical-split probes run on the Mac.
 4. Environment, in every shell from here (put it in `~/pg.env`):
    ```
