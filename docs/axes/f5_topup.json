@@ -1,0 +1,3947 @@
+{
+ "n_test": 34828,
+ "measures": [
+  "concentration R90/R50",
+  "expAB_r",
+  "deVAB_r",
+  "fracDeV_r",
+  "petroRad_r (size)",
+  "modelMag_r (magnitude)",
+  "g-r, k-corrected z=0",
+  "log M* (MPA-JHU)",
+  "log sSFR (MPA-JHU)",
+  "Simard B/T r",
+  "Simard disc inclination",
+  "Simard bulge n (free n)",
+  "Simard bulge Re (log kpc)",
+  "Simard disc Rd (log kpc)",
+  "Simard bulge ellipticity",
+  "statmorph asymmetry",
+  "statmorph gini",
+  "statmorph m20",
+  "statmorph smoothness",
+  "statmorph sersic_n"
+ ],
+ "components": {
+  "pca1": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.11084539271287991,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.04827982572065235,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.04878010396595598,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.08801864229532418,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.037697336751254876,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.02769541949259331,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.11888375357111755,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.07195187239986284,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.13193835120239647,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.07718840327216199,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.03273913589022104,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.01655482358515381,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.06054569610582402,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.05305892320360217,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.0853330746225879,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.021797727624118243,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.12360889412995588,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.10750159475673167,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.02138496746667218,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.08307633526770832,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "log sSFR (MPA-JHU)",
+     -0.132
+    ],
+    [
+     "statmorph gini",
+     0.124
+    ],
+    [
+     "g-r, k-corrected z=0",
+     0.119
+    ]
+   ]
+  },
+  "pca2": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.07918077888369747,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.013805656334033268,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.01392421824130861,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.07465501191866054,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.030070550152590685,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.001835730478074027,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.1546987842915319,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.07551712999150159,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.134126132741821,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.07833505017161221,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.02626204403017827,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.028896083716850453,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.005032453200704351,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.049930697816745785,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.01873264192828762,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.1191673954226723,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.05981195789690873,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.062197488558443065,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.0931478696912635,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.08759909089088931,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.155
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.134
+    ],
+    [
+     "statmorph asymmetry",
+     0.119
+    ]
+   ]
+  },
+  "pca3": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.08548300302099064,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.01735016222947621,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.016332453802863516,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.08519951578514126,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.0014170870954990401,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.018045689364054728,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.08582582478114642,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.0337351643765029,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.08201627062393495,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.04907494451220502,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.01633539353241445,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.032031876455641976,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.04258236345448313,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.010360742836857288,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.024588898120464213,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.13523547357010718,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.07859029596273343,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.06398949497704437,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.07476735353265335,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.08888627485033437,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "statmorph asymmetry",
+     0.135
+    ],
+    [
+     "statmorph sersic_n",
+     -0.089
+    ],
+    [
+     "g-r, k-corrected z=0",
+     -0.086
+    ]
+   ]
+  },
+  "pca4": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.04553542768057724,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.022323834633727294,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.024619288332179246,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.020221327660215435,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.013556286745367479,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.014432061576852803,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.060818393460840066,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.023264809675648555,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.061400843486655796,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.03439142824886018,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.018776313329433574,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.008244807153917783,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.03881443491167471,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.030392375686061655,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.028055948756288453,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.03520496392926058,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.041330788399937514,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.037767198224608146,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.022743645066942004,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.003195657567434533,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "log sSFR (MPA-JHU)",
+     0.061
+    ],
+    [
+     "g-r, k-corrected z=0",
+     -0.061
+    ],
+    [
+     "concentration R90/R50",
+     -0.046
+    ]
+   ]
+  },
+  "pca5": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.1062502725870441,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.0669131137494575,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.06799542559514726,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.08045237619063682,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.00598688680373711,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.004482399057298612,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.08397413679537821,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.039577303088757024,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.09657834135402005,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.07905343165040642,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.054893076843870924,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.018270109105957555,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.03811619217003393,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.031000913693735054,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.08934799928145398,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.08041595369773359,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.09493241316914057,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.06766048705640694,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.0828136824980925,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.09615100113859806,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "concentration R90/R50",
+     -0.106
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.097
+    ],
+    [
+     "statmorph sersic_n",
+     -0.096
+    ]
+   ]
+  },
+  "pca6": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.2100185623854773,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.11121262480195904,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.1164523878486167,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.182583319813728,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.012047425166317943,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.008757396501119391,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.17764222951674868,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.09143244089684854,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.18640208234195513,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.16616210911980353,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.09706926288159086,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.07389927144187051,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.037968677416471815,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.06659432316913248,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.12960624796198458,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.09421259399931436,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.19550619419112233,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.15717497781016376,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.0751045625120972,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.18431472201738838,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "concentration R90/R50",
+     -0.21
+    ],
+    [
+     "statmorph gini",
+     -0.196
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.186
+    ]
+   ]
+  },
+  "pca7": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.04474202722615984,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.10777068018613464,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.10785380859310452,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.04774831550362522,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.03203573619464075,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.0110864596050215,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.16527609384281539,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.0647254638948503,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.12589871446220466,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.03378189744488962,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.10735610813954405,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.013252860622445023,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.06069349277720086,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.022309424384342642,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.03962787650408618,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.019981901664797564,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.045531028754373835,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.06514098432170234,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.1407983401827182,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.018914406960594377,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     0.165
+    ],
+    [
+     "statmorph smoothness",
+     0.141
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.126
+    ]
+   ]
+  },
+  "pca8": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.1674819846607326,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.01712007761278212,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.014091535186436225,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.15322165908830795,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.01965103321477493,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.007551594476314051,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.2559026682629133,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.12683667182753647,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.22620767677031858,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.14851762945221583,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.034158855703924317,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.06190443053555984,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.007613124128276861,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.08714772156124403,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.05028417803425419,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.150048081034818,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.1529947685406537,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.13727687009390852,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.07113545482867538,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.15906850037259854,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.256
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.226
+    ],
+    [
+     "concentration R90/R50",
+     -0.167
+    ]
+   ]
+  },
+  "pca9": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.14293994695447623,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.08714957339922508,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.08686970788941833,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.09547424497317089,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.012824168487516592,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.005743724757504488,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.06890383104832054,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.03152222738490556,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.07918167625597852,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.09353743736262775,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.07228347274683913,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.0012409541061263163,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.07046423086976276,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.025559708504821,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.11441140486600644,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.01509022324829056,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.12295915509511815,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.06613651980966315,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.06841732788985383,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.10096998106266214,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "concentration R90/R50",
+     -0.143
+    ],
+    [
+     "statmorph gini",
+     -0.123
+    ],
+    [
+     "Simard bulge ellipticity",
+     0.114
+    ]
+   ]
+  },
+  "pca10": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.0423891442707653,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.016422513772856015,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.015776500114441296,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.01962329124335201,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.00834494120719621,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.01993513858902025,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.06189114686343417,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.027597062700708892,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.057901119202829456,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.014386707018289549,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.029884991659806452,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.007096771854715556,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.0036561767277350703,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.005706956352667834,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.019305204737543442,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.050372847624360624,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.022710092918169982,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.012301116720434787,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.006717579543212792,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.009449374968804474,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.062
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.058
+    ],
+    [
+     "statmorph asymmetry",
+     0.05
+    ]
+   ]
+  },
+  "pca11": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.06673589161572586,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.055680578108557116,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.057690560048245215,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.06744371840932763,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.01985320374178298,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.0034815348671039473,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.13889323933899902,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.06070825943575022,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.11281709449929693,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.05171356910887461,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.06094292618304476,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.03702238094009678,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.030770268723026135,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.03521236225244301,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.005640992979846349,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.06413123243428079,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.06528361789459936,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.066187548711426,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.003170514106793256,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.06722917408475716,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.139
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.113
+    ],
+    [
+     "fracDeV_r",
+     -0.067
+    ]
+   ]
+  },
+  "pca12": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.14798057475875429,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.05063551822288969,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.054532475134275386,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.14291478282122766,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.007837931749323544,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.026933189474929946,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.15567087016441236,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.08257552355097603,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.1572226319160422,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.13325591583690333,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.03552816173987983,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.04796560996986338,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.011353571483797517,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.04368202174144754,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.059452089075636816,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.02957156027257146,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.13790799381637026,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.12699812774432276,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.023234324745956783,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.12313478310239417,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "log sSFR (MPA-JHU)",
+     -0.157
+    ],
+    [
+     "g-r, k-corrected z=0",
+     0.156
+    ],
+    [
+     "concentration R90/R50",
+     0.148
+    ]
+   ]
+  },
+  "pca13": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.0583611883496308,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.07521819346383272,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.07883615313478029,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.049438651603184613,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.01255099761000995,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.008735620434051366,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.017261196330405987,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.02428351725655181,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.03382619387243758,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.05562651047509406,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.07517859102451424,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.022595697050845513,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.03534357910325307,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.019058081068202882,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.049487107956368834,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.021242424438172692,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.05640906155790095,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.04713359145088187,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.03930716199708504,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.055209256084437934,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "deVAB_r",
+     0.079
+    ],
+    [
+     "expAB_r",
+     0.075
+    ],
+    [
+     "Simard disc inclination",
+     -0.075
+    ]
+   ]
+  },
+  "pca14": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.23002658818376598,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.054047886659271745,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.05574367542435523,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.1917289826862456,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.014169381915973613,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.0007252811127153769,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.24760430567746872,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.1118370720598781,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.24238035461472332,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.19308888076550987,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.036402312505688636,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.06029725668392632,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.05643319426928393,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.08295339372957974,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.1365672186741336,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.09182227067967773,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.22000236556348451,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.1482863072325789,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.07453487477513789,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.19564102216044488,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.248
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.242
+    ],
+    [
+     "concentration R90/R50",
+     -0.23
+    ]
+   ]
+  },
+  "pca15": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.07917763401378121,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.15991730145885077,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.16367941180795206,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.0861269744680791,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.004424072037318934,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.015306043474131876,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.03750569191427036,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.005911033466749299,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.013483859539995506,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.09157166087005822,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.1590196178137138,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.039599276946597706,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.0398753371030112,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.02006610938101827,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.07277025109660962,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.05135184422946786,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.09205255691271046,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.05147215036829664,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.024936345064273384,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.0862605059569555,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "deVAB_r",
+     -0.164
+    ],
+    [
+     "expAB_r",
+     -0.16
+    ],
+    [
+     "Simard disc inclination",
+     0.159
+    ]
+   ]
+  },
+  "pca16": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.10342862549362902,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.0594724017965293,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.05673206246269151,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.09040046991013037,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.004025181350561621,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.005711617100475027,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.09837220912744651,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.059430285510187655,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.10508779483986162,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.08968433764911794,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.04488641383236457,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.03183168156219605,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.03049496280798916,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.04091068383952189,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.05689534316642862,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.1069972898135345,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.09562235540286905,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.07355735986572065,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.09068947015422685,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.11725553039426177,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "statmorph sersic_n",
+     0.117
+    ],
+    [
+     "statmorph asymmetry",
+     -0.107
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.105
+    ]
+   ]
+  },
+  "pca17": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.05856836643327486,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.0723188776964854,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.0751545167591262,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.04097744028510971,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.016533546077387943,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.003298700351288099,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.02155873359830493,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.024416178342661736,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.04348523639183914,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.040335600182222445,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.06783877464861515,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.004167917796847276,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.05985986616826165,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.018556512533938488,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.05595593505665525,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.025505952425756304,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.046502431807982116,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.02674296351287423,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.03430246283375532,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.030599468624793142,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "deVAB_r",
+     0.075
+    ],
+    [
+     "expAB_r",
+     0.072
+    ],
+    [
+     "Simard disc inclination",
+     -0.068
+    ]
+   ]
+  },
+  "pca18": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.1451175189941813,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.010617768258914747,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.007634329702883789,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.12056642380140023,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.027850388972745815,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.028105642523668064,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.1792957573235104,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.08722725167613318,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.15720243177892906,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.10425909883885834,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.02297696408472701,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.03446030198925477,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.003378080475855319,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.0437450469390751,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.04793692623360936,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.09066385660279043,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.11865413523105886,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.09193290552405528,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.030858060247895825,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.11714387692457678,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.179
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.157
+    ],
+    [
+     "concentration R90/R50",
+     -0.145
+    ]
+   ]
+  },
+  "pca19": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.021982068106908267,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.020895428068019,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.01836337381396184,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.0024140635880006726,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -7.719969316932034e-05,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 6.9180805258451e-05,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.005484773744214531,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.013984675274088545,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.009378858627197346,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.012389474820437256,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.01363336476799666,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.016457367306997185,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.030767170877905387,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.004679046222961462,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.022764311595666636,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.03151510044665657,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.028173271362042906,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.0031150789912761765,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.005704784447122607,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.006040671545946892,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "statmorph asymmetry",
+     -0.032
+    ],
+    [
+     "Simard bulge Re (log kpc)",
+     -0.031
+    ],
+    [
+     "statmorph gini",
+     -0.028
+    ]
+   ]
+  },
+  "pca20": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.056219290105468785,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.020842972970216842,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.02459987950272781,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.07877312516895123,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.007402606054079817,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.021810730971523692,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.09846715514466005,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.05412062753404833,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.09603607467480028,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.05827526362815541,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.023125011303736686,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.0459373097168937,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.0356704179301539,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.030505579705758182,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.0028388981526929805,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.038088244289150516,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.0629702118051751,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.07186268205199686,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.008544812436616039,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.06874617400417198,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     0.098
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.096
+    ],
+    [
+     "fracDeV_r",
+     0.079
+    ]
+   ]
+  },
+  "ica1": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.04899058739616568,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.03769363558055131,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.040488485991222144,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.012364353892552016,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.03927625285863198,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.036172882510721385,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.09780789490001551,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.023531021956168383,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.08289813334440431,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.005005268791790156,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.050849968787030825,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.030589880092050246,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.03529740482486248,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.024213670871190914,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.053985050261412634,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.005225111840035448,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.04753837562799005,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.04236554416429306,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.015039810154980026,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.003714855907312102,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     0.098
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.083
+    ],
+    [
+     "Simard bulge ellipticity",
+     -0.054
+    ]
+   ]
+  },
+  "ica2": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.006310040510936851,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.05411108199437774,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.05353314166825161,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.008550224538318456,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.010314738613062195,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.004396875050255322,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.0806299901992798,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.03710062216763387,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.06004847653996912,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.009662583240036634,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.06084829268180647,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.0017362008919648972,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.016772814477797913,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.01428990875414046,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.005411810623269787,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.03529359020648029,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.0025078445732635603,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.012103665353394891,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.03593736909779253,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.008071905816665621,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     0.081
+    ],
+    [
+     "Simard disc inclination",
+     0.061
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.06
+    ]
+   ]
+  },
+  "ica3": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.0912178999519441,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.01368635813467229,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.015151748854615444,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.07621496443476647,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.005095737200798661,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.001061711170661229,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.10220022113395429,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.05221397181484486,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.10404829818656625,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.06615550187822751,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.009348356737977294,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.023136964329548145,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.01027929028321223,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.02790417771752366,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.042466567682891775,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.05377616846307885,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.09354903026132834,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.08037859170106149,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.09051998644581888,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.0541999666190414,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "log sSFR (MPA-JHU)",
+     -0.104
+    ],
+    [
+     "g-r, k-corrected z=0",
+     0.102
+    ],
+    [
+     "statmorph gini",
+     0.094
+    ]
+   ]
+  },
+  "ica4": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.02706125905992144,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.13075952402243574,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.1314441539386401,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.013459451429529944,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.002149501801640026,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.00210140879244393,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.15308083446379112,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.054092526864445864,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.09968139632460218,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.0005774558894095404,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.1340214804012118,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.003676861369681201,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.03561149786951215,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.01883367835279506,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.03606501429674582,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.061117628077073625,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.014840409452292293,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.04325232559688353,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.03439454214012005,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.00497124515317494,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     0.153
+    ],
+    [
+     "Simard disc inclination",
+     0.134
+    ],
+    [
+     "deVAB_r",
+     -0.131
+    ]
+   ]
+  },
+  "ica5": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.07826208453912435,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.06519009255723578,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.06245975668755207,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.09790627770592505,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.025229609491379004,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.004552251568617194,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.16623436904118127,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.06239278673230586,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.14088623376226309,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.08180754690285244,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.06656041656816168,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.061912227596943,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.08477371738214996,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.040447868730035946,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.01949793640267968,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.09631942145956474,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.08839909641225531,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.10672861758417133,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.01346316969690215,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.08816234795746784,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.166
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.141
+    ],
+    [
+     "statmorph m20",
+     0.107
+    ]
+   ]
+  },
+  "ica6": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.031002036017812543,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.018251134067611474,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.015005114202107005,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.056101799136576945,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.0016693968025974844,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.029350983930115256,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.06780377720469699,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.035456078516533,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.05454051478344228,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.04643580514143259,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.020740648692137358,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.0402724631685766,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.05321159663933342,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.017436688037100627,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.01970265504921063,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.025577616862722974,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.03363200126861496,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.05137190022696221,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.018993104449942552,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.04710022041501526,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     0.068
+    ],
+    [
+     "fracDeV_r",
+     0.056
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.055
+    ]
+   ]
+  },
+  "ica7": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.059832317034988196,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.03518423935221042,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.03473169448484626,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.06221433974101434,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.012160119987506738,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.004480226310092006,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.10292942429055453,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.043551743023847525,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.08164067297986066,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.059076088465266074,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.03794575840543868,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.023722591226406926,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.012896605392798586,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.03097493636734869,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.008597156949907401,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.01196932008931187,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.06251084094160052,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.05409784660168651,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.03739638862858498,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.05145267875773924,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     0.103
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.082
+    ],
+    [
+     "statmorph gini",
+     0.063
+    ]
+   ]
+  },
+  "ica8": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.040122524396730634,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.023601456697813685,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.030619532765390336,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.026413431619494557,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.03322590461342234,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.03168368504279683,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.07396888646152151,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.016796446929410114,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.06685570485420704,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.029062934110655792,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.03821182106969405,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.0010082975923370202,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.008620186028174773,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.00021022995619672042,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.018011962797643843,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.07022768018269562,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.0321585050111848,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.00513635042599991,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.027694072961550777,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.035698440533066575,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.074
+    ],
+    [
+     "statmorph asymmetry",
+     0.07
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.067
+    ]
+   ]
+  },
+  "ica9": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.026272626932989665,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.052660871797397445,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.05450704897080247,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.030067548084111308,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.0033173094183310313,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.029625681671452766,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.11528139642964318,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.04273959557088387,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.08591221700629524,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.01321630583985087,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.05575647020973429,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.031065757915356554,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.02875690385781522,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.0294079515327064,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.0025057130949759643,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.11270398487113098,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.029840606846942,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.04024986119492254,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.02525730554526811,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.04216454611027617,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.115
+    ],
+    [
+     "statmorph asymmetry",
+     0.113
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.086
+    ]
+   ]
+  },
+  "ica10": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.0459953405303314,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.018811564833881494,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.01950832687271839,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.028476607229741074,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.01566131044366718,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": 0.022281180692308666,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.05822888769830342,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.031913758572597976,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.04768307548783301,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.017293168695705692,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.030818224141709216,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.006097642387242495,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.012180946337141762,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.010884950495049478,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.0041625789441876995,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.04451371861767362,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.02684636225205628,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.0386201099806805,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.0022645045652420325,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.02567872245537547,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     0.058
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.048
+    ],
+    [
+     "concentration R90/R50",
+     0.046
+    ]
+   ]
+  },
+  "ica11": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.07753202030369051,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.02119856912433309,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.021920176761251475,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.08090417443825104,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.001332906103706083,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.016430099325828073,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.04585747146808444,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.02636848236819102,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.05704604130068636,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.047999920050028386,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.019596225285689925,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.03610181535667879,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.02130204498760277,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.00572095881656587,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.04760287471427584,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.09747451348365628,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.07633974533244361,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.056155879869805726,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.05566406884140988,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.09500820026311327,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "statmorph asymmetry",
+     0.097
+    ],
+    [
+     "statmorph sersic_n",
+     -0.095
+    ],
+    [
+     "fracDeV_r",
+     -0.081
+    ]
+   ]
+  },
+  "ica12": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.06319460159346864,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.08880783427227422,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.09054164843440093,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.08437873675842089,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.02037787344912734,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.05745411332022858,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.04584568759663292,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.040623051923465714,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.0662461461561731,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.07786468440338569,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.08303673386662215,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.04657267047203956,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.006015589384311401,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.02473373440342851,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.03519386173484226,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.03093010751543714,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.07226021750272016,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.07666116479609748,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.06969514220992852,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.09015967284752228,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "deVAB_r",
+     0.091
+    ],
+    [
+     "statmorph sersic_n",
+     0.09
+    ],
+    [
+     "expAB_r",
+     0.089
+    ]
+   ]
+  },
+  "ica13": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.14096229553329476,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.025434228031527794,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.028973703548834814,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.11462945894415008,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.03707363035959998,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.026912968190030667,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.16996462122847553,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.07076954117158826,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.13993432305791542,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.10910855565794707,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.04121006632632764,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.032366192828815164,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.004391445262568306,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.045535554138154744,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.05903128454015483,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.12890962912712614,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.12310645349868621,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.08025247703351719,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.0758385611971783,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.1373154063497182,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.17
+    ],
+    [
+     "concentration R90/R50",
+     -0.141
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.14
+    ]
+   ]
+  },
+  "ica14": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.008392517938551326,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.05375595793258037,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.054743500054742975,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.010789255791922796,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.024673609960192026,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.014096161214964136,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.048166772133731946,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.013282835895513842,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.024474255747394907,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.0032331973335769752,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.05246908357641064,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.011475693532864614,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.06256601750171488,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.021451491501921098,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.016029171569908317,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.05824315732600631,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.0051821700498999495,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.0029562964576818327,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.005210417734351303,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.014793320025368916,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "Simard bulge Re (log kpc)",
+     0.063
+    ],
+    [
+     "statmorph asymmetry",
+     0.058
+    ],
+    [
+     "deVAB_r",
+     0.055
+    ]
+   ]
+  },
+  "ica15": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.05686817603339633,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.021083769696677666,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.018902612573717763,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.05977486515978358,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.004942386809174354,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.0020505466269924856,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.10133422999955395,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.04417801365629379,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.08399908915798016,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.0414583729133507,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.025847593098476923,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.03620151099358904,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.04008207695006641,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.028208104761241585,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.011903696704537106,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.10549414874293292,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.050833524729276616,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.06279788138182292,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.04819716590470727,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.06306591041634793,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "statmorph asymmetry",
+     0.105
+    ],
+    [
+     "g-r, k-corrected z=0",
+     -0.101
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.084
+    ]
+   ]
+  },
+  "ica16": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.35975128545917634,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.17821575586744767,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.18501347988636527,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.301227573230675,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.010768346905925201,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.00457209844833301,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.31914973738327834,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.16586296380332557,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.33840439587730303,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.2960774614728857,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.14912936793057052,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.09268833335488631,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.1076927450900029,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.12939951590672313,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.22397912427297306,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.14556261173523624,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.33980635258176656,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.2501072984327646,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.1511392168512219,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.30279615963838613,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "concentration R90/R50",
+     0.36
+    ],
+    [
+     "statmorph gini",
+     0.34
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     -0.338
+    ]
+   ]
+  },
+  "ica17": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.04371372763833179,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": -0.02021255761838095,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": -0.018448953134213644,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.0480805024402086,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.03401072827831964,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.02128950322966418,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.027122360252053338,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.007413168134919464,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.02652473363345803,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.04110893730765752,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": 0.015192760262524248,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.01991722708786557,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.04064053734932388,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.015049400836289716,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.019369871768331527,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.03002486280357437,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.03825464164302382,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.024190566521376532,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": 0.007127023812938832,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.04271473819287674,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "fracDeV_r",
+     -0.048
+    ],
+    [
+     "concentration R90/R50",
+     -0.044
+    ],
+    [
+     "statmorph sersic_n",
+     -0.043
+    ]
+   ]
+  },
+  "ica18": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": -0.048097787020698904,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.09514672211143287,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.09109046359836223,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": -0.043044680270346664,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.009030132446417346,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.00020304267495570703,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": -0.13631076787962895,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": -0.05759629128865962,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": 0.09900521486038727,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": -0.009644962206512125,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.09861981135561279,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": -0.008091386464446747,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": 0.04578743347168585,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": -0.024266924094433078,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.027815614539848234,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.036379930131869014,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": -0.033951176225772275,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": 0.04676670005925378,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.02280622243954446,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": -0.008397564995127586,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "g-r, k-corrected z=0",
+     -0.136
+    ],
+    [
+     "log sSFR (MPA-JHU)",
+     0.099
+    ],
+    [
+     "Simard disc inclination",
+     -0.099
+    ]
+   ]
+  },
+  "ica19": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.05584900071699458,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.011918528854236296,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.015084573105768622,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.08171491349442343,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": -0.006563528220723057,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.008177303846191607,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.09048648366337816,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.056613825622328154,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.09080931519940798,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.0657728917212485,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.015767349223865846,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.04812186829073687,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.04252536888205941,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.03399819780480071,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": 0.00039568551665263046,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": -0.07953514403623034,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.05745720234428971,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.07071932166594873,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.03811537171018923,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.08241941158220988,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "log sSFR (MPA-JHU)",
+     -0.091
+    ],
+    [
+     "g-r, k-corrected z=0",
+     0.09
+    ],
+    [
+     "statmorph sersic_n",
+     0.082
+    ]
+   ]
+  },
+  "ica20": {
+   "targets": {
+    "concentration R90/R50": {
+     "rho": 0.061512591599483794,
+     "n": 34821
+    },
+    "expAB_r": {
+     "rho": 0.04480446657375632,
+     "n": 34828
+    },
+    "deVAB_r": {
+     "rho": 0.0468732692856452,
+     "n": 34828
+    },
+    "fracDeV_r": {
+     "rho": 0.07468718933870998,
+     "n": 34828
+    },
+    "petroRad_r (size)": {
+     "rho": 0.019288818835596275,
+     "n": 34828
+    },
+    "modelMag_r (magnitude)": {
+     "rho": -0.026123158479054998,
+     "n": 34828
+    },
+    "g-r, k-corrected z=0": {
+     "rho": 0.04045180474514904,
+     "n": 27410
+    },
+    "log M* (MPA-JHU)": {
+     "rho": 0.019471784533049624,
+     "n": 27475
+    },
+    "log sSFR (MPA-JHU)": {
+     "rho": -0.04504321754424465,
+     "n": 26995
+    },
+    "Simard B/T r": {
+     "rho": 0.05950681210469473,
+     "n": 34131
+    },
+    "Simard disc inclination": {
+     "rho": -0.04470300474529641,
+     "n": 31022
+    },
+    "Simard bulge n (free n)": {
+     "rho": 0.034073660311127824,
+     "n": 30510
+    },
+    "Simard bulge Re (log kpc)": {
+     "rho": -0.007175867451594314,
+     "n": 28084
+    },
+    "Simard disc Rd (log kpc)": {
+     "rho": 0.022015401767095648,
+     "n": 31019
+    },
+    "Simard bulge ellipticity": {
+     "rho": -0.02368661277021497,
+     "n": 28087
+    },
+    "statmorph asymmetry": {
+     "rho": 0.02887777030958747,
+     "n": 19626
+    },
+    "statmorph gini": {
+     "rho": 0.07365376863452669,
+     "n": 19626
+    },
+    "statmorph m20": {
+     "rho": -0.06524905815554485,
+     "n": 19626
+    },
+    "statmorph smoothness": {
+     "rho": -0.010446048481586341,
+     "n": 19626
+    },
+    "statmorph sersic_n": {
+     "rho": 0.06955395313277457,
+     "n": 19570
+    }
+   },
+   "top3": [
+    [
+     "fracDeV_r",
+     0.075
+    ],
+    [
+     "statmorph gini",
+     0.074
+    ],
+    [
+     "statmorph sersic_n",
+     0.07
+    ]
+   ]
+  }
+ }
+}

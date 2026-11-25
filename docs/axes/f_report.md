@@ -188,3 +188,10 @@ The components are not named. Extremes: `f5_pca_strips.png`, `f5_ica_strips.png`
 - That vote noise is "the" reason arms and winding are weak. It accounts for part of the fall; it does not explain arms' zero.
 - That DECaLS depth helps. Pooled and GZD-5 show nothing; GZD-1/2 shows something, but it can be vote count.
 - That a cleaner-labelled subset yields better axes. F3's sample sizes forbid saying so.
+
+### F5 top-up after Part B (25 Nov)
+
+The saved component scores against every Part B measurement, statmorph included (`f5_topup.json`; `axes_f5_topup.py`; `f5.json` unchanged). No component is one physical quantity:
+- the largest |ρ| of any **PCA** component with any measurement is 0.26 (component 8, g−r); the rest sit between 0.03 and 0.25. Components 1, 2, 6–8, 14 and 18 lean the same way: colour, sSFR, concentration.
+- **ICA16** stays the outlier: concentration 0.36, Gini 0.34, sSFR −0.34 (and, from F5, the winding score 0.54). The rest of ICA tops out at 0.17.
+- What Part B finds for directions trained on a target (cleaned ρ 0.2–0.55) is not found along any axis of maximal variance or independence: the physics is in directions that need the target to be found.
