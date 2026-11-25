@@ -42,7 +42,7 @@ Priority attributes (τ with EFIGI's value; `Δ` = A1 minus the best untrained s
 | Visible Dust | 1662/373 | 0.43 | +0.04 [−0.01, +0.08] | 0.48 | +0.04 [−0.00, +0.08] | 0.24 | 0.74 | SEVERAL / SEVERAL |
 
 - **A1 clearly beats untrained on B/T and Inclination, in both matrices.** Arm Curvature clears it in cleaned (n = 191), not in raw, Arm Strength touches zero, Flocculence barely clears it in both, Perturbation and Visible Dust do not.
-  Untrained encoders carry a lot of this: cleaned τ 0.24–0.47 for every priority attribute but curvature (0.24–0.29), so most of "τ 0.4" is pixel statistics and size.
+  Untrained encoders carry a lot of this: their cleaned τ is 0.24–0.47 across the priority attributes, so most of a τ of 0.4 is pixel statistics and size.
 - The readings (ONE AXIS etc.) describe the shape of what is learned and can be reached by an untrained encoder too; a reading says nothing about A1 unless its Δ is positive. Shares above 1 mean the ordinal model beats the free multinomial out of sample,
   which is the free model overfitting at 900–1,700 galaxies.
 - Other attributes (not priority; `g2.json`): Hot Spots, Inner Ring, Outer Ring and Contamination sit on or near the untrained range; Bar Length, Pseudo-Ring and Multiplicity are no better than untrained. **Arm Rotation** has τ ≈ 0 for every encoder, with a
