@@ -3,10 +3,12 @@
     python artifacts/patch_grid_auc.py auc   --name jepa_p8_s0 --emb FILE.npz --out DIR   # one encoder (trained or untrained) → DIR/<name>.json; prints no score
     python artifacts/patch_grid_auc.py valid --runs DIR                                   # VOID arms by collapse/halt and the divergence rule (training traces only)
     python artifacts/patch_grid_auc.py plants                                             # D28 for the divergence rule
+    python artifacts/patch_grid_auc.py manifest --dir DIR                                 # DIR/outputs.sha1 over every AUC record: written before scoring
     python artifacts/patch_grid_auc.py final --dir DIR [--void NAME ...] --out FILE.json  # every reading, once all 27 arms and 9 untrained banks are scored
 
 `auc` is B1's probe recipe (spread.json's) on the frozen rows and decile edges (frozen_deciles.json, SHA-1 checked), raw (primary) and cleaned.
-`final` is the only program that forms a difference between patch sizes. It refuses to run on a partial grid: VOID arms must be named.
+`final` is the only program that forms a difference between patch sizes. It refuses to run on a partial grid (VOID arms must be named), without
+outputs.sha1, or if any record has changed since it was written. Every mode but `plants` and `valid` first checks the pinned code of record.
 """
 from __future__ import annotations
 
@@ -22,9 +24,37 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import patch_grid_score as P  # noqa: E402
 
 FROZEN_SHA1 = "f245f70a19d435a6e0b619e194f0a423c3df48d4"
+SPREAD_SHA1 = "d4d05a2b072f91d2188524d9527a0235f53f1c15"
 KINDS = ("raw", "cleaned")
 UNTRAINED_SEEDS = (0, 1, 2)
+STOP = 101_308
 DIVERGE, WINDOW = 0.5, 500  # F7's rule (artifacts/baselines.md): final 500-step mean more than 50% above the lowest 500-step rolling mean
+
+
+def sha1(p: Path) -> str:
+    h = hashlib.sha1()
+    with open(p, "rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""):
+            h.update(b)
+    return h.hexdigest()
+
+
+def manifest(dir_: Path) -> None:
+    f = dir_ / "outputs.sha1"
+    if f.exists():
+        raise SystemExit(f"{f} exists: it is written once, before scoring")
+    f.write_text("".join(f"{sha1(p)}  {p.name}\n" for p in sorted(dir_.glob("*.json"))))
+    print(f"{f}: {len(f.read_text().splitlines())} records")
+
+
+def check_manifest(dir_: Path) -> None:
+    f = dir_ / "outputs.sha1"
+    if not f.exists():
+        raise SystemExit("final: outputs.sha1 does not exist (patch_grid_auc.py manifest, before scoring)")
+    want = {ln.split()[1]: ln.split()[0] for ln in f.read_text().splitlines()}
+    have = {p.name: sha1(p) for p in dir_.glob("*.json")}
+    if want != have:
+        raise SystemExit("final: the records differ from outputs.sha1: " + ", ".join(sorted(k for k in want.keys() | have.keys() if want.get(k) != have.get(k))[:5]))
 
 
 def frozen() -> dict:
@@ -39,6 +69,8 @@ def auc(name: str, emb: str, out: Path) -> None:
     import almagest_axes as AXS
     fr, d = frozen(), AXS.Data(untrained=False)
     b = np.load(emb, allow_pickle=False)
+    if "name" not in b.files or str(b["name"]) != name:
+        raise SystemExit(f"{emb} says it is {str(b['name']) if 'name' in b.files else 'unnamed'}, not {name}")
     if not np.array_equal(b["ids"], d.union):
         raise SystemExit("the embedding file's ids are not the frozen union")
     x = b["real"].astype(np.float64)
@@ -61,7 +93,7 @@ def auc(name: str, emb: str, out: Path) -> None:
             rec[kind]["decile"][f["key"]] = [AXS.fast_auc(y[k == j], s[k == j]) for j in range(10)]
             rec[kind]["all"][f["key"]] = AXS.fast_auc(y, s)
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"{name}.json").write_text(json.dumps({"name": name, "embedding": str(emb), **rec}, default=float))
+    (out / f"{name}.json").write_text(json.dumps({"name": name, "embedding": str(emb), "embedding_sha1": sha1(Path(emb)), **rec}, default=float))
     print(f"{name}: written")
 
 
@@ -80,7 +112,9 @@ def valid(runs: Path) -> dict:
     out = {}
     for t in sorted(runs.glob("*/traces.json")):
         r = json.loads(t.read_text())
-        out[t.parent.name] = {**diverged(r["losses"]), "halted_by_collapse_monitor": bool(r.get("halted", False))}
+        d = diverged(r["losses"])  # a non-finite loss halts the trainer before it is recorded, so `halted` covers it too
+        h, n = bool(r.get("halted", False)), len(r["losses"])
+        out[t.parent.name] = {**d, "halted": h, "steps": n, "VOID": d["diverged"] or h, "incomplete": not (d["diverged"] or h) and n != STOP}
     return out
 
 
@@ -136,6 +170,8 @@ def tables(dir_: Path, kind: str, void=()):
 def device_control(dir_: Path, void) -> dict:
     """GPU patch-16 arm against the Mac run with the same train_seed: full-sample raw AUC per answer (spread.json is the Mac record; SHA-1 kept)."""
     f = P.OUT / "spread.json"
+    if sha1(f) != SPREAD_SHA1:
+        raise SystemExit("spread.json is not the Mac record of the pre-registration")
     sp = json.loads(f.read_text())
     mac_names = {"jepa": ["A1", "A2", "A3"], "moco": ["moco0", "moco1", "moco2"], "mae": ["mae0", "mae1", "mae2"]}
     m = sp["auc_all"]["raw"]
@@ -151,6 +187,9 @@ def device_control(dir_: Path, void) -> dict:
 
 
 def final(dir_: Path, void, out: Path) -> None:
+    if out.resolve().parent == dir_.resolve():
+        raise SystemExit("final: --out must not be inside the records directory")
+    check_manifest(dir_)
     P.load_K()
     fr = frozen()
     counts = {f["key"]: np.array(f["pos_neg"]) for f in fr.values()}
@@ -174,12 +213,17 @@ def final(dir_: Path, void, out: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["auc", "valid", "plants", "final"])
+    ap.add_argument("mode", choices=["auc", "manifest", "valid", "plants", "final"])
     for f in ("--name", "--emb", "--out", "--dir", "--runs"):
         ap.add_argument(f)
     ap.add_argument("--void", nargs="*", default=[])
     a = ap.parse_args()
-    if a.mode == "auc":
+    if a.mode in ("auc", "manifest", "final"):
+        import patch_grid_pins
+        patch_grid_pins.verify()
+    if a.mode == "manifest":
+        manifest(Path(a.dir))
+    elif a.mode == "auc":
         auc(a.name, a.emb, Path(a.out))
     elif a.mode == "plants":
         plants_divergence()

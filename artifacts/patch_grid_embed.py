@@ -89,6 +89,8 @@ def main() -> None:
     from galaxy_jepa.probing.extract import extract_matrix
     from patch_grid_run import PATCHES, parse
     cfg, ds, ids = dataset(a.limit)
+    if not a.limit:
+        patch_grid_pins.verify_cache(ds.cache.cache_dir, ds.cache.cache_dir.name)
     dev = a.device or cfg.runtime.resolved_device()
     model = {"img_size": int(ds.cache.index.height), **cfg.model.model_kwargs()}
     t0 = time.perf_counter()

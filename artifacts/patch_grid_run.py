@@ -122,6 +122,8 @@ def main() -> None:
 
     cfg, ref, diff = config(args.arm, steps_smoke=args.smoke, batch=args.batch)
     a1_cfg, cache = check(verbose=False)  # A1's config: the freeze, the cache and its pipeline hash, or a refusal
+    if not args.smoke and not args.plan:
+        patch_grid_pins.verify_cache(cache.cache_dir, cache.cache_dir.name)
     if args.device:
         cfg = cfg.model_copy(update={"runtime": cfg.runtime.model_copy(update={"device": args.device})})
     obj = cfg.objective
@@ -138,6 +140,9 @@ def main() -> None:
         return
     if out.exists() and any(out.iterdir()) and not (out / "checkpoints").exists():
         raise SystemExit(f"{out} is not empty and holds no checkpoint: refusing to write into it")
+    tr = out / "traces.json"
+    if tr.exists():  # a finished run would train one step past its stop, and a halted one would resume past its halt
+        raise SystemExit(f"{tr} exists: this run has ended. A VOID arm's rerun goes to a fresh --out")
     device = cfg.runtime.resolved_device()
     out.mkdir(parents=True, exist_ok=True)
     ds = StampDataset(cache, {}, train_ids, scalars=cache.scalars)
@@ -151,8 +156,8 @@ def main() -> None:
     ck = TrainCheckpointer(out / "checkpoints", every=every, keep=STOP // every + 3, config_hash=ch, normalisation_hash=cfg.normalisation.content_hash,
                            schedule={"steps": ocfg.steps, "lr": ocfg.lr, "lr_final": ocfg.lr_final, "warmup_steps": ocfg.warmup_steps,
                                      "batch_size": ocfg.batch_size, "objective": o, "brief": "patch grid"})
-    mon = _to_device(next(iter(DataLoader(StampDataset(cache, {}, monitor_ids[:MONITOR_BATCH if not args.smoke else 2], scalars=cache.scalars),
-                                          batch_size=MONITOR_BATCH if not args.smoke else 2))), device)
+    n_mon = MONITOR_BATCH if not args.batch else 2  # only a small-batch plumbing smoke shrinks it: two stamps have effective rank 1, so a long smoke would halt
+    mon = _to_device(next(iter(DataLoader(StampDataset(cache, {}, monitor_ids[:n_mon], scalars=cache.scalars), batch_size=n_mon))), device)
     written = sorted(int(f.stem.split("_")[1]) for f in (out / "checkpoints").glob("ckpt_*.pt"))
     done = written[-1] if written else 0
     t0 = time.perf_counter()

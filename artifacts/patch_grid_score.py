@@ -1,9 +1,9 @@
-"""Patch-size grid 16 → 8 → 4: the scoring code for docs/patch_grid/prereg.md (DRAFT, not hashed) and its D28 plants.
+"""Patch-size grid 16 → 8 → 4: the scoring code for docs/patch_grid/prereg.md and its D28 plants.
 
     .venv/bin/python artifacts/patch_grid_score.py plants   # synthetic per-decile AUCs through the identical path; every state reached
     .venv/bin/python artifacts/patch_grid_score.py power    # power at the observed patch-16 seed spread (patch_grid_spread.py's record)
 
-Pure functions of per-decile AUC tables; this module reads no image, embedding or checkpoint. Where the draft is ambiguous the
+Pure functions of per-decile AUC tables; this module reads no image, embedding or checkpoint. Where the text is ambiguous the
 choice made here is a named constant/comment marked [AMBIGUOUS n], listed in docs/patch_grid/flags.md for the user.
 """
 from __future__ import annotations

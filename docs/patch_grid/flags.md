@@ -2,7 +2,7 @@
 
 What I found while completing `prereg.md`: things that are ambiguous, things that don't match the code or the record, and the power. Nothing was reconciled
 silently. Where the scoring code had to choose, the choice is named (`[AMBIGUOUS n]` in `artifacts/patch_grid_score.py`) and listed here.
-Nothing is hashed and no rental is booked. Numbers below that differ from the 24 Nov version do so because the groups changed (section B).
+**Hashed 25 Nov (`docs/patch_grid/prereg.sha1`); no rental is booked.** Numbers below that differ from the 24 Nov version do so because the groups changed (section B).
 
 ## A. Settled 25 Nov (user)
 
@@ -15,6 +15,14 @@ Nothing is hashed and no rental is booked. Numbers below that differ from the 24
 5. **Embedding code** written, pinned and smoked (section F).
 6. **Groups** from A1's raw B1 record by a stated rule (section B). 3 untrained seeds per patch size. The ladder's 39,997-galaxy train split.
 7. **JEPA's "same sky" is in distribution,** now said in §3 (measured: ctx / target tokens p16 80 / 180, p8 329 / 698, p4 1,053 / 2,897; at p4 the context is 18% below 16 × the p16 count).
+
+**Added before the hash (25 Nov, the user's five additions and what checking them turned up):**
+
+8. **§6 states the expected UNRESOLVED readings,** with the Δ80 tables for Q1 and Q2. They sit beside the predicted readings, not in place of them: JEPA's "PSF FLOOR" prediction for G2 and G3 needs a NO CHANGE that a true null reaches 1–14% of the time at ρ = 0.
+9. **Three gates the draft promised were not in code:** the cache-parity refusal, the `outputs.sha1` manifest, and VOID from a halted run. They now are, with refusal tests. `auc` also refuses an embedding file whose own name isn't the arm's.
+10. **Two launcher faults, found by writing the checklist:** a smoke monitored two stamps, whose effective rank is 1, so a 2,000-step smoke would have halted itself; and a finished or halted run started again would have trained a step past its stop, or resumed past its halt. Both closed.
+11. **The pins cover the whole import closure** (101 files with the lock file), and `patch_grid_pins.py` checks the section's own hash, so the table can't be edited either. Consequence: any later edit to a pinned file on this branch (`almagest_axes.py`, `plate_export.py`, anything in
+    `src/`) refuses the launcher and the scoring. **Both must run from a git worktree at the hash commit.** `spread.json` (the Mac record, not in git) is pinned by value in the scoring code.
 
 ## B. The evaluation set
 
@@ -164,3 +172,11 @@ All seven items of 25 Nov are applied. What is left to decide or to know before 
 4. **F7's 50% line is close to A2's 36%** (A.1). A JEPA arm at patch 8 or 4 that rises by more than half is VOID and rerun once.
 5. The ordinal-τ secondaries (item 14) and the relabel2 secondaries are named in §8 and have no code here; they are descriptive.
 6. The 200-step timed smoke is the first test of CUDA, flash attention, batch 32 and the loader workers.
+
+## G. The stage 1 checklist (outside the hash): where its literal form may stop a sound run
+
+Written as approved, two-sided, nothing loosened (`artifacts/patch_grid_stage1.py`; planted failures reach every item). Three places it may stop the run for a reason other than a fault; the call then is the user's.
+1. **Utilisation > 85% at patch 16 and 8.** The cost doc says those arms are step-floor-bound on an H100 (25–40 ms a step of loader and kernel launches), so the GPU may idle even with a healthy loader.
+2. **± 30% is two-sided.** An arm faster, or smaller in memory, than the doc by more than 30% also fails. The hours are read against the doc's range widened by 30%; memory against its point. Patch 16's memory isn't in the doc: it is the doc's own model at a quarter of
+   patch 8's tokens (2.5 / 2.5 / 3.4 GB for JEPA / MoCo / MAE), and patch 16's MoCo and MAE hours take the patch-8 figures, as the doc's third-seed table does.
+3. **"Falling" is mean(steps 1,501–2,000) < mean(1–500).** A monotone reading fails every JEPA and MoCo run on the Mac.

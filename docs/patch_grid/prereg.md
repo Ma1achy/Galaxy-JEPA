@@ -1,17 +1,12 @@
-# Patch-size grid 16 → 8 → 4 (D11): pre-registration (DRAFT v3: the user's decisions of 24 and 25 Nov applied; not hashed)
+# Patch-size grid 16 → 8 → 4 (D11): pre-registration (HASHED 25 Nov 2026)
 
-**Status.** [CC] items completed 24 Nov by Claude Code, then the user's decisions of 24 Nov applied (paired design,
-three seeds, raw primary, B2b removed; |G| + b ≤ E; the GPU code of record written before the hash), then those of 25 Nov (F7's divergence rule, no ρ gate,
-SAME in the E form, raw-only groups, the embedding code pinned); mismatches and ambiguities are in
-`docs/patch_grid/flags.md` and were not reconciled here. Still a draft, still unhashed.
-Design draft written 24 Nov 2026 from B1, B1b, Part A and the cost estimate
-(`docs/patch_ablation_cost.md`). Nothing here is hashed. Claude Code completes the operational
-detail marked **[CC]**, writes and runs the planted tests (D28), and reports them. Then the user
-approves the hash. The hash covers the section from "## Pre-registration" to the next level-2
-heading (SHA-1, trailing newline). It comes **before any trained 8×8 or 4×4 checkpoint exists**:
-the rental starts only after the hash is committed and pushed.
+**Status.** Approved by the user and hashed on 25 Nov 2026, before any trained 8×8 or 4×4 checkpoint exists. The hash is the SHA-1 of the section from "## Pre-registration" to the next level-2 heading (trailing
+newline): **`0e16af84ba079cfbd2d352194d4b193c14831bd2`**, also in `docs/patch_grid/prereg.sha1`, which the launcher, embedding and scoring programs check.
+Design draft 24 Nov 2026 from B1, B1b, Part A and the cost estimate (`docs/patch_ablation_cost.md`); [CC] items completed 24–25 Nov by Claude Code; the user's decisions of 24 and 25 Nov applied (paired design, three seeds, raw
+primary, B2b removed, |G| + b ≤ E, F7's divergence rule, no ρ gate, SAME in the E form, raw-only groups, the pinned code of record, the expected-UNRESOLVED statement). Ambiguities and mismatches are in `docs/patch_grid/flags.md`.
+A change to anything in the section or to a pinned file after this is an amendment: the user's decision, dated and labelled, never an edit in place.
 
-**What this draft was written from.** `docs/almagest/a1_visibility_report.md` (B1, B1b),
+**What this was written from.** `docs/almagest/a1_visibility_report.md` (B1, B1b),
 `docs/axes/a_report.md` (Part A), `docs/patch_ablation_cost.md`, and the chat record of the decisions
 of 21 Nov. No 8×8 or 4×4 result exists. B2b has not run and is not part of this pre-registration (user, 24 Nov); it will be a later
 exploratory analysis.
@@ -65,8 +60,9 @@ JEPA and MAE (`findings_summary.md`, the seed-1 puzzle). It was not removed afte
 
 ### 2a. Order of the runs
 
-Stage 1 (patch 16 and 8, all objectives, seeds 0–2) runs first, **as an engineering check only: no decision is attached to it** (user, 25 Nov; the blind ρ gate of the 24 Nov draft is removed).
-A stage-1 result can stop the rental only through §7's own rules (a refused pin, a collapse, a divergence). The 4×4 arms run whatever stage 1 looks like.
+Stage 1 (patch 16 and 8, all objectives, seeds 0–2) runs first, **as an engineering check only: no scientific decision is attached to it** (user, 25 Nov; the blind ρ gate of the 24 Nov draft is removed).
+A fixed engineering checklist, outside this section, stops the run before stage 2 if any item fails. It reads throughput, memory, losses and utilisation, and never a probe, an AUC or a score. Otherwise stage 2 (the 4×4 arms) runs
+whatever stage 1 looks like; §7's rules apply throughout.
 - The scoring stays sealed until the whole grid is done: `artifacts/patch_grid_auc.py final` is the only program that forms a difference between patch sizes, and it refuses a partial grid.
 - **ρ̂, descriptive.** After the final scoring, ρ̂ is reported per objective for 16 → 8 and 8 → 4: each seed's L minus that patch size's per-answer mean over seeds, correlated over all (answer, seed)
   pairs, raw. It carries no decision. It is printed beside its planted bias and SD (`plants_rho.json`): it is independent of the mean Δ (exactly) but pulled towards 0 and noisy on three seeds.
@@ -96,7 +92,7 @@ A stage-1 result can stop the rental only through §7's own rules (a refused pin
   (seeds 0, 1 and 2, patch 16, 8 and 4), by the ladder's recipe: fp32, no autocast, the frozen encoder's penultimate block mean-pooled. Patch 16 is re-embedded on the same box, so all arms and banks share one path.
   It reproduces the ladder's banked vectors on the Mac (max difference 1e-5; A2, MoCo s0 and untrained seed 1) and refuses a checkpoint whose patch size isn't the arm's.
 - **From embeddings to readings:** `artifacts/patch_grid_auc.py` (`auc`, `valid`, `final`).
-- **[CC, completed 24 Nov]** SHA-1 of the code of record:
+- **[CC, completed 25 Nov]** SHA-1 of the code of record (every repo file the training, mask, embedding and scoring programs import, the configs, the frozen evaluation set and the environment lock):
 
   | file | SHA-1 |
   |---|---|
@@ -129,20 +125,80 @@ A stage-1 result can stop the rental only through §7's own rules (a refused pin
   | `configs/patch_grid/moco_p16.yaml` | `515e47d12bede2b3d01d89d30d5c204981154f12` |
   | `configs/patch_grid/moco_p4.yaml` | `d3eb9535dd6138eaf121c9bb20e60aa1b83ea024` |
   | `configs/patch_grid/moco_p8.yaml` | `0cf54a066286f78a330ca8c825964f1c521e2f9b` |
-  | `artifacts/patch_grid_run.py` | `4b761d8ae7473ecd1099cc40001bb72879ae25db` |
+  | `artifacts/patch_grid_run.py` | `05ae8252e3c28acbea80782ad12ac1eb461ba3b7` |
   | `artifacts/patch_grid_masks.py` | `7eb2669df188fcce758dc73ff289f86cc268aa11` |
   | `docs/patch_grid/union_ids.npy` | `d5cba4b7debce7693a8181b69688fc1d3957260b` |
-  | `artifacts/patch_grid_embed.py` | `4396a8a1711048277c2283f3e3a7fc1e5d220748` |
-  | `artifacts/patch_grid_auc.py` | `24fa7b346e549c44bea57cc3f1d841fae79e38da` |
-  | `artifacts/patch_grid_pins.py` | `10cd905d0814bbeb274c709756e53ffd30b0660b` |
-  | `artifacts/patch_grid_score.py` | `32ebcdcb2df6bca0b9478c714b8f028fce06b1e7` |
+  | `artifacts/patch_grid_embed.py` | `b0afb12ccbb9615674d3cda459824270aca22ec6` |
+  | `artifacts/patch_grid_auc.py` | `ccd6cdf4d9cfb021e71f3691b714f85366295446` |
+  | `artifacts/patch_grid_pins.py` | `79da170ab5358e422bc1962438f3627eccdf1814` |
+  | `artifacts/patch_grid_score.py` | `91d4bb44672ef3c7540d1ed108368baa13b420f7` |
   | `artifacts/f0_preconditions.py` | `b5491b4f50f4630258928fdf0a32ec1b36a0cdf5` |
   | `artifacts/i2_sigreg_run.py` | `668858d2e1aabb455fdb1cd74e4328fc8e4fdf2b` |
   | `artifacts/patch_grid_frozen.py` | `7a603bcaeb6ae18cf860c89b7db16412e5ece451` |
   | `docs/patch_grid/frozen_deciles.json` | `f245f70a19d435a6e0b619e194f0a423c3df48d4` |
   | `docs/patch_grid/calibration.json` | `f0d8295ad7a325e20c39c6cbc91bbb94d0c7fc11` |
+  | `artifacts/aligned_c2.py` | `029adeb522a3026603e36f7bf9187e3e9ae39c8a` |
+  | `artifacts/almagest_spiral.py` | `1504990bdccc773a5205fa96928fa76f97ff36c6` |
+  | `artifacts/f1_loader_bench.py` | `75376602ff0b50093ed2af4edaf59053541f3cbb` |
+  | `artifacts/j1_preflight.py` | `b040e9ef8f004e90a1f49028a47b33eac81ef85d` |
+  | `artifacts/j4_spread_controls.py` | `de65785469401de2a480dfdea227a5f3f3ddd14a` |
+  | `artifacts/ladder_env.py` | `7ffe0f430ef55c67a744bd19aa873cd71872eb6c` |
+  | `artifacts/m1_preflight.py` | `6cfece5853cdb5cceb22191388c92d901a379acc` |
+  | `artifacts/o3_overfit_gate.py` | `805e9e7e9c0b63ffbe03619f8697d9788937356b` |
+  | `artifacts/plate_export.py` | `c3853acb22b770927e5d0f04c2c0bfca9e24560a` |
+  | `artifacts/probe_bank.py` | `b5b854f9011b0b9965e562ef8adeb3c4bddbbf57` |
+  | `artifacts/r_nonlinear.py` | `9e7aeaa276a43bf219997e9d4a474036c4df57ca` |
+  | `configs/effect_floor.json` | `e6b8b8ab7f0f0a9fea733a5d7d68135098b43cd1` |
+  | `docs/patch_grid/power.json` | `e3c8fec9b37dbf5d07199f432a37629ff2ed7d22` |
+  | `pyproject.toml` | `84010fd16b4d4b77f01c5a545891a7580df70877` |
+  | `src/galaxy_jepa/__init__.py` | `8064d9dc4adb851e41666a791b334f2e096f1ba6` |
+  | `src/galaxy_jepa/callbacks/__init__.py` | `fa0c2581e385898530ea53b3fd9ecb90410a2b3a` |
+  | `src/galaxy_jepa/callbacks/checkpoint.py` | `2fe9da69d0e15b6e388266d22971856a6b9fbe14` |
+  | `src/galaxy_jepa/core/__init__.py` | `e7676bfb7d8e0d034c5d62d439f8f234e42c2fc2` |
+  | `src/galaxy_jepa/core/config.py` | `6122acb6d83c190b0dabf4f1502b90939cc36292` |
+  | `src/galaxy_jepa/core/encoder.py` | `1b8c3d9db7aa2239b5c2dbf91b1e27924f20c2b9` |
+  | `src/galaxy_jepa/core/gates.py` | `143f3486bf90f82b66c0bbd5dde8b331d3b10e5d` |
+  | `src/galaxy_jepa/core/stopping.py` | `7f9de336332612637c554027172784b39b73e738` |
+  | `src/galaxy_jepa/data/__init__.py` | `3ce9cc864f10bc6b1c97999f645303bf57bad841` |
+  | `src/galaxy_jepa/data/bbox.py` | `70ba86cde9b7ec98262d9eeff7e1ed0599126e82` |
+  | `src/galaxy_jepa/data/cache.py` | `be226049571c382c8f751f4b56045d5600ac76f7` |
+  | `src/galaxy_jepa/data/dataset.py` | `4ec9db8e1e786fa7b65c31907dcda0a936086938` |
+  | `src/galaxy_jepa/data/manifest.py` | `9ed250e094f424ce2776f455252574f5dfa8d8d5` |
+  | `src/galaxy_jepa/data/metadata.py` | `8e74e5549379050920461b5df7adc56fd5cc521e` |
+  | `src/galaxy_jepa/data/orchestrate.py` | `20dd45b5f34a47e08b7eee47af3a41661b2fcef5` |
+  | `src/galaxy_jepa/data/sanity.py` | `8aec763bd6a5d94b8a28b372e636209c8f2c8719` |
+  | `src/galaxy_jepa/data/sources.py` | `d5b72f8ace947ee669dc9cbde0064584de473257` |
+  | `src/galaxy_jepa/data/splits.py` | `99a551bc6b82fbc41c64a913bf2ff7700fd3d143` |
+  | `src/galaxy_jepa/data/transforms.py` | `a01467e344765bd61c7a5531962ea5a2b8e8ebc2` |
+  | `src/galaxy_jepa/data/validity.py` | `508865975b2e53963c64a734d663f86b05fabe0b` |
+  | `src/galaxy_jepa/eval/__init__.py` | `269c0f264eafc0ab6af96bc6447edbdad15b955c` |
+  | `src/galaxy_jepa/eval/embed.py` | `ace06c8374ceaab74f3212a19a0f173a77140220` |
+  | `src/galaxy_jepa/eval/figures.py` | `85609430d18e89a08b21044aa1d881b014d93a6b` |
+  | `src/galaxy_jepa/masking/__init__.py` | `1aa49f94404e01deab0c6359d78ff774756a2e81` |
+  | `src/galaxy_jepa/models/__init__.py` | `0e5e28470ded6de1d2aa8a3b0126ffc9996e9114` |
+  | `src/galaxy_jepa/objectives/__init__.py` | `8b91f1929b038ae13c2b5f858a312f1d2fc9e8e0` |
+  | `src/galaxy_jepa/objectives/sigreg.py` | `4e5247c680538a88938db1bb5e4659fd7d3f39a3` |
+  | `src/galaxy_jepa/probing/__init__.py` | `bf5be5f11d46b76ba6c81ed4bbcebc2a07d86238` |
+  | `src/galaxy_jepa/probing/config.py` | `dcf13b6a2b517412c9dfacefcf9d0d23387abafa` |
+  | `src/galaxy_jepa/probing/controls.py` | `65ea392e90eab49a3a589f8783b6341e07083a42` |
+  | `src/galaxy_jepa/probing/entanglement.py` | `1cc5f7e36ba08b4c5fb1d0f151db4e421a623e56` |
+  | `src/galaxy_jepa/probing/extract.py` | `f17ea69f14371d55ccc773c5b8baf0921547ae87` |
+  | `src/galaxy_jepa/probing/floor.py` | `9a0c264481787927a025539c8e37d086b71d322e` |
+  | `src/galaxy_jepa/probing/gates.py` | `742464ff05a0a200bebec62a7793e22f0f6533cc` |
+  | `src/galaxy_jepa/probing/geometry.py` | `ea0d3da48684935179832bff24ec5ad0c4e77f04` |
+  | `src/galaxy_jepa/probing/ladder.py` | `94e633490633d04c63f250448ed98d1426cf51db` |
+  | `src/galaxy_jepa/probing/logistic.py` | `a632dc90383400fdd6dacc291117c2932762b5a9` |
+  | `src/galaxy_jepa/probing/matching.py` | `a5ccfe0bf8d35e6146e66fb92a1dd79e89cf9b52` |
+  | `src/galaxy_jepa/probing/mlp.py` | `bf2317526babbf6880c3cf1994d8c7b8f1362088` |
+  | `src/galaxy_jepa/probing/nulls.py` | `10c7f06d43bb3a34bdb569125786afc2780e885d` |
+  | `src/galaxy_jepa/probing/orientation.py` | `8fd11e71a6a68853b38a0d94cbb66f87bbdfdf30` |
+  | `src/galaxy_jepa/probing/run.py` | `4ac720c4c1799a8cd69f0fc4c878c5eb57e3c483` |
+  | `src/galaxy_jepa/probing/schemes.py` | `eccc60a1ac51074391a457100c251a6284ec89e1` |
+  | `src/galaxy_jepa/probing/uncertainty.py` | `d383b845a4c8fa8c364fe9132e877ad00df64705` |
+  | `uv.lock` | `2f3ee623460be463c725f0d576aa24bd6468ab6e` |
+  | `docs/almagest/a1_visibility_b1.json` | `a9900b3159943a824412512c88c78041d7fa46d9` |
 
-  The launcher checks every file in this table against its SHA-1 before a real run, and refuses to start on a mismatch.
+  The launcher, the embedding program and the scoring programs check this section's own SHA-1 (`docs/patch_grid/prereg.sha1`) and every file in this table before real work, and refuse on a mismatch.
 
 ### 4. Evaluation set, frozen before any training
 
@@ -232,6 +288,39 @@ E is not to be widened; a group (G1 in particular) may read UNRESOLVED for that 
 - G2 and G3: PATCH-LIMITED TO A PSF FLOOR for JEPA.
 - Arm count and winding (descriptive, §5): τ in deciles 4–7 rises at 8 × 8 and changes little at 4 × 4.
 
+**Expected before any run (user, 25 Nov), so that a wall of UNRESOLVED is not read as news.** ρ is the share of a seed's run-level effect common to two patch sizes; it is unknown. Δ80 is the group-median Δ that reads GAIN
+with 80% probability on three paired seeds at the observed patch-16 noise (`power.json`); P(NC) is the probability that a true Δ of 0 reads NO CHANGE. Cells are ρ = 0 / 0.5 / 1, raw.
+
+| | Δ80 | P(NC) |
+|---|---|---|
+| JEPA G1 | 0.124 / 0.090 / 0.024 | 0.00 / 0.00 / 0.48 |
+| JEPA G2 | 0.068 / 0.050 / 0.021 | 0.01 / 0.04 / 0.65 |
+| JEPA G3 | 0.037 / 0.027 / 0.013 | 0.14 / 0.36 / 1.00 |
+| MAE G1 | 0.164 / 0.117 / 0.035 | 0.00 / 0.00 / 0.16 |
+| MAE G2 | 0.076 / 0.055 / 0.014 | 0.01 / 0.03 / 0.98 |
+| MAE G3 | 0.047 / 0.034 / 0.014 | 0.06 / 0.18 / 0.99 |
+| MoCo G1 | 0.015 / 0.014 / 0.013 | 0.92 / 0.99 / 1.00 |
+| MoCo G2 | 0.014 / 0.014 / 0.013 | 0.98 / 1.00 / 1.00 |
+| MoCo G3 | 0.013 / 0.013 / 0.013 | 1.00 / 1.00 / 1.00 |
+
+- **At low ρ, JEPA's and MAE's Q1 readings are expected to be UNRESOLVED** (or, for a large gain, PATCH-LIMITED; FLOOR UNRESOLVED): Δ80 is 0.037–0.124 for JEPA and 0.047–0.164 for MAE against E = 0.02, and a true null reads NO CHANGE at most
+  14% and 6% of the time (all at ρ = 0). **MoCo's Q1 is the reading expected to resolve** (Δ80 ≤ 0.015, P(NC) ≥ 0.92, at any ρ).
+- **Most Q2 readings are expected to be UNRESOLVED at low ρ:** SAME is reached by a true null at most 5% of the time at ρ = 0 (14% at ρ = 0.5), and DIFFERS needs a difference of 0.051–0.251 in group-median Δ at ρ = 0.
+
+  | | Δ80 for DIFFERS | P(SAME) at a true D of 0 |
+  |---|---|---|
+  | JEPA–MAE G1 | 0.251 / 0.175 / 0.049 | 0.00 / 0.00 / 0.01 |
+  | JEPA–MAE G2 | 0.116 / 0.085 / 0.029 | 0.00 / 0.00 / 0.25 |
+  | JEPA–MAE G3 | 0.069 / 0.050 / 0.018 | 0.00 / 0.01 / 0.84 |
+  | JEPA–MoCo G1 | 0.174 / 0.122 / 0.033 | 0.00 / 0.00 / 0.21 |
+  | JEPA–MoCo G2 | 0.094 / 0.068 / 0.029 | 0.00 / 0.01 / 0.32 |
+  | JEPA–MoCo G3 | 0.051 / 0.037 / 0.015 | 0.05 / 0.14 / 0.96 |
+  | MAE–MoCo G1 | 0.233 / 0.163 / 0.048 | 0.00 / 0.00 / 0.05 |
+  | MAE–MoCo G2 | 0.104 / 0.075 / 0.019 | 0.00 / 0.01 / 0.78 |
+  | MAE–MoCo G3 | 0.064 / 0.047 / 0.018 | 0.02 / 0.06 / 0.86 |
+
+- An UNRESOLVED says the design couldn't tell. It is not evidence for NO CHANGE, SAME, H_patch or H_psf.
+
 **Objective comparison (Q2), per group and step:** D = the mean over seeds of G_s(o1) − G_s(o2), paired by seed.
 Bar: max(SESOI/2, K_n · max(S_o1, S_o2) · √(2/n)), as the baselines comparison's family bar.
 
@@ -246,7 +335,7 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
 
 **Device/precision control (not a reading on Q1 or Q2):**
 - For each objective with a Mac counterpart, the per-answer full-sample AUC of the GPU patch-16 run against
-  the Mac run with the same train_seed.
+  the Mac run with the same train_seed (the Mac record is `runs/almagest/patch_grid/spread.json`, SHA-1 `d4d05a2b072f91d2188524d9527a0235f53f1c15`, checked by the scoring code).
 - **DEVICE EFFECT** if the median absolute paired difference exceeds the Mac A1–A3 seed spread for the
   same answers; otherwise **NO DEVICE EFFECT**.
 - Either way, every Q1 and Q2 comparison uses the GPU patch-16 runs as the reference. The Mac runs are
@@ -258,25 +347,25 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
   (**[CC, completed 24 Nov; user: the one used in A1–A3's training runs]**, `collapse_floor` in `configs/pretrain_v2.yaml`, passed to the trainer by
   `artifacts/m2_long_run.py` line 361: min_effective_rank 2.5 with a grace fraction of 0.10 of the schedule, hard floor 2.0 after step 100, three
   consecutive readings. It was re-derived at D17, made active at D21, unchanged since `11b9067` (the first A1–A3 launch) and lives in
-  `src/galaxy_jepa/callbacks/collapse.py`. **JEPA arms use it whole (A1–A3's bar). The hard floor (2.0, F8) gates every objective; for MoCo and MAE the soft floor is reported and does not gate** (user, 25 Nov, as coded)). An arm that collapses is VOID. It is rerun once with the same seed and recipe. A
-  second collapse leaves it VOID, and the groups are scored without it, marked. Seeds are never swapped
+  `src/galaxy_jepa/callbacks/collapse.py`. **JEPA arms use it whole (A1–A3's bar). The hard floor (2.0, F8) gates every objective; for MoCo and MAE the soft floor is reported and does not gate** (user, 25 Nov, as coded)). An arm that collapses is VOID. It is rerun once with the same seed and recipe (a diverged arm too). A
+  second collapse or divergence leaves it VOID, and the groups are scored without it, marked. Seeds are never swapped
   or chosen.
 - **Divergence (F7's rule; user, 25 Nov).** An arm has diverged if its loss is non-finite at any step, or its final 500-step mean loss is more than 50% above its lowest 500-step rolling mean
-  (`artifacts/baselines.md` F7; `patch_grid_auc.py valid`, from the training traces). It is handled as collapse.
+  (`artifacts/baselines.md` F7; `patch_grid_auc.py valid`, from the training traces). It is handled as collapse: VOID, rerun once with the same seed and recipe. The 50% line stays as it is (user, 25 Nov).
   - **Why the drafted rule was wrong.** It called a loss above the run's step-1,000 value after step 20,000 a divergence. JEPA predicts in latent space against an EMA target: its loss falls fast in the first
     thousand steps and then rises as the target moves (A1's 500-step mean peaks at 0.26 and ends at 0.114), so the step-1,000 value is a dip and not a reference. Applied to A1, A2 and A3 the drafted rule would have
     voided all three: they are above their step-1,000 loss for 92.6%, 99.5% and 100% of the steps after 20,000. For MoCo, step 1,000 sits on the start-up hump, so the rule could hardly have fired.
   - F7's rule fires on none of the nine Mac runs (largest rise 36%, A2) and on planted rises of 51% and 60% and on a non-finite loss; not on a planted 49% rise or a JEPA-like early dip (`plants_divergence.json`).
 - **Timing smoke.** A 200-step timed smoke per arm on the rented box comes first. It may change the GPU
   type or the order of runs, never the recipe.
-- **Cache parity.** The launcher refuses to train unless the shipped cache passes the manifest SHA-1 check
-  and the pipeline_hash matches (shipping plan).
+- **Cache parity.** The launcher and the embedding program refuse a real run unless `cache_verified.json` (written by the pull after every raw SHA-1 passed, `docs/shipping_plan.md`) names the manifest whose SHA-1
+  the user passes by hand and the pipeline hash the run resolves to.
 - **Blindness.**
   - Decile edges, group membership, probes' recipe and untrained banks are frozen before any trained
     checkpoint exists.
   - The scoring code is pinned by SHA-1 before any trained 8 × 8 or 4 × 4 record is opened.
   - No L, Δ, G or state is computed before all 27 arms (VOID ones named) and the nine untrained banks are scored; `patch_grid_auc.py final` refuses a partial grid. Training traces and the timed smoke are read freely: they hold no score.
-  - The outputs are listed in an outputs.sha1 manifest before scoring, as for the M comparison.
+  - The AUC records are listed in an `outputs.sha1` manifest before scoring (`patch_grid_auc.py manifest`, written once); `final` refuses without it or if a record has changed.
 
 ### 8. Secondary analyses (descriptive; no states)
 
@@ -285,6 +374,7 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
   at 8 × 8 or 4 × 4?
 - **Part A on every arm:** the ordinal-versus-free shares and gaps for arm count, winding, bulge and
   roundness.
+- **Code for these, and for §5's CI knee and ordinal τ, is written and pinned by SHA-1 before the final scoring opens** (user, 25 Nov); it is not part of this hash.
 - **Patch-16 GPU references** also give three more patch-16 runs per objective (device and precision differ from the Mac's, and the
   train_seeds repeat A1–A3's, so these are not new independent seeds: `flags.md` 8).
 
@@ -297,12 +387,21 @@ Pairs: JEPA–MAE, JEPA–MoCo, MAE–MoCo. Predicted (weakly): MAE > JEPA > MoC
 - The divergence rule's plants (`plants_divergence.json`), and ρ̂'s bias and SD (`plants_rho.json`, descriptive).
 - `final` on a planted grid built from the Mac's own patch-16 records returns the planted reading for every cell, refuses a missing arm, and scores a named VOID arm as marked.
 - **Power, stated plainly:** three seeds, the paired bar: the smallest group-median Δ that reads GAIN with 80% probability, the probability
-  that a true Δ of 0 reads NO CHANGE, and the same for DIFFERS and SAME between objectives, per objective (pair) and group, at ρ = 0 and 1 (`docs/patch_grid/power.json`, summarised in `flags.md` D).
+  that a true Δ of 0 reads NO CHANGE, and the same for DIFFERS and SAME between objectives, per objective (pair) and group, at ρ = 0 and 1 (`docs/patch_grid/power.json`, summarised in §6 and `flags.md` D).
 
 ---
 
 ## Notes outside the hashed section
 
 - The renderer run shares the rental but is not part of this pre-registration.
-- Cost from `docs/patch_ablation_cost.md`: the full grid (27 encoders), 44–84 H100-hours.
+- Cost from `docs/patch_ablation_cost.md`: the full grid (27 encoders), 45–87 H100-hours.
 - Open items, all reported and none reconciled: `docs/patch_grid/flags.md`.
+
+**Stage 1 engineering checklist (user, 25 Nov; outside the hash). Any failure stops the run before stage 2.** Code: `artifacts/patch_grid_stage1.py`. It is run per arm type (nine, seed 0, 2,000 steps at the real batch, one at a time on an idle GPU); items 1, 2 and 4 are also read from stage 1's real arms.
+
+1. **Throughput and peak memory** per arm against the cost doc, ± 30%.
+2. **Loss** finite, and falling through the first 2,000 steps: mean(steps 1,501–2,000) < mean(steps 1–500). A step-by-step or window-by-window fall would fail every JEPA and MoCo run on the Mac
+   (JEPA dips by step 1,000 and rises; MoCo has a start-up hump); all nine Mac runs pass this form.
+3. **Flash attention active:** the encoder, predictor and decoder run forward and backward in bf16 under a kernel context that allows flash only, so it raises if flash can't serve them.
+4. **Loader:** GPU utilisation above 85% (nvidia-smi, 1-s samples, after step 200).
+5. **Checkpoint round trip:** save, reload, identical embedding on 64 galaxies.
