@@ -5,12 +5,13 @@
 # run.sh resumes on boot. An outcome in the bucket (ok or fail) ends the watch: run.sh stops the VM itself, and the watcher never restarts a finished
 # or failed run.
 #
-#   VM=computeinstance-... STAGES=2 [PREFIX=grid] [POLL=300] [MAX_STARTS=40] bash artifacts/nebius_watch.sh      # your own nebius CLI profile
+#   VM=computeinstance-... STAGES=arms [PREFIX=grid] [POLL=300] [MAX_STARTS=40] bash artifacts/nebius_watch.sh   # your own nebius CLI profile
 #
 # Reads no key itself: the nebius CLI uses your profile, results.py the Mac's .env (R2_RES_*). Logs to runs/almagest/nebius_watch.log.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-: "${VM:?set VM to the instance id}" "${STAGES:?set STAGES as run.sh has it}"
+: "${VM:?set VM to the instance id}" "${STAGES:?set STAGES as run.sh has it (smokes|arms|all)}"
+case "$STAGES" in smokes|arms|all) ;; *) echo "STAGES must be smokes, arms or all (matching run.sh), not $STAGES" >&2; exit 1;; esac
 PREFIX=${PREFIX:-grid} POLL=${POLL:-300} MAX_STARTS=${MAX_STARTS:-40}
 LOG=runs/almagest/nebius_watch.log
 say() { echo "$(date '+%F %T') $*" | tee -a "$LOG"; }

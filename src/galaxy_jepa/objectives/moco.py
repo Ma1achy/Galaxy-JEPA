@@ -90,15 +90,16 @@ def _gauss_kernels(sigma: torch.Tensor, radius: int) -> torch.Tensor:
 
 def blur(images: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
     """Separable Gaussian blur, σ per image ``(B,)`` (shared across bands), reflect-padded so the
-    stamp's edge is not darkened."""
+    stamp's edge is not darkened. Runs in fp32 so autocast does not quantise the kernel."""
     b, c, h, w = images.shape
     radius = max(1, math.ceil(3.0 * float(sigma.max())))
-    k = _gauss_kernels(sigma, radius).repeat_interleave(c, dim=0)  # (B·C, L)
-    x = images.reshape(1, b * c, h, w)
-    x = F.pad(x, (radius, radius, 0, 0), mode="reflect")
-    x = F.conv2d(x, k.view(b * c, 1, 1, -1), groups=b * c)
-    x = F.pad(x, (0, 0, radius, radius), mode="reflect")
-    x = F.conv2d(x, k.view(b * c, 1, -1, 1), groups=b * c)
+    with torch.autocast(device_type=images.device.type, enabled=False):
+        k = _gauss_kernels(sigma.float(), radius).repeat_interleave(c, dim=0)  # (B·C, L)
+        x = images.float().reshape(1, b * c, h, w)
+        x = F.pad(x, (radius, radius, 0, 0), mode="reflect")
+        x = F.conv2d(x, k.view(b * c, 1, 1, -1), groups=b * c)
+        x = F.pad(x, (0, 0, radius, radius), mode="reflect")
+        x = F.conv2d(x, k.view(b * c, 1, -1, 1), groups=b * c)
     return x.reshape(b, c, h, w)
 
 
@@ -179,20 +180,25 @@ class Moco(nn.Module):
     def loss_parts(self, batch: dict[str, Any], *, seed: int | None = None) -> LossParts:
         images = batch["image"].float()
         q_tok, k_tok, _ = self.views(images, 0 if seed is None else seed)
-        q = F.normalize(self.projector(self.encoder.run_tokens(q_tok).mean(dim=1)), dim=1)
+        q_proj = self.projector(self.encoder.run_tokens(q_tok).mean(dim=1))
         with torch.no_grad():
-            k = F.normalize(
-                self.key_projector(self.key_encoder.run_tokens(k_tok).mean(dim=1)), dim=1
-            )
-        queue = cast(torch.Tensor, self.queue)
-        l_pos = (q * k).sum(dim=1, keepdim=True)
-        l_neg = q @ queue.clone().detach().T
-        logits = torch.cat([l_pos, l_neg], dim=1) / self.config.tau
-        labels = torch.zeros(logits.shape[0], dtype=torch.long, device=logits.device)
-        loss = F.cross_entropy(logits, labels)
-        with torch.no_grad():
-            self.last_top1 = float((logits.argmax(dim=1) == 0).float().mean())
-            self._enqueue(k)
+            k_proj = self.key_projector(self.key_encoder.run_tokens(k_tok).mean(dim=1))
+        # InfoNCE normalisation, 65k-class cosine logits / tau, and queued keys stay in fp32 so
+        # bf16 autocast does not quantise cosine similarities or store bf16-rounded keys.
+        with torch.autocast(device_type=images.device.type, enabled=False):
+            q = F.normalize(q_proj.float(), dim=1)
+            with torch.no_grad():
+                k = F.normalize(k_proj.float(), dim=1)
+            queue = cast(torch.Tensor, self.queue)
+            l_pos = (q * k).sum(dim=1, keepdim=True)
+            l_neg = q @ queue.clone().detach().float().T
+            logits = torch.cat([l_pos, l_neg], dim=1) / self.config.tau
+            labels = torch.zeros(logits.shape[0], dtype=torch.long, device=logits.device)
+            loss = F.cross_entropy(logits, labels)
+            with torch.no_grad():
+                self.last_top1 = float((logits.argmax(dim=1) == 0).float().mean())
+                if torch.isfinite(loss):
+                    self._enqueue(k)
         return LossParts(total=loss, prediction=loss, sigreg=None)
 
     @torch.no_grad()

@@ -96,20 +96,28 @@ def unpack(comp: Path, rec: dict, out, off: int = 0) -> None:
         raise ValueError("compressed SHA-1")
     h, n = hashlib.sha1(), 0
     z = subprocess.Popen(["zstd", "-q", "-d", "-c", str(comp)], stdout=subprocess.PIPE)
-    if out is not None:
-        out.seek(off)
-    while n < rec["raw_size"]:
-        want = min(BLOCK * STAMP, rec["raw_size"] - n)
-        b = z.stdout.read(want)
-        if len(b) != want:
-            raise ValueError("short decompressed stream")
-        b = merge(b) if rec["planes"] else b
-        h.update(b)
-        n += len(b)
+    try:
         if out is not None:
-            out.write(b)
-    if z.stdout.read(1) or z.wait():
-        raise ValueError("trailing data or zstd failure")
+            out.seek(off)
+        while n < rec["raw_size"]:
+            want = min(BLOCK * STAMP, rec["raw_size"] - n)
+            b = z.stdout.read(want)
+            if len(b) != want:
+                raise ValueError("short decompressed stream")
+            b = merge(b) if rec["planes"] else b
+            h.update(b)
+            n += len(b)
+            if out is not None:
+                out.write(b)
+        if z.stdout.read(1) or z.wait():
+            raise ValueError("trailing data or zstd failure")
+    except Exception:
+        z.kill()
+        z.wait()
+        raise
+    finally:
+        if z.stdout is not None:
+            z.stdout.close()
     if h.hexdigest() != rec["raw_sha1"]:
         raise ValueError("raw SHA-1")
 
@@ -249,12 +257,14 @@ def report(**kw) -> None:
 
 
 def swap_guard() -> None:
-    """Stop (paused, resumable) if free swap stays under 300 MB for three readings 10 s apart."""
+    """Stop (paused, resumable) if swap is allocated (total > 0) and free swap stays under 300 MB for three readings 10 s apart."""
     low = 0
     while True:
         try:
-            m = re.search(r"free = ([\d.]+)M", subprocess.run(["sysctl", "vm.swapusage"], capture_output=True, text=True).stdout)
-            low = low + 1 if m and float(m.group(1)) < SWAP_FLOOR_MB else 0
+            out = subprocess.run(["sysctl", "vm.swapusage"], capture_output=True, text=True).stdout
+            mt = re.search(r"total = ([\d.]+)M", out)
+            mf = re.search(r"free = ([\d.]+)M", out)
+            low = low + 1 if mt and mf and float(mt.group(1)) > 0 and float(mf.group(1)) < SWAP_FLOOR_MB else 0
         except OSError:
             return
         if low >= 3:
@@ -323,7 +333,7 @@ def push(a, cache=CACHE, st=STATE, remote: Remote | None = None, chunk=CHUNK, ex
                     report(status="failed", message="upload stopped; see log")
                     raise SystemExit(f"ship: stopped at {i['key']} (rerun to resume)")
                 time.sleep(min(600, 15 * 2**fails))
-        dt = time.time() - t0
+        dt = max(time.time() - t0, 1e-6)
         f.unlink()
         rec |= {"upload_s": round(dt, 1), "mbit_s": round(rec["comp_size"] * 8 / dt / 1e6, 2), "at": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
         with open(st / "state.jsonl", "a") as s:
@@ -429,7 +439,7 @@ def pull(a, local: Path | None = None, parity: bool = True) -> None:
             t = sf.with_suffix(".tmp")
             t.write_text(json.dumps({"manifest": a.manifest_sha1, "done": sorted(done)}))
             os.replace(t, sf)
-            say(f"{len(done)}/{len(man['files'])} {key}; {n * 8 / 1e6 / (time.time() - t0):.0f} Mbit/s")
+            say(f"{len(done)}/{len(man['files'])} {key}; {n * 8 / 1e6 / max(time.time() - t0, 1e-6):.0f} Mbit/s")
     if parity:
         sys.path.insert(0, str(REPO / "artifacts"))
         os.environ |= {"F0_CACHE_BASE": str(dest)}
@@ -500,7 +510,7 @@ def selftest(a) -> None:
         (t / "m.csv").write_text("id\n1\n")
         b, st = t / "bucket", t / "state"
         b.mkdir()
-        ns = argparse.Namespace(only=1, no_cap=True, max_fails=2, day_mbit=6, day_start="08:00", day_end="23:00")
+        ns = argparse.Namespace(only=1, no_cap=True, max_fails=2, day_mbit=6, night_mbit=0.0, day_start="08:00", day_end="23:00")
         ex = [("data/x/metadata.csv", t / "m.csv")]
         push(ns, c, st, Remote("RW", b), 10, ex)
         with open(st / "state.jsonl", "a") as f:

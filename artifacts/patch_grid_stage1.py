@@ -108,7 +108,7 @@ def flash(a) -> None:
     batch = _to_device(next(iter(DataLoader(ds, batch_size=4))), "cuda")
     with sdpa_kernel([SDPBackend.FLASH_ATTENTION]), torch.autocast("cuda", dtype=cfg.autocast_dtype()):  # raises "No available kernel" if any attention can't use it
         loss = obj.loss_parts(batch, seed=0).total
-    loss.backward()
+        loss.backward()
     # the control: the same context must refuse fp32, or the check can't fail
     q = torch.zeros(1, 6, 16, 64, device="cuda")
     try:
@@ -145,6 +145,8 @@ def roundtrip(a) -> None:
                            schedule={"steps": ocfg.steps, "lr": ocfg.lr, "lr_final": ocfg.lr_final, "warmup_steps": ocfg.warmup_steps,
                                      "batch_size": ocfg.batch_size, "objective": o, "brief": "patch grid"})
     st = ck.restore(objective=obj, optimiser=obj.make_optimiser(), map_location=dev)
+    if st is None:
+        raise SystemExit(f"{a.arm}: no committed checkpoint found under {run / 'checkpoints'}")
     _, ds, ids = dataset(64)
     bs = BATCH[patch]
     with tempfile.TemporaryDirectory() as t:
@@ -173,7 +175,7 @@ def verdicts(arm: str, r: dict | None, fl: dict | None, rt: dict | None) -> dict
             "roundtrip": bool(rt) and rt["n"] == 64 and rt["identical"] and rt["encoder_pt_identical"] and rt["spread"] > 0 and rt["device"].startswith("cuda")}
 
 
-def judge(_a) -> None:
+def judge(a) -> None:
     load = lambda f: json.loads((OUT / f).read_text()) if (OUT / f).exists() else None  # noqa: E731
     bad = 0
     for o in OBJ:
@@ -184,18 +186,19 @@ def judge(_a) -> None:
             bad += not all(v.values())
             print(f"{arm:12s}", " ".join(f"{k}={'ok' if ok else 'FAIL'}" for k, ok in v.items()),
                   f"| {r['hours_per_seed']:.2f} h (doc {HOURS[o, p][0]}–{HOURS[o, p][1]}), {r['peak_gb']} GB (doc {MEM[o, p]:.1f}), util {r['util_mean']}" if r else "| no smoke")
-    for o in OBJ:
-        for p in (16, 8):
-            for s in (0, 1, 2):
-                arm = f"{o}_p{p}_s{s}"
-                r = load(f"{arm}.json")
-                if r:
-                    v = {k: x for k, x in verdicts(arm, r, None, None).items() if k in ("throughput", "memory", "loss")}
-                    bad += not all(v.values())
-                    print(f"{arm:12s} real", " ".join(f"{k}={'ok' if ok else 'FAIL'}" for k, ok in v.items()), f"| {r['hours_per_seed']:.2f} h, {r['peak_gb']} GB, util {r['util_mean']}")
-                else:
-                    bad += 1
-                    print(f"{arm:12s} real: no record")
+    if not getattr(a, "smokes_only", False):
+        for o in OBJ:
+            for p in (16, 8):
+                for s in (0, 1, 2):
+                    arm = f"{o}_p{p}_s{s}"
+                    r = load(f"{arm}.json")
+                    if r:
+                        v = {k: x for k, x in verdicts(arm, r, None, None).items() if k in ("throughput", "memory", "loss")}
+                        bad += not all(v.values())
+                        print(f"{arm:12s} real", " ".join(f"{k}={'ok' if ok else 'FAIL'}" for k, ok in v.items()), f"| {r['hours_per_seed']:.2f} h, {r['peak_gb']} GB, util {r['util_mean']}")
+                    else:
+                        bad += 1
+                        print(f"{arm:12s} real: no record")
     if bad:
         raise SystemExit(f"stage 1 checklist: {bad} rows FAIL. Stop before stage 2 and report; nothing here is loosened on the box.")
     print("stage 1 checklist: PASS")
@@ -206,6 +209,7 @@ def main() -> None:
     ap.add_argument("mode", choices=["watch", "flash", "roundtrip", "judge"])
     ap.add_argument("arm", nargs="?")
     ap.add_argument("--smoke", type=int)
+    ap.add_argument("--smokes-only", action="store_true", help="judge: check only the 9 smoke rows (Step 4, before stage-1 real arms exist)")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--cache-base")
     ap.add_argument("--masks")

@@ -39,7 +39,9 @@ def context(seed: int, grid: int, batch: int) -> dict:
     train_ids, _, _ = _split_ids(cfg)
     ds = StampDataset(cache, {}, train_ids, scalars=cache.scalars)
     jc: JepaConfig = cfg.to_jepa_config()
-    return {"petro": np.asarray(ds._petro, float), "pscale": ds.pixel_scale, "n": len(ds), "jcfg": jc, "stamp_px": int(cache.index.height), "seed": seed, "grid": grid, "batch": batch}
+    # Cast to float32 to match objectives/loop.py:_to_device, which downcasts float64 batch scalars
+    # to float32 before Jepa.loss_parts builds weight_maps.
+    return {"petro": np.asarray(ds._petro, np.float32), "pscale": np.float32(ds.pixel_scale), "n": len(ds), "jcfg": jc, "stamp_px": int(cache.index.height), "seed": seed, "grid": grid, "batch": batch}
 
 
 def maps_for(c: dict, step: int) -> np.ndarray:
@@ -51,7 +53,7 @@ def maps_for(c: dict, step: int) -> np.ndarray:
         e, off = divmod(i, c["n"])
         idx.append(int(sh.permutation(e)[off]))
     ns = SimpleNamespace(config=c["jcfg"], stamp_px=c["stamp_px"], encoder=SimpleNamespace(grid_size=c["grid"]), _global_half=c["jcfg"].global_box_frac * c["stamp_px"])
-    return Jepa.weight_maps(ns, c["petro"][idx], np.full(len(idx), c["pscale"]))
+    return Jepa.weight_maps(ns, c["petro"][idx], np.full(len(idx), c["pscale"], dtype=np.float32))
 
 
 def _init(c: dict) -> None:
@@ -117,11 +119,16 @@ def main() -> None:
     total = len(pm.digest)
     steps = sorted(np.random.default_rng(20261124).choice(total, size=min(a.n, total), replace=False).tolist())
     bad, n = 0, 0
+    from galaxy_jepa.objectives.loop import _to_device
     for s in steps:
         w = maps_for(c, s)
+        # Also verify parity with loop._to_device's float64->float32 downcast on raw float64 scalars.
+        sim_batch = _to_device({"petro_rad_arcsec": torch.tensor(c["petro"][:1], dtype=torch.float64), "pixel_scale": torch.tensor([float(c["pscale"])], dtype=torch.float64)}, "cpu")
+        assert sim_batch["petro_rad_arcsec"].dtype == torch.float32 and sim_batch["pixel_scale"].dtype == torch.float32
         x, y = pm.sample(w, seed=a.seed + s), ref.sample(w, seed=a.seed + s)
         n += len(w)
-        bad += not (torch.equal(x[0], y[0]) and torch.equal(x[1], y[1]))
+        same_tgt = len(x[1]) == len(y[1]) and all(torch.equal(t1, t2) for t1, t2 in zip(x[1], y[1], strict=True))
+        bad += not (torch.equal(x[0], y[0]) and same_tgt)
     print(f"check: {n} galaxies in {len(steps)} steps of {total:,}; {bad} batches differ from MultiBlockMasker.sample")
     sys.exit(1 if bad else 0)
 

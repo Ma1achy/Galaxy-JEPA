@@ -197,8 +197,9 @@ class Jepa(nn.Module):
         petro = batch["petro_rad_arcsec"].cpu().numpy()
         pscale = batch["pixel_scale"].cpu().numpy()
         weight_maps = self.weight_maps(petro, pscale)
-        context_idx, target_idx = self.masker.sample(weight_maps, seed=seed)
-        context_idx, target_idx = context_idx.to(device), target_idx.to(device)
+        context_idx, target_blocks = self.masker.sample(weight_maps, seed=seed)
+        context_idx = context_idx.to(device)
+        target_blocks = [t.to(device) for t in target_blocks]
 
         tokens = self.encoder.patch_embed_tokens(images)
         context_tokens = _gather_tokens(tokens, context_idx)
@@ -218,10 +219,15 @@ class Jepa(nn.Module):
 
         with torch.no_grad():
             full = self.target_encoder.run_tokens(self.target_encoder.patch_embed_tokens(images))
-            targets = _gather_tokens(full, target_idx)
+            targets = [_gather_tokens(full, t_idx) for t_idx in target_blocks]
 
-        pred = self.predictor(context, context_idx, target_idx)
-        prediction = torch.nn.functional.mse_loss(pred, targets)
+        # Standard I-JEPA: run the predictor independently for each target block so separate
+        # blocks cannot cross-attend to each other and overlapping positions are not over-weighted.
+        block_losses = [
+            torch.nn.functional.mse_loss(self.predictor(context, context_idx, t_idx), tgt)
+            for t_idx, tgt in zip(target_blocks, targets, strict=True)
+        ]
+        prediction = torch.stack(block_losses).mean()
         if penalty is None:
             return LossParts(total=prediction, prediction=prediction, sigreg=None)
         lam = self.config.sigreg_lambda

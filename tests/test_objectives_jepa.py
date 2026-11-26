@@ -188,15 +188,18 @@ class TestSigRegLandsInert:
         weight_maps = jepa.weight_maps(
             batch["petro_rad_arcsec"].numpy(), batch["pixel_scale"].numpy()
         )
-        context_idx, target_idx = jepa.masker.sample(weight_maps, seed=3)
+        context_idx, target_blocks = jepa.masker.sample(weight_maps, seed=3)
         tokens = jepa.encoder.patch_embed_tokens(images)
         context = jepa.encoder.run_tokens(_gather_tokens(tokens, context_idx))
         with torch.no_grad():
             full = jepa.target_encoder.run_tokens(jepa.target_encoder.patch_embed_tokens(images))
-            targets = _gather_tokens(full, target_idx)
-        pre_i1 = torch.nn.functional.mse_loss(
-            jepa.predictor(context, context_idx, target_idx), targets
-        )
+            targets = [_gather_tokens(full, t_idx) for t_idx in target_blocks]
+        pre_i1 = torch.stack(
+            [
+                torch.nn.functional.mse_loss(jepa.predictor(context, context_idx, t_idx), tgt)
+                for t_idx, tgt in zip(target_blocks, targets, strict=True)
+            ]
+        ).mean()
 
         assert torch.equal(jepa.loss_step(batch, seed=3), pre_i1)
 
