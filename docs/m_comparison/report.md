@@ -211,9 +211,10 @@ or its interaction with those weights, rather than the weights alone. MAE s1 sha
 v2 data order with A2, and shows the effect.
 
 **The guard was inflated by this drift.** The pair noise σ̂² behind the guard is computed uncentred, by
-design (so that a pair-level drift widens it), and here the drift dominates it: σ̂² 33.9, of which a
-drift of −5.7 contributes about 32. The guard's median is 6.8 z (0.041 AUC) in the full population,
-against about 2.4 z had it been built on the centred per-answer noise. This is why SHIFTED = 0 (§1) is a weak
+design (so that a pair-level drift widens it), and here the drift dominates it: σ̂² 33.9, of which the
+centred per-answer variance accounts for about 9.5–9.8 (2 × 2.21²) and the −5.7 drift contributes the
+remaining ~24. The guard's median is 6.8 z (0.041 AUC) in the full population, against about 3.6 z had
+it been built on the centred per-answer noise. This is why SHIFTED = 0 (§1) is a weak
 statement about magnitude. It does not touch AGREES, which rests on the existence flags.
 
 **Had CARRIED or MASKED fired, it would have been uninterpretable at this noise level.** The A-bound

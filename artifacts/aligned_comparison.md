@@ -918,3 +918,33 @@ Per answer (`*` powered):
 | t11_arms_number_a34_4 | * | 0.6077 | 0.6573 | 0.5508 | 0.6314 | 0.6143 | 0.0710 | 0.0171 |
 | t11_arms_number_a36_more_than_4 | * | 0.7050 | 0.7287 | 0.6954 | 0.7153 | 0.7049 | 0.0222 | 0.0104 |
 | t11_arms_number_a37_cant_tell | * | 0.6099 | 0.6305 | 0.6097 | 0.6187 | 0.6138 | 0.0139 | 0.0049 |
+
+## Erratum (2026-11-26; outside the hash)
+
+Outside the hashed Pre-registration section (`637dddda…`, untouched) and recorded without altering
+any scored JSON or table above.
+
+- **Criterion 3 seed-range floor: known-σ vs 1-df plug-in calibration (`artifacts/erratum_aligned_c3.py`).**
+  `artifacts/aligned_c3_floor.py` calibrated the multiplier $k = 1.110$ from the 95th percentile of
+  $\max(\min A - \max M,\ \min M - \max A) / \sigma$ with **known** $\sigma = 1$. At scoring time,
+  however, $F_q = k \cdot s_M$ substitutes the 1-df sample spread $s_M = |M_1 - M_2| / \sqrt{2}$
+  computed from the two M seeds themselves. Because $(M_1, M_2)$ enters both the gap and the plug-in
+  denominator, the actual exchangeable null false-call rate of $k = 1.110$ is **16.8%** (10⁶ draws,
+  seed 20261126), not 5.0%.
+- **Exact 1-df plug-in calibration.** The 95th percentile of
+  $\max(\min A - \max M,\ \min M - \max A) / s_M$ under $A_1, A_2, M_1, M_2 \sim \mathcal{N}(0, 1)$
+  i.i.d. is **$k_{\text{plug-in}} = 5.839$** (5.00% null false-call rate). Re-scoring the observed
+  Criterion 3 quantities under $k_{\text{plug-in}}$:
+
+  | quantity | $s_M$ | gap (down) | $F_q$ ($k = 1.110$) | original state | $F_q$ ($k = 5.839$) | plug-in state |
+  |---|---|---|---|---|---|---|
+  | N (nuisance share, top 10) | 0.0431 | 0.115 | 0.048 | CLEANER | 0.252 | **SAME** |
+  | PR (effective dim) | 2.517 | −6.90 | 2.79 | SAME | 14.70 | **SAME** |
+  | offset-flagged fraction | 0.161 | 0.273 | 0.179 | LOWER | 0.941 | **SAME** |
+  | Mo (morphology share) | 0.000 | −0.085 | 0.000 | SAME | 0.000 | **SAME** |
+
+- **Scope of impact.** Only the Criterion 3 seed-range states (`N` and `offset-flagged`) depend on
+  $k$. Criterion 1a/1b (`FIXED`: all four offset probes at chance 0.499–0.507, max SAE latent $|\rho|$
+  0.059 and 0.044 vs M's 0.910), the absence of any offset-tracking top-10 PC in both aligned seeds,
+  Criterion 2 (`SAME`), and Criterion 4 are completely unaffected.
+

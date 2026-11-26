@@ -29,7 +29,8 @@ recipe retrained on the band-aligned v2 corpus (seeds 0, 1, 2).
   direction) 0 / 1 / 1; R4 (not recoverable linearly) 4 / 2 / 4. Conditional population: R1 2 / 2 / 0,
   R2 25 / 27 / 27, R4 10 / 8 / 10.
 - **Nuisance picture.** Under matching on each answer's worst nuisance (D24), the signal SURVIVES on
-  30 / 31 / 30 answers, is UNRESOLVED on 6 in every seed, and collapses on one (1 arm, A1 only).
+  30 / 31 / 30 answers, is UNRESOLVED on 6 in every seed, collapses on one (1 arm, A1 only), and is
+  PARTIAL on one (1 arm, A3 only).
 - **Winding and arm count are where it thins out.** Medium winding is R4 in all three seeds. 3 arms and
   4 arms are R4 in A1 and A3 and R2 in A2 (both underpowered); star/artifact is R4 in all three
   (underpowered). In the full population the only R1 is irregular (A2 and A3).
@@ -80,3 +81,28 @@ far from the bar on most answers, is robust to it.
 - **Backbone sweep:** clean ViT → conv-stem hybrid → E(2)-equivariant ViT (D2).
 - **The seed-1 puzzle** (TODO, P2 parked): why seed 1 runs high on v2 for the JEPA and MAE only; needs
   extra training runs.
+
+## Audit errata (26 Nov 2026)
+
+Two historical methodology caveats were identified in the November 2026 codebase audit. Original
+records and outputs are left untouched; standalone re-run/verification scripts are committed beside
+them:
+
+- **Aligned comparison Criterion 3 (`artifacts/aligned_comparison.md`, `artifacts/erratum_aligned_c3.py`).**
+  The seed-range multiplier $k = 1.110$ was calibrated assuming known $\sigma_q$, whereas scoring plugs
+  in the 1-df sample spread $s_M = |M_1 - M_2| / \sqrt{2}$ from the two M seeds themselves. Under the
+  actual 1-df plug-in rule, $k = 1.110$ has a 16.8% exchangeable null false-call rate; achieving 5.0%
+  requires $k \approx 5.84$ (`artifacts/erratum_aligned_c3.py`, 10⁶ draws), under which both `N`
+  (nuisance share) and `offset-flagged` read `SAME` rather than `CLEANER`/`LOWER`. Criteria 1a/1b
+  (`FIXED`: offset probes at chance, max latent $|\rho|$ 0.059/0.044) and Criterion 2 (`SAME`) are
+  unaffected.
+- **Ladder v2 E5 conditional population and E6 2A pairs (`docs/ladder_v2/report.md`,
+  `artifacts/erratum_ladder_v2_e5e6.py`).**
+  (i) The conditional-population E5 ladder tested conditional AUCs against the full-population $K = 30$
+  untrained bank (`p1_untrained_bank.json`) rather than a conditional-population bank. (ii) E6's 2A
+  cross-check tested whether feature A remained recoverable when matched on B (A's retention), rather
+  than whether A and B's directions stayed aligned after symmetric decorrelation, and did not isolate
+  zero point-masses in `stratified_match` or restrict matching to jointly eligible rows. The package
+  is fixed in `src/galaxy_jepa/probing/{ladder,matching}.py`; `artifacts/erratum_ladder_v2_e5e6.py`
+  builds a dedicated conditional $K = 30$ bank and re-runs E5+E6 into `docs/ladder_v2_erratum/` without
+  modifying `runs/ladder_v2/` or `docs/ladder_v2/`.

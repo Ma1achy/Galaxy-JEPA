@@ -151,7 +151,7 @@ three seed pairs. Positive means the baseline carries **more** of v. Bar b_v = 3
 
 | objective | variable | **state** | D_v | 97.5% CI | b_v | S_A,v | S_X,v | pair means |
 |---|---|---|---|---|---|---|---|---|
-| MoCo | PSF (`psfWidth_r`) | **LESS** | −0.178 | [−0.183, −0.173] | 0.144 | 0.059 | 0.005 | −0.218, −0.105, −0.212 |
+| MoCo | PSF (`psfWidth_r`) | **LESS** | −0.178 | [−0.183, −0.173] | 0.144 | 0.059 | 0.005 | −0.217, −0.105, −0.212 |
 | MoCo | brightness (`modelMag_r`) | UNRESOLVED (underpowered) | +0.058 | [+0.056, +0.060] | 0.059 | 0.024 | 0.001 | +0.072, +0.031, +0.071 |
 | MoCo | sky (`sky_r`) | **LESS** | −0.084 | [−0.087, −0.081] | 0.011 | 0.004 | 0.003 | −0.083, −0.081, −0.088 |
 | MAE | PSF | **SPLIT** (no direction claimed) | −0.039 | [−0.042, −0.035] | 0.144 | 0.059 | 0.011 | −0.064, +0.025, −0.078 |
