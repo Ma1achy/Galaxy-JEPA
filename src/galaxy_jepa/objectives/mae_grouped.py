@@ -55,6 +55,10 @@ class GroupedMae(Mae):
         self.n_groups = self.members.shape[0]
         self.n_visible_groups = int(round(self.n_groups * (1.0 - config.mask_ratio)))
         self.n_visible = self.n_visible_groups * self.members.shape[1]
+        owner = np.empty(self.members.size, dtype=np.int64)
+        for i, row in enumerate(self.members):
+            owner[row] = i
+        self.register_buffer("_owner", torch.from_numpy(owner), persistent=False)
 
     def target(self, images: torch.Tensor) -> torch.Tensor:
         cfg = self.config
@@ -66,10 +70,8 @@ class GroupedMae(Mae):
         mean = g.mean(dim=-1, keepdim=True)
         var = g.var(dim=-1, keepdim=True)
         scale = (var + cfg.norm_pix_eps) ** 0.5
-        owner = np.empty(self.members.size, dtype=np.int64)
-        for i, row in enumerate(self.members):
-            owner[row] = i
-        own = torch.from_numpy(owner).to(images.device)
+        own = self._owner
+        assert isinstance(own, torch.Tensor)
         return (t - mean[:, own]) / scale[:, own]
 
     def token_losses(

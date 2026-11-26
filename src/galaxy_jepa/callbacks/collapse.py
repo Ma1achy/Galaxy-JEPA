@@ -115,6 +115,12 @@ def collapse_signals(embeddings: torch.Tensor) -> CollapseSignals:
         raise ValueError(f"expected (N, D) embeddings, got shape {tuple(embeddings.shape)}")
     x = embeddings.detach().float()
     n = x.shape[0]
+    if not torch.isfinite(x).all():
+        # Return non-finite signals directly rather than crashing inside torch.linalg.svdvals,
+        # so CollapseMonitor.should_halt can halt cleanly and persist traces.
+        return CollapseSignals(
+            std=float("nan"), effective_rank=float("nan"), mean_cosine=float("nan"), n=n
+        )
 
     std = float(x.std(dim=0, unbiased=False).mean())
 

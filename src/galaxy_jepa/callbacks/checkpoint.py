@@ -104,6 +104,8 @@ def _rng_state() -> dict[str, Any]:
     }
     if torch.backends.mps.is_available():
         state["mps"] = torch.mps.get_rng_state()
+    if torch.cuda.is_available():
+        state["cuda"] = torch.cuda.get_rng_state_all()
     return state
 
 
@@ -143,6 +145,12 @@ def _set_rng_state(state: dict[str, Any]) -> None:
     random.setstate(state["python"])
     if "mps" in state and torch.backends.mps.is_available():
         torch.mps.set_rng_state(_cpu_byte(state["mps"]))
+    if "cuda" in state and torch.cuda.is_available():
+        cuda_states = state["cuda"]
+        if isinstance(cuda_states, list):
+            torch.cuda.set_rng_state_all([_cpu_byte(t) for t in cuda_states])
+        else:
+            torch.cuda.set_rng_state(_cpu_byte(cuda_states))
 
 
 class TrainCheckpointer:
@@ -232,17 +240,29 @@ class TrainCheckpointer:
         extra = getattr(obj, "extra_state", None)
         if extra is not None:
             payload["extra_state"] = extra()
+        manifest = self._manifest()
+        if (
+            manifest is not None
+            and manifest.get("config_hash") is not None
+            and manifest.get("config_hash") != self.config_hash
+        ):
+            raise RuntimeError(
+                f"{self.manifest_path} belongs to config_hash "
+                f"{str(manifest.get('config_hash'))[:16]}, refusing to overwrite with "
+                f"{self.config_hash[:16]}"
+            )
         tmp = path.with_suffix(".pt.tmp")
         torch.save(payload, tmp)
         with tmp.open("rb") as fh:
             os.fsync(fh.fileno())
+        # Hash and load-verify tmp BEFORE replacing path, so an already-committed step file
+        # cannot be overwritten and left mismatched with checkpoints.json on a mid-save error.
+        digest = _sha256_file(tmp)
+        self._assert_loadable(tmp, step)
         os.replace(tmp, path)
         _fsync_dir(self.dir)
 
-        digest = _sha256_file(path)
-        self._assert_loadable(path, step)
-
-        manifest = self._manifest() or {}
+        manifest = manifest or {}
         entries = [e for e in (manifest.get("entries") or []) if int(e["step"]) != int(step)]
         entries.append(
             {
@@ -386,7 +406,11 @@ class TrainCheckpointer:
                 "encoder's inputs would change mid-training with nothing recording it."
             )
         theirs, mine = dict(payload.get("schedule") or {}), self.schedule
-        moved = {k: (theirs.get(k), mine.get(k)) for k in mine if theirs.get(k) != mine.get(k)}
+        moved = {
+            k: (theirs.get(k), mine.get(k))
+            for k in sorted(set(theirs) | set(mine))
+            if theirs.get(k) != mine.get(k)
+        }
         if moved:
             raise RuntimeError(
                 f"{path.name}'s schedule differs from this run's: {moved}. The LR warmup and the "

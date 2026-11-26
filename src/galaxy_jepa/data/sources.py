@@ -107,8 +107,8 @@ class DirectorySource:
     def _typed(row: dict[str, str]) -> dict[str, Any]:
         out: dict[str, Any] = {}
         for key, value in row.items():
-            if key == "object_id":
-                out[key] = int(value)
+            if key in ("object_id", "objID", "dr7objid", "specobjid"):
+                out[key] = int(value) if value not in ("", "nan") else None
             elif key == "kind":
                 out[key] = value
             else:
@@ -136,7 +136,7 @@ class FitsFrameSource:
         rows: Sequence[dict[str, Any]],
         *,
         bands: tuple[str, ...] = DEFAULT_BANDS,
-        stamp_px: int = 64,
+        stamp_px: int = 256,
         data_release: int = 17,
         timeout: int = 120,
         frame_cache_size: int = 24,
@@ -223,6 +223,6 @@ class FitsFrameSource:
                 band=band,
             )
             data, wcs = self._get_frame((rerun, run, camcol, field, band), url)
-            cut = Cutout2D(data, coord, size=self.stamp_px, wcs=wcs)
+            cut = Cutout2D(data, coord, size=self.stamp_px, wcs=wcs, mode="partial", fill_value=0.0)
             planes.append(np.asarray(cut.data, dtype=np.float64))
         return np.stack(planes)

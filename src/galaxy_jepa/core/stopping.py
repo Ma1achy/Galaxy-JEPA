@@ -58,9 +58,16 @@ def read_curve(curve: list[dict], *, flat_delta: float = FLAT_DELTA) -> Stopping
         return StoppingVerdict(False, INSUFFICIENT, f"{len(curve)} probe point(s) — needs 3")
 
     a, b, c = curve[-3:]
+    de1 = b["epoch"] - a["epoch"]
+    de2 = c["epoch"] - b["epoch"]
+    if de1 <= 0 or de2 <= 0:
+        raise ValueError(
+            f"probe-point epochs must be strictly increasing, got "
+            f"{a['epoch']}, {b['epoch']}, {c['epoch']}"
+        )
     d1, d2 = b["auc"] - a["auc"], c["auc"] - b["auc"]
-    s1 = d1 / (b["epoch"] - a["epoch"])
-    s2 = d2 / (c["epoch"] - b["epoch"])
+    s1 = d1 / de1
+    s2 = d2 / de2
     detail = (
         f"ΔAUC {d1:+.4f} then {d2:+.4f} (band ±{flat_delta}); slope/epoch {s1:+.4f} then {s2:+.4f}"
     )
@@ -70,13 +77,18 @@ def read_curve(curve: list[dict], *, flat_delta: float = FLAT_DELTA) -> Stopping
         return StoppingVerdict(True, DECLINING, detail)
 
     if abs(d1) < flat_delta and abs(d2) < flat_delta:
-        if d2 > d1:  # still accelerating within the band — not yet a plateau
+        if d2 > d1 and d2 > 0:  # still accelerating upward within the band — not yet a plateau
             return StoppingVerdict(
                 False, UNSETTLED, f"within the band but still rising within intervals — {detail}"
+            )
+        if s2 > flat_delta:  # short interval masks a meaningful positive slope per epoch
+            return StoppingVerdict(
+                False, UNSETTLED, f"delta within band but positive slope/epoch disagrees — {detail}"
             )
         return StoppingVerdict(True, FLAT, detail)
 
     if d2 > flat_delta:
         return StoppingVerdict(False, RISING, detail)
 
-    return StoppingVerdict(False, UNSETTLED, f"still improving — {detail}")
+    note = "still improving" if d2 > 0 else "mixed/declining"
+    return StoppingVerdict(False, UNSETTLED, f"{note} — {detail}")

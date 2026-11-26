@@ -134,7 +134,8 @@ def fit_normalise(
         npixels += stretched.shape[1] * stretched.shape[2]
 
         keep = validity_mask(raw) if valid_only else np.ones(stretched.shape[1:], dtype=bool)
-        masked = stretched * keep
+        keep = keep & np.isfinite(stretched).all(axis=0)
+        masked = np.where(keep, stretched, 0.0)
         vsum += masked.sum(axis=(1, 2))
         vsumsq += (masked**2).sum(axis=(1, 2))
         vpixels += float(keep.sum())
@@ -604,6 +605,10 @@ def bake_cache(
 
     if shape is None:
         raise ValueError("nothing to bake: source is empty and cache did not exist")
+    if n_new == 0 and (cache_dir / _INDEX_FILE).exists():
+        # No-op top-up: preserve existing index.json (including sidecar SHA-256 digests).
+        logger.info("cache %s: 0 new, %d total stamps (unchanged)", key[:12], len(object_ids))
+        return TensorCache(cache_dir)
     new_index = CacheIndex(
         pipeline_hash=key,
         normalisation_hash=normalisation_hash,

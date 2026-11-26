@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -170,6 +171,8 @@ def run_probing(
         )
 
     # Phase 6: uncertainty geometry on the R1/R2 features only (4B) — gated on recoverability.
+    # Fit extremes strictly on train_ids and evaluate ambiguous middle strictly on test_ids
+    # (docs/spec/splits.md three-way split composition).
     uncertainty: dict[str, unc.UncertaintyGeometry] = {}
     for feature, verdict in ladder.verdicts.items():
         if config.uncertainty_geometry and verdict.rung in ("R1", "R2"):
@@ -178,6 +181,8 @@ def run_probing(
                 labels,
                 feature,
                 ids,
+                train_ids=train_ids,
+                test_ids=test_ids,
                 low=config.extreme_low,
                 high=config.extreme_high,
                 c=config.c,
@@ -307,7 +312,18 @@ def _write_summary(
                     if v.matched is None
                     else {
                         "matched_auc": v.matched.matched_auc,
+                        "matched_auc_lo": v.matched.matched_auc_lo,
                         "survived": v.matched.survived,
+                        "retention": (
+                            None if v.matched.retention is None else v.matched.retention.verdict
+                        ),
+                        "retained": (
+                            None if v.matched.retention is None else v.matched.retention.retained
+                        ),
+                        "bar_unmatched": v.matched.bar_unmatched,
+                        "bar_matched": v.matched.bar_matched,
+                        "k_bar": v.matched.k_bar,
+                        "margin_established": v.matched.margin_established,
                         "n_matched_train": v.matched.n_matched_train,
                         "n_matched_test": v.matched.n_matched_test,
                         "share_test": v.matched.share_test,
@@ -394,11 +410,29 @@ def _write_summary(
                 "mp_significant": pv.mp_significant,
                 "cav_disagree": pv.cav_disagree,
                 "survived_matching": pv.survived_matching,
+                "retention": pv.retention,
+                "retained": pv.retained,
+                "matched_auc": pv.matched_auc,
+                "bar_matched": pv.bar_matched,
+                "n_matched_test": pv.n_matched_test,
                 "reason": pv.reason,
             }
             for pv in ladder.pair_verdicts
         ],
     }
     path = out / "ladder_summary.json"
-    path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+    path.write_text(
+        json.dumps(_sanitise_json(summary), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    )
     return path
+
+
+def _sanitise_json(obj: Any) -> Any:
+    """Replace non-finite floats with ``None`` so persisted JSON is strictly RFC 8259 compliant."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _sanitise_json(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple):
+        return [_sanitise_json(v) for v in obj]
+    return obj

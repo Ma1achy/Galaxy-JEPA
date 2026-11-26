@@ -187,10 +187,19 @@ def train_objective(
         history=restored,
         soft_rank_floor=soft_rank_floor,
     )
+    if autocast_dtype == torch.float16:
+        raise ValueError(
+            "fp16 autocast requires GradScaler, which is not wired; use torch.bfloat16 or None"
+        )
     stopped_early = False
     done = start_step
+    last_saved_step: int | None = start_step if start_step > 0 else None
     data = _cycle(loader)
-    bar = _progress(cfg.steps, start=start_step, desc=obj.name)
+    if stop_after is not None and stop_after <= 0:
+        stopped_early = True
+        bar: Any = ()
+    else:
+        bar = _progress(cfg.steps, start=start_step, desc=obj.name)
     for step in bar:
         batch = _to_device(next(data), device)
         lr = learning_rate(step, cfg)
@@ -212,6 +221,7 @@ def train_objective(
         loss.backward()
         opt.step()
         obj.momentum_update(step)
+        done = step + 1
         loss_val = float(loss.item())
         losses.append(loss_val)
         prediction_losses.append(float(parts.prediction.item()))
@@ -219,8 +229,13 @@ def train_objective(
         _set_postfix(bar, loss=loss_val)
 
         if monitor_batch is not None and step % cfg.monitor_every == 0:
-            with torch.no_grad():
-                emb = obj.encoder.encode(_to_device(monitor_batch, device)["image"].float())
+            was_training = obj.encoder.training
+            obj.encoder.eval()
+            try:
+                with torch.no_grad():
+                    emb = obj.encoder.encode(_to_device(monitor_batch, device)["image"].float())
+            finally:
+                obj.encoder.train(was_training)
             signals = monitor.update(step, emb)
             _set_postfix(
                 bar,
@@ -251,21 +266,21 @@ def train_objective(
             # hard way, when a second arm was killed for memory after the first had finished.
             torch.mps.empty_cache()
 
-        if checkpointer is not None and (step + 1) % checkpointer.every == 0:
+        if checkpointer is not None and done % checkpointer.every == 0:
             checkpointer.save(
-                step=step + 1,
+                step=done,
                 objective=obj,
                 optimiser=opt,
                 losses=losses,
                 collapse_history=monitor.history,
             )
-        done = step + 1
+            last_saved_step = done
         if stop_after is not None and done - start_step >= stop_after:
             logger.info("stopping after %d steps this invocation (at step %d)", stop_after, done)
             stopped_early = True
             break
 
-    if checkpointer is not None and stopped_early:
+    if checkpointer is not None and stopped_early and last_saved_step != done and done > start_step:
         # land the checkpoint exactly where the loop stopped, or the resume would repeat work
         checkpointer.save(
             step=done,
@@ -274,7 +289,14 @@ def train_objective(
             losses=losses,
             collapse_history=monitor.history,
         )
-    if checkpointer is not None and not halted and not stopped_early:
+        last_saved_step = done
+    if (
+        checkpointer is not None
+        and not halted
+        and not stopped_early
+        and last_saved_step != cfg.steps
+        and done > start_step
+    ):
         # the last partial interval is worth keeping too; a completed run's final state is the
         # thing a probe re-run would want and re-deriving it costs the whole job
         checkpointer.save(
@@ -326,7 +348,12 @@ def _set_postfix(bar: Any, **fields: float) -> None:
 
 def _cycle(loader: Any) -> Any:
     while True:
-        yield from loader
+        yielded = False
+        for batch in loader:
+            yielded = True
+            yield batch
+        if not yielded:
+            raise ValueError("training DataLoader yielded 0 batches")
 
 
 def _to_device(batch: dict[str, Any], device: str) -> dict[str, Any]:

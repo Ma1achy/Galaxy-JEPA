@@ -280,29 +280,7 @@ _NO_GIT = "nogit"
 
 
 @functools.cache
-def code_sha(repo: Path | None = None) -> tuple[str, bool]:
-    """Return ``(git HEAD sha, working-tree-dirty)``, **as of the first call in this process**.
-
-    Outside a git repo, returns ``("nogit", True)`` with a loud warning rather than a
-    hard error — a run can proceed un-versioned, but its irreproducibility is recorded,
-    never hidden.
-
-    **Cached, and the cache is the point.** The code a run executes is fixed the moment its
-    modules are imported; everything after that is a different tree, not a different run. This
-    function is therefore called once at import (see below) so a stamp taken *late* still
-    describes the code that actually ran.
-
-    Without it the sampling is late enough to be wrong. ``harness._make_stamp`` runs after
-    ``_prepare``, which can spend an hour baking the cache, and a multi-day run leaves the window
-    wider still — an edit made while the run is underway would be recorded as though the run had
-    executed it. Brief L met the consequence from the other side: ``runs/i2/d17/stamp.json`` could
-    not be reconciled with any committed state, and only the run's own ``config.json`` settled what
-    had happened. A stamp that can be wrong about the code it describes is the defect class this
-    project has closed three times.
-
-    ``repo`` keys the cache, so a test passing an explicit path gets its own entry and is
-    unaffected by the process-start capture.
-    """
+def _code_sha_cached(repo: Path | None = None) -> tuple[str, bool]:
     cwd = str(repo) if repo is not None else None
     try:
         sha = subprocess.run(
@@ -321,21 +299,46 @@ def code_sha(repo: Path | None = None) -> tuple[str, bool]:
         ).stdout.strip()
         return sha, bool(status)
     except (subprocess.CalledProcessError, FileNotFoundError):
+        return _NO_GIT, True
+
+
+def code_sha(repo: Path | None = None) -> tuple[str, bool]:
+    """Return ``(git HEAD sha, working-tree-dirty)``, **as of the first call in this process**.
+
+    Outside a git repo, returns ``("nogit", True)`` with a loud warning rather than a
+    hard error — a run can proceed un-versioned, but its irreproducibility is recorded,
+    never hidden.
+
+    **Cached, and the cache is the point.** The code a run executes is fixed the moment its
+    modules are imported; everything after that is a different tree, not a different run. The
+    underlying query is therefore warmed once at import (suppressing warnings during import),
+    while explicit calls to :func:`code_sha` still emit the non-git warning when stamping.
+
+    ``repo`` keys the cache, so a test passing an explicit path gets its own entry and is
+    unaffected by the process-start capture.
+    """
+    sha, dirty = _code_sha_cached(repo)
+    if sha == _NO_GIT:
         warnings.warn(
             "Not a git repository (or git unavailable); run provenance cannot record a "
             "code SHA. The artefact will be stamped 'nogit' and flagged dirty.",
             stacklevel=2,
         )
-        return _NO_GIT, True
+    return sha, dirty
+
+
+def _code_sha_cache_clear() -> None:
+    _code_sha_cached.cache_clear()
+
+
+code_sha.cache_clear = _code_sha_cache_clear  # type: ignore[attr-defined]
 
 
 #: Take the reading NOW, at import, so the cache above holds the state the process started with.
 #: Deferring it to the first stamp would defeat the whole purpose — that call site is exactly the
-#: late one. Warnings are suppressed here because a non-git checkout should be reported when a run
-#: is actually stamped, not as a side effect of importing the package.
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    code_sha()
+#: late one. Calling ``_code_sha_cached`` directly avoids emitting a warning at import time while
+#: preserving the warning when a run is actually stamped via :func:`code_sha`.
+_code_sha_cached()
 
 
 @dataclasses.dataclass(frozen=True)

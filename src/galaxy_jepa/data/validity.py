@@ -155,13 +155,15 @@ def _like_neighbour(image: Array) -> Array:
 
 def _invalid_mask(image: Array) -> Array:
     """``(H, W)`` bool: True where the pixel carries no real measurement."""
-    labels, n = _label(_like_neighbour(image))
+    arr = np.asarray(image)
+    non_finite = ~np.isfinite(arr).all(axis=0)
+    labels, n = _label(_like_neighbour(arr))
     if n == 0:
-        return np.zeros(labels.shape, dtype=bool)
+        return non_finite
     sizes = np.bincount(labels.ravel(), minlength=n + 1)
     keep = sizes >= MIN_REGION_PX
     keep[0] = False
-    return keep[labels]
+    return keep[labels] | non_finite
 
 
 def edge_connected(invalid: Array) -> Array:
