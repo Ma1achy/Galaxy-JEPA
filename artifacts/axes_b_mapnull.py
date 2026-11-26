@@ -10,7 +10,7 @@ rng=np.random.default_rng(1)
 S=np.linalg.cholesky(np.cov(X[te].T)+1e-6*np.eye(384))
 real=np.column_stack([X@np.load(B/'fits'/(n.replace('/','_').replace(' ','_')+'.npz'))['cleaned_we'] for n in strong])
 nulls=np.column_stack([X@np.load(B/'fits'/(n.replace('/','_').replace(' ','_')+'.npz'))['null_we'][k] for n in strong for k in (0,)])
-rd=np.column_stack([X@(np.linalg.inv(S).T@rng.normal(size=384)) for _ in range(18)])
+rd=np.column_stack([X@(S@rng.normal(size=384)) for _ in range(18)])
 out={}
 for f in gz:
     a=np.load(AXS.AX/f'{f}.npz'); s=X@a['we']+float(a['be'])

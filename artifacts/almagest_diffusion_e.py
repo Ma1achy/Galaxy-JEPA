@@ -195,13 +195,13 @@ def step_run(steps, bs, lr=2e-4):
     gen = torch.Generator(device=dev).manual_seed(D.SEED)
     log = open(OUT / "train_log.jsonl", "a")
     log.write(json.dumps({"event": "start", "arm": "fm80", "params": npar, "batch": bs, "steps": steps, "prep": prep.state(), **D.machine()}) + "\n")
-    t0, last, sm, start = time.perf_counter(), time.perf_counter(), None, 1
+    t0, last, last_step, sm, start = time.perf_counter(), time.perf_counter(), 0, None, 1
     part = OUT / "partial.pt"
     if part.exists():
         pk = torch.load(part, map_location="cpu", weights_only=False)
         net.load_state_dict(pk["net"]); ema.load_state_dict(pk["ema"]); opt.load_state_dict(pk["opt"])
         rng.bit_generator.state = pk["rng"]; gen.set_state(pk["gen"])
-        start, sm, t0 = pk["step"] + 1, pk["sm"], t0 - pk["elapsed"]
+        start, last_step, sm, t0 = pk["step"] + 1, pk["step"], pk["sm"], t0 - pk["elapsed"]
         log.write(json.dumps({"event": "resume", "from_step": pk["step"], **D.machine()}) + "\n")
     for step in range(start, steps + 1):
         i = np.sort(rng.choice(len(x64), bs, replace=False))
@@ -218,8 +218,8 @@ def step_run(steps, bs, lr=2e-4):
             lv = float(loss.detach()); sm = lv if sm is None else 0.9 * sm + 0.1 * lv
         if step % 250 == 0 or step == steps:
             now = time.perf_counter()
-            rec = {"step": step, "loss_ema": sm, "steps_per_s_window": 250 / (now - last), "rss_peak_gb": D.rss_gb(), **D.mps_mem(), **D.machine()}
-            log.write(json.dumps(rec) + "\n"); log.flush(); last = now
+            rec = {"step": step, "loss_ema": sm, "steps_per_s_window": (step - last_step) / max(now - last, 1e-6), "rss_peak_gb": D.rss_gb(), **D.mps_mem(), **D.machine()}
+            log.write(json.dumps(rec) + "\n"); log.flush(); last, last_step = now, step
             if step % 500 == 0 and step < steps:
                 torch.save({"net": net.state_dict(), "ema": ema.state_dict(), "opt": opt.state_dict(), "step": step, "rng": rng.bit_generator.state,
                             "gen": gen.get_state(), "sm": sm, "elapsed": time.perf_counter() - t0}, part)
@@ -245,25 +245,32 @@ def radial_power(z):
 
 
 def stop_rule(t):
-    """The written stop rule in sky-subtracted model units: IQR ≤ 3× real in every band, ≤ 25% offset > 1 SD, |mean| ≤ 0.2."""
+    """The written stop rule in sky-subtracted model units: IQR ≤ 3× real in every band,
+    whole-image SD ratio in [0.75, 1.35] (guards variance collapse), ≤ 25% offset > 1 SD, |mean| ≤ 0.2."""
     a, b = t["inputs"], t["samples_w0"]
     bands = list(a["ring"])
     iqr = [b["ring"][k]["per_image_level_iqr"] / a["ring"][k]["per_image_level_iqr"] for k in bands]
+    sd_ratio = [b["whole"][k]["sd"] / a["whole"][k]["sd"] for k in bands]
     mean = [b["whole"][k]["mean"] for k in bands]
-    return {"iqr_ratio": iqr, "mean": mean, "offset": b["offset_gt_1sd"],
-            "passes": bool(max(iqr) <= 3 and max(map(abs, mean)) <= 0.2 and b["offset_gt_1sd"] <= 0.25)}
+    return {"iqr_ratio": iqr, "sd_ratio": sd_ratio, "mean": mean, "offset": b["offset_gt_1sd"],
+            "passes": bool(max(iqr) <= 3 and 0.75 <= min(sd_ratio) and max(sd_ratio) <= 1.35 and max(map(abs, mean)) <= 0.2 and b["offset_gt_1sd"] <= 0.25)}
 
 
 def step_eval():
-    """One process, EMA weights only, one model at a time; the same 64 evaluation images as the v smoke, seed and generator the same."""
+    """One process, EMA weights only, one model at a time; evaluates on held-out test_x64.npy."""
     ck = torch.load(OUT / "smoke.pt", map_location="cpu", weights_only=False)
     dev = D.device()
-    x64 = np.load(D.OUT / "train_x64.npy", mmap_mode="r")
-    sky = np.load(SM.SKY)["sky"]
+    test_x = D.OUT / "test_x64.npy"
+    test_bank = D.OUT / "test_bank.npz"
+    if not test_x.exists() or not test_bank.exists():
+        raise SystemExit(f"eval requires held-out {test_x} and {test_bank} (refusing to evaluate on memorised train_x64.npy)")
+    x64 = np.load(test_x, mmap_mode="r")
     ev = np.sort(np.random.default_rng(D.SEED + 31).choice(len(x64), 64, replace=False))
     x_in = np.asarray(x64[ev], dtype=np.float32)
-    res = {"steps": ck["step"], "train_seconds": ck["train_seconds"], "final_loss_ema": ck["final_loss_ema"], "arms": {}}
-    emb = np.load(D.OUT / "train_bank.npz")["emb"][ev]
+    # Compute outer-ring sky per band directly on the held-out images (matches SM.SKY definition).
+    sky_ev = np.median(x_in[:, :, SM.RING], axis=-1)
+    res = {"steps": ck["step"], "train_seconds": ck["train_seconds"], "final_loss_ema": ck["final_loss_ema"], "eval_split": "test", "arms": {}}
+    emb = np.load(test_bank)["emb"][ev]
     runs = []
     net = D.UNet(cdim=80).to(dev); net.load_state_dict(ck["ema"]); net.eval()
     prep = load_prep(ck["prep"])
@@ -286,7 +293,7 @@ def step_eval():
     np.savez(OUT / "eval_samples.npz", **z)
     same = {k: float(np.abs(getattr(prep, k) - getattr(vprep, k)).max()) for k in ("m", "sd", "sky_median")}
     assert max(same.values()) == 0, same  # both arms read the identical input transform
-    z_in = prep.fwd(x_in, sky[ev])
+    z_in = prep.fwd(x_in, sky_ev)
     ref = radial_power(z_in)
     for name, a in z.items():
         st = SM.stats_table(z_in, a, x_in, prep.inv(a))

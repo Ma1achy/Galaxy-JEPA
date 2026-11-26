@@ -196,6 +196,13 @@ def boot(a, b, seed, n=NBOOT):
     return [float(x) for x in np.percentile(v, [2.5, 97.5])]
 
 
+def boot_pearson(a, b, seed, n=NBOOT):
+    """Paired bootstrap of Pearson r (used on nuisance-residualised ranks for partial Spearman CI)."""
+    rng = np.random.default_rng(seed)
+    v = [float(np.corrcoef(a[i], b[i])[0, 1]) for i in (rng.integers(0, len(a), len(a)) for _ in range(n))]
+    return [float(x) for x in np.percentile(v, [2.5, 97.5])]
+
+
 def rows_for(d, y, name):
     trm, tem = (np.isin(d.union, np.asarray(x)) & d.ok & np.isfinite(y) for x in (d.setup.train_ids, d.setup.test_ids))
     if name.startswith("statmorph"):
@@ -223,7 +230,7 @@ def fit_target(d, AXS, name, y, j, null_scores=True):
             if e == "A1":
                 x["spearman_ci"] = boot(s, yc[te], SEED + j)
                 rs, ry = resid_ranks(s, d.N[te]), resid_ranks(yc[te], d.N[te])
-                x["partial_ci"] = boot(rs, ry, SEED + j + 500)
+                x["partial_ci"] = boot_pearson(rs, ry, SEED + j + 500)
                 rng = np.random.default_rng(SEED + 1000 + j)
                 half = rng.permutation(len(tr)) < len(tr) // 2
                 ga, gb = Gram(X[tr[half]]), Gram(X[tr[~half]])
