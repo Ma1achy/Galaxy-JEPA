@@ -148,6 +148,10 @@ def train_objective(
     resume identity proof uses it rather than reimplementing this loop, which would test the wrong
     thing.
     """
+    if autocast_dtype == torch.float16:
+        raise ValueError(
+            "fp16 autocast requires GradScaler, which is not wired; use torch.bfloat16 or None"
+        )
     cfg = obj.config
     obj.to(device)
     opt = obj.make_optimiser()
@@ -187,10 +191,6 @@ def train_objective(
         history=restored,
         soft_rank_floor=soft_rank_floor,
     )
-    if autocast_dtype == torch.float16:
-        raise ValueError(
-            "fp16 autocast requires GradScaler, which is not wired; use torch.bfloat16 or None"
-        )
     stopped_early = False
     done = start_step
     last_saved_step: int | None = start_step if start_step > 0 else None
