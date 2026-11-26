@@ -268,7 +268,8 @@ def swap_guard() -> None:
 def cap_args(a) -> list[str]:
     if a.no_cap:
         return []
-    return ["--bwlimit", f"{a.day_start},{int(a.day_mbit * 125_000)}B {a.day_end},off"]
+    night = f"{int(a.night_mbit * 125_000)}B" if a.night_mbit else "off"  # user, 26 Nov: leave the uplink room for other use
+    return ["--bwlimit", f"{a.day_start},{int(a.day_mbit * 125_000)}B {a.day_end},{night}"]
 
 
 def push(a, cache=CACHE, st=STATE, remote: Remote | None = None, chunk=CHUNK, ex=None) -> str | None:
@@ -545,6 +546,7 @@ def main() -> None:
     ap.add_argument("--only", type=int, help="push/testpull: this chunk only")
     ap.add_argument("--no-cap", action="store_true")
     ap.add_argument("--day-mbit", type=float, default=6.0)
+    ap.add_argument("--night-mbit", type=float, default=0.0, help="cap outside the day window too (0 = uncapped)")
     ap.add_argument("--day-start", default="08:00")
     ap.add_argument("--day-end", default="23:00")
     ap.add_argument("--max-fails", type=int, default=20)

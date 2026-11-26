@@ -229,3 +229,57 @@ The arms are unchanged. Two boxes mean a second environment and pull on four bil
    bigger batch.
 4. **Model uncertainty is ± 30%** on every figure above. A 200-step timed smoke per arm on the rented box
    is the first spend, and replaces these numbers before the main runs start.
+
+## 25 Nov, third version: on demand against spot (prices read 25 Nov 2026; nothing booked)
+
+Prices are from the providers' public pages. RunPod's are dated 12 Nov 2026; Nebius's carry no date.
+
+| | H100 on demand | H100 spot / preemptible | billing | preemption |
+|---|---|---|---|---|
+| Nebius | $4.50 /GPU-h (SXM; presets of 1 or 8 GPUs, **no 4-GPU**) | **from $0.79**, a spot price that can move every 15 min | per second; egress free | SIGTERM, then 60 s, then stop. Volumes survive; no local NVMe is listed for H100. **No restart on its own.** An in-VM `shutdown` does not stop the bill |
+| RunPod | Secure SXM $4.39; Community SXM from $2.69; PCIe $2.89 / $1.99 | **not published** (the API has no spot field; a blog summary says about 50% off, unverified) | per second; no egress fees | **undocumented**: no notice period, no restart rule. Volume disk survives a stop; container disk does not |
+
+GPU-hours from the runbook, all estimates: 51–97 for two boxes (box 2's four GPUs bill while it sets up and idles), or 46–89 for everything on one 1-GPU box with `STAGES=all` (2–4 days of wall-clock).
+
+| plan | GPU-h | rate | cost |
+|---|---|---|---|
+| Nebius on demand, one 1-GPU box, `STAGES=all` | 46–89 | $4.50 | $207–401 |
+| RunPod Secure, two boxes | 51–97 | $4.39 | $224–426 |
+| RunPod Community SXM, two boxes | 51–97 | $2.69 | $137–261 |
+| **Hybrid:** stage 1 + smokes on demand (Nebius 1 GPU) **+** stage 2 + embeddings preemptible (Nebius, at the $0.79 floor, 5–25% overhead) | 16–26 + 30–63 | $4.50 + $0.79 | $97–179 |
+| the same hybrid, preemptible at $2.00 | | $4.50 + $2.00 | $135–275 |
+| all preemptible at $0.79 (stage 1 judged on unresumed arms only: see below) | 46–89 ×1.05–1.25 | $0.79 | $38–88 |
+
+**Expected preemption overhead.** One preemption costs:
+- half a checkpoint interval of lost training: 1.3–2.5 min at patch 16 and 8, and 4–16 min at patch 4 (MAE worst);
+- a restart: boot, `uv sync`, preflight and parity, about 10–25 min if the disk survives. If it doesn't, add the re-pull: about 9 min at 5 Gbit/s, 46 min at 1 Gbit/s.
+
+At one preemption per 10 h that is 2–4% (disk kept) to 4–12% (disk lost). At one per 2 h it is 8–20% to 17–58%. Spot at half price pays unless preemptions come more often than about once an hour at patch 4. Nebius won't restart a preempted VM, so wall-clock waits for you, but the stopped GPU doesn't bill. On a 4-GPU box one preemption costs four arms' half-intervals at once.
+
+**Resume, checked.** `artifacts/patch_grid_killtest.py` runs the real launcher (`patch_grid_run.main`, with the pins and cache gates stubbed, STOP and the checkpoint interval set from outside) on the Mac for JEPA, MoCo and MAE at patch 16:
+- uninterrupted;
+- again, as the determinism control;
+- SIGKILLed after its first checkpoint, then restarted;
+- with another checkpoint interval.
+
+It compares every tensor of the final checkpoint, `encoder.pt` and the losses. It is queued behind the load gate, after the 25 Nov queue; result pending. Patch 4 is not in it: JEPA at patch 4 needs masks, and MPS at 4,096 tokens is slow. `tests/test_checkpoint_resume.py` covers the loop on CPU.
+
+**Why the hybrid.** The judge refuses a resumed stage-1 arm's throughput row: the rate covers only the last invocation, so it would be overstated. One stage-1 preemption therefore stops the run at the judge. Two ways out, both yours to decide:
+- (a) stage 1 on demand, which is the hybrid above;
+- (b) amend the checker (unpinned) to measure a resumed arm's rate over the steps that invocation ran. That changes how a bar is measured, so it is not done.
+
+### Priced, not adopted: dropping MAE at patch 4
+
+- **Saves:** 3 × 4.2–8.3 = 12.6–24.9 GPU-h, plus three embeddings and one smoke, about 13–26 GPU-h in all.
+  - In money: $58–117 at $4.50, $35–70 at $2.69, $10–21 at $0.79.
+  - Stage 2 on four GPUs shortens from 6.9–13.8 h to about 4.9–9.9 h of wall-clock.
+  - The largest remaining arm is JEPA at patch 4 (18 GB), so 80-GB cards stop being necessary. Another card is another device, though, and the throughput bars are H100 figures.
+- **Removes:**
+  - MAE's three Q1 readings (G1–G3). Q1 needs both steps, and "INSUFFICIENT in either" makes a reading INSUFFICIENT, so without 8→4 none can be read.
+  - The 8→4 step of the JEPA–MAE and MAE–MoCo Q2 pairs: 6 of the 18 Q2 step-states.
+  - MAE's 4×4 secondaries.
+- **Keeps:** MAE's 16→8 step, all of JEPA and MoCo, and the JEPA–MoCo pair.
+- MAE is also the objective whose Q1 the prereg already expects to read UNRESOLVED at low ρ (Δ80 0.047–0.164 against E = 0.02).
+- Adopting it is an amendment to the hashed pre-registration: a new section hash, and the plan-hash table in the runbook rewritten. Yours to make.
+
+**Decided 26 Nov (user):** Nebius. On demand for the stage 1 checklist only (nine uninterrupted smokes). All 27 arms and the embeddings on one preemptible VM, capped at $2.00/h. No MAE amendment: the full pre-registered grid. RunPod no longer sells spot pods (its v2 API lists them as removed). Re-priced: $50–106 at the $0.79 floor, $106–234 if spot sits at the cap, disk included. The table and steps are in `docs/patch_grid/runbook.md`, "Recommended: Nebius".

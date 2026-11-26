@@ -1,11 +1,133 @@
-# Patch grid: box requirements and rental runbook (25 Nov 2026, second version)
+# Patch grid: box requirements and rental runbook (25 Nov 2026, third version: unattended)
 
-Nothing is booked. The pre-registration is hashed (`docs/patch_grid/prereg.sha1`, commit `bfe2871`). The boxes run the commit `b1ab4c2` (section 3): the same pinned files, plus the unpinned stage 1 checker and `ship.py`.
-Hours and prices are `docs/patch_ablation_cost.md`'s estimates, not measurements; the prices are unconfirmed. Nothing here has run on a GPU. The shipping list was dry-run on the Mac in a bare clone (pins, launch plan, embedding smoke).
+Nothing is booked. The pre-registration is hashed (`docs/patch_grid/prereg.sha1`, commit `bfe2871`); its 101 pinned files still match at the branch head, so the box runs a new commit that adds `artifacts/run.sh` and `artifacts/results.py` (unpinned) beside them. Hours and prices are estimates; nothing here has run on a GPU, and `run.sh` has not run end to end anywhere.
 
-**Decided (user, 25 Nov):** upload over R2, `ship.py`, before booking. Results come home by the Mac pulling over SSH: only the ~6 GB the scoring needs, no checkpoints, and the boxes never hold a write token. **Stage 1 on 1 × H100; stage 2 on a 4 × H100 node, one arm per GPU.** Patch-4 masks are precomputed before stage 2 starts.
+**Decided (user, 25 Nov, third version):** one unattended script, `artifacts/run.sh`. Results go to a second bucket, `gj-results`, through a third token (Object Read & Write, `gj-results` only) on the box; the box keeps read-only access to the cache bucket. This replaces the Mac pulling over SSH. The cache still goes up over R2 with `ship.py` before booking.
 
-**Before booking:** the upload finished and verified, and its manifest SHA-1 in your hands. Renting first would bill the upload's days.
+## 0. run.sh
+
+```
+NVME=/data MANIFEST_SHA1=<from the Mac> STAGES=smokes|arms|all [SPOT=1] [GPUS="0 1 2 3"] [WORKERS=8] [SHUTDOWN_OK=... SHUTDOWN_FAIL=...] bash artifacts/run.sh
+```
+Preflight → environment and pins → pull and verify the cache (`ship.py`) → parity (F0, the nine config hashes, 810,491 stamps, cuda) → stage 1 checklist: nine smokes, one at a time on one GPU, **stop on a failed row** → patch-4 masks on the CPUs (built and checked, or fetched from `gj-results`) → stage 1 arms (patch 16, 8) over the GPU pool → `judge`, **stop on FAIL** → stage 2 arms (patch 4, longest first) → 36 embeddings → SHA-1 lists → `OUTCOME-ok|fail-stages-<S>` in the bucket → shutdown.
+
+- **Resume.** Every step asks the bucket what is done. Rerunning the same command after a preemption skips finished arms and resumes a running one from its newest checkpoint: the local disk first, else the bucket (`results.py ckpt-pull`, sha256 checked against the checkpoint manifest). While an arm trains, a sync loop pushes each newly committed checkpoint within a minute and removes the older one from the bucket.
+- **Stops.** Each stop calls `SHUTDOWN_FAIL` after uploading the log: a failed smoke row, parity, an arm whose launcher fails twice, refused masks. An arm committed at step 101,308 with no `traces.json` is held, not relaunched, because the launcher would train one step past STOP. A VOID arm gets its one rerun in `runs/patch_grid_rerun/` automatically.
+- **Shutdown.** On RunPod both commands default to `runpodctl pod stop $RUNPOD_POD_ID`, and preflight refuses if `runpodctl` can't see the pod. Elsewhere they must be given. **On Nebius an in-VM `shutdown` does not stop the bill** (their docs); it takes their CLI with a credential, or you stopping it. `none` leaves the box running on purpose.
+- **Log.** `$NVME/run.log` goes to `gj-results/grid/logs/` every 5 min and at the end.
+- **Stages.** `STAGES=smokes`: the stage 1 checklist only (pull, parity, nine smokes), judged strictly. `STAGES=arms`: checks the smoke records from the bucket, then all 27 arms with resume and the 36 embeddings. The judge's real-arm rows are recorded, not gated (user, 26 Nov). `STAGES=all`: both on one box.
+
+### What goes up (`gj-results/grid/`)
+
+| path | what | size |
+|---|---|---|
+| `emb/*.npz` | 36 embeddings, fp32 (27 arms + 9 untrained banks; VOID arms skipped) | ≈ 4.1 GB |
+| `arms/patch_grid[_rerun]/<arm>/encoder.pt`, `traces.json` | 27 encoders and training traces | ≈ 2.3 GB |
+| `arms/.../<arm>/checkpoints/` | **the final full checkpoint only** (step 101,308) and a one-entry manifest. While an arm runs, its newest checkpoint is held here, then replaced | 27 × 0.38–0.57 ≈ 13 GB |
+| `stage1/` | smoke, flash, round-trip and real-arm records and logs (a resumed invocation's earlier log kept beside it) | < 0.1 GB |
+| `masks/s{0,1,2}/` | patch-4 masks with their check | ≈ 0.1 GB |
+| `state/` | `results.sha1`, `masks.sha1`, judge and validity tables, F0, pins, queues | small |
+| `box/<host>-<boot>/` | `pip freeze`, `nvidia-smi -q`, the commit | small |
+| `logs/`, `OUTCOME-*` | the run log, the outcome | small |
+
+About 20 GB in all, which is cents a month on R2. The scoring needs the first row, the traces, `stage1/` and `state/`, about 6 GB. Nothing else leaves the box: no cache, no intermediate checkpoints, no smoke runs.
+
+**On the Mac afterwards:** `RES_LOCAL=` unset, `python artifacts/results.py getdir grid/emb runs/almagest/patch_grid/box/emb` (and likewise `state`, `stage1`, `arms`), then `shasum -c` against `state/results.sha1`. Every line must be OK.
+
+### Credentials (box `.env`, `chmod 600`, written by you)
+
+| name | Mac | box |
+|---|---|---|
+| `R2_ENDPOINT` | yes | yes |
+| `R2_RW_*` (cache bucket, write) | yes | **never** |
+| `R2_RO_*` (cache bucket, read only) | yes | yes |
+| `R2_RES_*` (gj-results only, Object Read & Write) | for the `getdir` above | yes |
+
+**Measured 25 Nov:** the token stored as `R2_RO_*` **accepted a write**: a 1-byte object, `_rotest/probe`, is in the cache bucket. Recreate it as Object Read only before any box gets it. The manifest SHA-1 still protects what a box trains on, but a write key on the box could delete the cache.
+
+### Spot / preemptible
+
+Checkpoints land every 6,331 steps: 2.6–4.9 min at patch 16 and 8, and 10–20 / 8–17 / 16–31 min for JEPA / MoCo / MAE at patch 4. With `SPOT=1`, `run.sh` sets `GJ_CHECKPOINT_EVERY` (outside the config hash) for the patch-4 arms to 3,150 / 3,650 / 2,000, about 5–10 min each (user, 26 Nov). A resumed arm's throughput row would read FAIL, so the strict checklist is the nine uninterrupted smokes on demand. The real arms' rows are recorded and gate nothing (user, 26 Nov).
+
+### Recommended: Nebius, stage 1 on demand, stage 2 on a preemptible VM, one disk carried across (research of 25 Nov; nothing booked)
+
+**RunPod is out for spot:** its v2 API lists spot pods under "Removed", with no alternative, and its pricing pages show on-demand rates only. Nebius has every piece the unattended plan needs:
+- a role that can only view, start and stop VMs (`compute.instance-power-operator`), bindable to one VM through a group permit;
+- the VM's own id from the metadata service;
+- stop (not delete) on preemption, with SIGTERM 60 s before;
+- no compute billing while stopped.
+
+Its gap is disk: **no local NVMe for H100.** Network SSD Non-replicated (NRD) is listed at 2 GiB/s per disk and 75k IOPS. That is a ceiling, not a measurement, so step 4 measures it before anything trains.
+
+Unverified until steps 3–4:
+- whether that role can be bound to a single VM;
+- whether the CLI on the VM can act as the attached service account;
+- the name of the status field `instance get` returns;
+- whether a restart can fail for capacity (the watcher retries).
+
+**Approved (user, 26 Nov), with changes:**
+- On demand only for the stage 1 checklist: nine separate, uninterrupted 2,000-step smokes, judged strictly.
+- **All 27 full arms** (patch 16, 8 and 4), and the embeddings, on **one** preemptible VM with resume, price capped at **$2.00/h**. The checklist judges only the smokes. The real arms' rows are recorded in `state/judge_info.txt` and gate nothing.
+- The newest two checkpoints per arm stay on the disk; the final one is kept and uploaded.
+- In step 3, a failed per-VM permit or a failed CLI service-account auth **stops** the plan for the user. The role is never widened.
+
+1. `[YOU]` In the console, project in eu-north1:
+   - a service account `gj-vm-power`, and a group `gj-vm-power` containing it;
+   - a **non-replicated network SSD of 558 GiB** (6 × 93 GiB). It holds 417 GB of cache, 27 final checkpoints (11–15 GB), two working checkpoints per running arm, the nine smoke runs (about 5 GB), 27 encoders, 36 embeddings and the masks: about 445 GB in all. `run.sh` links `runs/` onto it. About $30 a month, so a few dollars for the days it lives.
+2. `[YOU]` Box 1, **regular (on-demand)** `gpu-h100-sxm`, `1gpu-16vcpu-200gb`:
+   - the disk attached, mounted at `/data`;
+   - `--service-account-id` of `gj-vm-power`.
+
+   Bind the role to this VM only: `nebius iam access-permit create --parent-id <group id> --resource-id <box 1 id> --role compute.instance-power-operator`.
+   **If the per-VM permit refuses that role: stop and tell me.** No wider role is tried.
+3. `[YOU]` SSH in and install the toolchain (§2: apt packages, rclone, uv, `git clone`, `git checkout <the box commit>`). Write `.env` (R2_ENDPOINT, R2_RO_*, R2_RES_*; `chmod 600`). Install the nebius CLI, then check that **with no profile or key of yours** it can act as the attached service account:
+   - `nebius compute instance get --id $(curl -sH 'Metadata: true' http://metadata.nebius.internal/v1/instance-data/id)` must print this VM;
+   - `nebius compute instance get --id <any other VM id in the project>` must be refused (the permit is this VM only).
+
+   **If either fails: stop and tell me.** No key file is made in its place.
+4. Measure the disk: `fio --name=r --filename=/data/fio --size=20G --rw=randread --bs=384k --iodepth=16 --ioengine=libaio --direct=1 --runtime=30 --time_based; rm /data/fio`. **Below 1 GB/s: stop and report.** The smokes' throughput rows would be measuring the disk.
+5. The boot service. Write `/etc/gj.env` (`NVME=/data MANIFEST_SHA1=<from the Mac> STAGES=smokes`) and a unit:
+   ```
+   [Service]
+   Type=simple
+   User=<you>
+   EnvironmentFile=/etc/gj.env
+   WorkingDirectory=/home/<you>/Galaxy-JEPA
+   ExecStart=/bin/bash artifacts/run.sh
+   Restart=no
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   Then `sudo systemctl enable --now gj`. Box 1 pulls and verifies the cache onto the disk, checks parity, and runs the nine smokes, with flash and round trip, one at a time. It writes `OUTCOME-ok-stages-smokes` or `OUTCOME-fail-stages-smokes` and stops itself through the API. No watcher. The log is in `gj-results/grid/logs/`.
+6. `[YOU]` After `OUTCOME-ok-stages-smokes`: **delete box 1** (the disk stays), then create box 2:
+   - **preemptible** `gpu-h100-sxm` 1 GPU, `--preemptible-on-preemption stop`;
+   - a spot pricing policy capped at **$2.00/h**;
+   - the same disk attached at `/data`, and the same service account.
+
+   Move the permit to box 2's id, and repeat step 3's two checks on box 2. The cache is already verified on the disk, so there is **no second pull**. In `/etc/gj.env`, set `STAGES=arms SPOT=1`; `systemctl enable --now gj`.
+7. On the Mac: `VM=<box 2 id> STAGES=arms bash artifacts/nebius_watch.sh`, detached. It polls every 5 min. A stopped VM with no outcome in the bucket was preempted, so the watcher starts it again, and the boot service reruns `run.sh`, which resumes from the newest checkpoint. Once an outcome is in the bucket, the watcher never restarts the VM.
+8. Box 2 re-reads the smoke records from the bucket and refuses to train unless they pass. Then:
+   - it builds and checks the patch-4 masks on its CPUs, beside the first arms;
+   - it runs the 18 patch-16 and patch-8 arms (checkpoints every 6,331 steps, 2.6–4.9 min);
+   - then the nine patch-4 arms (with `SPOT=1`: every 2,000 / 3,150 / 3,650 steps for MAE / JEPA / MoCo, about 5–10 min);
+   - then the 36 embeddings.
+
+   43.6–84.9 GPU-h before preemption, so 2–4 days of wall-clock, plus waits for capacity or for the price to fall under $2. On SIGTERM, run.sh pushes each running arm's newest checkpoint before the VM stops.
+9. `[YOU]` After `OUTCOME-ok-stages-arms`: on the Mac, run `results.py getdir` and `shasum -c` against `state/results.sha1`. Then delete box 2 and the disk, and revoke the R2_RO_* and R2_RES_* tokens.
+
+**Cost (26 Nov plan):**
+
+| part | GPU-h | rate | cost |
+|---|---|---|---|
+| box 1, on demand: boot, environment, pull, parity, nine smokes | 2.3–3.5 | $4.50 | $10–16 |
+| box 2, preemptible: 27 arms + 36 embeddings + restarts, with 5–25% preemption overhead | 46–106 | $0.79 floor | $36–84 |
+| the same | 46–106 | $2.00 cap | $92–212 |
+| disk, 558 GiB NRD, 4–6 days | | $0.053/GiB-month | $4–6 |
+| **total** | | | **$50–106 at $0.79; $106–234 if spot sits at the cap** |
+
+The spot price moves between the $0.79 floor and the $2.00 cap, so the real figure lies between those two totals. R2 storage for the results is cents.
+
+The by-hand steps below are what `run.sh` automates. They are kept for reading and for a manual fallback. Where they say results come home over SSH, `gj-results` replaces that.
 
 ## 1. Box requirements
 
