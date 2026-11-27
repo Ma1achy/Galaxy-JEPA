@@ -290,6 +290,9 @@ def _entangled_map(
 
             # Symmetric D24 retention on jointly eligible rows: evaluate both (a | b) and (b | a)
             # with the identical seed so swapping (a, b) <-> (b, a) is strictly order-invariant.
+            # Unmatched baselines (real_aucs, bars) come from each feature's full eligible
+            # population (D24/D25), so the 10% coverage gate must also use each feature's original
+            # eligible test count (len(a_te_set), len(b_te_set)) — matching _nuisance_clearance.
             mv_a = _retained(
                 _rows_for(a),
                 emb_b_tr.fraction,
@@ -297,7 +300,7 @@ def _entangled_map(
                 controls,
                 a=real_aucs[a],
                 bar=bars[a],
-                n_test=len(joint_te),
+                n_test=len(a_te_set),
                 margin_established=True,
                 config=config,
             )
@@ -308,7 +311,7 @@ def _entangled_map(
                 controls,
                 a=real_aucs[b],
                 bar=bars[b],
-                n_test=len(joint_te),
+                n_test=len(b_te_set),
                 margin_established=True,
                 config=config,
             )

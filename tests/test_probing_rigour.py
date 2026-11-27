@@ -586,37 +586,230 @@ def test_reg013_entangled_map_symmetric_under_feature_order_swap() -> None:
 
 
 @pytest.mark.regression
-def test_erratum_ladder_v2_e5e6_resolves_verified_legacy_bank_and_refuses_mismatch(
+def test_reg013_entangled_map_enforces_10pct_coverage_against_unmatched_population() -> None:
+    """Enforce D24's 10% coverage gate against each feature's original eligible test set."""
+    from galaxy_jepa.probing import entanglement as ent
+
+    rng = np.random.default_rng(131)
+    n_tr = 600
+    n_te_a = 6000  # 10% threshold = 600
+    n_te_joint = 560  # >= 500 absolute floor, yet < 10% of A's 6,000 eligible test rows!
+    n = n_tr + n_te_a
+    ids = list(range(n))
+    z = rng.normal(size=(n, 4))
+    fa = 1.0 / (1.0 + np.exp(-(3.0 * z[:, 0]) + rng.normal(scale=0.15, size=n)))
+    fb = 1.0 / (1.0 + np.exp(-(3.0 * z[:, 1]) + rng.normal(scale=0.15, size=n)))
+
+    rows: dict[int, dict[str, float]] = {}
+    for i in ids:
+        # All rows are eligible for A (a_n = 20), while only train + first n_te_joint test rows
+        # are eligible for B (b_n = 20); remaining test rows have b_n = 0 (ineligible for B).
+        b_elig = i < n_tr + n_te_joint
+        rows[i] = {
+            "a_f": float(fa[i]),
+            "a_n": 20.0,
+            "b_f": float(fb[i]) if b_elig else 0.0,
+            "b_n": 20.0 if b_elig else 0.0,
+        }
+    labels = LabelProvider(
+        rows, feature_cols={"a": "a_f", "b": "b_f"}, nuisance_cols={}, vote_count_min=1
+    )
+    mat_real = EmbeddingMatrix(np.asarray(ids, dtype=np.int64), z, encoder_name="real")
+    u_mats = [
+        EmbeddingMatrix(
+            np.asarray(ids, dtype=np.int64), rng.normal(size=(n, 4)), encoder_name=f"untr_{k}"
+        )
+        for k in range(3)
+    ]
+    controls = ctl.ControlEmbeddings(
+        real=mat_real,
+        untrained=u_mats[0],
+        noise=u_mats[0],
+        untrained_extra=(u_mats[1], u_mats[2]),
+    )
+    cfg = ladder_mod.ProbingConfig(vote_count_min=1, smoke=True, n_boot=20, seed=131)
+
+    da = probe_direction(feature_embeddings(mat_real, labels, "a", ids[:n_tr]), name="a", c=1.0)
+    db = probe_direction(feature_embeddings(mat_real, labels, "b", ids[:n_tr]), name="b", c=1.0)
+    geo_ab = ent.EntanglementGeometry(
+        names=["a", "b"],
+        cosine=np.array([[1.0, 0.9], [0.9, 1.0]]),
+        gram_eigenvalues=np.array([1.9, 0.1]),
+        gram_effective_rank=1.2,
+        embedding_eigenvalues=np.ones(4),
+        embedding_effective_rank=4.0,
+        mp=ent.MPVerdict(1.9, 1.5, True),
+        entangled_pairs=[("a", "b")],
+        cav_disagreement={"a": 0.25, "b": 0.25},
+    )
+    geo_ba = ent.EntanglementGeometry(
+        names=["b", "a"],
+        cosine=np.array([[1.0, 0.9], [0.9, 1.0]]),
+        gram_eigenvalues=np.array([1.9, 0.1]),
+        gram_effective_rank=1.2,
+        embedding_eigenvalues=np.ones(4),
+        embedding_effective_rank=4.0,
+        mp=ent.MPVerdict(1.9, 1.5, True),
+        entangled_pairs=[("b", "a")],
+        cav_disagreement={"a": 0.25, "b": 0.25},
+    )
+    dirs = {"a": da, "b": db}
+    aucs = {"a": 0.95, "b": 0.95}
+    bars = {"a": 0.50, "b": 0.50}
+
+    _, pv_ab = ladder_mod._entangled_map(
+        geo_ab,
+        dirs,
+        controls,
+        labels,
+        ids[:n_tr],
+        ids[n_tr:],
+        real_aucs=aucs,
+        bars=bars,
+        established={"a": True, "b": True},
+        config=cfg,
+    )
+    _, pv_ba = ladder_mod._entangled_map(
+        geo_ba,
+        dirs,
+        controls,
+        labels,
+        ids[:n_tr],
+        ids[n_tr:],
+        real_aucs=aucs,
+        bars=bars,
+        established={"a": True, "b": True},
+        config=cfg,
+    )
+    # Absolute 500-row guard MUST be cleared so the 10% coverage gate is genuinely exercised
+    assert pv_ab[0].n_matched_test >= match.MIN_MATCHED_TEST
+    assert pv_ab[0].n_matched_test < int(0.10 * n_te_a)
+    assert pv_ab[0].retention == match.UNRESOLVED
+    assert pv_ab[0].verdict == ent.INCONCLUSIVE
+    assert pv_ba[0].retention == match.UNRESOLVED
+    assert pv_ba[0].verdict == ent.INCONCLUSIVE
+
+
+@pytest.mark.regression
+def test_axes_b_bootstrap_handles_constant_resampled_nuisance_columns() -> None:
+    """Sparse/tied nuisances becoming constant inside a resample must not crash lstsq."""
+    import axes_b
+
+    n_sparse = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0])[:, None]
+    a = np.array([0.0, 2.0, 1.0, 4.0, 3.0, 5.0])
+    b = np.array([3.0, 1.0, 0.0, 5.0, 2.0, 4.0])
+
+    pt = axes_b.partial(a, b, n_sparse)
+    assert np.isfinite(pt)
+    det = axes_b.boot_partial_full_detail(a, b, n_sparse, seed=0, n=20)
+    assert det["n_valid"] + det["n_invalid"] == 20
+    assert det["n_valid"] >= det["min_valid"]
+    assert np.isfinite(det["ci"]).all() and det["ci"][0] <= det["ci"][1]
+    assert axes_b.boot_partial_full(a, b, n_sparse, seed=0, n=20) == det["ci"]
+
+    # Mixed constant + informative nuisance preserves the quadratic design for the informative col
+    rng = np.random.default_rng(77)
+    z_info = rng.normal(size=80)
+    y_quad = z_info**2 + 0.05 * rng.normal(size=80)
+    r_only_info = axes_b.resid_ranks(y_quad, z_info[:, None])
+    r_with_const = axes_b.resid_ranks(y_quad, np.column_stack([np.zeros(80), z_info]))
+    assert np.allclose(r_only_info, r_with_const, atol=1e-12)
+
+    # When too few usable replicates remain (e.g. collinear nuisance), CI must be [nan, nan]
+    z_col = np.linspace(0.0, 1.0, 30)
+    det_col = axes_b.boot_partial_full_detail(
+        3.0 * z_col + 1.0, 7.0 * z_col - 2.0, z_col[:, None], seed=0, n=20
+    )
+    assert det_col["n_valid"] == 0 and det_col["n_invalid"] == 20
+    assert np.isnan(det_col["ci"]).all()
+
+
+@pytest.mark.regression
+def test_erratum_ladder_v2_e5e6_requires_verified_provenance_for_legacy_bank(
     tmp_path: Path,
 ) -> None:
-    """Verify erratum_ladder_v2_e5e6 re-keys verified legacy full banks without mutating source."""
+    """Refuse legacy prefix-keyed banks unless full split-membership provenance is verified."""
     import json
 
     import erratum_ladder_v2_e5e6 as err_e56
 
-    tr = list(range(10, 50))
-    te = list(range(100, 130))
-    old_key = err_e56._legacy_split_key(tr, te)
-    new_key = ladder_mod.untrained_split_key(tr, te, population="full")
-    assert old_key != new_key
+    orig_tr = [1, 2, 3, 4]
+    orig_te = [5, 6, 7, 8]
+    changed_tr = [1, 2, 3, 5]
+    changed_te = [4, 6, 7, 8]
+    # Equal counts and union endpoints -> identical legacy fingerprint, different full-ID hash
+    old_key = err_e56._legacy_split_key(orig_tr, orig_te)
+    assert err_e56._legacy_split_key(changed_tr, changed_te) == old_key
+    orig_new_key = ladder_mod.untrained_split_key(orig_tr, orig_te, population="full")
+    changed_new_key = ladder_mod.untrained_split_key(changed_tr, changed_te, population="full")
+    assert orig_new_key != changed_new_key
 
     src_bank = tmp_path / "legacy_bank.json"
     orig_payload = {"split_key": old_key, "seeds": {"0": {"f": 0.55}}}
     src_bank.write_text(json.dumps(orig_payload))
-
     out_dir = tmp_path / "erratum_out"
+
+    # 1. Without verified split provenance, legacy key alone MUST be refused (rebuild required)
+    with pytest.raises(SystemExit, match="rebuild required"):
+        err_e56._resolve_full_bank(
+            src_bank, out_dir, train_ids=orig_tr, test_ids=orig_te, new_split_key=orig_new_key
+        )
+
+    # 2. Trusted provenance for (orig_tr, orig_te) bound to src_bank's SHA-256
+    prov_path = tmp_path / "split_provenance.json"
+    prov_payload = {
+        "population": "full",
+        "bank_sha256": err_e56._sha256_file(src_bank),
+        "legacy_split_key": old_key,
+        "train_ids": orig_tr,
+        "test_ids": orig_te,
+        "full_split_key": orig_new_key,
+    }
+    prov_path.write_text(json.dumps(prov_payload))
+
+    # 3. Changed partition within the same legacy equivalence class MUST be refused loudly
+    with pytest.raises(SystemExit, match="does not match current train/test partition"):
+        err_e56._resolve_full_bank(
+            src_bank,
+            out_dir,
+            train_ids=changed_tr,
+            test_ids=changed_te,
+            new_split_key=changed_new_key,
+            split_provenance=prov_path,
+        )
+
+    # 4. Wrong bank_sha256 in provenance MUST be refused
+    bad_prov = tmp_path / "bad_prov.json"
+    bad_prov.write_text(json.dumps({**prov_payload, "bank_sha256": "0" * 64}))
+    with pytest.raises(SystemExit, match="bank_sha256"):
+        err_e56._resolve_full_bank(
+            src_bank,
+            out_dir,
+            train_ids=orig_tr,
+            test_ids=orig_te,
+            new_split_key=orig_new_key,
+            split_provenance=bad_prov,
+        )
+
+    # 5. Exact verified provenance succeeds and writes re-keyed copy without mutating source
     resolved = err_e56._resolve_full_bank(
-        src_bank, out_dir, train_ids=tr, test_ids=te, new_split_key=new_key
+        src_bank,
+        out_dir,
+        train_ids=orig_tr,
+        test_ids=orig_te,
+        new_split_key=orig_new_key,
+        split_provenance=prov_path,
     )
     assert resolved != src_bank
-    assert json.loads(src_bank.read_text()) == orig_payload  # source untouched
+    assert json.loads(src_bank.read_text()) == orig_payload
     rekeyed = json.loads(resolved.read_text())
-    assert rekeyed["split_key"] == new_key and rekeyed["population"] == "full"
+    assert rekeyed["split_key"] == orig_new_key and rekeyed["population"] == "full"
+    assert rekeyed["source_bank_sha256"] == prov_payload["bank_sha256"]
 
-    # Mismatched bank refused loudly
-    bad_bank = tmp_path / "bad_bank.json"
-    bad_bank.write_text(json.dumps({"split_key": "deadbeef00000000", "seeds": {}}))
-    with pytest.raises(SystemExit, match="matches neither"):
+    # 6. Already full-keyed bank is returned directly without requiring legacy provenance
+    assert (
         err_e56._resolve_full_bank(
-            bad_bank, out_dir, train_ids=tr, test_ids=te, new_split_key=new_key
+            resolved, out_dir, train_ids=orig_tr, test_ids=orig_te, new_split_key=orig_new_key
         )
+        == resolved
+    )

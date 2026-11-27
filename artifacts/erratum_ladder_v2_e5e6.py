@@ -69,15 +69,23 @@ def _sanitise(obj: object) -> object:
     return obj
 
 
-def _load_or_init_cond_bank(
-    bank_path: Path, *, model_key: str, split_key: str, pixels_key: str
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(1 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _load_or_init_bank(
+    bank_path: Path, *, model_key: str, split_key: str, pixels_key: str, population: str
 ) -> dict:
     if not bank_path.exists():
         return {
             "model_key": model_key,
             "split_key": split_key,
             "pixels_key": pixels_key,
-            "population": "conditional",
+            "population": population,
             "max_train": MAX_TRAIN,
             "seeds": {},
         }
@@ -86,7 +94,7 @@ def _load_or_init_cond_bank(
         ("model", model_key, rec.get("model_key")),
         ("split", split_key, rec.get("split_key")),
         ("pixels", pixels_key, rec.get("pixels_key")),
-        ("population", "conditional", rec.get("population")),
+        ("population", population, rec.get("population")),
     ):
         if got != want:
             raise SystemExit(
@@ -95,7 +103,7 @@ def _load_or_init_cond_bank(
     return rec
 
 
-def run_bank(args: argparse.Namespace) -> None:
+def run_bank(args: argparse.Namespace, *, population: str = "conditional") -> None:
     from j4_spread_controls import _release, prepare
 
     from galaxy_jepa.models.vit import load_frozen_encoder
@@ -105,25 +113,31 @@ def run_bank(args: argparse.Namespace) -> None:
     from galaxy_jepa.probing.nulls import K_MIN
 
     ckpt = ENCODERS["a1"]
-    setup = prepare(ckpt, MAX_TRAIN, label="ERRATUM-BANK", sources=1)
+    setup = prepare(ckpt, MAX_TRAIN, label=f"ERRATUM-BANK-{population.upper()}", sources=1)
     pc, device = setup.pc, setup.device
-    cond_labels = setup.labels.with_population("conditional")
+    pop_labels = (
+        setup.labels if population == "full" else setup.labels.with_population(population)
+    )
     train_ids, test_ids, ds = setup.train_ids, setup.test_ids, setup.ds
-    features = list(cond_labels.features)
+    features = list(pop_labels.features)
 
     frozen = load_frozen_encoder(setup.ckpt)
     model_key = _key(dict(frozen.config))
-    split_key = untrained_split_key(train_ids, test_ids, population="conditional")
+    split_key = untrained_split_key(train_ids, test_ids, population=population)
     pixels_key = setup.cfg.normalisation.content_hash
 
-    bank_path = Path(args.out_dir) / "p1_untrained_bank_conditional.json"
-    rec = _load_or_init_cond_bank(
-        bank_path, model_key=model_key, split_key=split_key, pixels_key=pixels_key
+    bank_path = Path(args.out_dir) / f"p1_untrained_bank_{population}.json"
+    rec = _load_or_init_bank(
+        bank_path,
+        model_key=model_key,
+        split_key=split_key,
+        pixels_key=pixels_key,
+        population=population,
     )
     have = sorted(int(s) for s in rec["seeds"])
     todo = [s for s in range(args.seeds) if s not in have]
 
-    print(f"Conditional bank: {bank_path}", file=sys.stderr)
+    print(f"{population.capitalize()} bank: {bank_path}", file=sys.stderr)
     print(f"  features={len(features)} split={len(train_ids):,}/{len(test_ids):,}", file=sys.stderr)
     print(f"  model_key={model_key} split_key={split_key} K_MIN={K_MIN}", file=sys.stderr)
     print(f"  have={len(have)} todo={len(todo)} -> target K={args.seeds}", file=sys.stderr)
@@ -136,8 +150,8 @@ def run_bank(args: argparse.Namespace) -> None:
         mat = ctl.untrained_encoder_matrix(frozen.config, ds, device=device, seed=seed)
         aucs: dict[str, float] = {}
         for feat in features:
-            tr = feature_embeddings(mat, cond_labels, feat, train_ids)
-            te = feature_embeddings(mat, cond_labels, feat, test_ids)
+            tr = feature_embeddings(mat, pop_labels, feat, train_ids)
+            te = feature_embeddings(mat, pop_labels, feat, test_ids)
             aucs[feat] = float(ctl._safe_auc(tr, te, c=pc.c))
         del mat
         _release(device)
@@ -161,30 +175,110 @@ def _resolve_full_bank(
     train_ids: list[int],
     test_ids: list[int],
     new_split_key: str,
+    split_provenance: Path | None = None,
 ) -> Path:
     """Return a full-population bank matching ``new_split_key`` without mutating ``full_bank``.
 
-    If ``full_bank`` already matches ``new_split_key`` it is used directly. If it carries the
-    legacy prefix-only ``split_key`` verified against the exact current ``(train_ids, test_ids)``
-    and ``population == 'full'``, write a verified re-keyed copy under ``out_dir`` so the 6-hour
-    historical full bank is safely reused without touching ``runs/ladder_v2/``.
+    If ``full_bank`` already carries ``new_split_key`` (full-membership hash) and
+    ``population == 'full'``, it is used directly.
+
+    If ``full_bank`` carries only the historical legacy fingerprint
+    (``[len(train), len(test), union[:1], union[-1:]]``), matching that fingerprint does **not**
+    establish train/test partition membership. Upgrading therefore requires a trusted historical
+    ``split_provenance`` JSON bound to ``full_bank`` via ``bank_sha256``, ``population == 'full'``,
+    ``legacy_split_key``, and exact verified train/test membership (or verified full-membership
+    ``full_split_key``). Without verified provenance, fails loudly with a rebuild-required error.
     """
+    from galaxy_jepa.probing.ladder import untrained_split_key
+
     rec = json.loads(full_bank.read_text())
     if rec.get("population", "full") != "full":
         raise SystemExit(f"full bank {full_bank} has non-full population {rec.get('population')!r}")
     if rec.get("split_key") == new_split_key:
         return full_bank
+
     legacy_key = _legacy_split_key(train_ids, test_ids)
     if rec.get("split_key") != legacy_key:
         raise SystemExit(
-            f"full bank {full_bank} split_key {rec.get('split_key')!r} matches neither "
-            f"new {new_split_key!r} nor legacy {legacy_key!r}; rebuild bank cleanly."
+            f"rebuild required: full bank {full_bank} split_key {rec.get('split_key')!r} matches "
+            f"neither full-membership key {new_split_key!r} nor legacy fingerprint {legacy_key!r}."
         )
+
+    if split_provenance is None or not split_provenance.is_file():
+        raise SystemExit(
+            f"rebuild required: legacy full bank {full_bank} carries only prefix fingerprint "
+            f"{legacy_key!r} and lacks verified full-membership split provenance. Supply "
+            f"--full-bank-split-provenance <trusted_split_json> or rebuild cleanly via "
+            f"--stage full-bank."
+        )
+
+    prov = json.loads(split_provenance.read_text())
+    if not isinstance(prov, dict):
+        raise SystemExit(f"rebuild required: split provenance {split_provenance} must be a JSON object")
+    if prov.get("population") != "full":
+        raise SystemExit(
+            f"rebuild required: split provenance {split_provenance} has population "
+            f"{prov.get('population')!r}, expected 'full'"
+        )
+    actual_sha = _sha256_file(full_bank)
+    if prov.get("bank_sha256") != actual_sha:
+        raise SystemExit(
+            f"rebuild required: split provenance {split_provenance} bank_sha256 "
+            f"{prov.get('bank_sha256')!r} does not match {full_bank} ({actual_sha!r})"
+        )
+    if prov.get("legacy_split_key") != rec.get("split_key"):
+        raise SystemExit(
+            f"rebuild required: split provenance {split_provenance} legacy_split_key "
+            f"{prov.get('legacy_split_key')!r} does not match bank key {rec.get('split_key')!r}"
+        )
+
+    has_ids = "train_ids" in prov and "test_ids" in prov
+    has_full_key = isinstance(prov.get("full_split_key"), str) and bool(prov.get("full_split_key"))
+    if not has_ids and not has_full_key:
+        raise SystemExit(
+            f"rebuild required: split provenance {split_provenance} must contain verified "
+            f"('train_ids', 'test_ids') or 'full_split_key'"
+        )
+    if has_ids:
+        hist_tr = [int(i) for i in prov["train_ids"]]
+        hist_te = [int(i) for i in prov["test_ids"]]
+        if _legacy_split_key(hist_tr, hist_te) != rec.get("split_key"):
+            raise SystemExit(
+                f"rebuild required: historical IDs in {split_provenance} do not match legacy key "
+                f"{rec.get('split_key')!r}"
+            )
+        hist_full_key = untrained_split_key(hist_tr, hist_te, population="full")
+        if has_full_key and prov["full_split_key"] != hist_full_key:
+            raise SystemExit(
+                f"rebuild required: split provenance {split_provenance} full_split_key "
+                f"contradicts its embedded train_ids/test_ids"
+            )
+        if sorted(hist_tr) != sorted(int(i) for i in train_ids) or sorted(hist_te) != sorted(
+            int(i) for i in test_ids
+        ):
+            raise SystemExit(
+                f"rebuild required: historical split membership in {split_provenance} does not "
+                f"match current train/test partition despite sharing legacy fingerprint "
+                f"{legacy_key!r}"
+            )
+        if hist_full_key != new_split_key:
+            raise SystemExit(
+                f"rebuild required: historical full_split_key {hist_full_key!r} != current "
+                f"{new_split_key!r}"
+            )
+    elif prov["full_split_key"] != new_split_key:
+        raise SystemExit(
+            f"rebuild required: split provenance full_split_key {prov['full_split_key']!r} "
+            f"does not match current {new_split_key!r}"
+        )
+
     rekeyed = dict(rec)
     rekeyed["split_key"] = new_split_key
     rekeyed["legacy_split_key"] = legacy_key
     rekeyed["population"] = "full"
     rekeyed["rekeyed_from"] = str(full_bank)
+    rekeyed["source_bank_sha256"] = actual_sha
+    rekeyed["split_provenance"] = str(split_provenance)
     dst = out_dir / "p1_untrained_bank_full_rekeyed.json"
     _atomic_write_json(dst, _sanitise(rekeyed))
     return dst
@@ -223,12 +317,18 @@ def run_ladder_erratum(args: argparse.Namespace) -> None:
         cfg, device = setup.cfg, setup.device
         labels, train_ids, test_ids, ds = setup.labels, setup.train_ids, setup.test_ids, setup.ds
         full_split_key = ladder_mod.untrained_split_key(train_ids, test_ids, population="full")
+        prov_path = (
+            Path(args.full_bank_split_provenance)
+            if getattr(args, "full_bank_split_provenance", None)
+            else None
+        )
         resolved_full_bank = _resolve_full_bank(
             full_bank,
             out_dir,
             train_ids=list(train_ids),
             test_ids=list(test_ids),
             new_split_key=full_split_key,
+            split_provenance=prov_path,
         )
         pc = setup.pc.model_copy(
             update={
@@ -304,16 +404,27 @@ def run_ladder_erratum(args: argparse.Namespace) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Ladder v2 E5/E6 erratum re-run driver.")
-    ap.add_argument("--stage", choices=("bank", "ladder", "all"), default="all")
+    ap.add_argument("--stage", choices=("bank", "full-bank", "ladder", "all"), default="all")
     ap.add_argument("--seeds", type=int, default=30)
     ap.add_argument("--encoders", default="a1,a2,a3")
     ap.add_argument("--full-bank", default=str(DEFAULT_FULL_BANK))
+    ap.add_argument(
+        "--full-bank-split-provenance",
+        default=None,
+        help=(
+            "Optional path to a trusted historical split-provenance JSON (binding bank_sha256, "
+            "population='full', legacy_split_key, and exact train_ids/test_ids or full_split_key) "
+            "required to upgrade a legacy prefix-keyed full bank without rebuilding."
+        ),
+    )
     ap.add_argument("--out-dir", default=str(DEFAULT_OUT))
     ap.add_argument("--plan", action="store_true", help="print plan and exit without running")
     args = ap.parse_args()
 
+    if args.stage == "full-bank":
+        run_bank(args, population="full")
     if args.stage in ("bank", "all"):
-        run_bank(args)
+        run_bank(args, population="conditional")
     if args.stage in ("ladder", "all"):
         run_ladder_erratum(args)
 

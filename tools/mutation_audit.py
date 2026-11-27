@@ -558,9 +558,8 @@ def _mut20_swap_log_base_without_converting_units(mutated: bool) -> None:
         tgm.test_mi_benchmarks_04_05_06_07_discrete_binary_bsc_and_xor()
 
 
-def _mut21_disable_rng_restoration_on_resume(mutated: bool) -> None:
+def _mut21a_disable_sampler_offset_on_resume(mutated: bool) -> None:
     import test_probing_rigour as tpr
-    from galaxy_jepa.callbacks import checkpoint as ck_mod
     from galaxy_jepa.data import dataset as ds_mod
 
     def _broken_iter(self: Any) -> Any:
@@ -574,13 +573,21 @@ def _mut21_disable_rng_restoration_on_resume(mutated: bool) -> None:
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
         if mutated:
-            with (
-                mock.patch.object(ck_mod, "_set_rng_state", lambda _s: None),
-                mock.patch.object(ds_mod.ResumableShuffle, "__iter__", _broken_iter),
-            ):
+            with mock.patch.object(ds_mod.ResumableShuffle, "__iter__", _broken_iter):
                 tpr.test_reg016_deterministic_cpu_checkpoint_resume_matches_uninterrupted(tmp)
         else:
             tpr.test_reg016_deterministic_cpu_checkpoint_resume_matches_uninterrupted(tmp)
+
+
+def _mut21b_disable_rng_restoration_on_resume(mutated: bool) -> None:
+    import test_checkpoint_resume as tcr
+    from galaxy_jepa.callbacks import checkpoint as ck_mod
+
+    if mutated:
+        with mock.patch.object(ck_mod, "_set_rng_state", lambda _s: None):
+            tcr.test_rng_state_survives_a_map_location_that_relocated_it()
+    else:
+        tcr.test_rng_state_survives_a_map_location_that_relocated_it()
 
 
 def _mut11_expected_exc() -> tuple[type[Exception], ...]:
@@ -681,10 +688,16 @@ CATALOGUE: tuple[tuple[str, str, str, Callable[[bool], None]], ...] = (
         _mut20_swap_log_base_without_converting_units,
     ),
     (
-        "MUT-21",
+        "MUT-21a",
         "reproducibility",
-        "Disable sampler/RNG restoration on resume",
-        _mut21_disable_rng_restoration_on_resume,
+        "Disable sampler-offset restoration on resume",
+        _mut21a_disable_sampler_offset_on_resume,
+    ),
+    (
+        "MUT-21b",
+        "reproducibility",
+        "Disable RNG-state restoration on resume",
+        _mut21b_disable_rng_restoration_on_resume,
     ),
 )
 

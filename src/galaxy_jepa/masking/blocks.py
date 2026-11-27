@@ -8,16 +8,17 @@ single bias strength ``β``:
 * ``w = 1`` inside the galaxy box, ``w = 1 − β`` on sky;
 * target-block top-left positions are sampled ∝ the mean weight under the block.
 
-``β = 0`` ⇒ uniform weights ⇒ **standard I-JEPA** (the published control). A full-frame box
-⇒ uniform for any ``β``. As ``β`` rises, target blocks concentrate on the galaxy and the
-"sky waste" (target tokens that are sky) falls — the direct evidence the scheme works.
+``β = 0`` ⇒ uniform weights ⇒ **uniform multi-block target sampling** (our unbiased I-JEPA
+masking control). A full-frame box ⇒ uniform for any ``β``. As ``β`` rises, target blocks
+concentrate on the galaxy and the "sky waste" (target tokens that are sky) falls — the direct
+evidence the scheme works.
 
 Everything operates on the **token grid** (``G×G``); pixel→token projection of the box is
-:func:`box_to_token_mask`. The block-size distribution, counts, and context handling are
-I-JEPA's; this module owns only the weighting and the sampling. The masker returns, per
-batch, rectangular ``context``/``target`` index tensors (per-sample positions, sizes shared
-across the batch, context truncated to the batch minimum — the I-JEPA collator trick) so
-the objective can gather tokens without ragged batches.
+:func:`box_to_token_mask`. The block-size distribution, counts, and context-exclusion rule follow
+I-JEPA; this module owns the weighting and sampling. The masker returns, per batch, rectangular
+``context``/``target`` index tensors (per-sample positions, sizes shared across the batch, context
+subsampled uniformly without replacement to the batch minimum rather than Meta's index-order
+truncation) so the objective can gather tokens without ragged batches.
 """
 
 from __future__ import annotations

@@ -134,7 +134,7 @@ class ObjectiveConfig(RunConfig):
     pred_dim: int = 192
     pred_depth: int = 6
     pred_heads: int = 6
-    beta: float = 0.5  # the headline masking-bias knob (mask.beta); 0 ≡ standard I-JEPA
+    beta: float = 0.5  # masking-bias knob (mask.beta); 0 = uniform-target I-JEPA control
     petro_k: float = 2.5
     global_box_frac: float = 0.40
     #: SIGReg trade-off weight (Brief I). ``0.0`` is I-JEPA unchanged — the penalty is never

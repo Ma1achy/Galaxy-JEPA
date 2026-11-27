@@ -179,9 +179,24 @@ def spear(a, b):
 
 
 def resid_ranks(v, N):
-    R = np.column_stack([rankdata(N[:, j]) for j in range(N.shape[1])])
-    R = (R - R.mean(0)) / R.std(0)
-    D = np.column_stack([np.ones(len(v)), R, R**2])
+    """Residualise rank(v) on intercept + standardised quadratic ranks of non-constant nuisances.
+
+    Zero-variance nuisance columns (for instance, sparse/tied nuisances that become constant inside
+    a bootstrap resample) are omitted from the quadratic terms so standardisation never divides by
+    zero while preserving the full quadratic design for every informative nuisance column.
+    """
+    n_arr = np.asarray(N, dtype=np.float64)
+    if n_arr.ndim == 1:
+        n_arr = n_arr[:, None]
+    cols = [np.ones(len(v), dtype=np.float64)]
+    for j in range(n_arr.shape[1]):
+        rj = rankdata(n_arr[:, j])
+        sd = float(rj.std())
+        if sd > 0.0:
+            zj = (rj - float(rj.mean())) / sd
+            cols.append(zj)
+            cols.append(zj**2)
+    D = np.column_stack(cols)
     r = rankdata(v)
     return r - D @ np.linalg.lstsq(D, r, rcond=None)[0]
 
@@ -216,15 +231,21 @@ def boot(a, b, seed, n=NBOOT):
     return [float(x) for x in np.percentile(v, [2.5, 97.5])]
 
 
-def boot_partial_full(a, b, N, seed, n=NBOOT):
-    """Full paired-row bootstrap for quadratic-nuisance partial Spearman (REG-007).
+def boot_partial_full_detail(a, b, N, seed, n=NBOOT, *, min_valid=None):
+    """Full paired-row bootstrap for quadratic-nuisance partial Spearman with replicate counts.
 
-    Re-ranks and re-residualises (a, b, N) inside EVERY paired resample rather than freezing
-    residuals outside the bootstrap, filtering non-finite replicates cleanly.
+    Re-ranks and re-residualises ``(a, b, N)`` inside EVERY paired resample (dropping zero-variance
+    nuisance columns created by resampling without crashing), filters non-finite replicates, and
+    returns ``[nan, nan]`` when fewer than ``min_valid`` usable replicates remain.
     """
     a64 = np.asarray(a, dtype=np.float64)
     b64 = np.asarray(b, dtype=np.float64)
     n64 = np.asarray(N, dtype=np.float64)
+    if n64.ndim == 1:
+        n64 = n64[:, None]
+    min_req = (
+        max(2, min(20, int(np.ceil(0.5 * n)))) if min_valid is None else max(1, int(min_valid))
+    )
     rng = np.random.default_rng(seed)
     draws = []
     m = len(a64)
@@ -233,9 +254,25 @@ def boot_partial_full(a, b, N, seed, n=NBOOT):
         val = partial(a64[idx], b64[idx], n64[idx])
         if np.isfinite(val):
             draws.append(val)
-    if not draws:
-        return [float("nan"), float("nan")]
-    return [float(x) for x in np.percentile(draws, [2.5, 97.5])]
+    n_valid = len(draws)
+    n_invalid = int(n) - n_valid
+    ci = (
+        [float(x) for x in np.percentile(draws, [2.5, 97.5])]
+        if n_valid >= min_req
+        else [float("nan"), float("nan")]
+    )
+    return {
+        "ci": ci,
+        "n_boot": int(n),
+        "n_valid": n_valid,
+        "n_invalid": n_invalid,
+        "min_valid": min_req,
+    }
+
+
+def boot_partial_full(a, b, N, seed, n=NBOOT, *, min_valid=None):
+    """Full paired-row bootstrap CI ``[lo, hi]`` for quadratic-nuisance partial Spearman (REG-007)."""
+    return boot_partial_full_detail(a, b, N, seed, n=n, min_valid=min_valid)["ci"]
 
 
 def boot_pearson(a, b, seed, n=NBOOT):
@@ -278,7 +315,10 @@ def fit_target(d, AXS, name, y, j, null_scores=True):
             x = {"alpha": m["alpha"], "r2": float(1 - ((yc[te] - s) ** 2).sum() / ((yc[te] - yc[te].mean()) ** 2).sum()), "spearman": spear(s, yc[te]), "partial": partial(s, yc[te], d.N[te])}
             if e == "A1":
                 x["spearman_ci"] = boot(s, yc[te], SEED + j)
-                x["partial_ci"] = boot_partial_full(s, yc[te], d.N[te], SEED + j + 500)
+                p_boot = boot_partial_full_detail(s, yc[te], d.N[te], SEED + j + 500)
+                x["partial_ci"] = p_boot["ci"]
+                x["partial_ci_valid"] = p_boot["n_valid"]
+                x["partial_ci_invalid"] = p_boot["n_invalid"]
                 rs, ry = resid_ranks(s, d.N[te]), resid_ranks(yc[te], d.N[te])
                 x["partial_ci_conditional"] = boot_pearson(rs, ry, SEED + j + 500)
                 rng = np.random.default_rng(SEED + 1000 + j)

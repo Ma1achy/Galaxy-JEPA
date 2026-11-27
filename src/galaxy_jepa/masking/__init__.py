@@ -1,1 +1,1 @@
-"""Bounding-box-biased multi-block masking (degrades to standard I-JEPA at β = 0)."""
+"""Bounding-box-biased multi-block masking (degrades to uniform-target I-JEPA masking at β = 0)."""

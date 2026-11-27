@@ -1,4 +1,4 @@
-# Scientific Regression & Mutation Ledger (`REG-001`..`REG-019` + `MUT-01`..`MUT-21`)
+# Scientific Regression & Mutation Ledger (`REG-001`..`REG-020` + `MUT-01`..`MUT-21b`)
 
 Every confirmed historical defect from the audit remediation brief (§12) plus newly discovered numerical/validation defects is tracked below with its before/after behaviour, exact regression test, and isolated mutation kill proof.
 
@@ -36,7 +36,7 @@ Already covered in `tests/test_audit_regressions.py` and existing package tests:
 
 ## Part 2 — Scientific Mutation Audit Summary (§14)
 
-Executed via `.venv/bin/python tools/mutation_audit.py` and `pytest -m mutation` (`tests/test_mutation_catalogue.py`). All 21 mandatory critical mutants execute strictly in memory without mutating production files on disk.
+Executed via `.venv/bin/python tools/mutation_audit.py` and `pytest -m mutation` (`tests/test_mutation_catalogue.py`). All 22 independent critical mutants execute strictly in memory without mutating production files on disk.
 
 | Risk Category | Killed / Total | Mutants |
 |---|---|---|
@@ -44,11 +44,11 @@ Executed via `.venv/bin/python tools/mutation_audit.py` and `pytest -m mutation`
 | `masking` | **4 / 4** | `MUT-03` (bbox weights for context), `MUT-04` (context scale as aspect), `MUT-05` (raster truncation), `MUT-06` (restore leaking fallback) |
 | `statistics` | **4 / 4** | `MUT-13` (omit BY multiplicity correction), `MUT-14` (independent paired bootstrap), `MUT-15` (re-rank residuals), `MUT-16` (sample $\Sigma z$ vs Cholesky $S z$) |
 | `sae_circuits` | **2 / 2** | `MUT-18` (omit SAE reconstruction residual), `MUT-19` (uncapped density denominator) |
+| `reproducibility` | **2 / 2** | `MUT-21a` (disable sampler-offset restoration on resume), `MUT-21b` (disable RNG-state restoration on resume) |
 | `leakage` | **1 / 1** | `MUT-09` (fit `StandardScaler` on held-out test partition) |
 | `data_integrity` | **1 / 1** | `MUT-10` (misalign 64-bit IDs between embeddings and labels) |
 | `provenance` | **1 / 1** | `MUT-11` (substitute wrong checkpoint bank hash) |
 | `matching` | **1 / 1** | `MUT-12` (merge zero strata with positive strata) |
 | `numerics` | **1 / 1** | `MUT-17` (reintroduce clipped logistic objective mismatch) |
 | `information` | **1 / 1** | `MUT-20` (swap log base without converting units) |
-| `reproducibility` | **1 / 1** | `MUT-21` (disable sampler/RNG restoration on checkpoint resume) |
-| **Total** | **21 / 21 (100.0%)** | **0 surviving critical mutants** |
+| **Total** | **22 / 22 (100.0%)** | **0 surviving critical mutants** |

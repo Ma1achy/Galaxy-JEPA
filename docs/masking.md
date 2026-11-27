@@ -36,8 +36,13 @@ token grid):
   the target locations) and predicts the **target blocks' embeddings** from the
   **EMA target encoder**; loss is **latent MSE**.
 
-All block geometry is at token granularity. Our scheme changes only **where the
-blocks are sampled from** — nothing else in the I-JEPA recipe moves.
+All block geometry is at token granularity. Our masking scheme changes **where the
+target blocks are sampled from** via `β` (and uses uniform without-replacement batch
+context subsampling to avoid raster-order bias). For the three documented implementation
+choices in the overall I-JEPA trainer relative to Meta's `facebookresearch/ijepa` script
+(equal-block MSE vs Smooth-L1, learned-affine teacher LayerNorm without extra functional
+`F.layer_norm`, and uniform context subsampling vs index-order truncation), see
+`src/galaxy_jepa/objectives/jepa.py` and `docs/validation/audit_inventory.md`.
 
 ---
 
@@ -107,7 +112,7 @@ w[i,j] = 1            if B[i,j] = 1      (inside the galaxy box)
 w[i,j] = 1 − β        if B[i,j] = 0      (sky)
 ```
 
-- **β = 0** → all weights equal → **uniform sampling = standard I-JEPA**.
+- **β = 0** → all weights equal → **uniform target-block sampling (unbiased masking control)**.
 - **β = 1** → sky weight 0 → targets sampled **strictly inside** the box.
 - **0 < β < 1** → a soft preference for the galaxy, sky still reachable.
 
@@ -141,7 +146,7 @@ default.)*
 
 | Parameter | Symbol | Default | Notes |
 |---|---|---|---|
-| Bias strength | `β` | sweep `{0, 0.5, 1.0}` | β=0 reproduces I-JEPA; the ablation lever |
+| Bias strength | `β` | sweep `{0, 0.5, 1.0}` | β=0 gives uniform target sampling (unbiased control) |
 | Brightness threshold | `τ` | 0.085 | v1's value; controls box size |
 | Sample for mean image | — | 2,000 | for the dataset-level box |
 | Number of target blocks | `M` | 4 | I-JEPA default |
@@ -158,16 +163,16 @@ Everything except `β`, `τ`, and `φ` is inherited from I-JEPA, so the scheme a
 
 ## 6. Graceful degradation (the key property)
 
-The scheme is a **strict generalisation** of I-JEPA:
+The masking distribution degrades cleanly to the unbiased control:
 
-- **`β = 0`** ⇒ uniform weights ⇒ identical to standard I-JEPA.
-- **box = full frame** (every token in-box) ⇒ uniform weights ⇒ identical to
-  standard I-JEPA, for any `β`.
+- **`β = 0`** ⇒ uniform target weights ⇒ uniform multi-block target sampling.
+- **box = full frame** (every token in-box) ⇒ uniform target weights ⇒ uniform
+  multi-block target sampling for any `β`.
 
-So the **β ∈ {0, 0.5, 1.0}** sweep is a clean, controlled ablation: β=0 *is* the
-I-JEPA control, and any representation-quality change as β rises is attributable
-to the galaxy bias alone. This also means the same module ships the baseline — no
-separate code path.
+So the **β ∈ {0, 0.5, 1.0}** sweep is a clean, controlled ablation within this
+codebase's I-JEPA variant: `β = 0` *is* the uniform-target control, and any
+representation-quality change as `β` rises is attributable to the galaxy bias alone.
+This also means the same module ships the baseline — no separate code path.
 
 ---
 
@@ -194,8 +199,9 @@ separate code path.
 
 ## 8. Scope / non-goals
 
-- This note covers **target/context sampling geometry only**. The encoder,
-  predictor, EMA target, and latent-MSE loss are unchanged from I-JEPA.
+- This note covers **target/context sampling geometry only**. See
+  `src/galaxy_jepa/objectives/jepa.py` for the documented I-JEPA trainer variant choices
+  (equal-block MSE, direct learned-affine teacher LayerNorm, and uniform context subsampling).
 - Rotational symmetry is handled separately (augmentation first; E(2)-equivariant
   ViT as a later ablation — see `DECISIONS.md`).
 - The **per-galaxy Petrosian-scaled box** (§3.1) is the **Paper-1 default**; the

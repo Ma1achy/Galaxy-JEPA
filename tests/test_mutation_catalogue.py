@@ -1,4 +1,4 @@
-"""Pytest entry-point for the §14 scientific mutation catalogue (all 21 critical mutants)."""
+"""Pytest entry-point for the §14 scientific mutation catalogue (22 independent mutants)."""
 
 from __future__ import annotations
 
