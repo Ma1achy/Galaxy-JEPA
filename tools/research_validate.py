@@ -23,6 +23,7 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,8 @@ def _git(*args: str) -> str:
         text=True,
         check=False,
     )
+    if cp.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed (rc={cp.returncode}): {cp.stderr.strip()}")
     return cp.stdout.strip()
 
 
@@ -120,26 +123,34 @@ def build_manifest(*, skip_slow: bool = True) -> dict[str, Any]:
         if skip_slow
         else "not gpu and not external_data"
     )
-    checks = [
-        _run_step("ruff_check", [ruff, "check", "."]),
-        _run_step("ruff_format", [ruff, "format", "--check", "."]),
-        _run_step("mypy_src", [mypy, "--cache-dir=/tmp/mypy_cache", "src"]),
-        _run_step(
-            "pytest_validation",
-            [
-                pytest_bin,
-                "-q",
-                "-p",
-                "no:cacheprovider",
-                "--basetemp=/tmp/pytest_tmp",
-                "-m",
-                pytest_expr,
-            ],
-            env_extra={"HYPOTHESIS_STORAGE_DIRECTORY": "/tmp/hyp_cache"},
-        ),
-        _run_step("mutation_audit", [py, "tools/mutation_audit.py"]),
-        _run_step("credential_check", [py, "tools/credential_check.py"]),
-    ]
+    with tempfile.TemporaryDirectory(prefix="gj_validate_") as td:
+        tmp_root = Path(td)
+        mypy_cache = str(tmp_root / "mypy_cache")
+        pytest_tmp = str(tmp_root / "pytest_tmp")
+        hyp_cache = str(tmp_root / "hyp_cache")
+        checks = [
+            _run_step("ruff_check", [ruff, "check", "."]),
+            _run_step("ruff_format", [ruff, "format", "--check", "."]),
+            _run_step("mypy_src", [mypy, f"--cache-dir={mypy_cache}", "src"]),
+            _run_step(
+                "pytest_validation",
+                [
+                    pytest_bin,
+                    "-q",
+                    "-p",
+                    "no:cacheprovider",
+                    f"--basetemp={pytest_tmp}",
+                    "-m",
+                    pytest_expr,
+                ],
+                env_extra={"HYPOTHESIS_STORAGE_DIRECTORY": hyp_cache},
+            ),
+            _run_step("mutation_audit", [py, "tools/mutation_audit.py"]),
+            _run_step(
+                "credential_check",
+                [py, "tools/credential_check.py", "--allow-missing-env", "HEAD~1..HEAD"],
+            ),
+        ]
 
     hw = _hardware_info()
     blocked: list[dict[str, str]] = []
@@ -196,6 +207,12 @@ def verify_manifest(manifest_path: Path, *, allow_dirty: bool = False) -> tuple[
     is_dirty = bool(data.get("git", {}).get("dirty")) or bool(_git("status", "--porcelain"))
     if not allow_dirty and is_dirty:
         errors.append("working tree or manifest is dirty; commit clean tree before validation")
+    for rel, want_sha in (data.get("pinned_file_sha256") or {}).items():
+        got_sha = _sha256_file(REPO / rel)
+        if got_sha != want_sha:
+            errors.append(
+                f"pinned file {rel!r} sha256 mismatch: disk={got_sha!r} != manifest={want_sha!r}"
+            )
     return len(errors) == 0, errors
 
 

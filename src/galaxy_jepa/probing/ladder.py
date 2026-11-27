@@ -255,18 +255,21 @@ def _entangled_map(
             raise ValueError(
                 f"2A pair ({a}, {b}): both features must have established margins (D25)"
             )
-        # Restrict to jointly eligible galaxies for BOTH a and b so unreached partner 0.0s
-        # never enter the match strata.
+        # Restrict to sorted jointly eligible galaxies for BOTH a and b so unreached partner 0.0s
+        # never enter the match strata and (a, b) <-> (b, a) see identical row ordering.
+        a_tr_set = set(feature_ids(controls.real, labels, a, train_ids))
+        a_te_set = set(feature_ids(controls.real, labels, a, test_ids))
         b_tr_set = set(feature_ids(controls.real, labels, b, train_ids))
         b_te_set = set(feature_ids(controls.real, labels, b, test_ids))
-        joint_tr = [o for o in feature_ids(controls.real, labels, a, train_ids) if o in b_tr_set]
-        joint_te = [o for o in feature_ids(controls.real, labels, a, test_ids) if o in b_te_set]
+        joint_tr = sorted(a_tr_set & b_tr_set)
+        joint_te = sorted(a_te_set & b_te_set)
 
         orig_cos = float(geometry.cosine[index[a], index[b]])
         state = match.UNRESOLVED
         survived: bool | None = None
         retained_ratio: float | None = None
-        matched_cos: float | None = None
+        matched_auc_val: float | None = None
+        bar_matched_val: float | None = None
         n_matched_te = 0
 
         if joint_tr and joint_te:
@@ -274,43 +277,65 @@ def _entangled_map(
             emb_b_tr = feature_embeddings(controls.real, labels, b, joint_tr)
             emb_a_te = feature_embeddings(controls.real, labels, a, joint_te)
             emb_b_te = feature_embeddings(controls.real, labels, b, joint_te)
-            # Symmetric decorrelation: match A's labels within strata of B's vote fraction, and
-            # match B's labels within strata of A's vote fraction.
-            ka_tr = match.stratified_match(emb_b_tr.fraction, emb_a_tr.y, seed=config.seed)
-            kb_tr = match.stratified_match(emb_a_tr.fraction, emb_b_tr.y, seed=config.seed + 1)
-            ka_te = match.stratified_match(emb_b_te.fraction, emb_a_te.y, seed=config.seed + 2)
-            kb_te = match.stratified_match(emb_a_te.fraction, emb_b_te.y, seed=config.seed + 3)
-            n_matched_te = min(int(ka_te.size), int(kb_te.size))
-            enough_test = (
-                n_matched_te >= match.MIN_MATCHED_TEST
-                and n_matched_te >= match.MIN_MATCHED_SHARE * len(joint_te)
+
+            def _rows_for(
+                feat: str,
+                tr_ids: Sequence[int] = joint_tr,
+                te_ids: Sequence[int] = joint_te,
+            ) -> Callable[[EmbeddingMatrix], tuple[Embeddings, Embeddings]]:
+                return lambda mat: (
+                    feature_embeddings(mat, labels, feat, tr_ids),
+                    feature_embeddings(mat, labels, feat, te_ids),
+                )
+
+            # Symmetric D24 retention on jointly eligible rows: evaluate both (a | b) and (b | a)
+            # with the identical seed so swapping (a, b) <-> (b, a) is strictly order-invariant.
+            mv_a = _retained(
+                _rows_for(a),
+                emb_b_tr.fraction,
+                emb_b_te.fraction,
+                controls,
+                a=real_aucs[a],
+                bar=bars[a],
+                n_test=len(joint_te),
+                margin_established=True,
+                config=config,
             )
+            mv_b = _retained(
+                _rows_for(b),
+                emb_a_tr.fraction,
+                emb_a_te.fraction,
+                controls,
+                a=real_aucs[b],
+                bar=bars[b],
+                n_test=len(joint_te),
+                margin_established=True,
+                config=config,
+            )
+            ra, rb = mv_a.retention, mv_b.retention
+            va = ra.verdict if ra is not None else match.UNRESOLVED
+            vb = rb.verdict if rb is not None else match.UNRESOLVED
+            n_matched_te = min(mv_a.n_matched_test, mv_b.n_matched_test)
+            if va == match.SURVIVES and vb == match.SURVIVES:
+                state, survived = match.SURVIVES, True
+            elif va == match.COLLAPSES and vb == match.COLLAPSES:
+                state, survived = match.COLLAPSES, False
+            elif va == match.UNRESOLVED or vb == match.UNRESOLVED:
+                state, survived = match.UNRESOLVED, None
+            else:
+                state, survived = match.PARTIAL, None
+
+            if not mv_a.degenerate and not mv_b.degenerate:
+                matched_auc_val = float(min(mv_a.matched_auc, mv_b.matched_auc))
+            if mv_a.bar_matched is not None and mv_b.bar_matched is not None:
+                bar_matched_val = float(0.5 * (mv_a.bar_matched + mv_b.bar_matched))
             if (
-                enough_test
-                and ka_tr.size >= 4
-                and kb_tr.size >= 4
-                and np.unique(emb_a_tr.y[ka_tr]).size >= 2
-                and np.unique(emb_b_tr.y[kb_tr]).size >= 2
+                ra is not None
+                and rb is not None
+                and ra.retained is not None
+                and rb.retained is not None
             ):
-                dir_a_m = probe_direction(
-                    Embeddings(emb_a_tr.x[ka_tr], emb_a_tr.y[ka_tr], emb_a_tr.fraction[ka_tr]),
-                    name=a,
-                    c=config.c,
-                )
-                dir_b_m = probe_direction(
-                    Embeddings(emb_b_tr.x[kb_tr], emb_b_tr.y[kb_tr], emb_b_tr.fraction[kb_tr]),
-                    name=b,
-                    c=config.c,
-                )
-                # Does the directional overlap itself survive when world co-occurrence is removed?
-                matched_cos = float(abs(np.dot(dir_a_m.w_unit, dir_b_m.w_unit)))
-                retained_ratio = matched_cos / abs(orig_cos) if abs(orig_cos) > 1e-9 else 0.0
-                if matched_cos >= 0.30:
-                    state, survived = match.SURVIVES, True
-                elif matched_cos < 0.15:
-                    state, survived = match.COLLAPSES, False
-                else:
-                    state, survived = match.PARTIAL, None
+                retained_ratio = float(min(ra.retained, rb.retained))
 
         pv = ent.adjudicate_pair(
             a,
@@ -324,8 +349,8 @@ def _entangled_map(
             pv,
             retention=state,
             retained=retained_ratio,
-            matched_auc=matched_cos,
-            bar_matched=None,
+            matched_auc=matched_auc_val,
+            bar_matched=bar_matched_val,
             n_matched_test=n_matched_te,
         )
         pair_verdicts.append(pv)
@@ -818,8 +843,11 @@ def run_ladder(
         )
         existence = {f: existence[f] if f in existence else exp_existence[f] for f in features}
 
-    # Phase 3: global entanglement geometry over the existence-passing directions (2A).
-    passing = [f for f in features if existence[f].exceeds_null and f in directions]
+    # Phase 3: global entanglement geometry over the primary existence-passing directions (2A).
+    # Keep exploratory features out of the primary Gram so they do not alter primary mp_edge.
+    passing = [
+        f for f in features if f in primary_names and existence[f].exceeds_null and f in directions
+    ]
     geometry: ent.EntanglementGeometry | None = None
     if len(passing) >= 2:
         # The logistic-vs-CAV cross-check. It has existed in `entanglement.py` since 2A was
@@ -893,12 +921,17 @@ def run_ladder(
         # comparing R1s across buckets needs it as much as a reader of an R4.
         n_tr, pos_tr, n_te, pos_te = counts[feature]
         sd_bar = float(np.std(bank[feature], ddof=1)) if bank is not None else 0.0
+        feat_n_tests = (
+            max(n_tests, len(primary_controls))
+            if feature in primary_names
+            else len(exploratory_controls)
+        )
         margin = nulls_mod.resolvable_margin(
             real_ses[feature],
             sd_bar=sd_bar,
             alpha=config.alpha,
             method=config.multiplicity,
-            n_tests=n_tests,
+            n_tests=feat_n_tests,
             df=(len(bank[feature]) - 1) if bank is not None else None,
         )
         verdicts[feature] = dataclasses.replace(

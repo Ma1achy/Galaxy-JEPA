@@ -413,8 +413,9 @@ def step_h1(enc):
 # --- H2a ----------------------------------------------------------------------------------------------------------------------
 def newton_logistic(X, y, C, iters=50):
     """L2 logistic in sklearn's convention (min ½‖w‖² + C Σ log loss, intercept free), damped
-    Newton with Armijo backtracking and clipped logits; X standardised."""
+    Newton with 1/N-scaled Armijo backtracking and exact unclipped logits; X standardised."""
     n, p = X.shape
+    inv_n = 1.0 / float(n)
     p0 = float(np.clip(y.mean(), 1e-6, 1.0 - 1e-6))
     th = np.r_[np.zeros(p, dtype=np.float64), np.log(p0 / (1.0 - p0))]
     Xb = np.c_[X.astype(np.float64), np.ones(n, dtype=np.float64)]
@@ -422,13 +423,13 @@ def newton_logistic(X, y, C, iters=50):
     signed = 2.0 * y - 1.0
     from scipy.special import expit
 
-    def obj(t):
+    def obj_mean(t):
         eta = Xb @ t
-        # Exact unclipped softplus: log(1 + exp(-signed * eta)), matching derivatives across R
+        # Exact unclipped softplus: log(1 + exp(-signed * eta)), scaled by 1/N to avoid ULP stall
         ll = np.logaddexp(0.0, -signed * eta)
-        return float(0.5 * np.dot(reg * t, t) + C * ll.sum())
+        return float((0.5 * np.dot(reg * t, t) + C * ll.sum()) * inv_n)
 
-    f_cur = obj(th)
+    f_cur = obj_mean(th)
     converged = False
     g = np.zeros_like(th)
     for _ in range(iters):
@@ -438,21 +439,23 @@ def newton_logistic(X, y, C, iters=50):
         if float(np.max(np.abs(g))) < 1e-6:
             converged = True
             break
+        g_m = g * inv_n
         w_diag = expit(eta) * expit(-eta)
-        Hs = C * (Xb * w_diag[:, None]).T @ Xb + np.diag(reg) + 1e-12 * np.eye(p + 1)
+        Hs_m = (C * (Xb * w_diag[:, None]).T @ Xb + np.diag(reg)) * inv_n + 1e-12 * np.eye(p + 1)
         try:
-            step = np.linalg.solve(Hs, g)
+            step = np.linalg.solve(Hs_m, g_m)
         except np.linalg.LinAlgError:
-            step = np.linalg.lstsq(Hs, g, rcond=None)[0]
-        slope = float(np.dot(g, step))
-        if not np.isfinite(slope) or slope <= 0.0:
-            step = g
-            slope = float(np.dot(g, step))
+            step = np.linalg.lstsq(Hs_m, g_m, rcond=None)[0]
+        slope_m = float(np.dot(g_m, step))
+        if not np.isfinite(slope_m) or slope_m <= 0.0:
+            step = g_m
+            slope_m = float(np.dot(g_m, step))
         alpha = 1.0
+        ulp_slack = 1e-12 * max(1.0, abs(f_cur))
         while alpha >= 1e-12:
             cand = th - alpha * step
-            f_cand = obj(cand)
-            if np.isfinite(f_cand) and f_cand <= f_cur - 1e-4 * alpha * slope:
+            f_cand = obj_mean(cand)
+            if np.isfinite(f_cand) and f_cand <= f_cur - 1e-4 * alpha * slope_m + ulp_slack:
                 th, f_cur = cand, f_cand
                 break
             alpha *= 0.5

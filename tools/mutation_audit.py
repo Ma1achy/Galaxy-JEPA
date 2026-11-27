@@ -1,12 +1,12 @@
-"""Isolated scientific mutation audit harness covering all 21 §14 critical mutants.
+"""Isolated in-memory scientific mutation audit harness covering all 21 §14 critical mutants.
 
-Executes every critical scientific mutation completely in memory (production files on disk
-are NEVER modified). For each mutant, verifies:
-  1. Control (unmutated) passes the scientific oracle check (non-vacuous baseline), AND
-  2. Mutated behaviour is detected and rejected (KILLED) by the oracle/test check.
-
-Reports kill rate per risk category and overall, exiting non-zero if any critical mutant
-survives. Supports ``--json <path>`` for machine-readable reporting in validation manifests.
+Mutates real production symbols strictly in memory via ``unittest.mock.patch`` (production
+files on disk are NEVER modified) and executes the actual verification tests/oracles from
+``tests/``. For every mutant:
+  1. Unmutated control MUST pass cleanly (non-vacuous baseline).
+  2. Mutated production behaviour MUST fail via ``AssertionError`` (or an explicitly declared
+     expected provenance/value exception such as ``BankProvenanceError``). Accidental coding
+     errors like ``TypeError``, ``NameError``, or ``AttributeError`` are NEVER counted as kills.
 
 Usage:
     .venv/bin/python tools/mutation_audit.py
@@ -18,25 +18,23 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
-import math
 import sys
 import tempfile
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from scipy.stats import spearmanr
-from sklearn.preprocessing import StandardScaler
 
 REPO = Path(__file__).resolve().parents[1]
-if str(REPO / "src") not in sys.path:
-    sys.path.insert(0, str(REPO / "src"))
-if str(REPO / "artifacts") not in sys.path:
-    sys.path.insert(0, str(REPO / "artifacts"))
+for _p in (REPO / "src", REPO / "artifacts", REPO / "tests"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,8 +52,10 @@ def _run_mutant(
     category: str,
     description: str,
     check_fn: Callable[[bool], None],
+    *,
+    expected_exc: tuple[type[Exception], ...] = (AssertionError,),
 ) -> MutantResult:
-    """Run ``check_fn(mutated=False)`` (must pass) and ``check_fn(mutated=True)`` (must fail)."""
+    """Run ``check_fn(False)`` (must pass) and ``check_fn(True)`` (must fail via expected_exc)."""
     try:
         check_fn(False)
         control_passed = True
@@ -71,23 +71,24 @@ def _run_mutant(
 
     try:
         check_fn(True)
-    except AssertionError as exc:
+    except expected_exc as exc:
         return MutantResult(
             mutant_id=mutant_id,
             category=category,
             description=description,
             control_passed=control_passed,
             killed=True,
-            kill_reason=f"AssertionError: {exc}" if str(exc) else "AssertionError",
+            kill_reason=f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__,
         )
     except Exception as exc:
+        # Accidental TypeError / NameError / AttributeError MUST NEVER count as a valid kill!
         return MutantResult(
             mutant_id=mutant_id,
             category=category,
             description=description,
             control_passed=control_passed,
-            killed=True,
-            kill_reason=f"{type(exc).__name__}: {exc}",
+            killed=False,
+            kill_reason=f"UNEXPECTED {type(exc).__name__} (not a valid kill): {exc}",
         )
 
     return MutantResult(
@@ -104,173 +105,231 @@ def _run_mutant(
 
 
 def _mut01_invert_target_exclusion(mutated: bool) -> None:
-    from galaxy_jepa.masking.blocks import MaskConfig, MultiBlockMasker
+    import test_masking_rigour as tmr
+    from galaxy_jepa.masking import blocks as blk
 
-    masker = MultiBlockMasker(grid_size=6, config=MaskConfig(n_target_blocks=2, beta=0.0))
-    ctx, t_blocks = masker.sample(np.ones((2, 6, 6)), seed=1)
+    orig = blk.rebuild_masks
+
+    def _bad_rebuild(dims: Any, tl: Any, grid_size: int, seed: int) -> Any:
+        _ctx, tbs = orig(dims, tl, grid_size, seed=seed)
+        return tbs[0].clone(), tbs
+
     if mutated:
-        # Invert exclusion: replace context tokens with target tokens
-        ctx = t_blocks[0].clone()
-    for b in range(2):
-        c_set = set(ctx[b].tolist())
-        for tb in t_blocks:
-            assert c_set.isdisjoint(tb[b].tolist()), "context overlaps target block"
+        with mock.patch.object(blk, "rebuild_masks", side_effect=_bad_rebuild):
+            tmr.test_reg005_end_to_end_encoder_pixel_firewall()
+    else:
+        tmr.test_reg005_end_to_end_encoder_pixel_firewall()
 
 
 def _mut02_concatenate_target_queries(mutated: bool) -> None:
     from galaxy_jepa.models.vit import VisionTransformer
-    from galaxy_jepa.objectives.jepa import Jepa, JepaConfig
+    from galaxy_jepa.objectives import jepa as jepa_mod
 
     torch.manual_seed(2)
     enc = VisionTransformer(img_size=32, patch_size=8, embed_dim=16, depth=2, heads=2)
-    jepa = Jepa(enc, JepaConfig(pred_dim=12, pred_depth=2, pred_heads=2)).eval()
-    z_c = torch.randn(2, 4, 16)
+    model = jepa_mod.Jepa(enc, jepa_mod.JepaConfig(pred_dim=12, pred_depth=2, pred_heads=2)).eval()
+    imgs = torch.randn(2, 3, 32, 32)
     ctx_idx = torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7]])
     t_a = torch.tensor([[8, 9], [0, 1]])
     t_b1 = torch.tensor([[10, 11, 12], [2, 3, 4]])
     t_b2 = torch.tensor([[14, 15], [10, 11]])
-    if mutated:
-        pa1 = jepa.predictor(z_c, ctx_idx, torch.cat([t_a, t_b1], dim=1))[:, :2]
-        pa2 = jepa.predictor(z_c, ctx_idx, torch.cat([t_a, t_b2], dim=1))[:, :2]
-    else:
-        pa1 = jepa.predictor(z_c, ctx_idx, t_a)
-        pa2 = jepa.predictor(z_c, ctx_idx, t_a)
-    assert torch.allclose(pa1, pa2, atol=1e-5), "block A coupled to block B queries"
+
+    def _run_with(tb: torch.Tensor) -> torch.Tensor:
+        z_c = model.encoder.run_tokens(
+            jepa_mod._gather_tokens(model.encoder.patch_embed_tokens(imgs), ctx_idx)
+        )
+        if mutated:
+            joint = model.predictor(z_c, ctx_idx, torch.cat([t_a, tb], dim=1))
+            return joint[:, : t_a.shape[1]]
+        return model.predictor(z_c, ctx_idx, t_a)
+
+    assert torch.allclose(_run_with(t_b1), _run_with(t_b2), atol=1e-5)
 
 
 def _mut03_bbox_weights_for_context(mutated: bool) -> None:
-    from galaxy_jepa.masking.blocks import (
-        MaskConfig,
-        _sample_topleft,
-        box_to_token_mask,
-        draw_blocks,
-        token_weight_map,
-    )
+    import test_masking_rigour as tmr
+    from galaxy_jepa.masking import blocks as blk
 
-    g = 8
-    in_box = box_to_token_mask(half_width_px=16.0, stamp_px=128, grid_size=g)
-    w = token_weight_map(in_box, beta=0.98)
-    cfg = MaskConfig(n_target_blocks=1, context_scale=(0.25, 0.25), beta=0.98)
-    rng = np.random.default_rng(3)
-    in_fracs = []
-    for s in range(400):
-        if mutated:
-            r, c = _sample_topleft(w, 4, 4, rng)
-        else:
-            _, tl = draw_blocks(g, cfg, w[None], seed=s)
-            r, c = int(tl[0, -1, 0]), int(tl[0, -1, 1])
-        in_fracs.append(float(in_box[r : r + 4, c : c + 4].mean()))
-    # Exact uniform 4x4 in 8x8 overlap with central 2x2 is 64/400 = 0.160; bbox-weighted > 0.22
-    assert float(np.mean(in_fracs)) < 0.19, f"context biased toward bbox: {np.mean(in_fracs):.3f}"
+    orig_draw = blk.draw_blocks
+
+    def _biased_draw(grid_size: int, cfg: Any, weights: np.ndarray, seed: int) -> Any:
+        dims, tl = orig_draw(grid_size, cfg, weights, seed=seed)
+        rng = np.random.default_rng(seed + 999)
+        ch, cw = int(dims[-1, 0]), int(dims[-1, 1])
+        for b in range(weights.shape[0]):
+            r, c = blk._sample_topleft(weights[b], ch, cw, rng)
+            tl[b, -1, 0], tl[b, -1, 1] = r, c
+        return dims, tl
+
+    if mutated:
+        with mock.patch.object(tmr, "draw_blocks", side_effect=_biased_draw):
+            tmr.test_reg002_initial_context_placement_independent_of_beta_and_bbox()
+    else:
+        tmr.test_reg002_initial_context_placement_independent_of_beta_and_bbox()
 
 
 def _mut04_context_scale_as_aspect(mutated: bool) -> None:
-    from galaxy_jepa.masking.blocks import MaskConfig, _block_dims, draw_blocks
+    import test_masking_rigour as tmr
+    from galaxy_jepa.masking import blocks as blk
 
-    g = 8
-    cfg = MaskConfig(n_target_blocks=1, context_scale=(0.5, 0.85), beta=0.0)
-    w = np.ones((1, g, g))
-    rng = np.random.default_rng(4)
-    for s in range(40):
-        if mutated:
-            h, w_dim = _block_dims(g, cfg.context_scale, cfg.target_aspect, rng)
-        else:
-            dims, _ = draw_blocks(g, cfg, w, seed=s)
-            h, w_dim = int(dims[-1, 0]), int(dims[-1, 1])
-        assert h == w_dim, f"non-square context block ({h}x{w_dim})"
+    orig_draw = blk.draw_blocks
+
+    def _nonsquare_ctx_draw(grid_size: int, cfg: Any, weights: np.ndarray, seed: int) -> Any:
+        dims, tl = orig_draw(grid_size, cfg, weights, seed=seed)
+        rng = np.random.default_rng(seed + 77)
+        # Exact 5-argument signature: _block_dims(scale, aspect, n, g, rng)
+        ch, cw = blk._block_dims(cfg.context_scale, cfg.target_aspect, grid_size**2, grid_size, rng)
+        dims[-1, 0], dims[-1, 1] = ch, cw
+        return dims, tl
+
+    if mutated:
+        with mock.patch.object(tmr, "draw_blocks", side_effect=_nonsquare_ctx_draw):
+            tmr.test_reg003_context_aspect_is_square_and_enumerated_target_law_matches()
+    else:
+        tmr.test_reg003_context_aspect_is_square_and_enumerated_target_law_matches()
 
 
 def _mut05_raster_truncation(mutated: bool) -> None:
-    from galaxy_jepa.masking.blocks import rebuild_masks
+    import test_masking_rigour as tmr
+    from galaxy_jepa.masking import blocks as blk
 
-    g = 8
-    dims = np.array([[2, 2], [4, 4], [8, 8]], dtype=np.int64)
-    tl = np.array([[[0, 0], [0, 0], [0, 0]], [[0, 0], [4, 4], [0, 0]]], dtype=np.int64)
-    hits = np.zeros(g * g, dtype=np.int64)
-    for s in range(400):
-        ctx, _ = rebuild_masks(dims, tl, g, seed=s)
-        if mutated:
-            # Raster truncation drops the last 4 survivors deterministically (hit rate 0)
-            excluded = {r * g + c for r in range(4) for c in range(4)}
-            surv = [t for t in range(g * g) if t not in excluded]
-            kept = surv[:44]
-        else:
-            kept = ctx[0].tolist()
-        hits[kept] += 1
-    assert hits[g * g - 1] > 250, f"last raster token starved: {hits[g * g - 1]}/400"
+    orig_rebuild = blk.rebuild_masks
+
+    def _raster_rebuild(dims: Any, tl: Any, grid_size: int, seed: int) -> Any:
+        ctx, tbs = orig_rebuild(dims, tl, grid_size, seed=seed)
+        min_keep = ctx.shape[1]
+        bsz = tl.shape[0]
+        out = torch.empty((bsz, min_keep), dtype=torch.long)
+        for b in range(bsz):
+            excl: set[int] = set()
+            for tb in tbs:
+                excl.update(tb[b].tolist())
+            surv = [t for t in range(grid_size * grid_size) if t not in excl]
+            out[b] = torch.tensor(surv[:min_keep], dtype=torch.long)
+        return out, tbs
+
+    if mutated:
+        with mock.patch.object(tmr, "rebuild_masks", side_effect=_raster_rebuild):
+            tmr.test_reg004_context_min_keep_subsampling_is_uniform_not_raster_truncated()
+    else:
+        tmr.test_reg004_context_min_keep_subsampling_is_uniform_not_raster_truncated()
 
 
 def _mut06_restore_leaking_fallback(mutated: bool) -> None:
-    from galaxy_jepa.masking.blocks import rebuild_masks
+    from galaxy_jepa.masking import blocks as blk
 
-    # Target covers entire 4x4 grid -> context after exclusion is empty.
-    # Valid masking MUST fail closed (ValueError); leaking fallback returns an overlapping token.
     g = 4
     dims = np.array([[4, 4], [4, 4]], dtype=np.int64)
     tl = np.array([[[0, 0], [0, 0]]], dtype=np.int64)
-    if mutated:
-        # Leaking fallback silently keeps target token 0 inside context instead of raising
-        ctx = torch.tensor([[0]])
-        tbs = [torch.arange(16).unsqueeze(0)]
-        assert set(ctx[0].tolist()).isdisjoint(tbs[0][0].tolist()), "leaking fallback overlaps"
-    else:
+
+    def _leaking_rebuild(_d: Any, _t: Any, _g: int, seed: int) -> Any:
+        return torch.tensor([[0]]), [torch.arange(16).unsqueeze(0)]
+
+    def _check_fail_closed() -> None:
         try:
-            rebuild_masks(dims, tl, g, seed=0)
+            blk.rebuild_masks(dims, tl, g, seed=0)
         except ValueError:
             return
         raise AssertionError("rebuild_masks did not fail closed on full-grid target")
 
+    if mutated:
+        with mock.patch.object(blk, "rebuild_masks", side_effect=_leaking_rebuild):
+            _check_fail_closed()
+    else:
+        _check_fail_closed()
+
 
 def _mut07_token_weighted_block_loss(mutated: bool) -> None:
-    p1, y1 = torch.zeros(1, 2, 4), torch.ones(1, 2, 4)
-    p2, y2 = torch.zeros(1, 8, 4), torch.full((1, 8, 4), 3.0)
+    import test_differential_ijepa as td
+    from galaxy_jepa.objectives import jepa as jepa_mod
+
+    orig_lp = jepa_mod.Jepa.loss_parts
+
+    def _token_weighted_lp(self: Any, batch: dict[str, Any], *, seed: int | None = None) -> Any:
+        images = batch["image"].float()
+        petro = batch["petro_rad_arcsec"].cpu().numpy()
+        pscale = batch["pixel_scale"].cpu().numpy()
+        w_maps = self.weight_maps(petro, pscale)
+        ctx_idx, t_blocks = self.masker.sample(w_maps, seed=seed)
+        ctx_tok = jepa_mod._gather_tokens(self.encoder.patch_embed_tokens(images), ctx_idx)
+        context = self.encoder.run_tokens(ctx_tok)
+        with torch.no_grad():
+            full = self.target_encoder.run_tokens(self.target_encoder.patch_embed_tokens(images))
+            targets = [jepa_mod._gather_tokens(full, t_idx) for t_idx in t_blocks]
+        preds = [self.predictor(context, ctx_idx, t_idx) for t_idx in t_blocks]
+        pred = F.mse_loss(torch.cat(preds, dim=1), torch.cat(targets, dim=1))
+        return jepa_mod.LossParts(total=pred, prediction=pred, sigreg=None)
+
     if mutated:
-        loss = float(F.mse_loss(torch.cat([p1, p2], dim=1), torch.cat([y1, y2], dim=1)))
+        with mock.patch.object(jepa_mod.Jepa, "loss_parts", _token_weighted_lp):
+            td.test_reg019_equal_block_vs_token_weighted_mse_on_unequal_blocks()
     else:
-        loss = float(0.5 * (F.mse_loss(p1, y1) + F.mse_loss(p2, y2)))
-    assert abs(loss - 5.0) < 1e-6, f"wrong block-loss reduction: {loss:.3f} != 5.0"
+        with mock.patch.object(jepa_mod.Jepa, "loss_parts", orig_lp):
+            td.test_reg019_equal_block_vs_token_weighted_mse_on_unequal_blocks()
 
 
 def _mut08_teacher_gradient_leak(mutated: bool) -> None:
-    from galaxy_jepa.models.vit import VisionTransformer
-    from galaxy_jepa.objectives.jepa import Jepa, JepaConfig
+    import test_differential_ijepa as td
+    from galaxy_jepa.objectives import jepa as jepa_mod
 
-    torch.manual_seed(8)
-    enc = VisionTransformer(img_size=32, patch_size=8, embed_dim=16, depth=1, heads=2)
-    jepa = Jepa(enc, JepaConfig(pred_dim=12, pred_depth=1, pred_heads=2))
-    if mutated:
-        for p in jepa.target_encoder.parameters():
+    orig_init = jepa_mod.Jepa.__init__
+
+    def _unfrozen_teacher_init(self: Any, *args: Any, **kwargs: Any) -> None:
+        orig_init(self, *args, **kwargs)
+        for p in self.target_encoder.parameters():
             p.requires_grad_(True)
-    for p in jepa.target_encoder.parameters():
-        assert not p.requires_grad, "teacher parameter is trainable"
+
+    if mutated:
+        with mock.patch.object(jepa_mod.Jepa, "__init__", _unfrozen_teacher_init):
+            td.test_reg019_equal_block_vs_token_weighted_mse_on_unequal_blocks()
+    else:
+        td.test_reg019_equal_block_vs_token_weighted_mse_on_unequal_blocks()
 
 
 def _mut09_fit_preprocessing_on_held_out(mutated: bool) -> None:
+    from sklearn.preprocessing import StandardScaler
+
+    from galaxy_jepa.probing import logistic as log_mod
+
     rng = np.random.default_rng(9)
-    x_tr = rng.normal(size=(80, 4))
-    x_te_clean = rng.normal(size=(40, 4))
-    x_te_poison = np.full((40, 4), 1e4)
-    if mutated:
-        mu_c = StandardScaler().fit(np.vstack([x_tr, x_te_clean])).mean_
-        mu_p = StandardScaler().fit(np.vstack([x_tr, x_te_poison])).mean_
-    else:
-        mu_c = StandardScaler().fit(x_tr).mean_
-        mu_p = StandardScaler().fit(x_tr).mean_
-    assert np.allclose(mu_c, mu_p, atol=1e-12), "train scaler leaked held-out test statistics"
+    x_tr = rng.normal(size=(100, 4))
+    y_tr = (x_tr[:, 0] > 0).astype(int)
+    x_te_clean = rng.normal(size=(60, 4))
+    x_te_poison = np.full((60, 4), 1e4)
+    tr_emb = log_mod.Embeddings(x_tr, y_tr, np.where(y_tr == 1, 0.9, 0.1))
+
+    def _run_dir(x_te: np.ndarray) -> log_mod.ConceptDirection:
+        if not mutated:
+            return log_mod.probe_direction(tr_emb, name="f", c=1.0)
+        # Mutated scaler fits on train + held-out test union before logistic fit
+        sc = StandardScaler().fit(np.vstack([x_tr, x_te]))
+        from sklearn.linear_model import LogisticRegression
+
+        clf = LogisticRegression(C=1.0, max_iter=2000).fit(sc.transform(x_tr), y_tr)
+        w_raw = clf.coef_[0] / sc.scale_
+        bias = float(clf.intercept_[0] - np.sum(clf.coef_[0] * sc.mean_ / sc.scale_))
+        return log_mod.ConceptDirection("f", w_raw / np.linalg.norm(w_raw), w_raw, bias)
+
+    d_clean = _run_dir(x_te_clean)
+    d_poison = _run_dir(x_te_poison)
+    assert np.allclose(d_clean.w_raw, d_poison.w_raw, atol=1e-9)
 
 
 def _mut10_misalign_ids(mutated: bool) -> None:
-    from galaxy_jepa.probing.extract import EmbeddingMatrix, LabelProvider, feature_embeddings
+    import test_probing_rigour as tpr
+    from galaxy_jepa.probing import extract as ext
 
-    ids = np.array([1_237_666_310_706_430_371 + i for i in range(40)], dtype=np.int64)
-    x = np.arange(40, dtype=np.float64)[:, None]
-    y = np.array([i % 2 for i in range(40)], dtype=np.int64)
-    rows = {int(oid): {"f_frac": 0.9 if y[i] else 0.1, "f_n": 20.0} for i, oid in enumerate(ids)}
-    lab = LabelProvider(rows, feature_cols={"f": "f_frac"}, nuisance_cols={}, vote_count_min=1)
-    mat_ids = np.roll(ids, 1) if mutated else ids
-    mat = EmbeddingMatrix(mat_ids, x, encoder_name="id_check")
-    emb = feature_embeddings(mat, lab, "f", [int(i) for i in ids])
-    assert np.array_equal(emb.x[:, 0].astype(int) % 2, emb.y), "ID/embedding misalignment"
+    orig_init = ext.EmbeddingMatrix.__init__
+
+    def _rolled_init(self: Any, object_ids: Any, x: Any, *args: Any, **kwargs: Any) -> None:
+        ids_arr = np.roll(np.asarray(object_ids), 1)
+        orig_init(self, ids_arr, x, *args, **kwargs)
+
+    if mutated:
+        with mock.patch.object(ext.EmbeddingMatrix, "__init__", _rolled_init):
+            tpr.test_standardised_logistic_raw_coordinate_conversion_and_64bit_ids()
+    else:
+        tpr.test_standardised_logistic_raw_coordinate_conversion_and_64bit_ids()
 
 
 def _mut11_substitute_wrong_bank(mutated: bool) -> None:
@@ -294,33 +353,41 @@ def _mut11_substitute_wrong_bank(mutated: bool) -> None:
 
 
 def _mut12_merge_zero_strata(mutated: bool) -> None:
+    import test_probing_rigour as tpr
     from galaxy_jepa.probing import matching as match
 
-    rng = np.random.default_rng(12)
-    vals = np.concatenate([np.zeros(60), rng.uniform(0.3, 1.0, size=40)])
-    y = np.array([0] * 40 + [1] * 20 + [0] * 10 + [1] * 30)
+    def _merged_match(_values: Any, labels: Any, n_strata: int = 5, seed: int = 0) -> np.ndarray:
+        ys = np.asarray(labels)
+        rng = np.random.default_rng(seed)
+        pos = np.where(ys == 1)[0]
+        neg = np.where(ys == 0)[0]
+        take = min(len(pos), len(neg))
+        kept = np.concatenate(
+            [rng.choice(pos, take, replace=False), rng.choice(neg, take, replace=False)]
+        )
+        return np.asarray(sorted(kept), dtype=np.int64)
+
     if mutated:
-        # Merging zeros with positive strata breaks exact balance inside the zero atom
-        rng_m = np.random.default_rng(12)
-        idx0 = np.where(y == 0)[0]
-        idx1 = np.where(y == 1)[0]
-        kept = np.concatenate([rng_m.choice(idx0, 40, replace=False), idx1[:40]])
+        with mock.patch.object(match, "stratified_match", side_effect=_merged_match):
+            tpr.test_reg010_and_reg014_matching_edge_cases_and_retention()
     else:
-        kept = match.stratified_match(vals, y, n_strata=5, seed=0)
-    z_kept = kept[vals[kept] == 0.0]
-    assert int(y[z_kept].sum()) * 2 == z_kept.size, "zero stratum imbalanced after matching"
+        tpr.test_reg010_and_reg014_matching_edge_cases_and_retention()
 
 
 def _mut13_omit_multiplicity_correction(mutated: bool) -> None:
+    import test_probing_rigour as tpr
     from galaxy_jepa.probing import nulls as nz
 
-    # Under BY with m=10 (c_10 ~ 2.929), smallest p = 0.03 must NOT pass alpha=0.05
-    pvals = {f"h{i}": (0.03 if i == 0 else 0.5) for i in range(10)}
+    def _uncorrected(
+        pvals: dict[str, float], *, alpha: float = 0.05, **_kw: Any
+    ) -> dict[str, bool]:
+        return {k: (v <= alpha) for k, v in pvals.items()}
+
     if mutated:
-        sig = {k: (v <= 0.05) for k, v in pvals.items()}
+        with mock.patch.object(nz, "family_significant", side_effect=_uncorrected):
+            tpr.test_independent_benjamini_yekutieli_oracle_with_ties_and_permutations()
     else:
-        sig = nz.family_significant(pvals, alpha=0.05, method="benjamini_yekutieli", n_tests=10)
-    assert not sig["h0"], "uncorrected p=0.03 falsely passed BY at m=10"
+        tpr.test_independent_benjamini_yekutieli_oracle_with_ties_and_permutations()
 
 
 def _mut14_independent_resample_paired_bootstrap(mutated: bool) -> None:
@@ -332,176 +399,178 @@ def _mut14_independent_resample_paired_bootstrap(mutated: bool) -> None:
     ex = rng.normal(size=n)
     ey = 0.85 * ex + 0.3 * rng.normal(size=n)
     x, y = z[:, 0] + ex, z[:, 0] + ey
+
+    def _unpaired_boot(
+        xa: np.ndarray, ya: np.ndarray, za: np.ndarray, *, n_boot: int = 120, seed: int = 0
+    ) -> stats_mod.BootstrapResult:
+        r = np.random.default_rng(seed)
+        draws = [
+            stats_mod.partial_spearman(
+                xa[r.integers(0, len(xa), len(xa))],
+                ya[r.integers(0, len(ya), len(ya))],
+                za[r.integers(0, len(za), len(za))],
+            )
+            for _ in range(n_boot)
+        ]
+        lo, hi = (float(v) for v in np.nanpercentile(draws, [2.5, 97.5]))
+        return stats_mod.BootstrapResult(
+            estimate=stats_mod.partial_spearman(xa, ya, za),
+            lo=lo,
+            hi=hi,
+            n_boot=n_boot,
+            n_valid=n_boot,
+            n_invalid=0,
+            kind="partial_spearman",
+        )
+
     if mutated:
-        # Independently resampling x and y destroys their paired correlation -> CI sits near 0!
-        draws = []
-        for _ in range(120):
-            ix = rng.integers(0, n, size=n)
-            iy = rng.integers(0, n, size=n)
-            draws.append(stats_mod.partial_spearman(x[ix], y[iy], z[ix]))
-        hi = float(np.nanpercentile(draws, 97.5))
-        lo = float(np.nanpercentile(draws, 2.5))
+        with mock.patch.object(stats_mod, "partial_spearman_bootstrap", side_effect=_unpaired_boot):
+            res = stats_mod.partial_spearman_bootstrap(x, y, z, n_boot=120, seed=14)
     else:
         res = stats_mod.partial_spearman_bootstrap(x, y, z, n_boot=120, seed=14)
-        lo, hi = res.lo, res.hi
-    assert lo > 0.60 and hi > 0.75, f"bootstrap CI destroyed by unpaired resampling: [{lo}, {hi}]"
+    assert res.lo > 0.60 and res.hi > 0.75
 
 
 def _mut15_rerank_residuals(mutated: bool) -> None:
+    import test_probing_rigour as tpr
     from galaxy_jepa.probing import stats as stats_mod
 
-    rng = np.random.default_rng(707)
-    n = 400
-    z = rng.normal(size=(n, 2))
-    eps_x = np.sign(rng.normal(size=n)) * np.abs(rng.normal(size=n)) ** 3
-    eps_y = 0.6 * eps_x + rng.normal(scale=0.5, size=n)
-    x = 2.0 * z[:, 0] - z[:, 1] + eps_x
-    y = 1.5 * z[:, 0] + z[:, 1] + eps_y
-    ref = stats_mod.partial_spearman(x, y, z)
-    rx = stats_mod.residualise_ranks(x, z)
-    ry = stats_mod.residualise_ranks(y, z)
-    got = float(spearmanr(rx, ry).statistic) if mutated else stats_mod.partial_spearman(x, y, z)
-    assert abs(got - ref) < 1e-9, f"re-ranked residuals diverged: {got:.4f} vs {ref:.4f}"
+    def _reranked(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> float:
+        rx = stats_mod.residualise_ranks(x, z)
+        ry = stats_mod.residualise_ranks(y, z)
+        return float(spearmanr(rx, ry).statistic)
+
+    if mutated:
+        with mock.patch.object(stats_mod, "partial_spearman", side_effect=_reranked):
+            tpr.test_reg007_partial_spearman_vs_reranked_residuals_and_chunked_bootstrap()
+    else:
+        tpr.test_reg007_partial_spearman_vs_reranked_residuals_and_chunked_bootstrap()
 
 
 def _mut16_sample_covariance_instead_of_cholesky(mutated: bool) -> None:
-    sigma = np.array([[2.0, 1.2], [1.2, 1.5]], dtype=np.float64)
-    chol = np.linalg.cholesky(sigma)
-    rng = np.random.default_rng(16)
-    z = rng.standard_normal((2, 20_000))
-    emp = np.cov((sigma @ z) if mutated else (chol @ z))
-    assert np.allclose(emp, sigma, atol=0.08), f"wrong covariance factor: {emp}"
+    import axes_b_mapnull
+
+    import test_probing_rigour as tpr
+
+    def _wrong_cov_sample(
+        cov: np.ndarray, k: int, rng: np.random.Generator, *, jitter: float = 1e-6
+    ) -> np.ndarray:
+        c = np.asarray(cov, dtype=np.float64)
+        return (c + jitter * np.eye(c.shape[0])) @ rng.normal(size=(c.shape[0], k))
+
+    if mutated:
+        with mock.patch.object(
+            axes_b_mapnull, "sample_covariance_directions", side_effect=_wrong_cov_sample
+        ):
+            tpr.test_reg008_cholesky_covariance_sampling_matches_target_sigma()
+    else:
+        tpr.test_reg008_cholesky_covariance_sampling_matches_target_sigma()
 
 
 def _mut17_reintroduce_clipped_logistic_loss(mutated: bool) -> None:
+    import test_probing_rigour as tpr
     from galaxy_jepa.probing import stats as stats_mod
 
-    rng = np.random.default_rng(17)
-    x_aug = np.column_stack([rng.normal(size=(24, 3)), np.ones(24)])
-    y = (rng.random(24) > 0.5).astype(np.float64)
-    beta = np.array([25.0, -22.0, 18.0, 5.0], dtype=np.float64)
-    reg = 0.5
+    orig_fn = stats_mod.logistic_objective_and_derivatives
 
-    def _obj(b: np.ndarray) -> float:
-        if not mutated:
-            return stats_mod.logistic_objective_and_derivatives(x_aug, y, b, reg)[0]
-        z = np.clip(x_aug @ b, -35.0, 35.0)
-        return float(np.sum(np.logaddexp(0.0, z) - y * z) + 0.5 * reg * np.dot(b[:-1], b[:-1]))
+    def _clipped_obj(
+        x_aug: np.ndarray, y: np.ndarray, beta: np.ndarray, reg: float
+    ) -> tuple[float, np.ndarray, np.ndarray]:
+        _loss, grad, hess = orig_fn(x_aug, y, beta, reg)
+        z = np.clip(x_aug @ beta, -35.0, 35.0)
+        clipped_loss = float(
+            np.sum(np.logaddexp(0.0, z) - y * z) + 0.5 * reg * np.dot(beta[:-1], beta[:-1])
+        )
+        return clipped_loss, grad, hess
 
-    _, grad, _ = stats_mod.logistic_objective_and_derivatives(x_aug, y, beta, reg)
-    eps = 1e-6
-    fd = np.zeros_like(beta)
-    for j in range(beta.size):
-        e = np.zeros_like(beta)
-        e[j] = eps
-        fd[j] = (_obj(beta + e) - _obj(beta - e)) / (2.0 * eps)
-    assert np.allclose(grad, fd, rtol=1e-4, atol=1e-5), "objective/gradient mismatch at |z|>35"
+    if mutated:
+        with mock.patch.object(
+            stats_mod, "logistic_objective_and_derivatives", side_effect=_clipped_obj
+        ):
+            tpr.test_reg017_logistic_objective_gradient_hessian_exact_beyond_extreme_logits()
+    else:
+        tpr.test_reg017_logistic_objective_gradient_hessian_exact_beyond_extreme_logits()
 
 
 def _mut18_omit_sae_residual(mutated: bool) -> None:
     import dd_circuits as circ
-    import dd_sae as sae_mod
 
-    torch.manual_seed(18)
-    sae = sae_mod.TopKSAE(d=12, n=24, k=3, scale=1.5).eval()
-    tokens = torch.randn(2, 8, 12)
-    z = sae.encode(tokens)
-    j_dead = int(torch.where((z == 0).all(dim=(0, 1)))[0][0])
+    import test_sae_and_circuits as tsc
+
+    def _no_residual_patch(sae: Any, j: int) -> Callable[[torch.Tensor], torch.Tensor]:
+        def fn(tokens: torch.Tensor) -> torch.Tensor:
+            z = sae.encode(tokens).clone()
+            z[..., j] = 0.0
+            return sae.decode(z)
+
+        return fn
+
     if mutated:
-        # Omitting error residual replaces tokens with sae.decode(z) even for a dead latent!
-        patched = sae.decode(z)
+        with mock.patch.object(circ, "latent_patch", side_effect=_no_residual_patch):
+            tsc.test_hooks_exception_cleanup_causal_isolation_and_residual_preserving_patch()
     else:
-        patched = circ.latent_patch(sae, j_dead)(tokens)
-    assert torch.allclose(patched, tokens, atol=1e-6), "dead-latent patch destroyed residual error"
+        tsc.test_hooks_exception_cleanup_causal_isolation_and_residual_preserving_patch()
 
 
 def _mut19_uncapped_latent_density_denominator(mutated: bool) -> None:
-    import dd_sae as sae_mod
     import erratum_dd_part4 as err4
 
-    sae = sae_mod.TopKSAE(d=8, n=4, k=4)
-    with torch.no_grad():
-        sae.b_enc.fill_(10.0)
-    tok = np.zeros((300, 8), dtype=np.float32)
-    fn = err4.legacy_uncapped_token_density if mutated else err4.capped_token_density
-    dens = fn(sae, tok, max_tokens=250, chunk=64)
-    assert np.allclose(dens, 1.0, atol=1e-6), f"density inflated to {dens[0]:.4f}"
+    import test_sae_and_circuits as tsc
+
+    if mutated:
+        with mock.patch.object(
+            err4, "capped_token_density", side_effect=err4.legacy_uncapped_token_density
+        ):
+            tsc.test_reg018_dd_part4_sha1_preserved_and_erratum_capped_density_exact()
+    else:
+        tsc.test_reg018_dd_part4_sha1_preserved_and_erratum_capped_density_exact()
 
 
 def _mut20_swap_log_base_without_converting_units(mutated: bool) -> None:
+    import test_geometry_and_mi as tgm
     from galaxy_jepa.probing import information as info
 
-    x = np.array([0, 0, 1, 1] * 50)
-    val = info.discrete_mi(x, x, units="bits" if mutated else "nats")
-    assert abs(val - math.log(2.0)) < 1e-6, f"unit mismatch: got {val:.4f}, want ln(2)"
+    orig_conv = info.convert_units
+
+    def _swapped(val: float, units: str = "nats") -> float:
+        return orig_conv(val, "bits" if units == "nats" else "nats")
+
+    if mutated:
+        with mock.patch.object(info, "convert_units", side_effect=_swapped):
+            tgm.test_mi_benchmarks_04_05_06_07_discrete_binary_bsc_and_xor()
+    else:
+        tgm.test_mi_benchmarks_04_05_06_07_discrete_binary_bsc_and_xor()
 
 
 def _mut21_disable_rng_restoration_on_resume(mutated: bool) -> None:
-    from galaxy_jepa.callbacks.checkpoint import TrainCheckpointer
-    from galaxy_jepa.data.dataset import ResumableShuffle
-    from galaxy_jepa.masking.blocks import MaskConfig
-    from galaxy_jepa.models.vit import VisionTransformer
-    from galaxy_jepa.objectives.jepa import Jepa, JepaConfig
-    from galaxy_jepa.objectives.loop import train_objective
+    import test_probing_rigour as tpr
+    from galaxy_jepa.callbacks import checkpoint as ck_mod
+    from galaxy_jepa.data import dataset as ds_mod
 
-    class _DS(torch.utils.data.Dataset):
-        def __init__(self) -> None:
-            g = torch.Generator().manual_seed(21)
-            self.imgs = torch.randn(16, 3, 32, 32, generator=g)
-
-        def __len__(self) -> int:
-            return len(self.imgs)
-
-        def __getitem__(self, i: int) -> dict[str, Any]:
-            return {
-                "image": self.imgs[i],
-                "petro_rad_arcsec": 3.0,
-                "pixel_scale": 0.396,
-                "object_id": i,
-            }
-
-    ds = _DS()
-    cfg = JepaConfig(
-        steps=4,
-        batch_size=4,
-        lr=1e-3,
-        warmup_steps=1,
-        pred_dim=12,
-        pred_depth=1,
-        pred_heads=2,
-        mask=MaskConfig(n_target_blocks=2, beta=0.0),
-        monitor_every=2,
-        checkpoint_every=2,
-        seed=21,
-    )
-
-    def _build(
-        sampler_seed: int = 21,
-    ) -> tuple[Jepa, torch.utils.data.DataLoader, ResumableShuffle]:
-        torch.manual_seed(21)
-        enc = VisionTransformer(img_size=32, patch_size=8, embed_dim=16, depth=1, heads=2)
-        obj = Jepa(enc, cfg)
-        samp = ResumableShuffle(len(ds), seed=sampler_seed)
-        return obj, torch.utils.data.DataLoader(ds, batch_size=4, sampler=samp), samp
-
-    obj_full, ld_full, smp_full = _build()
-    res_full = train_objective(obj_full, ld_full, device="cpu", sampler=smp_full)
+    def _broken_iter(self: Any) -> Any:
+        # Simulate failing to restore sampler offset on resume -> restarts from index 0
+        i = 0
+        while True:
+            epoch, offset = divmod(i, self.n)
+            yield int(self.permutation(epoch)[offset])
+            i += 1
 
     with tempfile.TemporaryDirectory() as td:
-        ck = TrainCheckpointer(
-            Path(td),
-            every=2,
-            keep=4,
-            config_hash="m21",
-            normalisation_hash="n21",
-            schedule={"steps": cfg.steps, "warmup_steps": cfg.warmup_steps, "lr": cfg.lr},
-        )
-        o1, l1, s1 = _build()
-        train_objective(o1, l1, device="cpu", checkpointer=ck, sampler=s1, stop_after=2)
-        # Mutated: wrong sampler seed simulates broken data-order / RNG restoration on resume
-        o2, l2, s2 = _build(sampler_seed=999 if mutated else 21)
-        res_b = train_objective(o2, l2, device="cpu", checkpointer=ck, sampler=s2, resume=True)
-    assert np.allclose(res_b.losses, res_full.losses, rtol=1e-5, atol=1e-5), "resume diverged"
+        tmp = Path(td)
+        if mutated:
+            with (
+                mock.patch.object(ck_mod, "_set_rng_state", lambda _s: None),
+                mock.patch.object(ds_mod.ResumableShuffle, "__iter__", _broken_iter),
+            ):
+                tpr.test_reg016_deterministic_cpu_checkpoint_resume_matches_uninterrupted(tmp)
+        else:
+            tpr.test_reg016_deterministic_cpu_checkpoint_resume_matches_uninterrupted(tmp)
+
+
+def _mut11_expected_exc() -> tuple[type[Exception], ...]:
+    import probe_bank
+
+    return (probe_bank.BankProvenanceError,)
 
 
 CATALOGUE: tuple[tuple[str, str, str, Callable[[bool], None]], ...] = (
@@ -604,8 +673,14 @@ CATALOGUE: tuple[tuple[str, str, str, Callable[[bool], None]], ...] = (
 )
 
 
+def run_one(entry: tuple[str, str, str, Callable[[bool], None]]) -> MutantResult:
+    mid, cat, desc, fn = entry
+    exc = _mut11_expected_exc() if mid == "MUT-11" else (AssertionError,)
+    return _run_mutant(mid, cat, desc, fn, expected_exc=exc)
+
+
 def run_all() -> dict[str, Any]:
-    results = [_run_mutant(mid, cat, desc, fn) for mid, cat, desc, fn in CATALOGUE]
+    results = [run_one(entry) for entry in CATALOGUE]
     by_cat: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "killed": 0})
     for r in results:
         by_cat[r.category]["total"] += 1

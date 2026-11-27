@@ -196,10 +196,39 @@ def boot(a, b, seed, n=NBOOT):
     return [float(x) for x in np.percentile(v, [2.5, 97.5])]
 
 
-def boot_pearson(a, b, seed, n=NBOOT):
-    """Paired bootstrap of Pearson r (used on nuisance-residualised ranks for partial Spearman CI)."""
+def boot_partial_full(a, b, N, seed, n=NBOOT):
+    """Full paired-row bootstrap for quadratic-nuisance partial Spearman (REG-007).
+
+    Re-ranks and re-residualises (a, b, N) inside EVERY paired resample rather than freezing
+    residuals outside the bootstrap, filtering non-finite replicates cleanly.
+    """
+    a64 = np.asarray(a, dtype=np.float64)
+    b64 = np.asarray(b, dtype=np.float64)
+    n64 = np.asarray(N, dtype=np.float64)
     rng = np.random.default_rng(seed)
-    v = [float(np.corrcoef(a[i], b[i])[0, 1]) for i in (rng.integers(0, len(a), len(a)) for _ in range(n))]
+    draws = []
+    m = len(a64)
+    for _ in range(n):
+        idx = rng.integers(0, m, size=m)
+        val = partial(a64[idx], b64[idx], n64[idx])
+        if np.isfinite(val):
+            draws.append(val)
+    if not draws:
+        return [float("nan"), float("nan")]
+    return [float(x) for x in np.percentile(draws, [2.5, 97.5])]
+
+
+def boot_pearson(a, b, seed, n=NBOOT):
+    """Paired bootstrap of Pearson r (conditional-residual diagnostic; see boot_partial_full)."""
+    rng = np.random.default_rng(seed)
+    v = []
+    for _ in range(n):
+        i = rng.integers(0, len(a), len(a))
+        val = float(np.corrcoef(a[i], b[i])[0, 1])
+        if np.isfinite(val):
+            v.append(val)
+    if not v:
+        return [float("nan"), float("nan")]
     return [float(x) for x in np.percentile(v, [2.5, 97.5])]
 
 
@@ -229,8 +258,9 @@ def fit_target(d, AXS, name, y, j, null_scores=True):
             x = {"alpha": m["alpha"], "r2": float(1 - ((yc[te] - s) ** 2).sum() / ((yc[te] - yc[te].mean()) ** 2).sum()), "spearman": spear(s, yc[te]), "partial": partial(s, yc[te], d.N[te])}
             if e == "A1":
                 x["spearman_ci"] = boot(s, yc[te], SEED + j)
+                x["partial_ci"] = boot_partial_full(s, yc[te], d.N[te], SEED + j + 500)
                 rs, ry = resid_ranks(s, d.N[te]), resid_ranks(yc[te], d.N[te])
-                x["partial_ci"] = boot_pearson(rs, ry, SEED + j + 500)
+                x["partial_ci_conditional"] = boot_pearson(rs, ry, SEED + j + 500)
                 rng = np.random.default_rng(SEED + 1000 + j)
                 half = rng.permutation(len(tr)) < len(tr) // 2
                 ga, gb = Gram(X[tr[half]]), Gram(X[tr[~half]])
@@ -255,22 +285,22 @@ def fit_target(d, AXS, name, y, j, null_scores=True):
     return rec, arr
 
 
-def step_fit(only=None):
+def step_fit(only=None, out_name="b_fit_erratum.json", force=False):
     AXS, d = A.load()
     z = np.load(B / "measures.npz")
     assert np.array_equal(z["ids"], d.union)
     names = [k for k in z.files if k != "ids"]
-    f = DOC / "b_fit.json"
-    out = json.loads(f.read_text()) if f.exists() else {}
+    f = DOC / out_name
+    out = json.loads(f.read_text()) if (f.exists() and not force) else {}
     (B / "fits").mkdir(exist_ok=True)
     for j, n in enumerate(names):
-        if (only and n not in only) or (n in out and not only):
+        if (only and n not in only) or (n in out and not only and not force):
             continue
         t0 = time.perf_counter()
         rec, arr = fit_target(d, AXS, n, z[n], j)
         out[n] = rec
         np.savez(B / "fits" / (n.replace("/", "_").replace(" ", "_") + ".npz"), name=n, **arr)
-        save("b_fit.json", out)
+        save(out_name, out)
         k = rec.get("cleaned", rec["raw"])
         A.log(f"B {n} {time.perf_counter() - t0:.0f}s label {rec['label']} spearman A1 {k['enc']['A1']['spearman']:.3f} untr {k['untrained_spearman_range'][1]:.3f} partial {k['enc']['A1']['partial']:.3f}")
 
@@ -486,5 +516,15 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("step", choices=["catalogue", "selftest", "fit", "extras", "map"])
     ap.add_argument("--only", nargs="*")
+    ap.add_argument(
+        "--out-name",
+        default="b_fit_erratum.json",
+        help="Output filename under docs/axes/ for `fit` (defaults to versioned erratum file).",
+    )
+    ap.add_argument("--force", action="store_true", help="Re-fit even targets present in out file.")
     a = ap.parse_args()
-    step_fit(a.only) if a.step == "fit" else globals()["step_" + a.step]()
+    (
+        step_fit(a.only, out_name=a.out_name, force=a.force)
+        if a.step == "fit"
+        else globals()["step_" + a.step]()
+    )

@@ -56,10 +56,9 @@ jobs:
         with:
           enable-cache: true
       # `eval` as well as `dev`: the gate covers probing read-outs (sklearn), statistical
-      # tests/MI (scipy), calibration, and the isolated 21-mutant scientific audit.
+      # tests/MI (scipy), calibration, and the isolated 21-mutant scientific audit (via pytest).
       - run: uv sync --extra dev --extra eval
       - run: uv run pytest -m "not integration and not e2e and not gpu and not slow and not external_data" --durations=10
-      - run: uv run python tools/mutation_audit.py
 
   integration:
     name: integration + CPU mini E2E

@@ -12,7 +12,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 from scipy.stats import norm
-from sklearn.metrics import roc_auc_score
 
 from galaxy_jepa.probing import matching as match
 from galaxy_jepa.probing import nulls as nz
@@ -45,24 +44,21 @@ def test_type1_error_c3_plugin_and_permutation_null() -> None:
     # Binomial SE for n=40,000, p=0.05 is 0.0011 -> [0.044, 0.056] is > 5 SE
     assert 0.044 <= fpr_c3 <= 0.056, f"C3 plug-in FPR miscalibrated: {fpr_c3:.4f}"
 
-    # 2. Permutation test Type-I error under pure null over 200 independent datasets
+    # 2. Production uncertainty.permutation_p Type-I error under pure null (160 datasets)
+    from galaxy_jepa.probing import uncertainty as unc
+
     rng_p = np.random.default_rng(1103)
-    n_trials = 200
-    n_perm = 99
+    n_trials = 160
     rejects = 0
-    for _ in range(n_trials):
-        scores = rng_p.normal(size=80)
-        y = rng_p.integers(0, 2, size=80)
-        obs = float(roc_auc_score(y, scores))
-        null_aucs = np.empty(n_perm, dtype=np.float64)
-        for b in range(n_perm):
-            null_aucs[b] = float(roc_auc_score(rng_p.permutation(y), scores))
-        pval = (1.0 + float(np.sum(null_aucs >= obs))) / float(n_perm + 1)
+    for trial in range(n_trials):
+        dist = rng_p.normal(size=80)
+        frac = rng_p.uniform(0.2, 0.8, size=80)
+        pval = unc.permutation_p(dist, frac, n_perm=99, method="two_sided", seed=trial)
         if pval <= 0.05:
             rejects += 1
     fpr_perm = rejects / float(n_trials)
-    # Binomial 99.7% band for n=200, p=0.05 is [0.01, 0.10]
-    assert 0.01 <= fpr_perm <= 0.10, f"permutation FPR miscalibrated: {fpr_perm:.3f}"
+    # Binomial 99.7% band for n=160, p=0.05 is [0.005, 0.11]
+    assert 0.005 <= fpr_perm <= 0.11, f"permutation_p FPR miscalibrated: {fpr_perm:.3f}"
 
 
 @pytest.mark.calibration

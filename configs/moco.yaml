@@ -95,9 +95,10 @@ objective:                  # artifacts/baselines.md §3 (F3, F4, F7 (b))
 # The pre-registered collapse kill criterion (G5). Recorded BEFORE the run, because a criterion
 # chosen after seeing the curve is not a criterion. Hashed into `config_hash` and enforced by
 # `CollapseMonitor`; leaving it unset stamps `collapse_floor_open`.
-# NOTE: `train_objective` runs `CollapseMonitor` with `soft_rank_floor=True` for MoCo (there is no
-# SIGReg penalty on this objective), so the soft rank floor, hard floor, and std floor are all
-# active after their respective grace periods. The frozen values below mirror `pretrain_v2.yaml`.
+# NOTE: `train_objective` runs `CollapseMonitor` with `soft_rank_floor=False` for MoCo (F8;
+# `Moco.soft_rank_floor` returns `False`, and `docs/patch_grid/prereg.md` §7 pre-registers that
+# for MoCo and MAE the soft rank floor is reported and never gates; only the hard floor and std
+# floor gate). The frozen values below mirror `pretrain_v2.yaml` verbatim for config parity.
 collapse_floor:
   min_effective_rank: 2.5   # RE-DERIVED under D17; ACTIVE again under D21. The old
                             #   5.0 would have killed a WORKING run: H5's baseline sat below it

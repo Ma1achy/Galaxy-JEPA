@@ -43,17 +43,22 @@ def test_reg002_initial_context_placement_independent_of_beta_and_bbox() -> None
     w_hi = token_weight_map(in_box, beta=0.95)[None]
 
     n_draws = 1200
-    ctx_rows_lo, ctx_cols_lo = [], []
-    ctx_rows_hi, ctx_cols_hi = [], []
+    ctx_rows_lo, ctx_cols_lo, ctx_in_lo = [], [], []
+    ctx_rows_hi, ctx_cols_hi, ctx_in_hi = [], [], []
     tgt_in_lo, tgt_in_hi = [], []
     for s in range(n_draws):
         dims_l, tl_l = draw_blocks(g, cfg_lo, w_lo, seed=s)
         dims_h, tl_h = draw_blocks(g, cfg_hi, w_hi, seed=s)
         # Context top-left is the last entry in tl[0]
-        ctx_rows_lo.append(int(tl_l[0, -1, 0]))
-        ctx_cols_lo.append(int(tl_l[0, -1, 1]))
-        ctx_rows_hi.append(int(tl_h[0, -1, 0]))
-        ctx_cols_hi.append(int(tl_h[0, -1, 1]))
+        crl, ccl = int(tl_l[0, -1, 0]), int(tl_l[0, -1, 1])
+        crh, cch = int(tl_h[0, -1, 0]), int(tl_h[0, -1, 1])
+        ch, cw = int(dims_l[-1, 0]), int(dims_l[-1, 1])
+        ctx_rows_lo.append(crl)
+        ctx_cols_lo.append(ccl)
+        ctx_rows_hi.append(crh)
+        ctx_cols_hi.append(cch)
+        ctx_in_lo.append(float(in_box[crl : crl + ch, ccl : ccl + cw].mean()))
+        ctx_in_hi.append(float(in_box[crh : crh + ch, cch : cch + cw].mean()))
         # Check target block 0 falls in-box much more often at beta=0.95 (non-vacuous check)
         r0_l, c0_l = int(tl_l[0, 0, 0]), int(tl_l[0, 0, 1])
         r0_h, c0_h = int(tl_h[0, 0, 0]), int(tl_h[0, 0, 1])
@@ -63,6 +68,9 @@ def test_reg002_initial_context_placement_independent_of_beta_and_bbox() -> None
 
     # Non-vacuous: beta=0.95 genuinely concentrates targets onto the galaxy box (>1.5x lift)
     assert np.mean(tgt_in_hi) > 1.5 * np.mean(tgt_in_lo)
+
+    # Initial context in-box overlap MUST NOT increase at beta=0.95 (catches symmetric centre bias!)
+    assert abs(float(np.mean(ctx_in_hi)) - float(np.mean(ctx_in_lo))) < 0.012
 
     # Initial context top-left is uniform across valid starts [0, g - ctx_h]
     max_r = g - int(dims_l[-1, 0])

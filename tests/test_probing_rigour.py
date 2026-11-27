@@ -110,6 +110,15 @@ def test_reg006_damped_logistic_and_axes_h_parity_on_hard_regimes() -> None:
     with pytest.raises(ValueError, match="failed to converge"):
         stats_mod.damped_logistic(x_hard, y, c=1e6, max_iter=1, tol=1e-12)
 
+    # Large-N convergence check (N=10,000): 1/N-scaled Armijo prevents float64 ULP stall
+    x_big = rng.normal(size=(10_000, 6))
+    p_big = 1.0 / (1.0 + np.exp(-(x_big[:, 0] - 0.5 * x_big[:, 1])))
+    y_big = (rng.random(10_000) < p_big).astype(np.float64)
+    w_big_s, b_big_s = stats_mod.damped_logistic(x_big, y_big, c=1.0)
+    w_big_h, b_big_h = axes_h.newton_logistic(x_big, y_big, 1.0)
+    assert np.allclose(w_big_s, w_big_h, atol=1e-4, rtol=1e-4)
+    assert abs(b_big_s - b_big_h) < 1e-4
+
 
 @pytest.mark.differential
 def test_standardised_logistic_raw_coordinate_conversion_and_64bit_ids() -> None:
@@ -143,10 +152,11 @@ def test_standardised_logistic_raw_coordinate_conversion_and_64bit_ids() -> None
     mat = EmbeddingMatrix(np.asarray(big_ids, dtype=np.int64), x, encoder_name="bigid")
     rows = {oid: {"f_frac": float(y[i]), "f_n": 20.0} for i, oid in enumerate(big_ids)}
     labels = LabelProvider(rows, feature_cols={"f": "f_frac"}, nuisance_cols={}, vote_count_min=1)
-    # Permute IDs and confirm exact alignment
+    # Permute IDs and confirm exact alignment of BOTH labels and embedding rows
     perm_ids = list(reversed(big_ids[:50]))
     emb = feature_embeddings(mat, labels, "f", perm_ids)
     assert np.array_equal(emb.y, y[:50][::-1])
+    assert np.allclose(emb.x, x[:50][::-1], atol=0.0)
 
 
 # --- REG-012 & REG-009: Poisoned-partition leakage & cache provenance -------------------------
@@ -190,12 +200,15 @@ def test_reg012_poisoned_test_partition_does_not_affect_train_fitted_artefacts()
     assert np.allclose(dir_c.w_raw, dir_p.w_raw, atol=0.0)
     assert dir_c.bias == dir_p.bias
 
-    # Non-vacuous: test AUC genuinely changes when test labels are flipped
+    # Non-vacuous: train+test entrypoint (`probe_auc_ci`) receives the full split and test AUC flips
+    # when test labels are flipped, while train-fitted weights remain identical.
+    from galaxy_jepa.probing.logistic import probe_auc_ci
+
     te_c = feature_embeddings(mat_c, lab_c, "f", ids[n_tr:])
     te_p = feature_embeddings(mat_p, lab_p, "f", ids[n_tr:])
-    auc_clean = roc_auc_score(te_c.y, te_c.x @ dir_c.w_raw + dir_c.bias)
-    auc_flipped = roc_auc_score(te_p.y, te_c.x @ dir_c.w_raw + dir_c.bias)
-    assert auc_clean > 0.85 and auc_flipped < 0.15
+    auc_clean, _, _ = probe_auc_ci(tr_c, te_c, c=1.0, n_boot=40, seed=0)
+    auc_poison, _, _ = probe_auc_ci(tr_p, te_p, c=1.0, n_boot=40, seed=0)
+    assert auc_clean > 0.85 and abs(auc_clean - auc_poison) > 0.30
 
 
 @pytest.mark.regression
@@ -275,7 +288,9 @@ def test_reg007_partial_spearman_vs_reranked_residuals_and_chunked_bootstrap() -
 
 @pytest.mark.regression
 def test_reg008_cholesky_covariance_sampling_matches_target_sigma() -> None:
-    """REG-008: S @ z yields covariance Sigma = S S^T, unlike inv(S).T @ z or Sigma @ z."""
+    """REG-008: axes_b_mapnull.sample_covariance_directions yields Sigma = S S^T."""
+    import axes_b_mapnull
+
     sigma = np.array(
         [
             [2.0, 1.2, -0.5],
@@ -284,17 +299,16 @@ def test_reg008_cholesky_covariance_sampling_matches_target_sigma() -> None:
         ],
         dtype=np.float64,
     )
-    chol = np.linalg.cholesky(sigma)
     rng = np.random.default_rng(808)
-    z = rng.standard_normal((3, 40_000))
-
-    emp_good = np.cov(chol @ z)
-    emp_buggy_inv = np.cov(np.linalg.inv(chol).T @ z)
-    emp_buggy_sq = np.cov(sigma @ z)
-
+    draws = axes_b_mapnull.sample_covariance_directions(sigma, k=40_000, rng=rng, jitter=1e-6)
+    emp_good = np.cov(draws)
     assert np.allclose(emp_good, sigma, atol=0.05)
-    assert not np.allclose(emp_buggy_inv, sigma, atol=0.5)
-    assert not np.allclose(emp_buggy_sq, sigma, atol=0.5)
+
+    # Contrast against legacy buggy factorisations (inv(S)^T z and Sigma z)
+    chol = np.linalg.cholesky(sigma)
+    z = rng.standard_normal((3, 40_000))
+    assert not np.allclose(np.cov(np.linalg.inv(chol).T @ z), sigma, atol=0.5)
+    assert not np.allclose(np.cov(sigma @ z), sigma, atol=0.5)
 
 
 # --- REG-010, REG-011, REG-013, REG-014, REG-016 & Independent BY Oracle ----------------------
@@ -318,12 +332,22 @@ def test_reg010_and_reg014_matching_edge_cases_and_retention() -> None:
     z_kept = k_mix[vals[k_mix] == 0.0]
     assert z_kept.size == 40 and int(y_mix[z_kept].sum()) == 20
 
-    # Non-positive unmatched gain -> UNRESOLVED (never SURVIVES)
+    # Non-positive unmatched gain -> UNRESOLVED (never SURVIVES).
+    # Pass n_matched_test >= MIN_MATCHED_TEST (500) AND m_lo > c_m so we actually hit
+    # `if unmatched <= 0:` in matching.retention_verdict rather than short-circuiting early.
     for a_val, c_val in [(0.50, 0.55), (0.55, 0.55)]:
         rv = match.retention_verdict(
-            a=a_val, c=c_val, m=0.56, m_lo=0.52, c_m=0.52, n_matched_test=200, n_test=200
+            a=a_val,
+            c=c_val,
+            m=0.65,
+            m_lo=0.60,
+            c_m=0.52,
+            n_matched_test=600,
+            n_test=600,
         )
         assert rv.verdict == match.UNRESOLVED
+        assert rv.retained is None
+        assert rv.matched_margin is not None and rv.matched_margin > 0.0
 
 
 @pytest.mark.regression
@@ -452,26 +476,40 @@ def test_reg016_deterministic_cpu_checkpoint_resume_matches_uninterrupted(tmp_pa
 
 @pytest.mark.regression
 def test_reg013_entangled_map_symmetric_under_feature_order_swap() -> None:
-    """REG-013: Swapping pair order (A, B) <-> (B, A) produces equivalent verdicts on joint rows."""
+    """REG-013: Swapping (A, B) <-> (B, A) produces bit-identical non-vacuous verdicts."""
     rng = np.random.default_rng(13)
-    n = 300
+    # Use n_test >= 900 so matched test set exceeds MIN_MATCHED_TEST (500) and decorrelation runs!
+    n = 1600
+    n_tr = 700
     ids = list(range(n))
     z = rng.normal(size=(n, 6))
-    # Shared signal on dim 0 so A and B remain entangled even after decorrelation
-    fa = 1.0 / (1.0 + np.exp(-3.0 * z[:, 0] + rng.normal(scale=0.3, size=n)))
-    fb = 1.0 / (1.0 + np.exp(-3.0 * z[:, 0] + rng.normal(scale=0.3, size=n)))
+    # Independent strong signals on dims 0 & 1 plus moderate shared component on dim 2
+    # so A and B both genuinely SURVIVE matching on the partner's vote fraction.
+    fa = 1.0 / (1.0 + np.exp(-(2.2 * z[:, 0] + 0.5 * z[:, 2]) + rng.normal(scale=0.3, size=n)))
+    fb = 1.0 / (1.0 + np.exp(-(2.2 * z[:, 1] + 0.5 * z[:, 2]) + rng.normal(scale=0.3, size=n)))
     rows = {i: {"a_f": float(fa[i]), "a_n": 20.0, "b_f": float(fb[i]), "b_n": 20.0} for i in ids}
     labels = LabelProvider(
         rows, feature_cols={"a": "a_f", "b": "b_f"}, nuisance_cols={}, vote_count_min=1
     )
-    mat = EmbeddingMatrix(np.asarray(ids, dtype=np.int64), z, encoder_name="real")
-    controls = ctl.ControlEmbeddings(real=mat, untrained=mat, noise=mat)
-    cfg = ladder_mod.ProbingConfig(vote_count_min=1, smoke=True)
+    mat_real = EmbeddingMatrix(np.asarray(ids, dtype=np.int64), z, encoder_name="real")
+    u_mats = [
+        EmbeddingMatrix(
+            np.asarray(ids, dtype=np.int64), rng.normal(size=(n, 6)), encoder_name=f"untr_{k}"
+        )
+        for k in range(3)
+    ]
+    controls = ctl.ControlEmbeddings(
+        real=mat_real,
+        untrained=u_mats[0],
+        noise=u_mats[0],
+        untrained_extra=(u_mats[1], u_mats[2]),
+    )
+    cfg = ladder_mod.ProbingConfig(vote_count_min=1, smoke=True, n_boot=80, seed=13)
 
     from galaxy_jepa.probing import entanglement as ent
 
-    da = probe_direction(feature_embeddings(mat, labels, "a", ids[:180]), name="a", c=1.0)
-    db = probe_direction(feature_embeddings(mat, labels, "b", ids[:180]), name="b", c=1.0)
+    da = probe_direction(feature_embeddings(mat_real, labels, "a", ids[:n_tr]), name="a", c=1.0)
+    db = probe_direction(feature_embeddings(mat_real, labels, "b", ids[:n_tr]), name="b", c=1.0)
     geo_ab = ent.EntanglementGeometry(
         names=["a", "b"],
         cosine=np.array([[1.0, 0.9], [0.9, 1.0]]),
@@ -494,17 +532,16 @@ def test_reg013_entangled_map_symmetric_under_feature_order_swap() -> None:
         entangled_pairs=[("b", "a")],
         cav_disagreement={"a": 0.25, "b": 0.25},
     )
-    assert da.w_unit.shape == db.w_unit.shape
     dirs = {"a": da, "b": db}
-    aucs = {"a": 0.9, "b": 0.9}
-    bars = {"a": 0.5, "b": 0.5}
+    aucs = {"a": 0.90, "b": 0.90}
+    bars = {"a": 0.50, "b": 0.50}
     _, pv_ab = ladder_mod._entangled_map(
         geo_ab,
         dirs,
         controls,
         labels,
-        ids[:180],
-        ids[180:],
+        ids[:n_tr],
+        ids[n_tr:],
         real_aucs=aucs,
         bars=bars,
         established={"a": True, "b": True},
@@ -515,12 +552,58 @@ def test_reg013_entangled_map_symmetric_under_feature_order_swap() -> None:
         dirs,
         controls,
         labels,
-        ids[:180],
-        ids[180:],
+        ids[:n_tr],
+        ids[n_tr:],
         real_aucs=aucs,
         bars=bars,
         established={"a": True, "b": True},
         config=cfg,
     )
+    # Non-vacuous: decorrelation actually executed (n_matched_test >= 500, retention SURVIVES)
+    assert pv_ab[0].n_matched_test >= match.MIN_MATCHED_TEST
+    assert pv_ab[0].retention == match.SURVIVES
+    assert pv_ab[0].matched_auc is not None and pv_ab[0].matched_auc > 0.75
+    assert pv_ab[0].bar_matched is not None
+    # Strictly symmetric under (a, b) <-> (b, a)
     assert pv_ab[0].verdict == pv_ba[0].verdict
     assert pv_ab[0].retention == pv_ba[0].retention
+    assert pv_ab[0].matched_auc == pytest.approx(pv_ba[0].matched_auc, abs=1e-12)
+    assert pv_ab[0].bar_matched == pytest.approx(pv_ba[0].bar_matched, abs=1e-12)
+    assert pv_ab[0].retained == pytest.approx(pv_ba[0].retained, abs=1e-12)
+
+
+@pytest.mark.regression
+def test_erratum_ladder_v2_e5e6_resolves_verified_legacy_bank_and_refuses_mismatch(
+    tmp_path: Path,
+) -> None:
+    """Verify erratum_ladder_v2_e5e6 re-keys verified legacy full banks without mutating source."""
+    import json
+
+    import erratum_ladder_v2_e5e6 as err_e56
+
+    tr = list(range(10, 50))
+    te = list(range(100, 130))
+    old_key = err_e56._legacy_split_key(tr, te)
+    new_key = ladder_mod.untrained_split_key(tr, te, population="full")
+    assert old_key != new_key
+
+    src_bank = tmp_path / "legacy_bank.json"
+    orig_payload = {"split_key": old_key, "seeds": {"0": {"f": 0.55}}}
+    src_bank.write_text(json.dumps(orig_payload))
+
+    out_dir = tmp_path / "erratum_out"
+    resolved = err_e56._resolve_full_bank(
+        src_bank, out_dir, train_ids=tr, test_ids=te, new_split_key=new_key
+    )
+    assert resolved != src_bank
+    assert json.loads(src_bank.read_text()) == orig_payload  # source untouched
+    rekeyed = json.loads(resolved.read_text())
+    assert rekeyed["split_key"] == new_key and rekeyed["population"] == "full"
+
+    # Mismatched bank refused loudly
+    bad_bank = tmp_path / "bad_bank.json"
+    bad_bank.write_text(json.dumps({"split_key": "deadbeef00000000", "seeds": {}}))
+    with pytest.raises(SystemExit, match="matches neither"):
+        err_e56._resolve_full_bank(
+            bad_bank, out_dir, train_ids=tr, test_ids=te, new_split_key=new_key
+        )

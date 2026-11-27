@@ -314,8 +314,9 @@ def step_sheet():
     ck = torch.load(OUT / "smoke.pt", map_location="cpu", weights_only=False)
     prep = load_prep(ck["prep"])
     z = np.load(OUT / "eval_samples.npz")
-    ev = np.sort(np.random.default_rng(D.SEED + 31).choice(100_000, 64, replace=False))
-    x = np.asarray(np.load(D.OUT / "train_x64.npy", mmap_mode="r")[ev], dtype=np.float32)
+    test_x64 = np.load(D.OUT / "test_x64.npy", mmap_mode="r")
+    ev = np.sort(np.random.default_rng(D.SEED + 31).choice(len(test_x64), 64, replace=False))
+    x = np.asarray(test_x64[ev], dtype=np.float32)
     rows = [("real", x[:8])] + [(n, prep.inv(z[k])[:8]) for k, n in (("fm80_euler8", "FM, 8 Euler"), ("fm80_euler16", "FM, 16 Euler"), ("fm80_euler32", "FM, 32 Euler"),
                                                                     ("v384_ddim8", "v, 8 DDIM"), ("v384_ddim16", "v, 16 DDIM"), ("v384_ddim100", "v, 100 DDIM"), ("fm80_euler16_w1", "FM 16, conditional"))]
     W, T = 130, 112

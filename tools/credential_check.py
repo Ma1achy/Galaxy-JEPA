@@ -75,25 +75,54 @@ def default_env() -> Path:
     return Path(common).parent / ".env"
 
 
+def _tracked_files_text() -> str:
+    ls = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
+    chunks: list[str] = []
+    for rel in ls.stdout.splitlines():
+        p = Path(rel)
+        if not p.is_file() or p.name == ".env":
+            continue
+        if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".pt", ".npz", ".npy", ".bin", ".fits"}:
+            continue
+        chunks.append(p.read_bytes().decode("utf-8", "replace"))
+    return "\n".join(chunks)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Credential check: hit counts only, exit 1 on a hit.")
     ap.add_argument("range", nargs="*", help="git diff arguments (default: --cached)")
     ap.add_argument("--file", type=Path, help="scan this file instead of a diff")
+    ap.add_argument("--tracked", action="store_true", help="scan all tracked text files")
     ap.add_argument("--env", type=Path, help="the .env to compare against (default: the repo's)")
+    ap.add_argument(
+        "--allow-missing-env",
+        action="store_true",
+        help="run pattern scans even when .env is absent (e.g. GitHub Actions CI)",
+    )
     a = ap.parse_args(argv)
     env = a.env or default_env()
-    if not env.is_file():
+    secrets: list[str] = []
+    if env.is_file():
+        secrets = env_values(env)
+    elif a.allow_missing_env:
+        print(
+            f"credential check: no .env at {env}; running pattern-only scan (--allow-missing-env)",
+            file=sys.stderr,
+        )
+    else:
         print(f"credential check: no .env at {env}; refusing to report a pass", file=sys.stderr)
         return 2
     if a.file:
         text = a.file.read_bytes().decode("utf-8", "replace")
+    elif a.tracked:
+        text = _tracked_files_text()
     else:
         diff = subprocess.run(["git", "diff", *(a.range or ["--cached"])], capture_output=True)
         if diff.returncode:
             print(f"credential check: git diff failed ({diff.returncode})", file=sys.stderr)
             return 2
         text = diff.stdout.decode("utf-8", "replace")
-    value_hits, pattern_hits = scan(text, env_values(env))
+    value_hits, pattern_hits = scan(text, secrets)
     print(f"env-value hits: {value_hits} pattern hits: {pattern_hits}")
     return 1 if value_hits or any(pattern_hits) else 0
 

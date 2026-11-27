@@ -147,6 +147,49 @@ def run_bank(args: argparse.Namespace) -> None:
         print(f"  seed {seed:2d}: {dt:.0f}s ({idx}/{len(todo)})", file=sys.stderr)
 
 
+def _legacy_split_key(train_ids: list[int], test_ids: list[int]) -> str:
+    """Historical prefix-only split_key used when runs/ladder_v2/shared/p1_untrained_bank.json was built."""
+    union = sorted({*(int(i) for i in train_ids), *(int(i) for i in test_ids)})
+    key = [len(train_ids), len(test_ids), union[:1], union[-1:]]
+    return hashlib.sha256(json.dumps(key, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+def _resolve_full_bank(
+    full_bank: Path,
+    out_dir: Path,
+    *,
+    train_ids: list[int],
+    test_ids: list[int],
+    new_split_key: str,
+) -> Path:
+    """Return a full-population bank matching ``new_split_key`` without mutating ``full_bank``.
+
+    If ``full_bank`` already matches ``new_split_key`` it is used directly. If it carries the
+    legacy prefix-only ``split_key`` verified against the exact current ``(train_ids, test_ids)``
+    and ``population == 'full'``, write a verified re-keyed copy under ``out_dir`` so the 6-hour
+    historical full bank is safely reused without touching ``runs/ladder_v2/``.
+    """
+    rec = json.loads(full_bank.read_text())
+    if rec.get("population", "full") != "full":
+        raise SystemExit(f"full bank {full_bank} has non-full population {rec.get('population')!r}")
+    if rec.get("split_key") == new_split_key:
+        return full_bank
+    legacy_key = _legacy_split_key(train_ids, test_ids)
+    if rec.get("split_key") != legacy_key:
+        raise SystemExit(
+            f"full bank {full_bank} split_key {rec.get('split_key')!r} matches neither "
+            f"new {new_split_key!r} nor legacy {legacy_key!r}; rebuild bank cleanly."
+        )
+    rekeyed = dict(rec)
+    rekeyed["split_key"] = new_split_key
+    rekeyed["legacy_split_key"] = legacy_key
+    rekeyed["population"] = "full"
+    rekeyed["rekeyed_from"] = str(full_bank)
+    dst = out_dir / "p1_untrained_bank_full_rekeyed.json"
+    _atomic_write_json(dst, _sanitise(rekeyed))
+    return dst
+
+
 def run_ladder_erratum(args: argparse.Namespace) -> None:
     from j4_spread_controls import _release, prepare
 
@@ -178,13 +221,21 @@ def run_ladder_erratum(args: argparse.Namespace) -> None:
             raise SystemExit(f"unknown encoder {enc!r}; expected one of {sorted(ENCODERS)}")
         setup = prepare(ENCODERS[enc], MAX_TRAIN, label=f"ERRATUM-{enc.upper()}", sources=3)
         cfg, device = setup.cfg, setup.device
+        labels, train_ids, test_ids, ds = setup.labels, setup.train_ids, setup.test_ids, setup.ds
+        full_split_key = ladder_mod.untrained_split_key(train_ids, test_ids, population="full")
+        resolved_full_bank = _resolve_full_bank(
+            full_bank,
+            out_dir,
+            train_ids=list(train_ids),
+            test_ids=list(test_ids),
+            new_split_key=full_split_key,
+        )
         pc = setup.pc.model_copy(
             update={
-                "untrained_bank_path": str(full_bank),
+                "untrained_bank_path": str(resolved_full_bank),
                 "conditional_untrained_bank_path": str(cond_bank),
             }
         )
-        labels, train_ids, test_ids, ds = setup.labels, setup.train_ids, setup.test_ids, setup.ds
         frozen = load_frozen_encoder(setup.ckpt)
 
         real = extract_matrix(frozen, ds, device=device)
@@ -204,7 +255,7 @@ def run_ladder_erratum(args: argparse.Namespace) -> None:
         rec: dict[str, object] = {
             "encoder": enc,
             "checkpoint": str(setup.ckpt),
-            "full_bank": str(full_bank),
+            "full_bank": str(resolved_full_bank),
             "conditional_bank": str(cond_bank),
         }
         for pop in ("full", "conditional"):
@@ -218,8 +269,8 @@ def run_ladder_erratum(args: argparse.Namespace) -> None:
                     "rung": v.rung,
                     "mechanism": v.mechanism,
                     "auc": v.metrics.get("auc"),
-                    "exceeds_null": v.existence.exceeds_null,
-                    "clean": v.existence.clean,
+                    "exceeds_null": res.existence[f].exceeds_null,
+                    "clean": res.existence[f].clean,
                     "n_test": v.n_test,
                     "positives_test": v.positives_test,
                     "real_se": v.real_se,

@@ -71,31 +71,32 @@ def stratified_match(
     vals = values[finite]
     zero_mask = vals == 0.0
     strata: list[np.ndarray] = []
+
+    def _quantile_strata(sub_idx: np.ndarray, k: int) -> list[np.ndarray]:
+        sub_vals = values[sub_idx]
+        uniq = np.unique(sub_vals)
+        if uniq.size <= k:
+            return [sub_idx[sub_vals == u] for u in uniq]
+        edges = np.unique(np.quantile(sub_vals, np.linspace(0, 1, k + 1)))
+        if edges.size == 1:
+            return [sub_idx]
+        out: list[np.ndarray] = []
+        for s in range(edges.size - 1):
+            if s == edges.size - 2:
+                mask = (sub_vals >= edges[s]) & (sub_vals <= edges[s + 1])
+            else:
+                mask = (sub_vals >= edges[s]) & (sub_vals < edges[s + 1])
+            out.append(sub_idx[mask])
+        return out
+
     # Isolate large zero point-masses (common in deep GZ2 vote fractions) so tied quantiles
     # never collapse matching into a single stratum.
     if 0 < int(zero_mask.sum()) < vals.size and (zero_mask.sum() / vals.size) >= 1.0 / n_strata:
         strata.append(idx_all[values[idx_all] == 0.0])
         pos_idx = idx_all[values[idx_all] != 0.0]
-        rem_strata = max(1, n_strata - 1)
-        edges = np.unique(np.quantile(values[pos_idx], np.linspace(0, 1, rem_strata + 1)))
-        if edges.size == 1:
-            strata.append(pos_idx)
-        else:
-            edges[-1] = np.inf
-            for s in range(edges.size - 1):
-                strata.append(
-                    pos_idx[(values[pos_idx] >= edges[s]) & (values[pos_idx] < edges[s + 1])]
-                )
+        strata.extend(_quantile_strata(pos_idx, max(1, n_strata - 1)))
     else:
-        edges = np.unique(np.quantile(vals, np.linspace(0, 1, n_strata + 1)))
-        if edges.size == 1:
-            strata.append(idx_all)
-        else:
-            edges[-1] = np.inf
-            for s in range(edges.size - 1):
-                strata.append(
-                    idx_all[(values[idx_all] >= edges[s]) & (values[idx_all] < edges[s + 1])]
-                )
+        strata.extend(_quantile_strata(idx_all, n_strata))
     kept: list[int] = []
     for in_stratum in strata:
         pos = in_stratum[labels[in_stratum] == 1]

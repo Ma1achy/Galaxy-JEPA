@@ -222,7 +222,9 @@ class Jepa(nn.Module):
             targets = [_gather_tokens(full, t_idx) for t_idx in target_blocks]
 
         # Standard I-JEPA: run the predictor independently for each target block so separate
-        # blocks cannot cross-attend to each other and overlapping positions are not over-weighted.
+        # blocks cannot cross-attend to each other, then average per-block MSE equally across
+        # blocks (note: tokens appearing in multiple target blocks are still supervised once per
+        # block containing them).
         block_losses = [
             torch.nn.functional.mse_loss(self.predictor(context, context_idx, t_idx), tgt)
             for t_idx, tgt in zip(target_blocks, targets, strict=True)

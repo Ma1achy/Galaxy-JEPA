@@ -117,16 +117,20 @@ def test_stratified_match_isolates_zero_point_mass() -> None:
 
 
 def test_retention_verdict_unresolved_when_unmatched_non_positive() -> None:
+    # Ensure n_matched_test >= MIN_MATCHED_TEST (500) AND m_lo > c_m so we actually reach
+    # the `if unmatched <= 0:` guard rather than short-circuiting on sample size or COLLAPSES.
     res = match.retention_verdict(
         a=0.50,
         c=0.55,
-        m=0.51,
-        m_lo=0.49,
+        m=0.65,
+        m_lo=0.60,
         c_m=0.52,
-        n_matched_test=200,
-        n_test=200,
+        n_matched_test=600,
+        n_test=600,
     )
     assert res.verdict == match.UNRESOLVED
+    assert res.retained is None
+    assert res.matched_margin is not None and res.matched_margin > 0.0
 
 
 def test_untrained_split_key_distinguishes_population_and_middle_ids() -> None:

@@ -173,6 +173,23 @@ def test_miniature_end_to_end_pipeline_cpu(tmp_path: Path) -> None:
     )
     assert res_b5.steps_completed == 4 and all(np.isfinite(res_b5.losses))
 
+    # Compare resumed beta=0.5 against uninterrupted beta=0.5 run (strict resume parity)
+    jepa_unint = Jepa(_tiny_vit(11), cfg_b5)
+    samp_u = ResumableShuffle(len(pre_ds), seed=11)
+    res_b5_unint = train_objective(
+        jepa_unint,
+        torch.utils.data.DataLoader(pre_ds, batch_size=8, sampler=samp_u),
+        device="cpu",
+        sampler=samp_u,
+    )
+    assert np.allclose(res_b5.losses, res_b5_unint.losses, rtol=1e-5, atol=1e-5)
+    for (k1, v1), (k2, v2) in zip(
+        jepa_resumed.encoder.state_dict().items(),
+        jepa_unint.encoder.state_dict().items(),
+        strict=True,
+    ):
+        assert k1 == k2 and torch.allclose(v1, v2, rtol=1e-5, atol=1e-5)
+
     # 2c. MoCo and MAE baseline pretrain smoke
     moco_cfg = MocoConfig(
         steps=3,
@@ -242,7 +259,10 @@ def test_miniature_end_to_end_pipeline_cpu(tmp_path: Path) -> None:
         vote_count_min=1,
     )
 
-    # 5. Probes, controls, matching, c_Sigma, and exploratory MI
+    # 5. Probes, shuffled-label & untrained controls, matching, c_Sigma, and exploratory MI
+    from galaxy_jepa.probing.logistic import Embeddings
+
+    shuf_rng = np.random.default_rng(2027)
     dirs = []
     probe_metrics: dict[str, dict[str, float]] = {}
     for feat in ("edge", "spiral", "bar"):
@@ -254,12 +274,15 @@ def test_miniature_end_to_end_pipeline_cpu(tmp_path: Path) -> None:
         dirs.append(d_feat)
         auc_r, lo_r, hi_r = probe_auc_ci(tr_e, te_e, n_boot=80, seed=0)
         auc_u, _, _ = probe_auc_ci(tr_u, te_u, n_boot=40, seed=0)
+        tr_shuf = Embeddings(tr_e.x, shuf_rng.permutation(tr_e.y), tr_e.fraction)
+        auc_shuf, _, _ = probe_auc_ci(tr_shuf, te_e, n_boot=40, seed=0)
         vb = info.variational_mi_lower_bound(tr_e.x, tr_e.y, te_e.x, te_e.y, c=1.0, units="nats")
         probe_metrics[feat] = {
             "auc_real": auc_r,
             "auc_lo": lo_r,
             "auc_hi": hi_r,
             "auc_untrained": auc_u,
+            "auc_shuffled": auc_shuf,
             "mi_lower_bound_nats": vb.bound,
         }
 
@@ -320,3 +343,7 @@ def test_miniature_end_to_end_pipeline_cpu(tmp_path: Path) -> None:
     assert all(v == pytest.approx(1.0, abs=1e-12) for v in reloaded["c_sigma_diag"])
     assert reloaded["sae_intervention_rms_delta"] == pytest.approx(delta_norm, rel=1e-12)
     assert all(np.isfinite(v) for v in reloaded["train_final_loss"].values())
+    for feat_metrics in reloaded["probes"].values():
+        assert all(np.isfinite(v) for v in feat_metrics.values())
+        for auc_key in ("auc_real", "auc_lo", "auc_hi", "auc_untrained", "auc_shuffled"):
+            assert 0.0 <= feat_metrics[auc_key] <= 1.0

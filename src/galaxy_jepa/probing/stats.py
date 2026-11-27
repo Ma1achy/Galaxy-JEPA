@@ -132,6 +132,7 @@ def damped_logistic(
     beta = np.zeros(d + 1, dtype=np.float64)
     beta[d] = math.log(p0 / (1.0 - p0))
 
+    inv_n = 1.0 / float(n)
     loss, grad, hess = logistic_objective_and_derivatives(x_aug, y64, beta, reg)
     converged = False
     for _ in range(max_iter):
@@ -142,27 +143,32 @@ def damped_logistic(
             converged = True
             break
 
-        # Add tiny Levenberg-Marquardt damping on the solve only if needed for extreme logits
-        # where expit(z)*expit(-z) vanishes on saturated points; keeps the descent direction
-        # strictly positive-definite against the exact gradient.
-        h_reg = hess.copy()
+        # Scale Newton system and Armijo test by 1/N so loss ~ O(1) and float64 ULP noise
+        # does not stall line search at large N (e.g. N = 40,000 GZ2 samples).
+        loss_m = loss * inv_n
+        grad_m = grad * inv_n
+        hess_m = hess * inv_n
+        h_reg = hess_m.copy()
         h_reg[np.diag_indices(d + 1)] += 1e-12
         try:
-            step = np.linalg.solve(h_reg, grad)
+            step = np.linalg.solve(h_reg, grad_m)
         except np.linalg.LinAlgError:
-            step = np.linalg.lstsq(h_reg, grad, rcond=None)[0]
+            step = np.linalg.lstsq(h_reg, grad_m, rcond=None)[0]
 
-        slope = float(np.dot(grad, step))
-        if not math.isfinite(slope) or slope <= 0.0:
-            step = grad
-            slope = float(np.dot(grad, step))
+        slope_m = float(np.dot(grad_m, step))
+        if not math.isfinite(slope_m) or slope_m <= 0.0:
+            step = grad_m
+            slope_m = float(np.dot(grad_m, step))
 
         alpha = 1.0
         accepted = False
+        ulp_slack = 1e-12 * max(1.0, abs(loss_m))
         while alpha >= 1e-12:
             cand = beta - alpha * step
-            cand_loss = _logistic_loss_only(x_aug, y64, cand, reg)
-            if math.isfinite(cand_loss) and cand_loss <= loss - 1e-4 * alpha * slope:
+            cand_loss_m = _logistic_loss_only(x_aug, y64, cand, reg) * inv_n
+            if math.isfinite(cand_loss_m) and (
+                cand_loss_m <= loss_m - 1e-4 * alpha * slope_m + ulp_slack
+            ):
                 beta = cand
                 accepted = True
                 break

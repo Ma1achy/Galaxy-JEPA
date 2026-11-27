@@ -29,10 +29,10 @@ If an intentional development experiment must bypass a stale/dirty manifest, use
 **Pre-rental R2 credential prerequisite (`docs/patch_grid/runbook.md:46`):**  
 Recreate the Cloudflare R2 token stored in local `.env` as `R2_RO_*` with strictly **Object Read only** permissions on the cache bucket before copying `.env` onto any remote GPU box.
 
-**Note on `patch-grid-v1` SHA-1 pins (`docs/patch_grid/prereg.md` §3):**  
-The pre-registered patch-grid code of record is tagged `patch-grid-v1` at commit `f36ce88` (where `python artifacts/patch_grid_pins.py` verifies `101 files match`). Subsequent remediation commits on `audit-fixes` (Phases 2–5 and validation suites) intentionally modify `src/galaxy_jepa/` and `pyproject.toml` after `f36ce88`. Therefore:
-- To run the pre-registered patch-grid box verbatim under Amendment 1 (`f849acbc`), check out tag `patch-grid-v1` (`f36ce88`).
-- To run patch-grid from `audit-fixes` HEAD, issue a formal Amendment 2 updating the SHA-1 table in `docs/patch_grid/prereg.md` and `docs/patch_grid/prereg.sha1` before booking compute.
+**Note on `patch-grid-v1` SHA-1 pins (`docs/patch_grid/prereg.md` §3) & Nebius preemptible VMs:**  
+The pre-registered patch-grid code of record is tagged `patch-grid-v1` at commit `f36ce88` (where `python artifacts/patch_grid_pins.py` verifies `101 files match`). Subsequent commits on `audit-fixes` (Phases 2–5 and validation) added critical Phase-3 preemption-safety fixes (CUDA RNG save/restore on resume, atomic verify-before-replace checkpoints, non-finite `svdvals` collapse guard, and `GroupedMae._owner` buffer caching), which intentionally change 32 of the 101 pinned files.
+- **Recommendation for Nebius preemptible rentals:** Do **not** run preemptible VMs on `patch-grid-v1` without those checkpointing fixes; issue a formal **Amendment 2** updating `docs/patch_grid/prereg.md` §3 + `prereg.sha1` + tag `patch-grid-v2` after merging PR #4.
+- **Note on `tools/research_validate.py`:** Currently enforced as a standalone pre-flight command (`make research-validate && python tools/research_validate.py --verify ...`), not yet invoked automatically inside `patch_grid_run.py` / `m2_long_run.py` so pinned files stay intact.
 
 ---
 
@@ -43,43 +43,50 @@ The pre-registered patch-grid code of record is tagged `patch-grid-v1` at commit
 - Local virtualenv `.venv` synced (`uv sync --extra dev --extra data --extra eval`).
 
 ### 1.1 Axes Part H (`artifacts/axes_h.py` — H1 & H2a)
-- **Fixes verified:** unclipped Armijo damped Newton (`REG-006`, `REG-017`), equalised H1 tuning budget, validation-loss shuffled control, `raw_y` alignment for EFIGI $\tau$. Corrupted `docs/axes/h1.json` and `docs/axes/h2a.json` were removed in `7465d50`.
+- **Fixes verified:** unclipped $1/N$-scaled Armijo damped Newton (`REG-006`, `REG-017`), equalised H1 tuning budget, validation-loss shuffled control, `raw_y` alignment for EFIGI $\tau$. Corrupted `docs/axes/h1.json` and `docs/axes/h2a.json` were removed in `7465d50`.
 - **Inputs:** A1 / untrained embedding banks + EFIGI catalogue table referenced by `artifacts/axes_h.py`.
-- **Command:**
+- **Command (exact required per-encoder sequence — `tokens_scratch.npy` is shared per encoder):**
   ```bash
-  .venv/bin/python artifacts/axes_h.py --help   # verify subcommands before running
-  .venv/bin/python artifacts/axes_h.py h1
-  .venv/bin/python artifacts/axes_h.py h2a
+  .venv/bin/python artifacts/axes_h.py targets
+  for E in A1 untrained-s0 untrained-s1 untrained-s2; do
+    .venv/bin/python artifacts/axes_h.py extract --enc "$E"
+    .venv/bin/python artifacts/axes_h.py h1 --enc "$E"
+    .venv/bin/python artifacts/axes_h.py h2a --enc "$E"
+  done
+  .venv/bin/python artifacts/axes_h.py report
   ```
-- **Outputs:** Versioned replacement JSONs in `docs/axes/` (verify convergence diagnostics and non-NaN logits before committing).
+- **Outputs:** Clean replacement `docs/axes/h1.json` and `docs/axes/h2a.json` (verify convergence diagnostics and non-NaN logits before committing).
 - **Estimated resources:** Apple Silicon CPU/MPS, ~10–30 min (estimate; depends on CV grid size).
 
 ### 1.2 Axes Part B & Gaussian Map-Null (`artifacts/axes_b.py`, `artifacts/axes_b_mapnull.py`)
-- **Fixes verified:** Pearson-on-rank-residuals + chunked full paired-row bootstrap (`REG-007`), Cholesky covariance factor $S z$ (`REG-008`).
+- **Fixes verified:** full paired-row quadratic-nuisance partial Spearman bootstrap (`boot_partial_full`, `REG-007`), Cholesky covariance factor $S z$ (`sample_covariance_directions`, `REG-008`), safe versioned erratum outputs by default (`--help` safe via `argparse`).
 - **Command:**
   ```bash
-  .venv/bin/python artifacts/axes_b.py --help
-  .venv/bin/python artifacts/axes_b_mapnull.py --help
+  .venv/bin/python artifacts/axes_b.py fit --out-name b_fit_erratum.json --force
+  .venv/bin/python artifacts/axes_b_mapnull.py --out docs/axes/b_map_null_erratum.json
   ```
-- **Outputs:** Updated Part B and map-null summary JSONs alongside preserved historical originals.
+- **Outputs:** Versioned erratum JSONs (`docs/axes/b_fit_erratum.json`, `docs/axes/b_map_null_erratum.json`) alongside untouched historical originals.
 - **Estimated resources:** CPU, ~5–15 min (estimate).
 
 ### 1.3 Aligned Comparison C3 Erratum (`artifacts/erratum_aligned_c3.py`)
-- **Fixes verified:** Out-of-sample calibrated 1-df plug-in threshold `k_plugin_95` ($\approx 5.85$, empirical Type-I error $0.050 \pm 0.005$ vs legacy $0.168$; `REG-011`).
-- **Command (calibration + re-scoring saved ladder_v2 outputs):**
+- **Fixes verified:** Out-of-sample calibrated 1-df plug-in threshold `k_plugin_95` ($\approx 5.85$, empirical Type-I error $0.050 \pm 0.005$ vs legacy $0.168$; `REG-011`). Re-scores the 4-row `OBSERVED` aligned-comparison table.
+- **Command:**
   ```bash
-  .venv/bin/python artifacts/erratum_aligned_c3.py --draws 200000 --seed 20261127
+  .venv/bin/python artifacts/erratum_aligned_c3.py \
+    --draws 200000 --seed 20261127 \
+    --out docs/ladder_v2_erratum/c3_erratum.json
   ```
-- **Outputs:** Dedicated erratum JSON report (does not overwrite `runs/ladder_v2/`).
+- **Outputs:** Dedicated erratum JSON report (`docs/ladder_v2_erratum/c3_erratum.json`; does not overwrite `runs/ladder_v2/`).
 - **Estimated resources:** CPU, < 10 s (measured: 100k draws take < 1 s).
 
 ### 1.4 Ladder v2 E5/E6 Dedicated Bank & Split-Key Erratum (`artifacts/erratum_ladder_v2_e5e6.py`)
-- **Fixes verified:** Dedicated checkpoint-verified bank (`REG-009`), full sorted-ID + population cache key, symmetric joint-row decorrelation (`REG-013`).
+- **Fixes verified:** Dedicated conditional bank (`REG-009`), verified non-mutating re-keying of legacy `runs/ladder_v2/shared/p1_untrained_bank.json` into `docs/ladder_v2_erratum/p1_untrained_bank_full_rekeyed.json`, full-ID + population cache key, symmetric D24 `_entangled_map` (`REG-013`).
 - **Inputs:** `runs/m_v2/encoder.pt` (SHA-1 `34bb30a74d38b1fc4622861f43959a92fc01520c`), external cache at `F0_CACHE_BASE`.
 - **Command (two-stage contract):**
   ```bash
-  .venv/bin/python artifacts/erratum_ladder_v2_e5e6.py --stage bank
-  .venv/bin/python artifacts/erratum_ladder_v2_e5e6.py --stage ladder
+  .venv/bin/python artifacts/erratum_ladder_v2_e5e6.py --plan
+  .venv/bin/python artifacts/erratum_ladder_v2_e5e6.py --stage bank --seeds 30
+  .venv/bin/python artifacts/erratum_ladder_v2_e5e6.py --stage ladder --encoders a1,a2,a3
   ```
 - **Outputs:** Dedicated erratum directory (preserves `runs/ladder_v2/` untouched).
 - **Estimated resources:** M3 Pro MPS, ~0.5–2 h for bank extraction + ladder probing (estimate based on `docs/ladder_v2/manifest.yaml` `est_h`).
