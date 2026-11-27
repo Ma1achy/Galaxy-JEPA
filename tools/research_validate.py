@@ -98,7 +98,8 @@ def _run_step(
 
 def build_manifest(*, skip_slow: bool = True) -> dict[str, Any]:
     py = sys.executable
-    bin_dir = Path(py).resolve().parent
+    # Do NOT resolve symlinks on sys.executable: venv python symlinks to base interpreter.
+    bin_dir = Path(py).parent
     ruff = str(bin_dir / "ruff") if (bin_dir / "ruff").exists() else "ruff"
     mypy = str(bin_dir / "mypy") if (bin_dir / "mypy").exists() else "mypy"
     pytest_bin = str(bin_dir / "pytest") if (bin_dir / "pytest").exists() else "pytest"
