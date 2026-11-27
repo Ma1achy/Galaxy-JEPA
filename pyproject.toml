@@ -88,9 +88,17 @@ pythonpath = ["src"]
 # the gate too. `integration`/`e2e`/`gpu`/`slow` are guarded so the fast suite stays
 # fast. The default CI selection excludes integration/e2e/gpu.
 markers = [
+    "unit: fast pure unit test (CPU, no external data)",
     "invariant: science-protecting property/invariant test (merge-blocking)",
+    "regression: historical defect regression ledger test (REG-001..)",
+    "property: Hypothesis or metamorphic property test",
+    "differential: independent reference / oracle parity test",
+    "calibration: statistical Type-I error, coverage, FDR, or power calibration test",
+    "scientific: planted-signal, geometry, MI, SAE, or circuit benchmark",
     "integration: component-seam test on a fixture (CPU, PR stage)",
-    "e2e: tiny end-to-end run (GPU/slow; nightly or `make e2e`)",
+    "e2e: miniature end-to-end pipeline test (CPU smoke or GPU)",
     "gpu: requires a GPU",
-    "slow: not part of the fast gate",
+    "slow: extended-budget test excluded from the fast PR gate",
+    "external_data: requires external catalogue or SSD corpus",
+    "mutation: scientific mutation audit test",
 ]
