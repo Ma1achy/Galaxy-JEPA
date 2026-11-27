@@ -1,21 +1,26 @@
 """Shared statistical primitives for probing and downstream analysis scripts.
 
 Centralises numerical routines that were previously duplicated across one-off analysis scripts
-(and where bugs such as undamped Newton divergence on rare binary targets or mismatched
-bootstrap estimators appeared):
+(and where bugs such as undamped Newton divergence on rare binary targets, clipped-objective
+derivative mismatch, or mismatched bootstrap estimators appeared):
 
 * :func:`damped_logistic` — L2-penalised logistic regression via Armijo-backtracking damped
-  Newton with clipped logits and explicit convergence checks.
+  Newton on the exact **unclipped** softplus objective with ``scipy.special.expit`` and strict
+  gradient-residual convergence.
 * :func:`residualise_ranks` and :func:`partial_spearman` — rank-based partial correlation
   controlling for one or more continuous nuisances.
-* :func:`paired_pearson_bootstrap` — percentile confidence interval for Pearson correlation on
-  pre-residualised arrays (matched to :func:`partial_spearman` rather than re-ranking residuals).
+* :func:`partial_spearman_bootstrap` — full paired-row bootstrap that re-ranks and
+  re-residualises inside each replicate (chunked to bound memory, with relative residual-norm
+  guard and explicit invalid-replicate reporting).
+* :func:`paired_pearson_bootstrap` — conditional fixed-residual percentile CI for Pearson
+  correlation on pre-residualised arrays.
 * :func:`write_json_atomic` — RFC-8259 atomic JSON persistence (sanitises non-finite floats to
   ``null`` and writes with ``allow_nan=False`` before ``os.replace``).
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 import os
@@ -23,29 +28,62 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy.special import expit
 from scipy.stats import rankdata
 
 __all__ = [
+    "logistic_objective_and_derivatives",
     "damped_logistic",
     "residualise_ranks",
     "partial_spearman",
+    "BootstrapResult",
+    "partial_spearman_bootstrap",
     "paired_pearson_bootstrap",
     "sanitise_json",
     "write_json_atomic",
 ]
 
 
-def _sigmoid_clipped(z: np.ndarray) -> np.ndarray:
-    zc = np.clip(z, -35.0, 35.0)
-    return 1.0 / (1.0 + np.exp(-zc))
+def logistic_objective_and_derivatives(
+    x_aug: np.ndarray,
+    y: np.ndarray,
+    beta: np.ndarray,
+    reg: float,
+) -> tuple[float, np.ndarray, np.ndarray]:
+    """Exact unclipped L2-penalised logistic loss, gradient, and Hessian.
+
+    Minimises:
+        L(w, b) = sum_i log(1 + exp(-s_i z_i)) + (reg / 2) ||w||_2^2,   s_i = 2 y_i - 1.
+
+    Uses ``np.logaddexp(0.0, -s * z)`` and ``scipy.special.expit`` without clipping ``z``, so the
+    gradient and Hessian are exact analytical derivatives of ``L`` across the entire real line
+    (including extreme logits ``|z| > 35``).
+    """
+    z = x_aug @ beta
+    signed = 2.0 * y - 1.0
+    nll = float(np.sum(np.logaddexp(0.0, -signed * z)))
+    w = beta[:-1]
+    loss = nll + 0.5 * reg * float(np.dot(w, w))
+
+    p = expit(z)
+    reg_vec = np.empty_like(beta)
+    reg_vec[:-1] = reg
+    reg_vec[-1] = 0.0
+    grad = x_aug.T @ (p - y) + reg_vec * beta
+
+    # expit(z) * expit(-z) avoids catastrophic cancellation in p * (1 - p) for large +z
+    w_diag = expit(z) * expit(-z)
+    hess = (x_aug.T * w_diag) @ x_aug
+    hess[np.diag_indices(beta.size)] += reg_vec
+    return loss, grad, hess
 
 
-def _logistic_loss(x_aug: np.ndarray, y: np.ndarray, beta: np.ndarray, reg: float) -> float:
-    z = np.clip(x_aug @ beta, -35.0, 35.0)
-    # log(1 + exp(z)) - y * z computed stably
-    nll = float(np.sum(np.logaddexp(0.0, z) - y * z))
-    pen = 0.5 * reg * float(np.dot(beta[:-1], beta[:-1]))
-    return nll + pen
+def _logistic_loss_only(x_aug: np.ndarray, y: np.ndarray, beta: np.ndarray, reg: float) -> float:
+    z = x_aug @ beta
+    signed = 2.0 * y - 1.0
+    nll = float(np.sum(np.logaddexp(0.0, -signed * z)))
+    w = beta[:-1]
+    return nll + 0.5 * reg * float(np.dot(w, w))
 
 
 def damped_logistic(
@@ -58,17 +96,25 @@ def damped_logistic(
 ) -> tuple[np.ndarray, float]:
     """Fit L2-penalised binary logistic regression via Armijo-backtracking damped Newton.
 
-    Minimises ``sum_i log(1 + exp(-y_signed_i (x_i @ w + b))) + (1 / (2 C)) ||w||_2^2`` (matching
+    Minimises ``sum_i softplus(-s_i (x_i @ w + b)) + ||w||_2^2 / (2 C)`` (matching
     ``sklearn.linear_model.LogisticRegression(C=c, penalty="l2", fit_intercept=True)``).
 
-    Returns ``(w, b)`` in float64. Raises :class:`ValueError` on invalid inputs or non-convergence.
+    Returns ``(w, b)`` in float64. Convergence requires ``||grad||_inf <= tol`` (never merely a
+    tiny backtracked step). Raises :class:`ValueError` on invalid inputs or non-convergence.
     """
     if c <= 0.0 or not math.isfinite(c):
         raise ValueError(f"c must be finite and > 0, got {c!r}")
+    if max_iter < 1:
+        raise ValueError(f"max_iter must be >= 1, got {max_iter!r}")
+    if tol <= 0.0 or not math.isfinite(tol):
+        raise ValueError(f"tol must be finite and > 0, got {tol!r}")
+
     x64 = np.asarray(x, dtype=np.float64)
     y64 = np.asarray(y, dtype=np.float64).ravel()
     if x64.ndim != 2 or x64.shape[0] != y64.size:
         raise ValueError(f"x shape {x64.shape} does not match y length {y64.size}")
+    if x64.shape[0] < 2:
+        raise ValueError(f"need at least 2 observations, got {x64.shape[0]}")
     if not (np.isfinite(x64).all() and np.isfinite(y64).all()):
         raise ValueError("damped_logistic requires finite x and y")
     uniq = np.unique(y64)
@@ -85,54 +131,56 @@ def damped_logistic(
     p0 = float(np.clip(y64.mean(), 1e-6, 1.0 - 1e-6))
     beta = np.zeros(d + 1, dtype=np.float64)
     beta[d] = math.log(p0 / (1.0 - p0))
-    reg_diag = np.full(d + 1, reg, dtype=np.float64)
-    reg_diag[d] = 0.0
 
-    loss = _logistic_loss(x_aug, y64, beta, reg)
+    loss, grad, hess = logistic_objective_and_derivatives(x_aug, y64, beta, reg)
     converged = False
     for _ in range(max_iter):
-        p = _sigmoid_clipped(x_aug @ beta)
-        grad = x_aug.T @ (p - y64) + reg_diag * beta
-        if float(np.linalg.norm(grad, ord=np.inf)) <= tol:
+        grad_inf = float(np.linalg.norm(grad, ord=np.inf))
+        if not math.isfinite(grad_inf):
+            raise ValueError("damped_logistic encountered non-finite gradient")
+        if grad_inf <= tol:
             converged = True
             break
-        w_diag = np.maximum(p * (1.0 - p), 1e-12)
-        hess = (x_aug.T * w_diag) @ x_aug
-        hess[np.diag_indices(d + 1)] += reg_diag + 1e-12
+
+        # Add tiny Levenberg-Marquardt damping on the solve only if needed for extreme logits
+        # where expit(z)*expit(-z) vanishes on saturated points; keeps the descent direction
+        # strictly positive-definite against the exact gradient.
+        h_reg = hess.copy()
+        h_reg[np.diag_indices(d + 1)] += 1e-12
         try:
-            step = np.linalg.solve(hess, grad)
+            step = np.linalg.solve(h_reg, grad)
         except np.linalg.LinAlgError:
-            step = np.linalg.lstsq(hess, grad, rcond=None)[0]
+            step = np.linalg.lstsq(h_reg, grad, rcond=None)[0]
+
         slope = float(np.dot(grad, step))
-        if slope <= 0.0:
+        if not math.isfinite(slope) or slope <= 0.0:
             step = grad
             slope = float(np.dot(grad, step))
 
         alpha = 1.0
         accepted = False
-        while alpha >= 1e-10:
+        while alpha >= 1e-12:
             cand = beta - alpha * step
-            cand_loss = _logistic_loss(x_aug, y64, cand, reg)
-            if cand_loss <= loss - 1e-4 * alpha * slope:
+            cand_loss = _logistic_loss_only(x_aug, y64, cand, reg)
+            if math.isfinite(cand_loss) and cand_loss <= loss - 1e-4 * alpha * slope:
                 beta = cand
-                loss = cand_loss
                 accepted = True
                 break
             alpha *= 0.5
+
         if not accepted:
             break
-        if float(np.linalg.norm(alpha * step, ord=np.inf)) <= tol:
-            converged = True
-            break
+        loss, grad, hess = logistic_objective_and_derivatives(x_aug, y64, beta, reg)
+
+    final_grad_inf = float(np.linalg.norm(grad, ord=np.inf))
+    if not converged and final_grad_inf <= tol:
+        converged = True
 
     if not (converged and np.isfinite(beta).all()):
-        p = _sigmoid_clipped(x_aug @ beta)
-        grad_inf = float(np.linalg.norm(x_aug.T @ (p - y64) + reg_diag * beta, ord=np.inf))
-        if not (np.isfinite(beta).all() and grad_inf <= 1e-4):
-            raise ValueError(
-                f"damped_logistic failed to converge after {max_iter} iterations "
-                f"(||grad||_inf={grad_inf:.3e})"
-            )
+        raise ValueError(
+            f"damped_logistic failed to converge after {max_iter} iterations "
+            f"(||grad||_inf={final_grad_inf:.3e}, tol={tol:.3e})"
+        )
     return beta[:d].copy(), float(beta[d])
 
 
@@ -163,21 +211,35 @@ def residualise_ranks(values: np.ndarray, nuisance: np.ndarray) -> np.ndarray:
     return r - design @ coef
 
 
-def _pearson(a: np.ndarray, b: np.ndarray) -> float:
+def _pearson(
+    a: np.ndarray,
+    b: np.ndarray,
+    *,
+    scale_a: float = 1.0,
+    scale_b: float = 1.0,
+    rel_tol: float = 1e-10,
+) -> float:
     ac = a - a.mean()
     bc = b - b.mean()
-    denom = float(np.linalg.norm(ac) * np.linalg.norm(bc))
-    if denom <= 0.0:
+    na = float(np.linalg.norm(ac))
+    nb = float(np.linalg.norm(bc))
+    if na <= rel_tol * max(scale_a, 1.0) or nb <= rel_tol * max(scale_b, 1.0):
         return float("nan")
-    return float(np.dot(ac, bc) / denom)
+    return float(np.clip(np.dot(ac, bc) / (na * nb), -1.0, 1.0))
 
 
-def partial_spearman(x: np.ndarray, y: np.ndarray, nuisance: np.ndarray) -> float:
+def partial_spearman(
+    x: np.ndarray,
+    y: np.ndarray,
+    nuisance: np.ndarray,
+    *,
+    resid_rel_tol: float = 1e-10,
+) -> float:
     """Partial Spearman rank correlation between ``x`` and ``y`` controlling for ``nuisance``.
 
     Computed as the Pearson correlation of OLS-residualised ranks of ``x`` and ``y`` given
-    ``rank(nuisance)`` over jointly finite rows. Returns ``NaN`` if fewer than 3 finite rows
-    remain or either residual is constant.
+    ``[1, rank(nuisance)]`` over jointly finite rows. Returns ``NaN`` if fewer than 3 finite rows
+    remain or either residual is constant within ``resid_rel_tol`` of the rank norm.
     """
     xv = np.asarray(x, dtype=np.float64).ravel()
     yv = np.asarray(y, dtype=np.float64).ravel()
@@ -189,9 +251,96 @@ def partial_spearman(x: np.ndarray, y: np.ndarray, nuisance: np.ndarray) -> floa
     ok = np.isfinite(xv) & np.isfinite(yv) & np.isfinite(zv).all(axis=1)
     if int(ok.sum()) < 3:
         return float("nan")
-    rx = residualise_ranks(xv[ok], zv[ok])
-    ry = residualise_ranks(yv[ok], zv[ok])
-    return _pearson(rx, ry)
+    x_ok, y_ok, z_ok = xv[ok], yv[ok], zv[ok]
+    rx_raw = rankdata(x_ok)
+    ry_raw = rankdata(y_ok)
+    design = _design_from_nuisance(z_ok)
+    cx, *_ = np.linalg.lstsq(design, rx_raw, rcond=None)
+    cy, *_ = np.linalg.lstsq(design, ry_raw, rcond=None)
+    rx = rx_raw - design @ cx
+    ry = ry_raw - design @ cy
+    return _pearson(
+        rx,
+        ry,
+        scale_a=float(np.linalg.norm(rx_raw - rx_raw.mean())),
+        scale_b=float(np.linalg.norm(ry_raw - ry_raw.mean())),
+        rel_tol=resid_rel_tol,
+    )
+
+
+@dataclasses.dataclass(frozen=True)
+class BootstrapResult:
+    """Bootstrap point estimate, percentile CI, and replicate-validity accounting."""
+
+    estimate: float
+    lo: float
+    hi: float
+    n_valid: int
+    n_invalid: int
+    n_boot: int
+    kind: str
+
+
+def partial_spearman_bootstrap(
+    x: np.ndarray,
+    y: np.ndarray,
+    nuisance: np.ndarray,
+    *,
+    n_boot: int = 2000,
+    alpha: float = 0.05,
+    seed: int = 0,
+    chunk_size: int = 256,
+    resid_rel_tol: float = 1e-10,
+    max_invalid_frac: float = 0.25,
+) -> BootstrapResult:
+    """Full paired-row bootstrap for :func:`partial_spearman`.
+
+    Resamples rows ``(x_i, y_i, nuisance_i)`` with replacement and **re-computes ranks, nuisance
+    design, and OLS residualisation** inside every replicate, capturing full estimation
+    uncertainty (unlike :func:`paired_pearson_bootstrap`, which conditions on fixed ranks and
+    residuals). Uses chunked index draws of size ``chunk_size`` to bound peak memory and returns
+    explicit valid/invalid replicate counts. If the invalid replicate fraction exceeds
+    ``max_invalid_frac``, ``lo`` and ``hi`` are returned as ``NaN`` rather than hiding degeneracy.
+    """
+    xv = np.asarray(x, dtype=np.float64).ravel()
+    yv = np.asarray(y, dtype=np.float64).ravel()
+    zv = np.asarray(nuisance, dtype=np.float64)
+    if zv.ndim == 1:
+        zv = zv[:, None]
+    if not (xv.size == yv.size == zv.shape[0]):
+        raise ValueError("x, y, and nuisance must have identical sample counts")
+    ok = np.isfinite(xv) & np.isfinite(yv) & np.isfinite(zv).all(axis=1)
+    x_ok, y_ok, z_ok = xv[ok], yv[ok], zv[ok]
+    n = x_ok.size
+    est = partial_spearman(x_ok, y_ok, z_ok, resid_rel_tol=resid_rel_tol)
+    if n < 3 or n_boot <= 0:
+        return BootstrapResult(
+            est, float("nan"), float("nan"), 0, max(n_boot, 0), max(n_boot, 0), "full_paired_row"
+        )
+
+    rng = np.random.default_rng(seed)
+    draws = np.empty(n_boot, dtype=np.float64)
+    done = 0
+    step = max(int(chunk_size), 1)
+    while done < n_boot:
+        m = min(step, n_boot - done)
+        idx_chunk = rng.integers(0, n, size=(m, n))
+        for j in range(m):
+            idx = idx_chunk[j]
+            draws[done + j] = partial_spearman(
+                x_ok[idx], y_ok[idx], z_ok[idx], resid_rel_tol=resid_rel_tol
+            )
+        done += m
+
+    finite = draws[np.isfinite(draws)]
+    n_valid = int(finite.size)
+    n_invalid = n_boot - n_valid
+    if n_valid == 0 or (n_invalid / n_boot) > max_invalid_frac:
+        return BootstrapResult(
+            est, float("nan"), float("nan"), n_valid, n_invalid, n_boot, "full_paired_row"
+        )
+    lo, hi = np.quantile(finite, [alpha / 2.0, 1.0 - alpha / 2.0])
+    return BootstrapResult(est, float(lo), float(hi), n_valid, n_invalid, n_boot, "full_paired_row")
 
 
 def paired_pearson_bootstrap(
@@ -201,11 +350,13 @@ def paired_pearson_bootstrap(
     n_boot: int = 2000,
     alpha: float = 0.05,
     seed: int = 0,
+    chunk_size: int = 512,
 ) -> tuple[float, float]:
-    """Paired percentile bootstrap CI for Pearson correlation on pre-residualised arrays.
+    """Conditional fixed-residual paired percentile bootstrap CI for Pearson correlation.
 
-    Matches :func:`partial_spearman` (which computes Pearson on rank-residuals) instead of
-    re-ranking residuals on each bootstrap draw.
+    Resamples pre-residualised arrays ``(rx, ry)`` in chunks (conditional on fitted ranks and
+    nuisance regression). For full unconditional uncertainty over the rank + residualisation
+    pipeline, use :func:`partial_spearman_bootstrap`.
     """
     a = np.asarray(rx, dtype=np.float64).ravel()
     b = np.asarray(ry, dtype=np.float64).ravel()
@@ -218,14 +369,21 @@ def paired_pearson_bootstrap(
         return (float("nan"), float("nan"))
 
     rng = np.random.default_rng(seed)
-    idx = rng.integers(0, n, size=(n_boot, n))
-    asamp = a[idx]
-    bsamp = b[idx]
-    ac = asamp - asamp.mean(axis=1, keepdims=True)
-    bc = bsamp - bsamp.mean(axis=1, keepdims=True)
-    denom = np.sqrt(np.sum(ac * ac, axis=1) * np.sum(bc * bc, axis=1))
-    with np.errstate(divide="ignore", invalid="ignore"):
-        corrs = np.where(denom > 0.0, np.sum(ac * bc, axis=1) / denom, np.nan)
+    corrs = np.empty(n_boot, dtype=np.float64)
+    done = 0
+    step = max(int(chunk_size), 1)
+    while done < n_boot:
+        m = min(step, n_boot - done)
+        idx = rng.integers(0, n, size=(m, n))
+        asamp = a[idx]
+        bsamp = b[idx]
+        ac = asamp - asamp.mean(axis=1, keepdims=True)
+        bc = bsamp - bsamp.mean(axis=1, keepdims=True)
+        denom = np.sqrt(np.sum(ac * ac, axis=1) * np.sum(bc * bc, axis=1))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            corrs[done : done + m] = np.where(denom > 0.0, np.sum(ac * bc, axis=1) / denom, np.nan)
+        done += m
+
     finite = corrs[np.isfinite(corrs)]
     if finite.size == 0:
         return (float("nan"), float("nan"))

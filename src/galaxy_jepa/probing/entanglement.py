@@ -41,12 +41,15 @@ from galaxy_jepa.probing.logistic import ConceptDirection, Embeddings
 __all__ = [
     "stack_directions",
     "cosine_matrix",
+    "covariance_alignment",
     "gram_eigenspectrum",
     "embedding_covariance_spectrum",
     "cav_direction",
     "logistic_cav_disagreement",
     "MPVerdict",
     "mp_significant",
+    "EmpiricalGramNull",
+    "empirical_gram_null",
     "most_entangled_pairs",
     "EntanglementGeometry",
     "entanglement_geometry",
@@ -63,9 +66,65 @@ def stack_directions(directions: Sequence[ConceptDirection]) -> tuple[list[str],
 
 
 def cosine_matrix(directions: Sequence[ConceptDirection]) -> tuple[list[str], np.ndarray]:
-    """The k×k cosine matrix between concept directions (``WWᵀ`` for unit rows) — Figure 3."""
+    """The k×k raw-coordinate cosine matrix between concept directions (``WWᵀ``) — Figure 3.
+
+    Note: Euclidean cosine is coordinate-specific (not invariant under arbitrary invertible
+    reparameterisations ``Z' = A Z, w' = A^{-T} w``). Pair with :func:`covariance_alignment`
+    for a reparameterisation-invariant alignment on a shared embedding population.
+    """
     names, w = stack_directions(directions)
     return names, w @ w.T
+
+
+def covariance_alignment(
+    directions: Sequence[ConceptDirection],
+    embedding_x: np.ndarray,
+    *,
+    use_raw: bool = True,
+    eps: float = 1e-12,
+) -> tuple[list[str], np.ndarray]:
+    """Covariance-weighted direction alignment ``c_Σ(w_i, w_j)`` on a shared population.
+
+    Computes::
+
+        c_Σ(w_i, w_j) = (w_i^T Σ w_j) / sqrt((w_i^T Σ w_i)(w_j^T Σ w_j))
+
+    where ``Σ`` is the sample covariance of ``embedding_x``. Equals the Pearson correlation of
+    the linear scores ``Z w_i`` and ``Z w_j`` on ``embedding_x``, and is invariant under
+    consistent invertible coordinate transformations ``Z' = A Z``, ``w' = A^{-T} w``.
+    Entries with zero/degenerate score variance (``w_i^T Σ w_i <= eps``) return ``NaN``.
+    """
+    if not directions:
+        raise ValueError("need at least one concept direction to compute covariance alignment")
+    x = np.asarray(embedding_x, dtype=np.float64)
+    if x.ndim != 2 or x.shape[0] < 2:
+        raise ValueError(f"embedding_x must be 2-D with >= 2 rows, got shape {x.shape}")
+    if not np.isfinite(x).all():
+        raise ValueError("covariance_alignment requires finite embedding_x")
+    names = [d.name for d in directions]
+    w = np.stack(
+        [np.asarray(d.w_raw if use_raw else d.w_unit, dtype=np.float64) for d in directions]
+    )
+    if w.shape[1] != x.shape[1]:
+        raise ValueError(f"direction width {w.shape[1]} != embedding width {x.shape[1]}")
+    xc = x - x.mean(axis=0, keepdims=True)
+    # Sample covariance Σ = X_c^T X_c / (n - 1); scaling cancels in c_Σ
+    sigma = (xc.T @ xc) / float(x.shape[0] - 1)
+    gram = w @ sigma @ w.T
+    diag = np.diag(gram)
+    k = len(names)
+    out = np.full((k, k), np.nan, dtype=np.float64)
+    valid = diag > eps
+    if np.any(valid):
+        inv_sd = np.zeros(k, dtype=np.float64)
+        inv_sd[valid] = 1.0 / np.sqrt(diag[valid])
+        corr = gram * np.outer(inv_sd, inv_sd)
+        mask2d = np.outer(valid, valid)
+        out[mask2d] = np.clip(corr[mask2d], -1.0, 1.0)
+        for i in range(k):
+            if valid[i]:
+                out[i, i] = 1.0
+    return names, out
 
 
 def gram_eigenspectrum(w: np.ndarray) -> tuple[np.ndarray, float]:
@@ -186,6 +245,68 @@ def mp_significant(
     return MPVerdict(top_eigenvalue=top, mp_edge=float(edge), significant=bool(top > edge))
 
 
+@dataclasses.dataclass(frozen=True)
+class EmpiricalGramNull:
+    """Empirical null distribution for the unit-mean-normalised Gram top eigenvalue.
+
+    Unlike the analytic Marchenko–Pastur reference (which assumes isotropic i.i.d. random
+    directions), this runs the actual linear-probe fitting pipeline on label-permuted data
+    over the real embedding matrix, capturing anisotropy, regularisation, and sample size.
+    """
+
+    observed_top: float
+    null_tops: np.ndarray
+    pvalue: float
+    n_draws: int
+
+
+def empirical_gram_null(
+    embedding_x: np.ndarray,
+    labels_by_feature: Mapping[str, np.ndarray],
+    *,
+    observed_top: float,
+    c: float = 1.0,
+    n_draws: int = 50,
+    seed: int = 0,
+) -> EmpiricalGramNull:
+    """Shuffled-label empirical null for the unit-mean-normalised Gram top eigenvalue.
+
+    Permutes each feature's binary labels independently (testing the null of no feature
+    structure while preserving embedding covariance, prevalence, and L2 regularisation), fits
+    standardised logistic directions via ``probe_direction``, and records the top unit-mean
+    Gram eigenvalue on each draw, returning the add-one p-value ``(1 + count >= obs) / (B + 1)``.
+    """
+    from galaxy_jepa.probing.logistic import probe_direction
+
+    x = np.asarray(embedding_x, dtype=np.float64)
+    feats = list(labels_by_feature)
+    if len(feats) < 2:
+        raise ValueError("empirical_gram_null requires at least 2 features")
+    if n_draws < 1:
+        raise ValueError(f"n_draws must be >= 1, got {n_draws!r}")
+
+    rng = np.random.default_rng(seed)
+    null_tops = np.empty(n_draws, dtype=np.float64)
+    zero_frac = np.zeros(x.shape[0], dtype=np.float64)
+    for b in range(n_draws):
+        dirs = []
+        for f in feats:
+            y = np.asarray(labels_by_feature[f], dtype=np.int64)
+            yp = rng.permutation(y)
+            dirs.append(probe_direction(Embeddings(x, yp, zero_frac), name=f, c=c))
+        _, w = stack_directions(dirs)
+        ev, _ = gram_eigenspectrum(w)
+        ev_norm = ev / max(float(ev.mean()), 1e-12)
+        null_tops[b] = float(ev_norm.max())
+    pval = float((1 + int(np.sum(null_tops >= observed_top))) / (n_draws + 1))
+    return EmpiricalGramNull(
+        observed_top=float(observed_top),
+        null_tops=null_tops,
+        pvalue=pval,
+        n_draws=n_draws,
+    )
+
+
 def most_entangled_pairs(
     names: list[str], cosine: np.ndarray, *, quantile: float = 0.90
 ) -> list[tuple[str, str]]:
@@ -285,7 +406,7 @@ class PairVerdict:
     verdict: str
     cosine: float
     mp_significant: bool
-    cav_disagree: bool
+    cav_disagree: bool | None
     survived_matching: bool | None
     reason: str
     #: The conditional leg's D24 retention state and what it was read from (D25); ``None`` on a
@@ -310,29 +431,32 @@ def adjudicate_pair(
 ) -> PairVerdict:
     """The **one** pre-registered function from (eigen, cosine, CAV, conditional) to a verdict.
 
-    Design 2A, `docs/probing-harness-design.md:294-309`. The discipline it enforces is that the
-    mapping is fixed *before* results: several measures with non-overlapping blind spots are a
-    way to triangulate, and a licence to choose a different rule per feature would make the whole
-    apparatus unfalsifiable.
+    Design 2A, `docs/probing-harness-design.md:294-309`. These four inputs are convergent
+    diagnostics (not an identification theorem): fixing the mapping *before* results prevents
+    per-feature cherry-picking across measures with different blind spots.
 
     * **eigen entangled + cosine shows it + logistic/CAV disagree + survives matching** →
-      ``representational_entanglement``. Four methods agreeing is the unassailable branch.
+      ``representational_entanglement`` (strongest convergent diagnostic branch).
     * **eigen entangled but the conditional test vanishes under matching** →
-      ``world_correlation``. The concepts co-occur in the sky, not in the representation. This is
-      D13's bar+arms hard case and it is a *clean finding*, not a failure.
-    * **eigen clean + CAV agrees + cosine low** → ``clean``, converging on R1.
-    * anything else → ``inconclusive``, reported as such. Disagreements are **interpreted, not
-      averaged**: a verdict that splits the difference between two measures with different blind
-      spots is a number with no referent.
-
-    ``survived_matching=None`` means the conditional cross-check did not attribute the pair — not
-    run, or (D25) its retention was PARTIAL or UNRESOLVED — which can never be read as either
-    survival or collapse.
+      ``world_correlation`` (consistent with co-occurrence in the sky rather than shared encoding;
+      interpret alongside support, sample size, and label/nuisance noise).
+    * **eigen clean + CAV measured and agrees + cosine low** → ``clean``, converging on R1.
+    * anything else (including missing CAV evidence or ``survived_matching=None``) →
+      ``inconclusive``, reported as such rather than averaged or defaulted.
     """
-    disagree = max(cav_disagreement.get(a, 0.0), cav_disagreement.get(b, 0.0)) >= cav_floor
-    high_cos = abs(cosine) >= cosine_floor
+    raw_a = cav_disagreement.get(a)
+    raw_b = cav_disagreement.get(b)
+    if (
+        raw_a is None
+        or raw_b is None
+        or not (np.isfinite(float(raw_a)) and np.isfinite(float(raw_b)))
+    ):
+        disagree: bool | None = None
+    else:
+        disagree = max(float(raw_a), float(raw_b)) >= cav_floor
+    high_cos = bool(np.isfinite(cosine) and abs(cosine) >= cosine_floor)
 
-    if mp_significant and survived_matching is True and high_cos and disagree:
+    if mp_significant and survived_matching is True and high_cos and disagree is True:
         return PairVerdict(
             a,
             b,
@@ -342,7 +466,7 @@ def adjudicate_pair(
             disagree,
             survived_matching,
             "eigen entangled, cosine shows it, logistic/CAV disagree, and the "
-            "direction survives matching on the partner — four methods agree",
+            "association survives matching on the partner — all four diagnostics converge",
         )
     if mp_significant and survived_matching is False:
         return PairVerdict(
@@ -353,10 +477,11 @@ def adjudicate_pair(
             mp_significant,
             disagree,
             survived_matching,
-            "eigen entangled but the direction vanishes when the partner is held "
-            "constant — co-occurrence in the sky, not in the representation",
+            "eigen entangled but the association collapses under matching on the partner — "
+            "consistent with sky co-occurrence rather than shared encoding "
+            "(subject to support and power)",
         )
-    if not mp_significant and not disagree and not high_cos:
+    if not mp_significant and disagree is False and not high_cos and np.isfinite(cosine):
         return PairVerdict(
             a,
             b,
@@ -367,6 +492,7 @@ def adjudicate_pair(
             survived_matching,
             "spectrum within the MP null, logistic and CAV agree, cosine low",
         )
+    missing_note = "; CAV evidence absent" if disagree is None else ""
     return PairVerdict(
         a,
         b,
@@ -375,7 +501,7 @@ def adjudicate_pair(
         mp_significant,
         disagree,
         survived_matching,
-        "the measures do not converge; reported rather than averaged",
+        f"the diagnostics do not converge{missing_note}; reported rather than averaged",
     )
 
 

@@ -419,28 +419,37 @@ def newton_logistic(X, y, C, iters=50):
     th = np.r_[np.zeros(p, dtype=np.float64), np.log(p0 / (1.0 - p0))]
     Xb = np.c_[X.astype(np.float64), np.ones(n, dtype=np.float64)]
     reg = np.r_[np.ones(p, dtype=np.float64), 0.0]
+    signed = 2.0 * y - 1.0
+    from scipy.special import expit
 
     def obj(t):
         eta = Xb @ t
-        # Numerically stable softplus: log(1 + exp(eta)) - y * eta
-        ll = np.where(eta >= 0, eta + np.log1p(np.exp(-eta)), np.log1p(np.exp(eta))) - y * eta
+        # Exact unclipped softplus: log(1 + exp(-signed * eta)), matching derivatives across R
+        ll = np.logaddexp(0.0, -signed * eta)
         return float(0.5 * np.dot(reg * t, t) + C * ll.sum())
 
     f_cur = obj(th)
     converged = False
+    g = np.zeros_like(th)
     for _ in range(iters):
-        eta = np.clip(Xb @ th, -40.0, 40.0)
-        s = 1.0 / (1.0 + np.exp(-eta))
+        eta = Xb @ th
+        s = expit(eta)
         g = C * (Xb.T @ (s - y)) + reg * th
         if float(np.max(np.abs(g))) < 1e-6:
             converged = True
             break
-        w_diag = np.maximum(s * (1.0 - s), 1e-12)
-        Hs = C * (Xb * w_diag[:, None]).T @ Xb + np.diag(reg) + 1e-9 * np.eye(p + 1)
-        step = np.linalg.solve(Hs, g)
+        w_diag = expit(eta) * expit(-eta)
+        Hs = C * (Xb * w_diag[:, None]).T @ Xb + np.diag(reg) + 1e-12 * np.eye(p + 1)
+        try:
+            step = np.linalg.solve(Hs, g)
+        except np.linalg.LinAlgError:
+            step = np.linalg.lstsq(Hs, g, rcond=None)[0]
         slope = float(np.dot(g, step))
+        if not np.isfinite(slope) or slope <= 0.0:
+            step = g
+            slope = float(np.dot(g, step))
         alpha = 1.0
-        while alpha > 1e-8:
+        while alpha >= 1e-12:
             cand = th - alpha * step
             f_cand = obj(cand)
             if np.isfinite(f_cand) and f_cand <= f_cur - 1e-4 * alpha * slope:
@@ -449,12 +458,13 @@ def newton_logistic(X, y, C, iters=50):
             alpha *= 0.5
         else:
             break
-        if float(np.max(np.abs(alpha * step))) < 1e-7:
-            converged = True
-            break
+    eta = Xb @ th
+    g = C * (Xb.T @ (expit(eta) - y)) + reg * th
+    if float(np.max(np.abs(g))) < 1e-6:
+        converged = True
     if not np.isfinite(th).all():
         raise RuntimeError("newton_logistic produced non-finite parameters")
-    if not converged and float(np.max(np.abs(g))) > 1e-2:
+    if not converged:
         raise RuntimeError(f"newton_logistic did not converge (max|g|={float(np.max(np.abs(g))):.2e})")
     return th[:-1], float(th[-1])
 
