@@ -179,20 +179,113 @@ def spear(a, b):
 
 
 def resid_ranks(v, N):
-    R = np.column_stack([rankdata(N[:, j]) for j in range(N.shape[1])])
-    R = (R - R.mean(0)) / R.std(0)
-    D = np.column_stack([np.ones(len(v)), R, R**2])
+    """Residualise rank(v) on intercept + standardised quadratic ranks of non-constant nuisances.
+
+    Zero-variance nuisance columns (for instance, sparse/tied nuisances that become constant inside
+    a bootstrap resample) are omitted from the quadratic terms so standardisation never divides by
+    zero while preserving the full quadratic design for every informative nuisance column.
+    """
+    n_arr = np.asarray(N, dtype=np.float64)
+    if n_arr.ndim == 1:
+        n_arr = n_arr[:, None]
+    cols = [np.ones(len(v), dtype=np.float64)]
+    for j in range(n_arr.shape[1]):
+        rj = rankdata(n_arr[:, j])
+        sd = float(rj.std())
+        if sd > 0.0:
+            zj = (rj - float(rj.mean())) / sd
+            cols.append(zj)
+            cols.append(zj**2)
+    D = np.column_stack(cols)
     r = rankdata(v)
     return r - D @ np.linalg.lstsq(D, r, rcond=None)[0]
 
 
-def partial(a, b, N):
-    return float(np.corrcoef(resid_ranks(a, N), resid_ranks(b, N))[0, 1])
+def partial(a, b, N, *, rtol=1e-10):
+    """Partial Spearman on quadratic-nuisance rank residuals with relative residual-norm guard.
+
+    Returns NaN when either variable's rank vector is explained by the quadratic nuisance design
+    up to numerical residue (||resid|| <= rtol * ||r - mean(r)||), preventing spurious +/-1.0
+    correlations of floating-point noise (REG-007).
+    """
+    a64 = np.asarray(a, dtype=np.float64)
+    b64 = np.asarray(b, dtype=np.float64)
+    ra = rankdata(a64)
+    rb = rankdata(b64)
+    base_a = float(np.linalg.norm(ra - ra.mean()))
+    base_b = float(np.linalg.norm(rb - rb.mean()))
+    if base_a == 0.0 or base_b == 0.0:
+        return float("nan")
+    rx = resid_ranks(a64, N)
+    ry = resid_ranks(b64, N)
+    nrx = float(np.linalg.norm(rx))
+    nry = float(np.linalg.norm(ry))
+    if nrx <= rtol * base_a or nry <= rtol * base_b:
+        return float("nan")
+    return float(np.dot(rx, ry) / (nrx * nry))
 
 
 def boot(a, b, seed, n=NBOOT):
     rng = np.random.default_rng(seed)
     v = [spear(a[i], b[i]) for i in (rng.integers(0, len(a), len(a)) for _ in range(n))]
+    return [float(x) for x in np.percentile(v, [2.5, 97.5])]
+
+
+def boot_partial_full_detail(a, b, N, seed, n=NBOOT, *, min_valid=None):
+    """Full paired-row bootstrap for quadratic-nuisance partial Spearman with replicate counts.
+
+    Re-ranks and re-residualises ``(a, b, N)`` inside EVERY paired resample (dropping zero-variance
+    nuisance columns created by resampling without crashing), filters non-finite replicates, and
+    returns ``[nan, nan]`` when fewer than ``min_valid`` usable replicates remain.
+    """
+    a64 = np.asarray(a, dtype=np.float64)
+    b64 = np.asarray(b, dtype=np.float64)
+    n64 = np.asarray(N, dtype=np.float64)
+    if n64.ndim == 1:
+        n64 = n64[:, None]
+    min_req = (
+        max(2, min(20, int(np.ceil(0.5 * n)))) if min_valid is None else max(1, int(min_valid))
+    )
+    rng = np.random.default_rng(seed)
+    draws = []
+    m = len(a64)
+    for _ in range(n):
+        idx = rng.integers(0, m, size=m)
+        val = partial(a64[idx], b64[idx], n64[idx])
+        if np.isfinite(val):
+            draws.append(val)
+    n_valid = len(draws)
+    n_invalid = int(n) - n_valid
+    ci = (
+        [float(x) for x in np.percentile(draws, [2.5, 97.5])]
+        if n_valid >= min_req
+        else [float("nan"), float("nan")]
+    )
+    return {
+        "ci": ci,
+        "n_boot": int(n),
+        "n_valid": n_valid,
+        "n_invalid": n_invalid,
+        "min_valid": min_req,
+    }
+
+
+def boot_partial_full(a, b, N, seed, n=NBOOT, *, min_valid=None):
+    """Full paired-row bootstrap CI ``[lo, hi]`` for quadratic-nuisance partial Spearman (REG-007)."""
+    return boot_partial_full_detail(a, b, N, seed, n=n, min_valid=min_valid)["ci"]
+
+
+def boot_pearson(a, b, seed, n=NBOOT):
+    """Paired bootstrap of Pearson r (conditional-residual diagnostic; see boot_partial_full)."""
+    rng = np.random.default_rng(seed)
+    v = []
+    for _ in range(n):
+        i = rng.integers(0, len(a), len(a))
+        val = float(np.corrcoef(a[i], b[i])[0, 1])
+        if np.isfinite(val):
+            v.append(val)
+    if not v:
+        return [float("nan"), float("nan")]
     return [float(x) for x in np.percentile(v, [2.5, 97.5])]
 
 
@@ -222,8 +315,12 @@ def fit_target(d, AXS, name, y, j, null_scores=True):
             x = {"alpha": m["alpha"], "r2": float(1 - ((yc[te] - s) ** 2).sum() / ((yc[te] - yc[te].mean()) ** 2).sum()), "spearman": spear(s, yc[te]), "partial": partial(s, yc[te], d.N[te])}
             if e == "A1":
                 x["spearman_ci"] = boot(s, yc[te], SEED + j)
+                p_boot = boot_partial_full_detail(s, yc[te], d.N[te], SEED + j + 500)
+                x["partial_ci"] = p_boot["ci"]
+                x["partial_ci_valid"] = p_boot["n_valid"]
+                x["partial_ci_invalid"] = p_boot["n_invalid"]
                 rs, ry = resid_ranks(s, d.N[te]), resid_ranks(yc[te], d.N[te])
-                x["partial_ci"] = boot(rs, ry, SEED + j + 500)
+                x["partial_ci_conditional"] = boot_pearson(rs, ry, SEED + j + 500)
                 rng = np.random.default_rng(SEED + 1000 + j)
                 half = rng.permutation(len(tr)) < len(tr) // 2
                 ga, gb = Gram(X[tr[half]]), Gram(X[tr[~half]])
@@ -248,22 +345,22 @@ def fit_target(d, AXS, name, y, j, null_scores=True):
     return rec, arr
 
 
-def step_fit(only=None):
+def step_fit(only=None, out_name="b_fit_erratum.json", force=False):
     AXS, d = A.load()
     z = np.load(B / "measures.npz")
     assert np.array_equal(z["ids"], d.union)
     names = [k for k in z.files if k != "ids"]
-    f = DOC / "b_fit.json"
-    out = json.loads(f.read_text()) if f.exists() else {}
+    f = DOC / out_name
+    out = json.loads(f.read_text()) if (f.exists() and not force) else {}
     (B / "fits").mkdir(exist_ok=True)
     for j, n in enumerate(names):
-        if (only and n not in only) or (n in out and not only):
+        if (only and n not in only) or (n in out and not only and not force):
             continue
         t0 = time.perf_counter()
         rec, arr = fit_target(d, AXS, n, z[n], j)
         out[n] = rec
         np.savez(B / "fits" / (n.replace("/", "_").replace(" ", "_") + ".npz"), name=n, **arr)
-        save("b_fit.json", out)
+        save(out_name, out)
         k = rec.get("cleaned", rec["raw"])
         A.log(f"B {n} {time.perf_counter() - t0:.0f}s label {rec['label']} spearman A1 {k['enc']['A1']['spearman']:.3f} untr {k['untrained_spearman_range'][1]:.3f} partial {k['enc']['A1']['partial']:.3f}")
 
@@ -479,5 +576,15 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("step", choices=["catalogue", "selftest", "fit", "extras", "map"])
     ap.add_argument("--only", nargs="*")
+    ap.add_argument(
+        "--out-name",
+        default="b_fit_erratum.json",
+        help="Output filename under docs/axes/ for `fit` (defaults to versioned erratum file).",
+    )
+    ap.add_argument("--force", action="store_true", help="Re-fit even targets present in out file.")
     a = ap.parse_args()
-    step_fit(a.only) if a.step == "fit" else globals()["step_" + a.step]()
+    (
+        step_fit(a.only, out_name=a.out_name, force=a.force)
+        if a.step == "fit"
+        else globals()["step_" + a.step]()
+    )

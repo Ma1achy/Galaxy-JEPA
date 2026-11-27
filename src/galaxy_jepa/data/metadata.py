@@ -399,8 +399,12 @@ def photometric_snr(model_mag_err_r: float) -> float:
     This is the ``"SNR"`` nuisance column (``docs/spec/data.md`` §3) — an image-domain
     quantity, so the probe genuinely asks "does the concept axis read off image depth".
     """
-    if not (model_mag_err_r > 0):
-        raise ValueError(f"modelMagErr_r must be > 0 to derive SNR, got {model_mag_err_r!r}")
+    import math
+
+    if not (math.isfinite(model_mag_err_r) and model_mag_err_r > 0):
+        raise ValueError(
+            f"modelMagErr_r must be finite and > 0 to derive SNR, got {model_mag_err_r!r}"
+        )
     return _MAG_SNR_CONST / model_mag_err_r
 
 
@@ -412,7 +416,8 @@ def _angular_sep_arcsec(ra1: float, dec1: float, ra2: float, dec2: float) -> flo
     import math
 
     dec_mean = math.radians((dec1 + dec2) / 2.0)
-    d_ra = (ra1 - ra2) * math.cos(dec_mean)
+    delta_ra = ((ra1 - ra2 + 180.0) % 360.0) - 180.0
+    d_ra = delta_ra * math.cos(dec_mean)
     d_dec = dec1 - dec2
     return math.hypot(d_ra, d_dec) * 3600.0
 
@@ -423,6 +428,8 @@ def assert_radec_agree(rows: list[dict[str, Any]], *, tol_arcsec: float = 1.0) -
     Guards the silent-mismatch failure mode: a wrong join key returns a real-but-wrong
     galaxy's metadata with no error.
     """
+    if not rows:
+        raise ValueError("assert_radec_agree requires at least one row; empty join cannot pass")
     for row in rows:
         sep = _angular_sep_arcsec(
             float(row["gz_ra"]),
@@ -430,7 +437,7 @@ def assert_radec_agree(rows: list[dict[str, Any]], *, tol_arcsec: float = 1.0) -
             float(row["phot_ra"]),
             float(row["phot_dec"]),
         )
-        if sep > tol_arcsec:
+        if not (sep <= tol_arcsec):
             raise ValueError(
                 f"GZ2↔PhotoObjAll join mismatch for objID={row.get('objID', row.get('dr7objid'))}: "
                 f"sky positions differ by {sep:.2f}″ (> {tol_arcsec}″). The join key is "

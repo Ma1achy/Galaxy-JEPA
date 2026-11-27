@@ -134,7 +134,10 @@ def sky_noise_label_auc(
 
 def selectivity(real_auc: float, shuffled_nulls: np.ndarray) -> float:
     """Hewitt–Liang selectivity: real-label AUC − the shuffled-label control AUC (the mean)."""
-    return float(real_auc - float(np.mean(shuffled_nulls)))
+    arr = np.asarray(shuffled_nulls, dtype=np.float64)
+    if arr.size == 0:
+        return float("nan")
+    return float(real_auc - float(np.mean(arr)))
 
 
 def cluster_assignment(
@@ -214,15 +217,24 @@ def nuisance_panel(
         # (the size nuisance and the deblending tail — `extract.NUISANCE_FLAG_COLS`). The rows
         # stay in the feature probe and in every other nuisance; the median split is then drawn
         # over usable radii rather than over 651-px "galaxies".
-        keep_tr = labels.nuisance_valid(name, eligible_train)
-        keep_te = labels.nuisance_valid(name, eligible_test)
-        ids_tr = [o for o, k in zip(eligible_train, keep_tr, strict=True) if k]
-        ids_te = [o for o, k in zip(eligible_test, keep_te, strict=True) if k]
+        v_tr = labels.nuisance_value(name, eligible_train)
+        v_te = labels.nuisance_value(name, eligible_test)
+        keep_tr = labels.nuisance_valid(name, eligible_train) & np.isfinite(v_tr)
+        keep_te = labels.nuisance_valid(name, eligible_test) & np.isfinite(v_te)
+        if not keep_tr.any() or not keep_te.any():
+            out[name] = 0.5
+            continue
+        # Median threshold fitted strictly on train rows and applied to test (no test leakage).
+        med = float(np.median(v_tr[keep_tr]))
         nz_train = Embeddings(
-            real_train.x[keep_tr], labels.nuisance_label(name, ids_tr), real_train.fraction[keep_tr]
+            real_train.x[keep_tr],
+            (v_tr[keep_tr] >= med).astype(np.int64),
+            real_train.fraction[keep_tr],
         )
         nz_test = Embeddings(
-            real_test.x[keep_te], labels.nuisance_label(name, ids_te), real_test.fraction[keep_te]
+            real_test.x[keep_te],
+            (v_te[keep_te] >= med).astype(np.int64),
+            real_test.fraction[keep_te],
         )
         out[name] = _safe_auc(nz_train, nz_test, c=c)
     return out
@@ -393,9 +405,34 @@ def build_feature_controls(
     untrained_test = feature_embeddings(controls.untrained, labels, feature, test_ids)
     untrained_auc = _safe_auc(untrained_train, untrained_test, c=c)
 
-    sky_train = _binary_column(labels, sky_label_col, eligible_tr)
-    sky_test = _binary_column(labels, sky_label_col, eligible_te)
-    sky_auc = sky_noise_label_auc(real_train, real_test, sky_train, sky_test, c=c)
+    sky_tr_vals = np.asarray(
+        [float(labels.rows.get(int(o), {}).get(sky_label_col, np.nan)) for o in eligible_tr],
+        dtype=np.float64,
+    )
+    sky_te_vals = np.asarray(
+        [float(labels.rows.get(int(o), {}).get(sky_label_col, np.nan)) for o in eligible_te],
+        dtype=np.float64,
+    )
+    sky_ok_tr, sky_ok_te = np.isfinite(sky_tr_vals), np.isfinite(sky_te_vals)
+    if sky_ok_tr.any() and sky_ok_te.any():
+        sky_med = float(np.median(sky_tr_vals[sky_ok_tr]))
+        sky_auc = sky_noise_label_auc(
+            Embeddings(
+                real_train.x[sky_ok_tr],
+                real_train.y[sky_ok_tr],
+                real_train.fraction[sky_ok_tr],
+            ),
+            Embeddings(
+                real_test.x[sky_ok_te],
+                real_test.y[sky_ok_te],
+                real_test.fraction[sky_ok_te],
+            ),
+            (sky_tr_vals[sky_ok_tr] >= sky_med).astype(np.int64),
+            (sky_te_vals[sky_ok_te] >= sky_med).astype(np.int64),
+            c=c,
+        )
+    else:
+        sky_auc = 0.5
 
     nuisance_aucs = nuisance_panel(real_train, real_test, labels, eligible_tr, eligible_te, c=c)
 

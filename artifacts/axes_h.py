@@ -45,7 +45,7 @@ VAL_FRAC = 0.15
 BLOCK = 11  # 1-based: the readout block
 SUB_BLOCKS = (4, 8, 10, 12)
 N_SUB = 6000
-WD = (1e-5, 1e-4, 1e-3, 1e-2, 1e-1)
+WD = (1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0)
 EFIGI = ("armC", "armS", "B/T", "floc", "inc", "Pert", "vDust")
 
 
@@ -113,17 +113,21 @@ def build_targets():
         meta.append({"name": f"efigi:{k}", "kind": "efigi", "label": f"categories {cats}"})
         out[f"efigi:{k}|rows"] = np.array([pos[int(i)] for i in eids[ok]])
         out[f"efigi:{k}|p"], out[f"efigi:{k}|n"] = P, np.ones(len(P))
+        out[f"efigi:{k}|raw_y"] = v[ok].astype(np.float64)
         out[f"efigi:{k}|tr"] = etr[ok]
     sub_pool = np.flatnonzero(np.isin(d.union, np.asarray(d.setup.test_ids)) & d.ok)
     sub = np.concatenate([rng.choice(sub_pool[dec[sub_pool] == k], N_SUB // 10, replace=False) for k in range(10)])
     out["subset"] = np.sort(sub)
     H.mkdir(parents=True, exist_ok=True)
     (H / "probe_c.json").write_text(json.dumps({"c": float(d.c)}))
-    for f in keep[:2]:  # the Newton probe must equal the ladder's own
+    # Cross-check damped Newton against the ladder's Probe on well-balanced targets AND the rarest
+    # binary target (imbalanced classes previously diverged under undamped Newton).
+    rarest = min(keep, key=lambda f: min(out[f"{f}|y"][out[f"{f}|tr"]].mean(), 1.0 - out[f"{f}|y"][out[f"{f}|tr"]].mean()))
+    for f in dict.fromkeys([*keep[:2], rarest]):
         rows, tr = out[f"{f}|rows"], out[f"{f}|tr"]
         X, y = d.mats["A1"][rows], out[f"{f}|y"]
         ref = AXS.Probe(X[tr], y[tr], d.c).d(X[~tr])
-        mu, sd = X[tr].mean(0), X[tr].std(0)
+        mu, sd = X[tr].mean(0), np.maximum(X[tr].std(0), 1e-9)
         w, b = newton_logistic((X[tr] - mu) / sd, y[tr].astype(float), float(d.c))
         new = (X[~tr] - mu) / sd @ w + b
         print(f, "Newton vs Probe AUC", AXS.fast_auc(y[~tr], new), AXS.fast_auc(y[~tr], ref), "r", np.corrcoef(new, ref)[0, 1])
@@ -204,6 +208,7 @@ class Target:
         else:
             self.p, self.n = z[f"{name}|p"], z[f"{name}|n"]
             self.K = self.p.shape[1]
+            self.raw_y = z[f"{name}|raw_y"] if f"{name}|raw_y" in z.files else None
 
 
 def shuffled(t: Target, rng):
@@ -246,6 +251,7 @@ def train(readout, feats, targets, seed, epochs, batch, lr, n_rows, device, tok=
             ths[ti] = torch.tensor(np.tile(raw, (G, 1)), dtype=torch.float32, device=device, requires_grad=True)
             params.append(ths[ti])
     opt = torch.optim.Adam(params, lr=lr)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(epochs, 1), eta_min=lr * 0.01)
     # standardise features on fit rows (tokens: per feature over a sample of fit rows' tokens)
     used = np.unique(np.concatenate([t.rows[t.fit] for t in targets]))
     rng = np.random.default_rng(seed)
@@ -339,6 +345,7 @@ def train(readout, feats, targets, seed, epochs, batch, lr, n_rows, device, tok=
             for ti in ths:
                 sel = better[ti * G:(ti + 1) * G]
                 best_th[ti][sel] = ths[ti][sel]
+        sched.step()
     with torch.no_grad():
         W.copy_(best_W); b.copy_(best_b)
         if attn:
@@ -389,11 +396,13 @@ def step_h1(enc):
     tok = np.load(H / "tokens_scratch.npy", mmap_mode="r")
     res = {}
     for ro, feats, grp in (("mean", mean, None), ("grid", grid, None), ("attn", tok, None)):
-        for group, ts, ep, bs, lr in (("GZ", gz, 15, 512, 2e-3), ("EFIGI", ef, 150, 256, 2e-3)):
+        # Equal batch size and epoch budget across all three readouts (mean/grid/attn) so every
+        # readout receives identical Adam step counts and `mean` converges to match `fixed_C_mean`.
+        for group, ts, ep, bs, lr in (("GZ", gz, 60, 256, 5e-3), ("EFIGI", ef, 150, 256, 5e-3)):
             vs = [("real", ts)] + ([("shuffled", [shuffled(t, np.random.default_rng(SEED + 2 + k)) for k, t in enumerate(ts)])] if enc in ("A1", "untrained-s0") else [])
             for tag, tt in vs:
                 t0 = time.perf_counter()
-                o = train(ro, feats, tt, SEED + 3, ep if ro != "attn" else max(ep, 15), bs if ro != "attn" else 128, lr, len(mean), d_)
+                o = train(ro, feats, tt, SEED + 3, ep, bs, lr, len(mean), d_)
                 for name, v in o.items():
                     res[f"{ro}|{group}|{tag}|{name}"] = v
                 A.log(f"H1 {enc} {ro} {group} {tag} {len(tt)} targets {time.perf_counter() - t0:.0f}s")
@@ -402,23 +411,65 @@ def step_h1(enc):
 
 
 # --- H2a ----------------------------------------------------------------------------------------------------------------------
-def newton_logistic(X, y, C, iters=25):
-    """L2 logistic in sklearn's convention (min ½‖w‖² + C Σ log loss, intercept free), Newton; X standardised."""
+def newton_logistic(X, y, C, iters=50):
+    """L2 logistic in sklearn's convention (min ½‖w‖² + C Σ log loss, intercept free), damped
+    Newton with 1/N-scaled Armijo backtracking and exact unclipped logits; X standardised."""
     n, p = X.shape
-    w, b = np.zeros(p), np.log(y.mean() / (1 - y.mean()))
-    Xb = np.c_[X, np.ones(n)]
-    reg = np.r_[np.ones(p), 0.0]
+    inv_n = 1.0 / float(n)
+    p0 = float(np.clip(y.mean(), 1e-6, 1.0 - 1e-6))
+    th = np.r_[np.zeros(p, dtype=np.float64), np.log(p0 / (1.0 - p0))]
+    Xb = np.c_[X.astype(np.float64), np.ones(n, dtype=np.float64)]
+    reg = np.r_[np.ones(p, dtype=np.float64), 0.0]
+    signed = 2.0 * y - 1.0
+    from scipy.special import expit
+
+    def obj_mean(t):
+        eta = Xb @ t
+        # Exact unclipped softplus: log(1 + exp(-signed * eta)), scaled by 1/N to avoid ULP stall
+        ll = np.logaddexp(0.0, -signed * eta)
+        return float((0.5 * np.dot(reg * t, t) + C * ll.sum()) * inv_n)
+
+    f_cur = obj_mean(th)
+    converged = False
+    g = np.zeros_like(th)
     for _ in range(iters):
-        eta = Xb @ np.r_[w, b]
-        s = 1 / (1 + np.exp(-eta))
-        g = C * Xb.T @ (s - y) + reg * np.r_[w, b]
-        Hs = C * (Xb * (s * (1 - s))[:, None]).T @ Xb + np.diag(reg) + 1e-9 * np.eye(p + 1)
-        step = np.linalg.solve(Hs, g)
-        th = np.r_[w, b] - step
-        w, b = th[:-1], th[-1]
-        if np.abs(step).max() < 1e-7:
+        eta = Xb @ th
+        s = expit(eta)
+        g = C * (Xb.T @ (s - y)) + reg * th
+        if float(np.max(np.abs(g))) < 1e-6:
+            converged = True
             break
-    return w, b
+        g_m = g * inv_n
+        w_diag = expit(eta) * expit(-eta)
+        Hs_m = (C * (Xb * w_diag[:, None]).T @ Xb + np.diag(reg)) * inv_n + 1e-12 * np.eye(p + 1)
+        try:
+            step = np.linalg.solve(Hs_m, g_m)
+        except np.linalg.LinAlgError:
+            step = np.linalg.lstsq(Hs_m, g_m, rcond=None)[0]
+        slope_m = float(np.dot(g_m, step))
+        if not np.isfinite(slope_m) or slope_m <= 0.0:
+            step = g_m
+            slope_m = float(np.dot(g_m, step))
+        alpha = 1.0
+        ulp_slack = 1e-12 * max(1.0, abs(f_cur))
+        while alpha >= 1e-12:
+            cand = th - alpha * step
+            f_cand = obj_mean(cand)
+            if np.isfinite(f_cand) and f_cand <= f_cur - 1e-4 * alpha * slope_m + ulp_slack:
+                th, f_cur = cand, f_cand
+                break
+            alpha *= 0.5
+        else:
+            break
+    eta = Xb @ th
+    g = C * (Xb.T @ (expit(eta) - y)) + reg * th
+    if float(np.max(np.abs(g))) < 1e-6:
+        converged = True
+    if not np.isfinite(th).all():
+        raise RuntimeError("newton_logistic produced non-finite parameters")
+    if not converged:
+        raise RuntimeError(f"newton_logistic did not converge (max|g|={float(np.max(np.abs(g))):.2e})")
+    return th[:-1], float(th[-1])
 
 
 def step_h2a(enc):
@@ -484,7 +535,11 @@ def step_report():
         n = int(te_.sum())
         rng = np.random.default_rng(SEED + 7)
         idx = [rng.integers(0, n, n) for _ in range(200)]
-        yt = t.y[te_] if t.kind == "binary" else t.p[te_] @ np.arange(1, t.K + 1)
+        yt = (
+            t.y[te_]
+            if t.kind == "binary"
+            else (t.raw_y[te_] if getattr(t, "raw_y", None) is not None else t.p[te_] @ np.arange(1, t.K + 1))
+        )
 
         def met(eta, i=None):
             e, y = (eta, yt) if i is None else (eta[i], yt[i])
@@ -501,6 +556,10 @@ def step_report():
         if h1:
             for ro in ("grid", "attn"):
                 a = {e: {"gain": rec["readouts"][ro][e]["metric"] - rec["readouts"]["mean"][e]["metric"]} for e in h1}
+                if h2 and t.kind == "binary":
+                    for e in h1:
+                        if e in rec["readouts"]["fixed_C_mean"]:
+                            a[e]["gain_over_fixed_C_mean"] = rec["readouts"][ro][e]["metric"] - rec["readouts"]["fixed_C_mean"][e]["metric"]
                 bs = {}
                 for e in h1:
                     bs[e] = np.array([met(S[e, ro], i) - met(S[e, "mean"], i) for i in idx])
@@ -521,8 +580,17 @@ def step_report():
                     dd.append({"decile": k + 1, "n": int(len(m)), "A1": f("A1") if "A1" in h1 else None, "untrained_mean": float(np.mean([f(e) for e in un])) if un else None})
                 a["deciles"] = dd
                 rec["readouts"][ro]["gain_over_mean"] = a
-            # shuffled control
-            rec["shuffled"] = {f"{e}|{ro}": met(h1[e][f"{ro}|{g}|shuffled|{t.name}|eta"]) for e in ("A1", "untrained-s0") if e in h1 for ro in ("mean", "grid", "attn") if f"{ro}|{g}|shuffled|{t.name}|eta" in h1[e].files}
+            # shuffled control (report both metric and val_loss: single-draw AUC has high variance under strong WD)
+            rec["shuffled"] = {
+                f"{e}|{ro}": {
+                    "metric": met(h1[e][f"{ro}|{g}|shuffled|{t.name}|eta"]),
+                    "val_loss": float(h1[e][f"{ro}|{g}|shuffled|{t.name}|val_loss"]),
+                }
+                for e in ("A1", "untrained-s0")
+                if e in h1
+                for ro in ("mean", "grid", "attn")
+                if f"{ro}|{g}|shuffled|{t.name}|eta" in h1[e].files
+            }
         # H2a
         if h2:
             b = {}

@@ -163,15 +163,15 @@ def test_mae_decoder_is_initialised_as_he_et_al_s_code():
     for m in linears:
         fan_out, fan_in = m.weight.shape
         bound = (6.0 / (fan_in + fan_out)) ** 0.5
-        assert float(m.weight.abs().max()) <= bound
-        assert abs(float(m.weight.std()) - bound / 3**0.5) < 0.1 * bound / 3**0.5
+        assert float(m.weight.detach().abs().max()) <= bound
+        assert abs(float(m.weight.detach().std()) - bound / 3**0.5) < 0.1 * bound / 3**0.5
         assert torch.equal(m.bias, torch.zeros_like(m.bias))
     for m in dec.modules():
         if isinstance(m, torch.nn.LayerNorm):
             assert torch.equal(m.weight, torch.ones_like(m.weight))
             assert torch.equal(m.bias, torch.zeros_like(m.bias))
     big = _mae(dec_dim=4096, dec_depth=1, dec_heads=4).decoder.mask_token
-    assert abs(float(big.std()) - 0.02) < 0.002
+    assert abs(float(big.detach().std()) - 0.02) < 0.002
 
 
 def test_patchify_matches_the_encoders_token_order():

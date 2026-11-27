@@ -158,8 +158,10 @@ def main() -> None:
                                      "batch_size": ocfg.batch_size, "objective": o, "brief": "patch grid"})
     n_mon = MONITOR_BATCH if not args.batch else 2  # only a small-batch plumbing smoke shrinks it: two stamps have effective rank 1, so a long smoke would halt
     mon = _to_device(next(iter(DataLoader(StampDataset(cache, {}, monitor_ids[:n_mon], scalars=cache.scalars), batch_size=n_mon))), device)
-    written = sorted(int(f.stem.split("_")[1]) for f in (out / "checkpoints").glob("ckpt_*.pt"))
-    done = written[-1] if written else 0
+    latest = ck.latest()
+    done = int(latest["step"]) if latest is not None else 0
+    if done >= stop:
+        raise SystemExit(f"{args.arm}: latest committed checkpoint is already at step {done} >= {stop} without traces.json; refusing to overshoot")
     t0 = time.perf_counter()
     r = train_objective(objective, loader, device=device, monitor_batch=mon, checkpoint_path=out / "encoder.pt", autocast_dtype=cfg.autocast_dtype(),
                         checkpointer=ck, sampler=sampler, collapse_floor=cfg.collapse_floor, resume=done > 0, stop_after=stop - done)

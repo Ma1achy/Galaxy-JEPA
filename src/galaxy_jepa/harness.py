@@ -26,6 +26,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import math
 import statistics
 import time
 from collections.abc import Mapping
@@ -45,6 +46,7 @@ from galaxy_jepa.data.cache import (
     TensorCache,
     bake_cache,
     load_probe_columns,
+    pipeline_hash,
     write_probe_columns,
     write_scalars,
 )
@@ -60,7 +62,8 @@ from galaxy_jepa.data.orchestrate import (
 from galaxy_jepa.data.sources import DirectorySource
 from galaxy_jepa.data.transforms import AsinhStretch, NormalisationFreeze, Pipeline
 from galaxy_jepa.models.vit import VisionTransformer, load_frozen_encoder
-from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, _to_device, train_jepa
+from galaxy_jepa.objectives.jepa import Jepa, JepaConfig, _to_device
+from galaxy_jepa.objectives.loop import train_objective
 from galaxy_jepa.objectives.mae import Mae, MaeConfig
 from galaxy_jepa.objectives.mae_grouped import GroupedMae, GroupedMaeConfig
 from galaxy_jepa.objectives.moco import Moco, MocoConfig
@@ -87,7 +90,7 @@ from galaxy_jepa.probing.schemes import (
 
 logger = logging.getLogger(__name__)
 
-_AUTOCAST = {"bf16": torch.bfloat16, "fp16": torch.float16}
+_AUTOCAST = {"bf16": torch.bfloat16}
 
 
 def pick_device() -> str:
@@ -131,7 +134,7 @@ class ObjectiveConfig(RunConfig):
     pred_dim: int = 192
     pred_depth: int = 6
     pred_heads: int = 6
-    beta: float = 0.5  # the headline masking-bias knob (mask.beta); 0 ≡ standard I-JEPA
+    beta: float = 0.5  # masking-bias knob (mask.beta); 0 = uniform-target I-JEPA control
     petro_k: float = 2.5
     global_box_frac: float = 0.40
     #: SIGReg trade-off weight (Brief I). ``0.0`` is I-JEPA unchanged — the penalty is never
@@ -307,7 +310,7 @@ class RunBase(RunConfig):
     #: into ``escape_hatches_used`` so the stamp says so in words as well as in the hash.
     smoke: bool = False
     monitor_frac: float = 0.02
-    autocast: str | None = None  # None | "bf16" | "fp16"
+    autocast: str | None = None  # None | "bf16" (fp16 rejected: no GradScaler)
     ratios: tuple[float, float, float] = (0.70, 0.15, 0.15)
     model: ModelConfig = Field(default_factory=ModelConfig)
     probe: ProbeConfig = Field(default_factory=ProbeConfig)
@@ -628,7 +631,9 @@ def _prepare(
     write_scalars(
         cache.cache_dir,
         {
-            int(r["object_id"]): float(r.get("petroRad_r", float("nan")))
+            int(r["object_id"]): (
+                float(r["petroRad_r"]) if r.get("petroRad_r") is not None else float("nan")
+            )
             for r in [*pre_src.rows, *probe_src.rows]
         },
     )
@@ -677,18 +682,48 @@ def _prepare(
 # --- the run -----------------------------------------------------------------------------
 
 
-def run_harness(config: HarnessConfig) -> RunReport:
-    """Execute a full stamped run: splits → bake → train → freeze → probe → figures/blobs."""
+def _to_objective_config(config: RunBase) -> Any:
+    """Resolve the objective dataclass for any supported RunBase subclass (JEPA, MoCo, MAE)."""
+    if isinstance(config, HarnessConfig):
+        return config.to_jepa_config()
+    if isinstance(config, MocoRunConfig):
+        return config.objective.to_moco_config(seed=config.seed)
+    if isinstance(config, (MaeRunConfig, GroupedMaeRunConfig)):
+        return config.objective.to_mae_config(seed=config.seed)
+    raise TypeError(f"unsupported run config type: {type(config).__name__}")
+
+
+def _objective_schedule(ocfg: Any) -> dict[str, Any]:
+    """Schedule fields recorded in checkpoints for any objective."""
+    sched: dict[str, Any] = {
+        "steps": ocfg.steps,
+        "lr": ocfg.lr,
+        "lr_final": ocfg.lr_final,
+        "warmup_steps": ocfg.warmup_steps,
+        "batch_size": ocfg.batch_size,
+    }
+    if hasattr(ocfg, "ema_start"):
+        sched["ema_start"] = ocfg.ema_start
+        sched["ema_end"] = ocfg.ema_end
+    return sched
+
+
+def run_harness(config: RunBase) -> RunReport:
+    """Execute a full stamped run: splits → bake → train → freeze → probe → figures/blobs.
+
+    Supports ``HarnessConfig`` (JEPA), ``MocoRunConfig``, ``MaeRunConfig``, and
+    ``GroupedMaeRunConfig``.
+    """
     # Pin the backend before anything is stamped: `device: null` must not reach the hash, or
     # MPS and CUDA would share one config_hash despite differing numerically.
     config = config.with_resolved_device()
     device = config.runtime.resolved_device()
-    jcfg = config.to_jepa_config()
+    ocfg = _to_objective_config(config)
     prep = _prepare(
         config.paths.pretrain_dir,
         config.paths.probe_dir,
         config.paths.out_dir,
-        config=jcfg,
+        config=ocfg,
         device=device,
         seed=config.seed,
         q=config.q,
@@ -706,32 +741,18 @@ def run_harness(config: HarnessConfig) -> RunReport:
     checkpointer = (
         TrainCheckpointer(
             out / "checkpoints",
-            every=jcfg.checkpoint_every,
-            # Retain the WHOLE trajectory, derived from the schedule rather than left at the
-            # default of 3. Brief I's arms lost steps 500-1500 to that default mid-measurement:
-            # the intermediate checkpoints are *evidence* (the label-blind 1C rule, the loss-vs-AUC
-            # read, a re-derivable collapse floor), not merely a crash backstop. Deliberately NOT a
-            # config field — how many files survive on disk cannot change a number the run produces,
-            # and `NON_DETERMINING` is a top-level-key deny-list, so a nested knob would move
-            # `config_hash` for pure housekeeping. The bound is in the config either way.
-            keep=jcfg.steps // jcfg.checkpoint_every + 2,
+            every=ocfg.checkpoint_every,
+            keep=ocfg.steps // ocfg.checkpoint_every + 2,
             config_hash=stamp.config_hash,
             normalisation_hash=config.normalisation.content_hash,
-            schedule={
-                "steps": jcfg.steps,
-                "lr": jcfg.lr,
-                "warmup_steps": jcfg.warmup_steps,
-                "ema_start": jcfg.ema_start,
-                "ema_end": jcfg.ema_end,
-                "batch_size": jcfg.batch_size,
-            },
+            schedule=_objective_schedule(ocfg),
         )
-        if jcfg.checkpoint_every
+        if ocfg.checkpoint_every
         else None
     )
 
     # pretrain with the collapse monitor live, resuming if a committed checkpoint is present
-    result = train_jepa(
+    result = train_objective(
         prep.jepa,
         prep.loader,
         device=device,
@@ -788,9 +809,11 @@ def run_harness(config: HarnessConfig) -> RunReport:
                 config,
                 checkpoint=result.checkpoint,
                 probing=ProbingConfig(
+                    smoke=config.smoke,
                     seed=config.seed,
                     ratios=config.ratios,
                     device=config.runtime.device,
+                    scheme_name=config.probing.scheme,
                     vote_count_min=_required_vote_floor(config),
                     effect_floor_file=_required_effect_floor_file(config),
                 ),
@@ -804,7 +827,7 @@ def run_harness(config: HarnessConfig) -> RunReport:
     return report
 
 
-def _required_vote_floor(config: HarnessConfig) -> float:
+def _required_vote_floor(config: RunBase) -> float:
     """The reliable-label floor, or a loud refusal — never a quiet 21."""
     floor = config.probing.vote_count_min
     if floor is None:
@@ -821,7 +844,7 @@ def _required_vote_floor(config: HarnessConfig) -> float:
     return float(floor)
 
 
-def _required_effect_floor_file(config: HarnessConfig) -> str:
+def _required_effect_floor_file(config: RunBase) -> str:
     """The effect-floor record's path, or a loud refusal — never a quiet inline 0.65."""
     path = config.probing.effect_floor_file
     if path is None:
@@ -861,7 +884,7 @@ def _probe_rows(cache: TensorCache, probe_dir: str | Path) -> tuple[Any, list[in
     return columns, ids
 
 
-def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = None) -> ProbeResult:
+def evaluate_probe(config: RunBase, *, checkpoint: str | Path | None = None) -> ProbeResult:
     """Probe-only re-evaluation on an existing frozen checkpoint — no retraining.
 
     Reuses the already-baked cache and the deterministic probe split, reloads the frozen
@@ -871,7 +894,7 @@ def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = Non
     config = config.with_resolved_device()  # as in `run_harness`: pin before stamping
     out = Path(config.paths.out_dir)
     ckpt = Path(checkpoint) if checkpoint is not None else out / "encoder.pt"
-    cache = _open_existing_cache(out)
+    cache = _open_existing_cache(out, config=config)
     rows, probe_ids = _probe_rows(cache, config.paths.probe_dir)
     # The deterministic probe split — identical to the one the training run used (same seed +
     # ratios), so the headline reproduces exactly. No pretrain split is needed here.
@@ -902,7 +925,14 @@ def evaluate_probe(config: HarnessConfig, *, checkpoint: str | Path | None = Non
         report.final_loss = prior.get("final_loss")
         report.collapse_png = prior.get("collapse_png")
     _write_report(out, report)
-    write_stamp(stamp, out, config.model_dump(mode="json"))
+    # Never overwrite the pretraining run's stamp.json with a probe-only snapshot; write the
+    # probe re-evaluation stamp beside it when a training stamp already exists.
+    if (out / "stamp.json").exists():
+        (out / "probe_eval_stamp.json").write_text(
+            json.dumps(dataclasses.asdict(stamp), indent=2, sort_keys=True) + "\n"
+        )
+    else:
+        write_stamp(stamp, out, config.model_dump(mode="json"))
     logger.info("probe-only re-eval: %s", report.go_no_go())
     return ProbeResult(
         auc=report.auc if report.auc is not None else float("nan"),
@@ -945,7 +975,7 @@ def build_label_provider(
 
 
 def probe_frozen_checkpoint(
-    config: HarnessConfig,
+    config: RunBase,
     *,
     checkpoint: str | Path | None = None,
     probing: ProbingConfig | None = None,
@@ -974,8 +1004,11 @@ def probe_frozen_checkpoint(
         probing
         if probing is not None
         else ProbingConfig(
+            smoke=config.smoke,
             seed=config.seed,
             ratios=config.ratios,
+            device=config.runtime.device,
+            scheme_name=scheme.name if scheme is not None else config.probing.scheme,
             vote_count_min=_required_vote_floor(config),
             effect_floor_file=_required_effect_floor_file(config),
         )
@@ -987,7 +1020,7 @@ def probe_frozen_checkpoint(
     )
     ckpt = Path(checkpoint) if checkpoint is not None else Path(config.paths.out_dir) / "encoder.pt"
 
-    cache = _open_existing_cache(config.paths.out_dir)
+    cache = _open_existing_cache(config.paths.out_dir, config=config)
     rows, corpus_ids = _probe_rows(cache, config.paths.probe_dir)
 
     # Only galaxies the cache actually holds can be probed; StampDataset intersects, but doing it
@@ -1038,7 +1071,7 @@ def _probe_and_persist(
     cache: Any,
     rows: dict[int, dict[str, Any]],
     probe_split: Any,
-    config: HarnessConfig,
+    config: RunBase,
     device: str,
     stamp: RunStamp,
     report: RunReport,
@@ -1175,17 +1208,19 @@ def _safe_umap_coords(x: np.ndarray) -> np.ndarray | None:
 # --- helpers -----------------------------------------------------------------------------
 
 
-def _make_stamp(config: HarnessConfig, data_snapshot: str) -> RunStamp:
+def _make_stamp(config: RunBase, data_snapshot: str) -> RunStamp:
     """Stamp `config`. Hashes `determining_dump()` — the experiment minus where it ran — and
     records the resolved backend as metadata alongside the hash it entered."""
     resolved = config.with_resolved_device()
+    objective = getattr(resolved, "objective", None)
+    checkpoint_every = getattr(objective, "checkpoint_every", 0)
     forfeits = (
         (["smoke"] if resolved.smoke else [])
         # An unset floor is a forfeited guarantee, not a neutral default: the run can then only
         # halt on a non-finite embedding, so a dead representation costs days before anyone looks.
         + ([] if resolved.collapse_floor is not None else ["collapse_floor_open"])
         # No mid-run checkpoint on a multi-hour job is a bet, and the artefact should say so.
-        + ([] if resolved.objective.checkpoint_every else ["no_mid_run_checkpoint"])
+        + ([] if checkpoint_every else ["no_mid_run_checkpoint"])
     )
     return RunStamp.create(
         resolved.determining_dump(),
@@ -1206,16 +1241,36 @@ def _probe_data_snapshot(probe_dir: str | Path, probe_ids: list[int]) -> str:
     return manifest_hash(probe_ids, "")
 
 
-def _open_existing_cache(out_dir: str | Path) -> TensorCache:
-    """Open the single hash-keyed cache under ``out_dir/cache`` without re-baking."""
+def _open_existing_cache(out_dir: str | Path, *, config: RunBase | None = None) -> TensorCache:
+    """Open the baked cache under ``out_dir/cache`` and enforce the pipeline-hash parity lock."""
     cache_root = Path(out_dir) / "cache"
+    if config is not None and config.normalisation is not None:
+        config.normalisation.assert_intact()
+        expected = pipeline_hash(_build_pipeline(q=config.q, freeze=config.normalisation))
+        target = cache_root / expected
+        if not target.is_dir():
+            raise FileNotFoundError(
+                f"expected parity-locked cache {target} (pipeline_hash={expected[:12]}), "
+                "but it does not exist; refusing to open a mismatched cache."
+            )
+        return TensorCache(target)
     subdirs = [p for p in cache_root.iterdir() if p.is_dir()] if cache_root.exists() else []
     if len(subdirs) != 1:
         raise FileNotFoundError(
             f"expected exactly one baked cache under {cache_root}, found {len(subdirs)}; "
             "run the full harness first to bake the cache."
         )
-    return TensorCache(subdirs[0])
+    cache = TensorCache(subdirs[0])
+    if cache.index.pipeline_hash != subdirs[0].name:
+        raise ValueError(
+            f"cache directory {subdirs[0].name} does not match index pipeline_hash "
+            f"{cache.index.pipeline_hash}"
+        )
+    return cache
+
+
+def _json_floats(values: list[float]) -> list[float | None]:
+    return [round(v, 8) if math.isfinite(v) else None for v in values]
 
 
 def _write_traces(out: Path, result: Any) -> None:
@@ -1230,14 +1285,17 @@ def _write_traces(out: Path, result: Any) -> None:
     equivalent where the peak separated them 2.87x), so the trajectory is an artefact.
     """
     payload = {
-        "losses": [round(v, 8) for v in result.losses],
-        "prediction_losses": [round(v, 8) for v in result.prediction_losses],
-        "sigreg_losses": [round(v, 8) for v in result.sigreg_losses],
-        "collapse_trace": result.collapse_trace,
+        "losses": _json_floats(result.losses),
+        "prediction_losses": _json_floats(result.prediction_losses),
+        "sigreg_losses": _json_floats(result.sigreg_losses),
+        "collapse_trace": {
+            k: [v if math.isfinite(v) else None for v in vals]
+            for k, vals in result.collapse_trace.items()
+        },
         "steps_completed": result.steps_completed,
         "halted": result.halted,
     }
-    (out / "traces.json").write_text(json.dumps(payload))
+    (out / "traces.json").write_text(json.dumps(payload, allow_nan=False))
 
 
 def _write_report(out: Path, report: RunReport) -> None:

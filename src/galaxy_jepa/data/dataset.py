@@ -78,7 +78,9 @@ class StampDataset(Dataset):
         image = torch.from_numpy(np.array(self.cache.get(oid)))
         if self._petro is not None:
             petro = float(self._petro[index])
-            row: Mapping[str, Any] = {}
+            row: Mapping[str, Any] = (
+                self.rows.get(oid, {}) if self.label_fraction_col is not None else {}
+            )
         else:
             row = self.rows.get(oid, {})
             raw = row.get("petroRad_r", float("nan"))

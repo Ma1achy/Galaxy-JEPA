@@ -118,6 +118,7 @@ def fit_normalise(
 
     vsum = vsumsq = nsum = nsumsq = None
     vpixels: np.ndarray | None = None
+    npixels_ch: np.ndarray | None = None
     npixels = 0
     for i in idx:
         raw = source[int(i)][0]
@@ -127,22 +128,27 @@ def fit_normalise(
             vsum, vsumsq = np.zeros(c), np.zeros(c)
             nsum, nsumsq = np.zeros(c), np.zeros(c)
             vpixels = np.zeros(c)
+            npixels_ch = np.zeros(c)
         assert vsumsq is not None and nsum is not None and nsumsq is not None
-        assert vpixels is not None
-        nsum += stretched.sum(axis=(1, 2))
-        nsumsq += (stretched**2).sum(axis=(1, 2))
+        assert vpixels is not None and npixels_ch is not None
+        fin = np.isfinite(stretched)
+        clean = np.where(fin, stretched, 0.0)
+        nsum += clean.sum(axis=(1, 2))
+        nsumsq += (clean**2).sum(axis=(1, 2))
+        npixels_ch += fin.sum(axis=(1, 2))
         npixels += stretched.shape[1] * stretched.shape[2]
 
         keep = validity_mask(raw) if valid_only else np.ones(stretched.shape[1:], dtype=bool)
-        masked = stretched * keep
+        keep = keep & fin.all(axis=0)
+        masked = np.where(keep, stretched, 0.0)
         vsum += masked.sum(axis=(1, 2))
         vsumsq += (masked**2).sum(axis=(1, 2))
         vpixels += float(keep.sum())
 
     assert vsum is not None and vsumsq is not None and nsum is not None and nsumsq is not None
-    assert vpixels is not None
+    assert vpixels is not None and npixels_ch is not None
     valid = _moments(vsum, vsumsq, vpixels)
-    naive = _moments(nsum, nsumsq, np.full_like(nsum, float(npixels)))
+    naive = _moments(nsum, nsumsq, np.maximum(npixels_ch, 1.0))
     frac = float(vpixels.sum() / max(npixels * len(vsum), 1))
     logger.info(
         "fit Normalise on %d/%d stamps (valid_only=%s, %.4f%% of pixels kept): mean=%s std=%s",
@@ -604,6 +610,10 @@ def bake_cache(
 
     if shape is None:
         raise ValueError("nothing to bake: source is empty and cache did not exist")
+    if n_new == 0 and (cache_dir / _INDEX_FILE).exists():
+        # No-op top-up: preserve existing index.json (including sidecar SHA-256 digests).
+        logger.info("cache %s: 0 new, %d total stamps (unchanged)", key[:12], len(object_ids))
+        return TensorCache(cache_dir)
     new_index = CacheIndex(
         pipeline_hash=key,
         normalisation_hash=normalisation_hash,

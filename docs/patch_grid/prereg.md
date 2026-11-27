@@ -1,7 +1,7 @@
-# Patch-size grid 16 → 8 → 4 (D11): pre-registration (HASHED 25 Nov 2026)
+# Patch-size grid 16 → 8 → 4 (D11): pre-registration (HASHED 25 Nov 2026; Amendment 1 HASHED 26 Nov 2026)
 
-**Status.** Approved by the user and hashed on 25 Nov 2026, before any trained 8×8 or 4×4 checkpoint exists. The hash is the SHA-1 of the section from "## Pre-registration" to the next level-2 heading (trailing
-newline): **`0e16af84ba079cfbd2d352194d4b193c14831bd2`**, also in `docs/patch_grid/prereg.sha1`, which the launcher, embedding and scoring programs check.
+**Status.** Approved by the user and hashed on 25 Nov 2026 (`0e16af84ba079cfbd2d352194d4b193c14831bd2`), amended on 26 Nov 2026 (Amendment 1, before any trained 8×8 or 4×4 checkpoint exists). The current hash of the section from "## Pre-registration" to the next level-2 heading (trailing
+newline) is **`f849acbc27fd5c20d8d8923451599c808d03946f`**, also in `docs/patch_grid/prereg.sha1`, which the launcher, embedding and scoring programs check.
 Design draft 24 Nov 2026 from B1, B1b, Part A and the cost estimate (`docs/patch_ablation_cost.md`); [CC] items completed 24–25 Nov by Claude Code; the user's decisions of 24 and 25 Nov applied (paired design, three seeds, raw
 primary, B2b removed, |G| + b ≤ E, F7's divergence rule, no ρ gate, SAME in the E form, raw-only groups, the pinned code of record, the expected-UNRESOLVED statement). Ambiguities and mismatches are in `docs/patch_grid/flags.md`.
 A change to anything in the section or to a pinned file after this is an amendment: the user's decision, dated and labelled, never an edit in place.
@@ -104,18 +104,18 @@ whatever stage 1 looks like; §7's rules apply throughout.
   | `configs/moco.yaml` | `8aa9d3ddaed785e34751477eb925d163bb45d89e` |
   | `configs/mae.yaml` | `4ccbd4be31b55d993558780a27b8854b8e9e9018` |
   | `configs/probe.yaml` | `c0ddb4e322b70e90adfaf6b2d7760ba42003d28b` |
-  | `src/galaxy_jepa/objectives/jepa.py` | `992653bcc3164fefe9530625f1bf909a0ea7ed51` |
-  | `src/galaxy_jepa/objectives/moco.py` | `00e52331967d062c706207c85b2bde8868505d5b` |
+  | `src/galaxy_jepa/objectives/jepa.py` | `6fc3b0bc12e0f1f4b0277759d1458c74f632504d` |
+  | `src/galaxy_jepa/objectives/moco.py` | `e6cbcd9fd9addec31dd7918f7adf6c23d6cb7e8a` |
   | `src/galaxy_jepa/objectives/mae.py` | `bcb9b0f1ffbb16571a0c28f467a5e284ff65ff80` |
   | `src/galaxy_jepa/objectives/loop.py` | `4853f30a971c4eef8a488f69a491807e5c1ba18b` |
-  | `src/galaxy_jepa/masking/blocks.py` | `2120144c2ba8fc83dee47b659013e0dd9efc84db` |
+  | `src/galaxy_jepa/masking/blocks.py` | `6c1415fb3e22ceca651be207cfb545cd0dddefd7` |
   | `src/galaxy_jepa/models/vit.py` | `c5f3d35daad4b4986f063e3657c96eda6415f592` |
   | `src/galaxy_jepa/callbacks/collapse.py` | `88133c65de5b29935008ff569c578237e31bfa68` |
   | `src/galaxy_jepa/harness.py` | `ad9d6a028dd2b7a00ac93697b57ced348a309cf3` |
   | `artifacts/almagest_visibility.py` (B1) | `9e1c0e112c272af91b246278ca6ecb38bec27018` |
   | `artifacts/almagest_axes.py` | `92235371250cdee52d9d29295ebce3a3e5f411c6` |
   | `src/galaxy_jepa/objectives/mae_grouped.py` | `e813951f399dab7256f1bcd3025f11b039cf1816` |
-  | `src/galaxy_jepa/masking/precomputed.py` | `8129556fdc7ed890642a11e3ab368a85c2ad6319` |
+  | `src/galaxy_jepa/masking/precomputed.py` | `9824300993d85888146c0a7ae64791c2dbf495b4` |
   | `configs/patch_grid/jepa_p16.yaml` | `22582fe7ed0a8fff7d5f850908e730c29f900125` |
   | `configs/patch_grid/jepa_p4.yaml` | `2236ca1aee92032dc93e77dd2891ec170ef78601` |
   | `configs/patch_grid/jepa_p8.yaml` | `012f417584ae98d785b630b1b73543b67e54843d` |
@@ -125,8 +125,8 @@ whatever stage 1 looks like; §7's rules apply throughout.
   | `configs/patch_grid/moco_p16.yaml` | `515e47d12bede2b3d01d89d30d5c204981154f12` |
   | `configs/patch_grid/moco_p4.yaml` | `d3eb9535dd6138eaf121c9bb20e60aa1b83ea024` |
   | `configs/patch_grid/moco_p8.yaml` | `0cf54a066286f78a330ca8c825964f1c521e2f9b` |
-  | `artifacts/patch_grid_run.py` | `05ae8252e3c28acbea80782ad12ac1eb461ba3b7` |
-  | `artifacts/patch_grid_masks.py` | `7eb2669df188fcce758dc73ff289f86cc268aa11` |
+  | `artifacts/patch_grid_run.py` | `8e2b62713176f42e414cebc29b66c8ae4fc5e51f` |
+  | `artifacts/patch_grid_masks.py` | `914ab69b00872b59c5eac015f9262490b6decb1d` |
   | `docs/patch_grid/union_ids.npy` | `d5cba4b7debce7693a8181b69688fc1d3957260b` |
   | `artifacts/patch_grid_embed.py` | `b0afb12ccbb9615674d3cda459824270aca22ec6` |
   | `artifacts/patch_grid_auc.py` | `ccd6cdf4d9cfb021e71f3691b714f85366295446` |
@@ -199,6 +199,12 @@ whatever stage 1 looks like; §7's rules apply throughout.
   | `docs/almagest/a1_visibility_b1.json` | `a9900b3159943a824412512c88c78041d7fa46d9` |
 
   The launcher, the embedding program and the scoring programs check this section's own SHA-1 (`docs/patch_grid/prereg.sha1`) and every file in this table before real work, and refuse on a mismatch.
+
+- **Amendment 1 (26 Nov 2026, user-approved before any GPU run; supersedes hash `0e16af84`):** Four bugs discovered by pre-rental audit fixed in the pinned code of record:
+  1. `artifacts/patch_grid_masks.py`: cast `petro` and `pixel_scale` to `float32` so precomputed weight maps match `objectives/loop.py:_to_device`'s `float32` downcast bit-for-bit on patch-4 boundaries.
+  2. `artifacts/patch_grid_run.py`: compute resumed `done` from `ck.latest()["step"]` (committed `checkpoints.json`) rather than globbing uncommitted `ckpt_*.pt` files, preventing silent under-training on preemption during commit.
+  3. `src/galaxy_jepa/objectives/moco.py`: run InfoNCE normalization, cosine logits `/ tau`, `F.cross_entropy`, queue updates, and Gaussian blur in `fp32` (autocast disabled), matching `sigreg.py` (no-op in fp32 Mac runs).
+  4. `src/galaxy_jepa/masking/blocks.py`, `src/galaxy_jepa/masking/precomputed.py` (`precomputed-masks-v2`), and `src/galaxy_jepa/objectives/jepa.py`: fixed context aspect to square `(1.0, 1.0)`, unweighted uniform context sampling (`docs/masking.md` §4.3), random min-keep context subsampling instead of raster truncation, non-leaking target-exclusion fallback, and independent per-block `Predictor` passes (true I-JEPA). **Consequence for the device control (§6):** GPU patch-16 JEPA now tests device/precision + the fixed I-JEPA masker against Mac A1–A3 (which used the pre-amendment masker); MoCo and MAE remain pure device/precision controls, and all Q1/Q2 step comparisons continue to use the GPU patch-16 references.
 
 ### 4. Evaluation set, frozen before any training
 

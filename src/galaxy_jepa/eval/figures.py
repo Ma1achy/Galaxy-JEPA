@@ -50,7 +50,7 @@ def _axes(figsize: tuple[float, float]):
 
 
 def figure_ladder(ladder: LadderResult, out_path: str | Path) -> Path:
-    """Figure 1 — per-feature rung + AUC, bars coloured by rung, ordered worst→best."""
+    """Figure 1 — per-feature rung + AUC, bars coloured by rung (R1→R4, highest AUC first)."""
     plt, fig, ax = _axes((7, max(3, 0.5 * len(ladder.verdicts) + 1)))
     items = sorted(ladder.verdicts.values(), key=lambda v: (v.rung, -v.metrics.get("auc", 0.0)))
     names = [v.feature for v in items]

@@ -65,7 +65,7 @@ def test_three_way_is_disjoint_exhaustive_and_deterministic(probe, seed):
     assert (a.train | a.val | a.test) == frozenset(probe)
 
 
-@settings(max_examples=20)
+@settings(max_examples=20, deadline=None)
 @given(seed=st.integers(min_value=0, max_value=2**31 - 1))
 def test_three_way_hits_ratios_at_scale(seed):
     # Large n: the uniform hashed coordinate should land near 70/15/15 (loose tolerance).

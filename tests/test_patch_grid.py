@@ -151,9 +151,12 @@ def test_stored_draws_rebuild_sample_exactly(grid):
     for s in range(12):
         w = _maps(6, grid, s)
         dims, tl = draw(masker, w, seed=100 + s)
-        ctx, tgt = rebuild(dims, tl, grid)
-        rctx, rtgt = masker.sample(w, seed=100 + s)
-        assert torch.equal(ctx, rctx) and torch.equal(tgt, rtgt)
+        ctx, tgts = rebuild(dims, tl, grid, seed=100 + s)
+        rctx, rtgts = masker.sample(w, seed=100 + s)
+        assert torch.equal(ctx, rctx)
+        assert len(tgts) == len(rtgts) and all(
+            torch.equal(a, b) for a, b in zip(tgts, rtgts, strict=True)
+        )
 
 
 def test_the_precomputed_masker_replays_and_refuses_a_different_batch(tmp_path):
@@ -174,7 +177,10 @@ def test_the_precomputed_masker_replays_and_refuses_a_different_batch(tmp_path):
     pm = PrecomputedMasker(tmp_path, grid_size=grid, config=cfg, train_seed=7)
     for s in range(steps):
         a, b = pm.sample(maps[s], seed=7 + s), masker.sample(maps[s], seed=7 + s)
-        assert torch.equal(a[0], b[0]) and torch.equal(a[1], b[1])
+        assert torch.equal(a[0], b[0])
+        assert len(a[1]) == len(b[1]) and all(
+            torch.equal(t1, t2) for t1, t2 in zip(a[1], b[1], strict=True)
+        )
     with pytest.raises(ValueError, match="weight maps differ"):
         pm.sample(maps[1], seed=7 + 2)
     with pytest.raises(IndexError):
@@ -183,6 +189,30 @@ def test_the_precomputed_masker_replays_and_refuses_a_different_batch(tmp_path):
         PrecomputedMasker(tmp_path, grid_size=grid, config=cfg, train_seed=8)
     with pytest.raises(ValueError, match="grid_size"):
         PrecomputedMasker(tmp_path, grid_size=32, config=cfg, train_seed=7)
+
+
+def test_moco_infonce_and_queue_stay_fp32_under_bf16_autocast():
+    from galaxy_jepa.objectives.moco import Moco, MocoConfig
+
+    enc = seed_init(0, PX, {"patch_size": 16, **SMALL})
+    moco = Moco(
+        enc,
+        MocoConfig(
+            steps=4,
+            batch_size=2,
+            queue=8,
+            proj_hidden=16,
+            proj_dim=8,
+            window_min=2,
+            window_max=3,
+        ),
+    )
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        parts = moco.loss_parts({"image": _images(2)}, seed=0)
+    assert parts.total.dtype == torch.float32
+    assert moco.queue.dtype == torch.float32
+    parts.total.backward()
+    assert torch.isfinite(parts.total)
 
 
 def test_patchify_group_pixels_are_the_group(tmp_path):

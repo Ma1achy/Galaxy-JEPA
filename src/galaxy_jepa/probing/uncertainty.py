@@ -24,7 +24,6 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from galaxy_jepa.data.metadata import featured_label
 from galaxy_jepa.data.splits import assert_uncertainty_firewall, partition_uncertainty
 from galaxy_jepa.probing.extract import EmbeddingMatrix, LabelProvider
 from galaxy_jepa.probing.logistic import Embeddings, probe_direction
@@ -81,17 +80,22 @@ def permutation_p(
     """
     rng = np.random.default_rng(seed)
     observed = spearman(distances, fractions)
+    if not np.isfinite(observed):
+        return 1.0
     frac = np.asarray(fractions, dtype=np.float64)
     null = np.empty(n_perm, dtype=np.float64)
     for i in range(n_perm):
         null[i] = spearman(distances, rng.permutation(frac))
+    valid_null = np.isfinite(null)
+    if not valid_null.any():
+        return 1.0
     if method == "two_sided":
-        hits = int(np.sum(np.abs(null) >= abs(observed)))
+        hits = int(np.sum(np.abs(null[valid_null]) >= abs(observed)))
     elif method == "greater":
-        hits = int(np.sum(null >= observed))
+        hits = int(np.sum(null[valid_null] >= observed))
     else:
         raise ValueError(f"unknown permutation method {method!r}")
-    return float((1 + hits) / (1 + n_perm))
+    return float((1 + hits) / (1 + int(valid_null.sum())))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -114,6 +118,8 @@ def uncertainty_geometry(
     feature: str,
     ids: Sequence[int],
     *,
+    train_ids: Sequence[int] | None = None,
+    test_ids: Sequence[int] | None = None,
     low: float = 0.2,
     high: float = 0.8,
     c: float = 1.0,
@@ -123,30 +129,59 @@ def uncertainty_geometry(
 ) -> UncertaintyGeometry:
     """Fit the axis on the extremes, project the middle, rank-correlate with the vote fraction.
 
-    Reuses the ``data/splits.py`` firewall: the fit set is the consensus extremes only and
-    ``assert_uncertainty_firewall`` raises if any ambiguous-middle fraction leaked into it —
-    so the non-circularity is enforced structurally, not by convention.
+    When ``train_ids`` and ``test_ids`` are supplied (the canonical three-way split composition,
+    ``docs/spec/splits.md``), extremes are taken strictly from ``train_ids`` and the ambiguous
+    middle strictly from ``test_ids``. Reuses the ``data/splits.py`` firewall so non-circularity
+    is enforced structurally.
     """
     # Same eligibility the ladder uses, so the axis is fitted on the same population its rung
     # verdict was assigned on (a different population here would silently change the claim).
-    present = labels.eligible(feature, [int(o) for o in ids if int(o) in matrix.index])
-    fractions: dict[object, float] = {
-        o: float(labels.vote_fraction(feature, [o])[0]) for o in present
-    }
-    fit_ids, middle_ids = partition_uncertainty(fractions, low=low, high=high)
+    fit_pool = train_ids if train_ids is not None else ids
+    eval_pool = test_ids if test_ids is not None else ids
+    present_fit = labels.eligible(feature, [int(o) for o in fit_pool if int(o) in matrix.index])
+    present_eval = labels.eligible(feature, [int(o) for o in eval_pool if int(o) in matrix.index])
 
-    fit_list = [o for o in present if o in fit_ids]
-    middle_list = [o for o in present if o in middle_ids]
-    assert_uncertainty_firewall([fractions[o] for o in fit_list], low=low, high=high)
+    fit_fracs: dict[object, float] = {}
+    for o in present_fit:
+        v = float(labels.vote_fraction(feature, [o])[0])
+        if np.isfinite(v):
+            fit_fracs[o] = v
+    eval_fracs: dict[object, float] = {}
+    for o in present_eval:
+        v = float(labels.vote_fraction(feature, [o])[0])
+        if np.isfinite(v):
+            eval_fracs[o] = v
+
+    fit_ids_set, _ = partition_uncertainty(fit_fracs, low=low, high=high)
+    _, middle_ids_set = partition_uncertainty(eval_fracs, low=low, high=high)
+
+    fit_list = [o for o in present_fit if o in fit_ids_set]
+    middle_list = [o for o in present_eval if o in middle_ids_set]
+    assert_uncertainty_firewall([fit_fracs[o] for o in fit_list], low=low, high=high)
 
     rows_fit = matrix.rows_for(fit_list)
-    y_fit = np.asarray([featured_label(fractions[o]) for o in fit_list], dtype=np.int64)
-    fit_emb = Embeddings(matrix.x[rows_fit], y_fit, np.asarray([fractions[o] for o in fit_list]))
+    y_fit = np.asarray([int(fit_fracs[o] >= labels.threshold) for o in fit_list], dtype=np.int64)
+    if len(fit_list) < 2 or np.unique(y_fit).size < 2:
+        # Rare features with single-class extremes cannot fit a binary axis — return honest null.
+        rows_mid = matrix.rows_for(middle_list)
+        mid_fractions = np.asarray([eval_fracs[o] for o in middle_list], dtype=np.float64)
+        return UncertaintyGeometry(
+            feature,
+            float("nan"),
+            float("nan"),
+            1.0,
+            len(fit_list),
+            len(middle_list),
+            np.full(len(rows_mid), float("nan"), dtype=np.float64),
+            mid_fractions,
+        )
+
+    fit_emb = Embeddings(matrix.x[rows_fit], y_fit, np.asarray([fit_fracs[o] for o in fit_list]))
     direction = probe_direction(fit_emb, name=feature, c=c)
 
     rows_mid = matrix.rows_for(middle_list)
     distances = project(matrix.x[rows_mid], direction.w_unit)
-    mid_fractions = np.asarray([fractions[o] for o in middle_list], dtype=np.float64)
+    mid_fractions = np.asarray([eval_fracs[o] for o in middle_list], dtype=np.float64)
 
     if len(middle_list) < 3 or np.unique(mid_fractions).size < 2:
         # too few ambiguous galaxies to rank — an honest null, not an error

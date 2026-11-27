@@ -22,40 +22,59 @@ pytestmark = pytest.mark.invariant
 FAKE_VALUE = "planted" + "-value-" + "0123456789abcdef"  # stands in for a .env token
 JWT = "ey" + "J" + "a" * 12 + "." + "b" * 12
 ASSIGN = "pass" + "word = " + "'" + "c" * 10 + "'"
+UNQUOTED_ASSIGN = "api_" + "key=" + "deadbeef12345678"
 UUID = "-".join(["0" * 8, "1" * 4, "2" * 4, "3" * 4, "4" * 12])
 ANTHROPIC = "sk-" + "ant-" + "d" * 20
+BEARER = "Authori" + "zation: Bea" + "rer " + "e" * 16
 CLEAN = "def f(x):\n    return x + 1  # nothing secret here\n"
 
 
 @pytest.fixture
 def env(tmp_path: Path) -> Path:
     p = tmp_path / ".env"
-    p.write_text(f"# comment\nSCISERVER_TOKEN={FAKE_VALUE}\nDEBUG=1\n")
+    p.write_text(
+        f"# comment\nSCISERVER_TOKEN={FAKE_VALUE}\nDEBUG=1\n"
+        "R2_ENDPOINT=https://example-acct-12345.r2.example.invalid/\n"
+    )
     return p
 
 
 def test_env_values_reads_values_and_skips_comments(env: Path) -> None:
-    assert C.env_values(env) == [FAKE_VALUE, "1"]
+    vals = C.env_values(env)
+    assert FAKE_VALUE in vals and "1" in vals
+    assert "example-acct-12345.r2.example.invalid" in vals
 
 
 def test_short_env_values_are_not_matched() -> None:
-    assert C.scan("DEBUG=1 and 1 again", ["1"]) == (0, [0, 0, 0, 0])
+    assert C.scan("DEBUG=1 and 1 again", ["1"]) == (0, [0, 0, 0, 0, 0])
 
 
 @pytest.mark.parametrize(
     "text, expect",
     [
-        (f"x = {FAKE_VALUE}", (1, [0, 0, 0, 0])),
-        (JWT, (0, [1, 0, 0, 0])),
-        (ASSIGN, (0, [0, 1, 0, 0])),
-        (UUID, (0, [0, 0, 1, 0])),
-        (ANTHROPIC, (0, [0, 0, 0, 1])),
-        ("the sk-" + "ant- prefix alone", (0, [0, 0, 0, 0])),
-        (CLEAN, (0, [0, 0, 0, 0])),
+        (f"x = {FAKE_VALUE}", (1, [0, 0, 0, 0, 0])),
+        (JWT, (0, [1, 0, 0, 0, 0])),
+        (ASSIGN, (0, [0, 1, 0, 0, 0])),
+        (UNQUOTED_ASSIGN, (0, [0, 1, 0, 0, 0])),
+        (UUID, (0, [0, 0, 1, 0, 0])),
+        (ANTHROPIC, (0, [0, 0, 0, 1, 0])),
+        (BEARER, (0, [0, 0, 0, 0, 1])),
+        ("the sk-" + "ant- prefix alone", (0, [0, 0, 0, 0, 0])),
+        ("password=None\ntoken=default_name\n", (0, [0, 0, 0, 0, 0])),
+        (CLEAN, (0, [0, 0, 0, 0, 0])),
     ],
 )
 def test_scan_counts_each_kind(text: str, expect: tuple[int, list[int]]) -> None:
     assert C.scan(text, [FAKE_VALUE]) == expect
+
+
+def test_cli_handles_binary_files_without_crashing(tmp_path: Path, env: Path) -> None:
+    blob = tmp_path / "weights.bin"
+    blob.write_bytes(b"\x80\x81\x82\xff" + CLEAN.encode())
+    assert C.main(["--file", str(blob), "--env", str(env)]) == 0
+    dirty_blob = tmp_path / "dirty.bin"
+    dirty_blob.write_bytes(b"\x80\xff" + FAKE_VALUE.encode() + b"\xfe")
+    assert C.main(["--file", str(dirty_blob), "--env", str(env)]) == 1
 
 
 def test_cli_flags_a_planted_secret_and_passes_a_clean_file(tmp_path: Path, env: Path) -> None:

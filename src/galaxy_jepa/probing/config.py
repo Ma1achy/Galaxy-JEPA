@@ -23,6 +23,7 @@ Everything else here is a trigger threshold, not one of the five, and is marked 
 
 from __future__ import annotations
 
+import warnings
 from typing import ClassVar, Literal
 
 from pydantic import SerializeAsAny, model_validator
@@ -97,7 +98,11 @@ class ProbingConfig(RunConfig):
     #: enters the hash once resolved — the loaded record, ``content_hash`` included, rides in
     #: ``effect_floor_freeze`` — and leaving the path out also keeps every config that never sets
     #: it hashing exactly as it did before the field existed.
-    NON_DETERMINING: ClassVar[frozenset[str]] = RunConfig.NON_DETERMINING | {"effect_floor_file"}
+    NON_DETERMINING: ClassVar[frozenset[str]] = RunConfig.NON_DETERMINING | {
+        "effect_floor_file",
+        "untrained_bank_path",
+        "conditional_untrained_bank_path",
+    }
 
     # --- run marking -------------------------------------------------------------------
     # A smoke exercises the load path; it is NOT a result. Setting this stamps ``smoke`` into
@@ -197,9 +202,11 @@ class ProbingConfig(RunConfig):
     # K, for `untrained_z`. `nulls.assert_untrained_bank_resolution` refuses below `nulls.K_MIN`,
     # because this K is what the sd in every z-denominator is estimated from.
     n_untrained_seeds: int = 30
-    # Where the K-seed bank lives. Keyed on (model_config, split, seed) by the builder, so a bank
-    # built against a different architecture must refuse rather than be silently reused.
+    # Where the K-seed bank lives. Keyed on (model_config, split, population, seed) by the builder,
+    # so a bank built against a different architecture or population refuses rather than silently
+    # reusing the wrong bar.
     untrained_bank_path: str | None = None
+    conditional_untrained_bank_path: str | None = None
 
     # --- multiplicity correction (2B) — GROUNDED, decision (3) -------------------------
     # Benjamini–Yekutieli, chosen knowingly over BH: the existence tests are correlated *by
@@ -309,6 +316,16 @@ class ProbingConfig(RunConfig):
                 "a smoke may score without its effect-floor record (set smoke: true — its outputs "
                 "are then marked 'FLOOR BYPASSED' and no verdict reader will report them). The "
                 "name is stamped onto a bypassed run's ledger, never declared."
+            )
+        known = {"reduced_permutations"}
+        unknown = [h for h in self.escape_hatches if h not in known]
+        if unknown:
+            warnings.warn(
+                f"escape_hatches contains unrecognised name(s) {unknown!r} "
+                f"(known: {sorted(known)}). Check for typos; unknown names are stamped onto the "
+                "ledger but disable no guard.",
+                UserWarning,
+                stacklevel=2,
             )
         return self
 

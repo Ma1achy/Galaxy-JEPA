@@ -24,12 +24,11 @@ import torch
 from galaxy_jepa.masking.blocks import (
     MaskConfig,
     MultiBlockMasker,
-    _block_dims,
-    _block_tokens,
-    _sample_topleft,
+    draw_blocks,
+    rebuild_masks,
 )
 
-SCHEME = "precomputed-masks-v1"
+SCHEME = "precomputed-masks-v2"
 
 
 def maps_digest(weight_maps: np.ndarray) -> np.uint64:
@@ -42,42 +41,18 @@ def maps_digest(weight_maps: np.ndarray) -> np.uint64:
 def draw(
     masker: MultiBlockMasker, weight_maps: np.ndarray, *, seed: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """``sample``'s generator calls, in its order → block dims ``(5, 2)`` (4 targets, context) and
-    top-left corners ``(B, 5, 2)``. The exactness test replays these against ``sample`` itself."""
-    rng = np.random.default_rng(seed)
-    cfg, g, n = masker.config, masker.grid_size, masker.n_tokens
-    dims = [
-        _block_dims(cfg.target_scale, cfg.target_aspect, n, g, rng)
-        for _ in range(cfg.n_target_blocks)
-    ]
-    dims.append(_block_dims(cfg.context_scale, cfg.context_scale, n, g, rng))
-    tl = []
-    for w_map in weight_maps:
-        tl.append([_sample_topleft(w_map, h, w, rng) for (h, w) in dims])
-    return np.asarray(dims, dtype=np.uint8), np.asarray(tl, dtype=np.uint8)
+    """``sample``'s generator calls, in its order → block dims ``(n_target + 1, 2)`` and
+    top-left corners ``(B, n_target + 1, 2)``. The exactness test replays these against
+    ``sample`` itself."""
+    dims, tl = draw_blocks(masker.grid_size, masker.config, weight_maps, seed=seed)
+    return dims.astype(np.uint8), tl.astype(np.uint8)
 
 
-def rebuild(dims: np.ndarray, tl: np.ndarray, grid: int) -> tuple[torch.Tensor, torch.Tensor]:
+def rebuild(
+    dims: np.ndarray, tl: np.ndarray, grid: int, *, seed: int = 0
+) -> tuple[torch.Tensor, list[torch.Tensor]]:
     """The index tensors ``sample`` returns, from the stored draws (its own construction)."""
-    n_t = len(dims) - 1
-    contexts, targets = [], []
-    for corners in tl:
-        target_tokens = np.concatenate(
-            [
-                _block_tokens(int(r), int(c), int(h), int(w), grid)
-                for (r, c), (h, w) in zip(corners[:n_t], dims[:n_t], strict=True)
-            ]
-        )
-        (cr, cc), (ch, cw) = corners[n_t], dims[n_t]
-        ctx_tokens = _block_tokens(int(cr), int(cc), int(ch), int(cw), grid)
-        context = np.setdiff1d(ctx_tokens, target_tokens, assume_unique=False)
-        if context.size == 0:
-            context = ctx_tokens[:1]
-        targets.append(target_tokens)
-        contexts.append(context)
-    keep = min(c.size for c in contexts)
-    context_idx = np.stack([np.sort(c[:keep]) for c in contexts])
-    return torch.from_numpy(context_idx).long(), torch.from_numpy(np.stack(targets)).long()
+    return rebuild_masks(dims, tl, grid, seed=seed)
 
 
 class PrecomputedMasker:
@@ -109,7 +84,7 @@ class PrecomputedMasker:
 
     def sample(
         self, weight_maps: np.ndarray, *, seed: int | None = None
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, list[torch.Tensor]]:
         if seed is None:
             raise ValueError("precomputed masks need the step's seed (train_seed + step)")
         step = int(seed) - self.train_seed
@@ -120,7 +95,12 @@ class PrecomputedMasker:
                 f"precomputed masks, step {step}: this batch's weight maps differ from those the "
                 "masks were drawn from (data order, boxes or batch size changed)"
             )
-        return rebuild(np.asarray(self.dims[step]), np.asarray(self.tl[step]), self.grid_size)
+        return rebuild(
+            np.asarray(self.dims[step]),
+            np.asarray(self.tl[step]),
+            self.grid_size,
+            seed=int(seed),
+        )
 
 
 def _cfg_json(c: MaskConfig) -> dict:

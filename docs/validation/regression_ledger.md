@@ -1,0 +1,54 @@
+# Scientific Regression & Mutation Ledger (`REG-001`..`REG-020` + `MUT-01`..`MUT-21b`)
+
+Every confirmed historical defect from the audit remediation brief (§12) plus newly discovered numerical/validation defects is tracked below with its before/after behaviour, exact regression test, and isolated mutation kill proof.
+
+---
+
+## Part 1 — Historical & Newly Discovered Defect Ledger
+
+| ID | Defect | Historical Behaviour | Corrected Behaviour | Exact Verification Test | Commit |
+|---|---|---|---|---|---|
+| **REG-001** | Joint target-block prediction coupling | All target blocks concatenated into one predictor call, leaking inter-block query attention | Each target block predicted independently from `(z_c, ctx_idx, t_i)` | `tests/test_differential_ijepa.py::test_reg001_independent_target_block_prediction_and_gradient_isolation` | `f36ce88`, `a0c947c` |
+| **REG-002** | Bbox-biased initial context placement | Initial context top-left corner sampled using galaxy-biased weight map | Initial context top-left sampled uniformly; $\beta$ biases target blocks only | `tests/test_masking_rigour.py::test_reg002_initial_context_placement_independent_of_beta_and_bbox` | `f36ce88`, `a0c947c` |
+| **REG-003** | Context scale passed as aspect ratio | Context block dimensions used non-square aspect range instead of square $(1, 1)$ | Context block uses square aspect (`h == w`); target PMF matches exact enumeration | `tests/test_masking_rigour.py::test_reg003_context_aspect_is_square_and_enumerated_target_law_matches` | `f36ce88`, `a0c947c` |
+| **REG-004** | Raster-order context truncation | Batch truncation `ctx[:min_keep]` systematically dropped bottom-right spatial tokens | Uniform subsampling without replacement preserves equal spatial retention | `tests/test_masking_rigour.py::test_reg004_context_min_keep_subsampling_is_uniform_not_raster_truncated` | `f36ce88`, `a0c947c` |
+| **REG-005** | Leaking empty-context fallback | Fallback could re-introduce target tokens into context if overlap emptied context | Strict non-overlap enforced; fails closed (`ValueError`) if targets cover full grid; pixel firewall verified end-to-end | `tests/test_masking_rigour.py::test_reg005_end_to_end_encoder_pixel_firewall` | `f36ce88`, `a0c947c` |
+| **REG-006** | Unconverged / undamped Newton logistic solver (`axes_h.py`) | Undamped Newton diverged on ill-conditioned/near-separable regimes (`h1.json`, `h2a.json` corrupted) | Backtracking Armijo damped Newton with strict `\|\|grad\|\|_inf <= tol` convergence matching `sklearn` | `tests/test_probing_rigour.py::test_reg006_damped_logistic_and_axes_h_parity_on_hard_regimes` | `7465d50`, `ce18da4`, `a0c947c` |
+| **REG-007** | Partial Spearman re-ranking, residue correlation & frozen-residual bootstrap (`axes_b.py`) | Re-ranked OLS residuals, lacked relative residual-norm guard (`partial` returned `1.0` on nuisance-collinear inputs), and froze residuals outside bootstrap | Exact Pearson-on-rank-residuals + relative residual-norm guard (`NaN` on collinear inputs) in both `probing/stats.py` and `axes_b.py::partial`, plus full paired-row bootstrap (`probing/stats.py::partial_spearman_bootstrap` and `axes_b.py::boot_partial_full` preserving quadratic `[1, R, R^2]` nuisance terms) | `tests/test_probing_rigour.py::test_reg007_partial_spearman_vs_reranked_residuals_and_chunked_bootstrap` | `7465d50`, `ce18da4`, `a0c947c`, PR-review fix |
+| **REG-008** | Wrong covariance factor in Gaussian map-null (`axes_b_mapnull.py`) | Sampled with wrong factor (`inv(S).T @ z` / `Sigma @ z`) instead of Cholesky `S @ z` | Uses Cholesky factor `L @ z` with verified empirical covariance matching $\Sigma$ | `tests/test_probing_rigour.py::test_reg008_cholesky_covariance_sampling_matches_target_sigma` | `7465d50`, `a0c947c` |
+| **REG-009** | Prefix-only cache keys & unverified bank provenance | Cache keys hashed prefix/length only, colliding on interior ID or population swaps; bank provenance unchecked | Full sorted-ID + population hash (`untrained_split_key`) and checkpoint SHA-1 verification (`BankProvenanceError`) | `tests/test_probing_rigour.py::test_reg009_cache_keys_and_bank_provenance_bind_full_ids_and_population` | `2b01f73`, `a0c947c` |
+| **REG-010** | Zero-inflated nuisance matching collapse | Quantile edges merged zero atom with positive tail, leaving zero stratum imbalanced | Dedicated zero stratum isolated cleanly before positive-tail quantiles; exact 1:1 balance inside zero atom | `tests/test_probing_rigour.py::test_reg010_and_reg014_matching_edge_cases_and_retention` | `2b01f73`, `a0c947c` |
+| **REG-011** | Miscalibrated C3 1-df plug-in threshold | `K_ORIGINAL` yielded ~16.8% empirical Type-I error at nominal $\alpha = 0.05$ | Out-of-sample calibrated `k_plugin_95` ($\approx 5.85$) yields $0.050 \pm 0.005$ on independent draws | `tests/test_probing_rigour.py::test_reg011_c3_plugin_independent_out_of_sample_validation` | `e0274a3`, `a0c947c` |
+| **REG-012** | Preprocessing / split leakage risk | Potential for test-partition statistics to influence train-fitted scalers or probes | Poisoned test inputs & flipped test labels leave train-fitted models bit-identical while changing test AUC | `tests/test_probing_rigour.py::test_reg012_poisoned_test_partition_does_not_affect_train_fitted_artefacts` | `a0c947c` |
+| **REG-013** | Asymmetric entangled decorrelation | `(A, B)` vs `(B, A)` could differ on eligibility/order; earlier draft also stored cosine in `matched_auc` | Jointly eligible sorted rows + symmetric D24 `_retained` across `(A\|B)` and `(B\|A)` with bit-identical verdict, `retention`, `matched_auc`, and `bar_matched` | `tests/test_probing_rigour.py::test_reg013_entangled_map_symmetric_under_feature_order_swap` | `2b01f73`, `a0c947c`, PR-review fix |
+| **REG-014** | Undefined retention verdict at non-positive unmatched gain | Zero or negative `(a - c)` denominator could produce spurious `SURVIVES` | Non-positive unmatched gain returns `UNRESOLVED` deterministically (verified with `n_matched_test=600 >= 500` and `m_lo > c_m`) | `tests/test_probing_rigour.py::test_reg010_and_reg014_*`, `tests/test_audit_regressions.py` | `2b01f73`, `a0c947c`, PR-review fix |
+| **REG-015** | Mixed-precision MoCo InfoNCE & non-finite queue corruption | bf16 queue/logits risk overflow and non-finite batches could enqueue NaNs into ring buffer | InfoNCE & queue remain fp32 under bf16 autocast; non-finite loss skips enqueue without advancing pointer | `tests/test_differential_ijepa.py::test_reg015_moco_nonfinite_loss_skips_queue_update_and_fp32_infonce` | `f36ce88`, `a0c947c` |
+| **REG-016** | Checkpoint resume step/RNG trajectory drift | Interrupted + resumed run risked diverging from uninterrupted trajectory | Interrupted at step 3 & resumed to step 6 matches uninterrupted CPU losses and encoder weights | `tests/test_probing_rigour.py::test_reg016_deterministic_cpu_checkpoint_resume_matches_uninterrupted` | `2b01f73`, `a0c947c` |
+| **REG-017** | Clipped logistic objective derivative mismatch (newly confirmed in validation P0) | `clip(z, -35, 35)` in `probing/stats.py` and `axes_h.py` had zero numerical derivative for $\|z\| > 35$ while returning non-zero analytic gradients, breaking line search | Unclipped `np.logaddexp(0, -signed * z)` + `scipy.special.expit(z) * expit(-z)` exact against finite differences at $\|z\| > 40$ | `tests/test_probing_rigour.py::test_reg017_logistic_objective_gradient_hessian_exact_beyond_extreme_logits` | `ce18da4`, `a0c947c` |
+| **REG-018** | SAE token density chunk over-count (`dd_part4.py:75-77`, newly confirmed) | Final slice `tok[196608:262144]` summed 262,144 tokens while dividing by 256,000 (+2.4% inflation) | Pinned `artifacts/dd_part4.py` kept byte-identical (SHA-1 `e7a769c...`); corrected `artifacts/erratum_dd_part4.py::capped_token_density` caps slice at `min(a + chunk, lim)` | `tests/test_sae_and_circuits.py::test_reg018_dd_part4_sha1_preserved_and_erratum_capped_density_exact` | `ce18da4`, `9e1d252` |
+| **REG-019** | Unequal target-block MSE loss weighting | Concatenated target loss weighted blocks by token count instead of equal-block mean | Per-block MSE averaged equally across target blocks; verified against independent oracle on unequal blocks | `tests/test_differential_ijepa.py::test_reg019_equal_block_vs_token_weighted_mse_on_unequal_blocks` | `f36ce88`, `a0c947c` |
+| **REG-020** | Silent missing-CAV agreement in `adjudicate_pair` (newly confirmed) | Missing or `NaN` CAV entries defaulted `disagree = False`, allowing false `CLEAN` verdicts without CAV evidence | Missing or non-finite CAV sets `disagree = None` and returns `INCONCLUSIVE`; `"unassailable"` wording removed | `tests/test_geometry_and_mi.py::test_adjudicate_pair_complete_truth_table_and_missing_cav_inconclusive` | `ce18da4`, `9e1d252` |
+
+### Supporting Phase 1–5 Regression Coverage
+Already covered in `tests/test_audit_regressions.py` and existing package tests: FITS partial cutouts, RA wraparound, invalid Petrosian radii, non-finite pixel guards, cache pipeline/normalisation hashes, CUDA RNG state serialisation, empty loaders, step/stopping guards, and credential scan (`tools/credential_check.py`).
+
+---
+
+## Part 2 — Scientific Mutation Audit Summary (§14)
+
+Executed via `.venv/bin/python tools/mutation_audit.py` and `pytest -m mutation` (`tests/test_mutation_catalogue.py`). All 22 independent critical mutants execute strictly in memory without mutating production files on disk.
+
+| Risk Category | Killed / Total | Mutants |
+|---|---|---|
+| `objective` | **4 / 4** | `MUT-01` (invert target exclusion), `MUT-02` (concatenate target queries), `MUT-07` (token-weighted block loss), `MUT-08` (teacher gradient leak) |
+| `masking` | **4 / 4** | `MUT-03` (bbox weights for context), `MUT-04` (context scale as aspect), `MUT-05` (raster truncation), `MUT-06` (restore leaking fallback) |
+| `statistics` | **4 / 4** | `MUT-13` (omit BY multiplicity correction), `MUT-14` (independent paired bootstrap), `MUT-15` (re-rank residuals), `MUT-16` (sample $\Sigma z$ vs Cholesky $S z$) |
+| `sae_circuits` | **2 / 2** | `MUT-18` (omit SAE reconstruction residual), `MUT-19` (uncapped density denominator) |
+| `reproducibility` | **2 / 2** | `MUT-21a` (disable sampler-offset restoration on resume), `MUT-21b` (disable RNG-state restoration on resume) |
+| `leakage` | **1 / 1** | `MUT-09` (fit `StandardScaler` on held-out test partition) |
+| `data_integrity` | **1 / 1** | `MUT-10` (misalign 64-bit IDs between embeddings and labels) |
+| `provenance` | **1 / 1** | `MUT-11` (substitute wrong checkpoint bank hash) |
+| `matching` | **1 / 1** | `MUT-12` (merge zero strata with positive strata) |
+| `numerics` | **1 / 1** | `MUT-17` (reintroduce clipped logistic objective mismatch) |
+| `information` | **1 / 1** | `MUT-20` (swap log base without converting units) |
+| **Total** | **22 / 22 (100.0%)** | **0 surviving critical mutants** |

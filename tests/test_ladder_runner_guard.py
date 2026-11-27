@@ -1,4 +1,4 @@
-"""The runner's write guard: Finder's .DS_Store is not an entry escaping its directory; anything else is."""
+"""The runner's write guard: Finder's .DS_Store is ignored; any real write outside out_dir trips."""
 
 import sys
 from pathlib import Path

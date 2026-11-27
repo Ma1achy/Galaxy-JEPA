@@ -96,6 +96,8 @@ def existence_pvalue(real_auc: float, null_samples: np.ndarray) -> float:
     counts exact ties against the real value, which is the conservative direction; whether that
     is the wanted convention at the ceiling is unsettled.
     """
+    if not math.isfinite(float(real_auc)):
+        return 1.0
     null = np.asarray(null_samples, dtype=np.float64)
     n = null.size
     if n == 0:
@@ -135,6 +137,14 @@ def family_significant(
     m = n_tests if n_tests is not None else len(feats)
     if m <= 0:
         return {f: False for f in feats}
+    if len(feats) > m:
+        raise ValueError(
+            f"family_significant received {len(feats)} p-values for family size n_tests={m}; "
+            "exploratory features must be excluded from the primary family"
+        )
+    for f, p in pvalues.items():
+        if not math.isfinite(float(p)):
+            raise ValueError(f"non-finite p-value {p!r} for feature {f!r}")
 
     if method == "bonferroni":
         bar = alpha / m
@@ -235,6 +245,10 @@ def untrained_z_pvalue(
     recorded in D23 and tested per feature rather than asserted.
     """
     bar = np.asarray(untrained_aucs, dtype=np.float64)
+    if not np.isfinite(bar).all():
+        raise ValueError("untrained_z_pvalue requires finite untrained_aucs")
+    if not (math.isfinite(float(real_auc)) and math.isfinite(float(se_real))):
+        return 1.0
     k = int(bar.size)
     if k < 2:
         raise ValueError(
@@ -411,8 +425,10 @@ def resolvable_margin(
     if method == "benjamini_yekutieli":
         h_m = float(np.sum(1.0 / np.arange(1, max(int(n_tests), 1) + 1)))
         threshold = alpha / h_m  # rank-m: the most lenient position in the family
-    else:
+    elif method == "bonferroni":
         threshold = alpha / max(int(n_tests), 1)
+    else:
+        raise ValueError(f"unknown multiplicity method {method!r}")
 
     if df is not None and df > 0:
         from scipy.stats import t as student_t

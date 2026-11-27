@@ -430,4 +430,7 @@ def test_a_scaleless_comparison_raises_rather_than_returning_zero():
 
 def test_the_verdict_records_which_construction_made_it():
     assert nz.ExistenceVerdict("f", 0.9, 0.01, True, True).method == nz.EXISTENCE_EMPIRICAL
-    assert nz.ExistenceVerdict("f", 0.9, 0.01, True, True, method=nz.EXISTENCE_UNTRAINED_Z).method
+    assert (
+        nz.ExistenceVerdict("f", 0.9, 0.01, True, True, method=nz.EXISTENCE_UNTRAINED_Z).method
+        == nz.EXISTENCE_UNTRAINED_Z
+    )

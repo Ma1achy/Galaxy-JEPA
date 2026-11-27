@@ -1,0 +1,617 @@
+{
+ "note": "Part B review addition (user, 25 Nov): partial Spearman given the five nuisances for A1 and every untrained seed, and A1's gain over the best untrained seed on it.\n\n    .venv/bin/python artifacts/axes_b_partial.py      # \u2192 docs/axes/b_partial.json\n\nFixed before computing: axes_b's own ridge (GCV \u03b1, same rows, same winsorising, same halves for statmorph), refitted per encoder; partial \u03c1 = correlation of the nuisance-residualised\nranks (axes_b.partial). Gain = A1's partial \u03c1 minus the best untrained seed's (the seed chosen on the point estimate), with a 500-resample paired bootstrap over test galaxies of the\nresidualised ranks (residualised once on the full test set, as axes_b's own partial CI). Raw and cleaned embeddings; size and magnitude raw only, as before.\n",
+ "targets": {
+  "concentration R90/R50": {
+   "n_test": 34821,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.654719842821417,
+     "untrained-s0": 0.449753931630893,
+     "untrained-s1": 0.4549963950521145,
+     "untrained-s2": 0.4371074233376465
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.19972344776930256,
+    "gain_ci": [
+     0.1913047530075629,
+     0.20945621950436186
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.6371346206746359,
+     "untrained-s0": 0.4498525693838937,
+     "untrained-s1": 0.45046463316187885,
+     "untrained-s2": 0.44624592821891323
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.18666998751275704,
+    "gain_ci": [
+     0.1780403703397136,
+     0.19646225971737835
+    ]
+   }
+  },
+  "expAB_r": {
+   "n_test": 34828,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.4476903023249894,
+     "untrained-s0": 0.2140114112850648,
+     "untrained-s1": 0.2011896061115255,
+     "untrained-s2": 0.2000877269627711
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.23367889103992462,
+    "gain_ci": [
+     0.22410016705959104,
+     0.24359861427068955
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.4947001298162618,
+     "untrained-s0": 0.26522614638101133,
+     "untrained-s1": 0.2516645054010269,
+     "untrained-s2": 0.2431103106082421
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.2294739834352505,
+    "gain_ci": [
+     0.2202515328417098,
+     0.23846534096163466
+    ]
+   }
+  },
+  "deVAB_r": {
+   "n_test": 34828,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.46628732296166087,
+     "untrained-s0": 0.23584180644636943,
+     "untrained-s1": 0.22006267778849606,
+     "untrained-s2": 0.21915310353054687
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.23044551651529144,
+    "gain_ci": [
+     0.22059192288216722,
+     0.23990688805520732
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.5044481530680037,
+     "untrained-s0": 0.2723819314246882,
+     "untrained-s1": 0.25699273017751245,
+     "untrained-s2": 0.2497164069085626
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.23206622164331553,
+    "gain_ci": [
+     0.22238610036395176,
+     0.2414840516982427
+    ]
+   }
+  },
+  "fracDeV_r": {
+   "n_test": 34828,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.6075326603004394,
+     "untrained-s0": 0.44185117652021433,
+     "untrained-s1": 0.44880908387658336,
+     "untrained-s2": 0.42532072286184436
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.15872357642385604,
+    "gain_ci": [
+     0.15025242416005652,
+     0.16780145305327757
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.5907161168339152,
+     "untrained-s0": 0.4386965339802943,
+     "untrained-s1": 0.43916387526014383,
+     "untrained-s2": 0.427172041381757
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.1515522415737714,
+    "gain_ci": [
+     0.1436689649712513,
+     0.16025633287851906
+    ]
+   }
+  },
+  "petroRad_r (size)": {
+   "n_test": 34828,
+   "nuisance": true,
+   "raw": {
+    "partial": {
+     "A1": 0.03566663403121041,
+     "untrained-s0": 0.022462205141657088,
+     "untrained-s1": 0.020679028609953104,
+     "untrained-s2": 0.02604825647156059
+    },
+    "best_untrained": "untrained-s2",
+    "gain": 0.00961837755964982,
+    "gain_ci": [
+     -0.0007265718429734702,
+     0.020119285997579162
+    ]
+   }
+  },
+  "modelMag_r (magnitude)": {
+   "n_test": 34828,
+   "nuisance": true,
+   "raw": {
+    "partial": {
+     "A1": 0.02041540657744963,
+     "untrained-s0": 0.020253190111023226,
+     "untrained-s1": 0.009052032154076049,
+     "untrained-s2": 0.016473459306459975
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.0001622164664264042,
+    "gain_ci": [
+     -0.009071774129489318,
+     0.008641431909768673
+    ]
+   }
+  },
+  "g-r, k-corrected z=0": {
+   "n_test": 27410,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.6752918285288405,
+     "untrained-s0": 0.43463048368282153,
+     "untrained-s1": 0.44746065654471207,
+     "untrained-s2": 0.4165001242372723
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.22783117198412844,
+    "gain_ci": [
+     0.21757588366582084,
+     0.2382283167596587
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.6417450814073336,
+     "untrained-s0": 0.40609001652037174,
+     "untrained-s1": 0.41968169435654457,
+     "untrained-s2": 0.3906447265340225
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.22206338705078899,
+    "gain_ci": [
+     0.21148044342616995,
+     0.23241800330321782
+    ]
+   }
+  },
+  "log M* (MPA-JHU)": {
+   "n_test": 27475,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.574390730245077,
+     "untrained-s0": 0.38143925687337005,
+     "untrained-s1": 0.3877837162702909,
+     "untrained-s2": 0.36484433177275905
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.18660701397478613,
+    "gain_ci": [
+     0.17680398336201297,
+     0.19765844782291359
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.4640692199679902,
+     "untrained-s0": 0.2728651985950923,
+     "untrained-s1": 0.28056997389129207,
+     "untrained-s2": 0.27655587741817095
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.18349924607669815,
+    "gain_ci": [
+     0.17129200975127368,
+     0.19542088711169164
+    ]
+   }
+  },
+  "log sSFR (MPA-JHU)": {
+   "n_test": 26995,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.67635977181055,
+     "untrained-s0": 0.4473293567749176,
+     "untrained-s1": 0.44977143645695566,
+     "untrained-s2": 0.42489060481524166
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.2265883353535943,
+    "gain_ci": [
+     0.21743905014192744,
+     0.23604861564189056
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.6396789375444923,
+     "untrained-s0": 0.4237593175195745,
+     "untrained-s1": 0.42318606230286326,
+     "untrained-s2": 0.40636814138763977
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.21591962002491782,
+    "gain_ci": [
+     0.2068008840528684,
+     0.2249887832431177
+    ]
+   }
+  },
+  "Simard B/T r": {
+   "n_test": 34131,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.5729601968466882,
+     "untrained-s0": 0.3857673096773521,
+     "untrained-s1": 0.38497459396648837,
+     "untrained-s2": 0.37109413024722226
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.18719288716933608,
+    "gain_ci": [
+     0.17792875380811218,
+     0.19659814005817727
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.5949033758970442,
+     "untrained-s0": 0.41772329251230766,
+     "untrained-s1": 0.40747685893602814,
+     "untrained-s2": 0.40781690911697227
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.17718008338473656,
+    "gain_ci": [
+     0.16832459832857283,
+     0.18569361205046642
+    ]
+   }
+  },
+  "Simard disc inclination": {
+   "n_test": 31022,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.4698741880118545,
+     "untrained-s0": 0.21681258526401015,
+     "untrained-s1": 0.20876227775615294,
+     "untrained-s2": 0.20241765518229496
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.25306160274784434,
+    "gain_ci": [
+     0.24026570301713895,
+     0.26315105144446765
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.5109968140114909,
+     "untrained-s0": 0.255355860312655,
+     "untrained-s1": 0.24458241088353885,
+     "untrained-s2": 0.22902603242729055
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.2556409536988359,
+    "gain_ci": [
+     0.242983709050871,
+     0.26540047026546776
+    ]
+   }
+  },
+  "Simard bulge n (free n)": {
+   "n_test": 30510,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.23905377778576906,
+     "untrained-s0": 0.163968543221891,
+     "untrained-s1": 0.17705209746747377,
+     "untrained-s2": 0.15856964471542861
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.06200168031829528,
+    "gain_ci": [
+     0.05041740009790726,
+     0.073794558869484
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.269181588939265,
+     "untrained-s0": 0.1726326574421815,
+     "untrained-s1": 0.18371313932565658,
+     "untrained-s2": 0.16404839612216796
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.08546844961360844,
+    "gain_ci": [
+     0.07298392024865559,
+     0.0982841107364727
+    ]
+   }
+  },
+  "Simard bulge Re (log kpc)": {
+   "n_test": 28084,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.23994118434642883,
+     "untrained-s0": 0.14180997750243446,
+     "untrained-s1": 0.13481447140082595,
+     "untrained-s2": 0.1354138835661517
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.09813120684399437,
+    "gain_ci": [
+     0.08543551949128234,
+     0.11033525635763558
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.2743842169191401,
+     "untrained-s0": 0.16777021718463817,
+     "untrained-s1": 0.16055545874531177,
+     "untrained-s2": 0.16629130200370215
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.10661399973450195,
+    "gain_ci": [
+     0.09463142681421795,
+     0.11921347582968887
+    ]
+   }
+  },
+  "Simard disc Rd (log kpc)": {
+   "n_test": 31019,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.346472746191718,
+     "untrained-s0": 0.23221067796960304,
+     "untrained-s1": 0.23105142884709107,
+     "untrained-s2": 0.22848449391415523
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.11426206822211493,
+    "gain_ci": [
+     0.10339796120707284,
+     0.1255389260306218
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.321260427588493,
+     "untrained-s0": 0.21347330857574032,
+     "untrained-s1": 0.21247896939236302,
+     "untrained-s2": 0.1966100315827737
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.10778711901275267,
+    "gain_ci": [
+     0.09778688816998458,
+     0.11864710996820103
+    ]
+   }
+  },
+  "Simard bulge ellipticity": {
+   "n_test": 28087,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.32025516286071615,
+     "untrained-s0": 0.1668264681109363,
+     "untrained-s1": 0.16068741325224042,
+     "untrained-s2": 0.17458246246917677
+    },
+    "best_untrained": "untrained-s2",
+    "gain": 0.14567270039153937,
+    "gain_ci": [
+     0.13460324975044902,
+     0.15813234879136148
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.3255206205193356,
+     "untrained-s0": 0.1770731276839754,
+     "untrained-s1": 0.16528240883063702,
+     "untrained-s2": 0.181871054870594
+    },
+    "best_untrained": "untrained-s2",
+    "gain": 0.14364956564874162,
+    "gain_ci": [
+     0.13337864892636414,
+     0.15610319821206525
+    ]
+   }
+  },
+  "statmorph asymmetry": {
+   "n_test": 9813,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.3970348497347524,
+     "untrained-s0": 0.28220658419376266,
+     "untrained-s1": 0.2892423277961202,
+     "untrained-s2": 0.298401334078441
+    },
+    "best_untrained": "untrained-s2",
+    "gain": 0.0986335156563114,
+    "gain_ci": [
+     0.07974876984735252,
+     0.11744749811613577
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.42823804398042414,
+     "untrained-s0": 0.2889327568203701,
+     "untrained-s1": 0.30400249975754484,
+     "untrained-s2": 0.29772365307178006
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.1242355442228793,
+    "gain_ci": [
+     0.10486148560131925,
+     0.1423435916004953
+    ]
+   }
+  },
+  "statmorph gini": {
+   "n_test": 9813,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.5805708135147314,
+     "untrained-s0": 0.39820516466978806,
+     "untrained-s1": 0.41653454458281397,
+     "untrained-s2": 0.4081580024621041
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.16403626893191742,
+    "gain_ci": [
+     0.14980186356226938,
+     0.18018311689624728
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.5468368474042278,
+     "untrained-s0": 0.3701144132100392,
+     "untrained-s1": 0.37643575965295845,
+     "untrained-s2": 0.380528455034581
+    },
+    "best_untrained": "untrained-s2",
+    "gain": 0.16630839236964678,
+    "gain_ci": [
+     0.15064588019931507,
+     0.1839519028167831
+    ]
+   }
+  },
+  "statmorph m20": {
+   "n_test": 9813,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.5162416555699341,
+     "untrained-s0": 0.3617738139751788,
+     "untrained-s1": 0.3858407115169033,
+     "untrained-s2": 0.36425357191270524
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.13040094405303077,
+    "gain_ci": [
+     0.11306513497817602,
+     0.14743651618645343
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.47167386897936164,
+     "untrained-s0": 0.33127336531687157,
+     "untrained-s1": 0.343707002993144,
+     "untrained-s2": 0.33537707142967915
+    },
+    "best_untrained": "untrained-s1",
+    "gain": 0.12796686598621765,
+    "gain_ci": [
+     0.10980508829829813,
+     0.14677320707336589
+    ]
+   }
+  },
+  "statmorph smoothness": {
+   "n_test": 9813,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.33953057764462996,
+     "untrained-s0": 0.2097819177685019,
+     "untrained-s1": 0.21728108914908018,
+     "untrained-s2": 0.2250813242600487
+    },
+    "best_untrained": "untrained-s2",
+    "gain": 0.11444925338458126,
+    "gain_ci": [
+     0.09383426531876105,
+     0.13533417058767805
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.341722763173461,
+     "untrained-s0": 0.19132763105370307,
+     "untrained-s1": 0.20036274760966366,
+     "untrained-s2": 0.2080609541164996
+    },
+    "best_untrained": "untrained-s2",
+    "gain": 0.1336618090569614,
+    "gain_ci": [
+     0.11465705458296586,
+     0.1531583580229555
+    ]
+   }
+  },
+  "statmorph sersic_n": {
+   "n_test": 9785,
+   "nuisance": false,
+   "raw": {
+    "partial": {
+     "A1": 0.593586951751641,
+     "untrained-s0": 0.43355956843835197,
+     "untrained-s1": 0.4293559462446258,
+     "untrained-s2": 0.433893625282576
+    },
+    "best_untrained": "untrained-s2",
+    "gain": 0.15969332646906498,
+    "gain_ci": [
+     0.1433024121128525,
+     0.17798451556620942
+    ]
+   },
+   "cleaned": {
+    "partial": {
+     "A1": 0.5739994317793186,
+     "untrained-s0": 0.39967404924759753,
+     "untrained-s1": 0.38449420759900477,
+     "untrained-s2": 0.3864947647983836
+    },
+    "best_untrained": "untrained-s0",
+    "gain": 0.17432538253172103,
+    "gain_ci": [
+     0.159095489219822,
+     0.19214360013544365
+    ]
+   }
+  }
+ }
+}

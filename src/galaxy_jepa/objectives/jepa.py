@@ -6,11 +6,15 @@ not on the encoder (``docs/spec/objectives.md`` §2): the bbox-biased masking
 export it writes a provenance-stamped checkpoint that ``probing/`` reloads frozen — the freeze
 boundary runs through disk (§3).
 
-The recipe is standard I-JEPA: the context encoder sees only the context tokens; the EMA
-target encoder embeds the full image; the predictor reconstructs the target-block embeddings
-from the context (+ mask tokens at the target positions); the loss is the L2 distance in
-latent space. The *only* departure is **where** the target blocks are sampled — the bbox bias
-— and that is isolated in the masker, so β=0 reproduces the published method exactly.
+The core architecture follows I-JEPA: the context encoder sees only the context tokens; the EMA
+target encoder embeds the full image; the predictor reconstructs each target block independently
+from the context (+ mask tokens at the target positions); the loss is latent MSE averaged equally
+across target blocks. Target-block placement adds the bbox-bias knob ``β`` (isolated in
+``masking/blocks.py``, where ``β = 0`` recovers uniform target-block sampling). Relative to Meta's
+released ``facebookresearch/ijepa`` script, this implementation uses three explicit variant choices:
+(1) equal-block MSE (paper Eq. 2) rather than Smooth-L1, (2) the teacher ViT's learned-affine final
+LayerNorm output directly without an extra functional ``F.layer_norm`` before gathering, and (3)
+uniform without-replacement batch context subsampling rather than index-order truncation.
 
 Device-agnostic (CPU / MPS / CUDA). On MPS the masking math is numpy (host) and only the
 tensor ops run on device; bf16 autocast and SDPA are the throughput levers (the slice plan).
@@ -197,8 +201,9 @@ class Jepa(nn.Module):
         petro = batch["petro_rad_arcsec"].cpu().numpy()
         pscale = batch["pixel_scale"].cpu().numpy()
         weight_maps = self.weight_maps(petro, pscale)
-        context_idx, target_idx = self.masker.sample(weight_maps, seed=seed)
-        context_idx, target_idx = context_idx.to(device), target_idx.to(device)
+        context_idx, target_blocks = self.masker.sample(weight_maps, seed=seed)
+        context_idx = context_idx.to(device)
+        target_blocks = [t.to(device) for t in target_blocks]
 
         tokens = self.encoder.patch_embed_tokens(images)
         context_tokens = _gather_tokens(tokens, context_idx)
@@ -217,11 +222,23 @@ class Jepa(nn.Module):
             context = self.encoder.run_tokens(context_tokens)
 
         with torch.no_grad():
+            # Uses the ViT's learned-affine final LayerNorm output directly (variant note:
+            # Meta's released facebookresearch/ijepa trainer additionally applies functional
+            # F.layer_norm(h, (h.size(-1),)) before gathering; equal-block MSE also differs
+            # from Meta's Smooth-L1 script, and uniform context subsampling differs from
+            # Meta's index-order truncation).
             full = self.target_encoder.run_tokens(self.target_encoder.patch_embed_tokens(images))
-            targets = _gather_tokens(full, target_idx)
+            targets = [_gather_tokens(full, t_idx) for t_idx in target_blocks]
 
-        pred = self.predictor(context, context_idx, target_idx)
-        prediction = torch.nn.functional.mse_loss(pred, targets)
+        # Standard I-JEPA: run the predictor independently for each target block so separate
+        # blocks cannot cross-attend to each other, then average per-block MSE equally across
+        # blocks (note: tokens appearing in multiple target blocks are still supervised once per
+        # block containing them).
+        block_losses = [
+            torch.nn.functional.mse_loss(self.predictor(context, context_idx, t_idx), tgt)
+            for t_idx, tgt in zip(target_blocks, targets, strict=True)
+        ]
+        prediction = torch.stack(block_losses).mean()
         if penalty is None:
             return LossParts(total=prediction, prediction=prediction, sigreg=None)
         lam = self.config.sigreg_lambda

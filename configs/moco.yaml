@@ -95,14 +95,10 @@ objective:                  # artifacts/baselines.md §3 (F3, F4, F7 (b))
 # The pre-registered collapse kill criterion (G5). Recorded BEFORE the run, because a criterion
 # chosen after seeing the curve is not a criterion. Hashed into `config_hash` and enforced by
 # `CollapseMonitor`; leaving it unset stamps `collapse_floor_open`.
-# NOTE (D21): the soft rank floor below is ACTIVE again, because `sigreg_lambda` is back to 0 and
-# `train_jepa` derives `soft_rank_floor = sigreg_lambda <= 0.0`. Under D18 it was inert — effective
-# rank was constraint-satisfied by the penalty, so the criterion could never fire. It can fire now.
-# Brief L's 10,500-step lambda=0 arm is the evidence that 2.5 is not set too high: effective rank
-# rose 8.1 -> 18.6 across the run, away from the floor, and it did not fire (`halted: false`). That
-# arm is also the first in the project to run past the grace period at all (0.10 x 50,000 = 5,000
-# steps), so before Brief L this floor had never been reachable. The hard floor and the std floor
-# apply throughout, as always.
+# NOTE: `train_objective` runs `CollapseMonitor` with `soft_rank_floor=False` for MoCo (F8;
+# `Moco.soft_rank_floor` returns `False`, and `docs/patch_grid/prereg.md` §7 pre-registers that
+# for MoCo and MAE the soft rank floor is reported and never gates; only the hard floor and std
+# floor gate). The frozen values below mirror `pretrain_v2.yaml` verbatim for config parity.
 collapse_floor:
   min_effective_rank: 2.5   # RE-DERIVED under D17; ACTIVE again under D21. The old
                             #   5.0 would have killed a WORKING run: H5's baseline sat below it

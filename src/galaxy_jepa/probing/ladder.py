@@ -22,7 +22,6 @@ pre-registered audit trail) and a named ``mechanism``.
 from __future__ import annotations
 
 import dataclasses
-import functools
 import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
@@ -111,17 +110,26 @@ class LadderResult:
         assert_reportable(self.floor, what)
 
 
-def untrained_split_key(train_ids: Sequence[int], test_ids: Sequence[int]) -> str:
-    """The split an untrained bank was built against — the one definition, which
-    ``artifacts/p1_untrained_bank.py`` stamps into the bank and :func:`_load_untrained_bank`
-    checks: the train and test sizes and the first and last galaxy of their union."""
-    union = sorted({*(int(i) for i in train_ids), *(int(i) for i in test_ids)})
-    key = [len(train_ids), len(test_ids), union[:1], union[-1:]]
-    return hashlib.sha256(json.dumps(key, sort_keys=True, default=str).encode()).hexdigest()[:16]
+def untrained_split_key(
+    train_ids: Sequence[int], test_ids: Sequence[int], *, population: str = "full"
+) -> str:
+    """The split and population an untrained bank was built against — hashes full sorted
+    train and test ID membership plus ``population`` so different splits or populations cannot
+    silently share a bar."""
+    payload = {
+        "population": population,
+        "train": sorted(int(i) for i in train_ids),
+        "test": sorted(int(i) for i in test_ids),
+    }
+    return hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest()[:16]
 
 
 def _load_untrained_bank(
-    config: ProbingConfig, features: Sequence[str], split_key: str | None = None
+    config: ProbingConfig,
+    features: Sequence[str],
+    split_key: str | None = None,
+    *,
+    population: str = "full",
 ) -> dict[str, np.ndarray] | None:
     """The K-seed untrained bar for D23's existence test, or ``None`` under the empirical method.
 
@@ -129,21 +137,32 @@ def _load_untrained_bank(
     configuration error, and silently reverting to the point-mass estimator would produce a
     plausible-looking catalogue computed by a test the config said not to use.
 
-    With ``split_key`` (:func:`untrained_split_key` of the ladder's own split) the bank must have
-    been built on that split: a bar computed on other galaxies is a different population, and the
-    loader once took it without looking (ladder v2, plan Task 1b.2).
+    With ``split_key`` (:func:`untrained_split_key` of the ladder's own split and population) the
+    bank must have been built on that exact split and population.
     """
     if config.existence_method != nulls_mod.EXISTENCE_UNTRAINED_Z:
         return None
-    if not config.untrained_bank_path:
+    bank_path_str = (
+        config.conditional_untrained_bank_path
+        if population == "conditional" and config.conditional_untrained_bank_path
+        else config.untrained_bank_path
+    )
+    if not bank_path_str:
         raise ValueError(
-            "existence_method='untrained_z' needs ProbingConfig.untrained_bank_path. "
+            "existence_method='untrained_z' needs ProbingConfig.untrained_bank_path "
+            "(and conditional_untrained_bank_path for conditional-population ladders). "
             "Build it with `uv run python artifacts/p1_untrained_bank.py`."
         )
-    path = Path(config.untrained_bank_path)
+    path = Path(bank_path_str)
     if not path.exists():
         raise FileNotFoundError(f"untrained bank not found at {path}")
     rec = json.loads(path.read_text())
+    bank_pop = rec.get("population", "full")
+    if bank_pop != population:
+        raise ValueError(
+            f"untrained bank at {path} was built for population={bank_pop!r}, but this ladder "
+            f"is running population={population!r}; refusing to test against the wrong population."
+        )
     if split_key is not None and rec.get("split_key") != split_key:
         raise ValueError(
             f"untrained bank at {path} was built on split {rec.get('split_key')!r}; this "
@@ -232,29 +251,99 @@ def _entangled_map(
         return entangled, pair_verdicts
     index = {name: i for i, name in enumerate(geometry.names)}
     for a, b in geometry.entangled_pairs:
-        if not established.get(a, False):
-            raise ValueError(f"2A pair ({a}, {b}): {a} has no established margin to retain (D25)")
-        # match feature A's probe on feature B's vote fraction (hold the world correlation fixed);
-        # B's fractions are taken on A's eligible rows so they line up with A's embeddings
-        matched = _retained(
-            functools.partial(
-                _feature_rows, labels=labels, feature=a, train_ids=train_ids, test_ids=test_ids
-            ),
-            np.asarray(labels.vote_fraction(b, feature_ids(controls.real, labels, a, train_ids))),
-            np.asarray(labels.vote_fraction(b, feature_ids(controls.real, labels, a, test_ids))),
-            controls,
-            a=real_aucs[a],
-            bar=bars[a],
-            n_test=len(feature_ids(controls.real, labels, a, test_ids)),
-            margin_established=True,
-            config=config,
-        )
-        state = matched.retention.verdict if matched.retention is not None else match.UNRESOLVED
-        survived = {match.SURVIVES: True, match.COLLAPSES: False}.get(state)
+        if not established.get(a, False) or not established.get(b, False):
+            raise ValueError(
+                f"2A pair ({a}, {b}): both features must have established margins (D25)"
+            )
+        # Restrict to sorted jointly eligible galaxies for BOTH a and b so unreached partner 0.0s
+        # never enter the match strata and (a, b) <-> (b, a) see identical row ordering.
+        a_tr_set = set(feature_ids(controls.real, labels, a, train_ids))
+        a_te_set = set(feature_ids(controls.real, labels, a, test_ids))
+        b_tr_set = set(feature_ids(controls.real, labels, b, train_ids))
+        b_te_set = set(feature_ids(controls.real, labels, b, test_ids))
+        joint_tr = sorted(a_tr_set & b_tr_set)
+        joint_te = sorted(a_te_set & b_te_set)
+
+        orig_cos = float(geometry.cosine[index[a], index[b]])
+        state = match.UNRESOLVED
+        survived: bool | None = None
+        retained_ratio: float | None = None
+        matched_auc_val: float | None = None
+        bar_matched_val: float | None = None
+        n_matched_te = 0
+
+        if joint_tr and joint_te:
+            emb_a_tr = feature_embeddings(controls.real, labels, a, joint_tr)
+            emb_b_tr = feature_embeddings(controls.real, labels, b, joint_tr)
+            emb_a_te = feature_embeddings(controls.real, labels, a, joint_te)
+            emb_b_te = feature_embeddings(controls.real, labels, b, joint_te)
+
+            def _rows_for(
+                feat: str,
+                tr_ids: Sequence[int] = joint_tr,
+                te_ids: Sequence[int] = joint_te,
+            ) -> Callable[[EmbeddingMatrix], tuple[Embeddings, Embeddings]]:
+                return lambda mat: (
+                    feature_embeddings(mat, labels, feat, tr_ids),
+                    feature_embeddings(mat, labels, feat, te_ids),
+                )
+
+            # Symmetric D24 retention on jointly eligible rows: evaluate both (a | b) and (b | a)
+            # with the identical seed so swapping (a, b) <-> (b, a) is strictly order-invariant.
+            # Unmatched baselines (real_aucs, bars) come from each feature's full eligible
+            # population (D24/D25), so the 10% coverage gate must also use each feature's original
+            # eligible test count (len(a_te_set), len(b_te_set)) — matching _nuisance_clearance.
+            mv_a = _retained(
+                _rows_for(a),
+                emb_b_tr.fraction,
+                emb_b_te.fraction,
+                controls,
+                a=real_aucs[a],
+                bar=bars[a],
+                n_test=len(a_te_set),
+                margin_established=True,
+                config=config,
+            )
+            mv_b = _retained(
+                _rows_for(b),
+                emb_a_tr.fraction,
+                emb_a_te.fraction,
+                controls,
+                a=real_aucs[b],
+                bar=bars[b],
+                n_test=len(b_te_set),
+                margin_established=True,
+                config=config,
+            )
+            ra, rb = mv_a.retention, mv_b.retention
+            va = ra.verdict if ra is not None else match.UNRESOLVED
+            vb = rb.verdict if rb is not None else match.UNRESOLVED
+            n_matched_te = min(mv_a.n_matched_test, mv_b.n_matched_test)
+            if va == match.SURVIVES and vb == match.SURVIVES:
+                state, survived = match.SURVIVES, True
+            elif va == match.COLLAPSES and vb == match.COLLAPSES:
+                state, survived = match.COLLAPSES, False
+            elif va == match.UNRESOLVED or vb == match.UNRESOLVED:
+                state, survived = match.UNRESOLVED, None
+            else:
+                state, survived = match.PARTIAL, None
+
+            if not mv_a.degenerate and not mv_b.degenerate:
+                matched_auc_val = float(min(mv_a.matched_auc, mv_b.matched_auc))
+            if mv_a.bar_matched is not None and mv_b.bar_matched is not None:
+                bar_matched_val = float(0.5 * (mv_a.bar_matched + mv_b.bar_matched))
+            if (
+                ra is not None
+                and rb is not None
+                and ra.retained is not None
+                and rb.retained is not None
+            ):
+                retained_ratio = float(min(ra.retained, rb.retained))
+
         pv = ent.adjudicate_pair(
             a,
             b,
-            cosine=float(geometry.cosine[index[a], index[b]]),
+            cosine=orig_cos,
             mp_significant=bool(geometry.mp.significant),
             cav_disagreement=geometry.cav_disagreement,
             survived_matching=survived,
@@ -262,10 +351,10 @@ def _entangled_map(
         pv = dataclasses.replace(
             pv,
             retention=state,
-            retained=matched.retention.retained if matched.retention is not None else None,
-            matched_auc=None if matched.degenerate else matched.matched_auc,
-            bar_matched=matched.bar_matched,
-            n_matched_test=matched.n_matched_test,
+            retained=retained_ratio,
+            matched_auc=matched_auc_val,
+            bar_matched=bar_matched_val,
+            n_matched_test=n_matched_te,
         )
         pair_verdicts.append(pv)
         if pv.verdict == ent.REPRESENTATIONAL:
@@ -606,7 +695,11 @@ def _failing_rung(
     )
     # FLAGGED ceiling null threshold: the chance band for this probe — placeholder is the
     # configured quantile of the shuffled-label null (the linear control), floored at 0.5.
-    null_threshold = max(0.5, float(np.quantile(fc.shuffled_nulls, config.ceiling_null_quantile)))
+    null_threshold = (
+        max(0.5, float(np.quantile(fc.shuffled_nulls, config.ceiling_null_quantile)))
+        if fc.shuffled_nulls.size > 0
+        else 0.5
+    )
     ceiling = mlp_mod.selectivity_ceiling(sweep, null_threshold=null_threshold)
     # "The MLP decodes it" is NOT adjudicated (D25). It was `MLP AUC >= effect floor`: an absolute
     # clean-vs-marginal threshold testing a relative question, which a feature that failed linear
@@ -717,20 +810,47 @@ def run_ladder(
         )
 
     # Phase 2: family-corrected existence verdict (3B/2B) — the gate input.
-    bank = _load_untrained_bank(config, features, untrained_split_key(train_ids, test_ids))
+    population = getattr(labels, "population", "full")
+    bank = _load_untrained_bank(
+        config,
+        features,
+        untrained_split_key(train_ids, test_ids, population=population),
+        population=population,
+    )
+    # Keep exploratory features (e.g. Scheme 2's t08_* set) out of the primary BY step-up family
+    # so they cannot occupy primary ranks or push len(pvalues) past n_tests.
+    scheme = getattr(labels, "scheme", None)
+    primary_names = {s.name for s in scheme.primary()} if scheme is not None else set(features)
+    primary_controls = {f: fc for f, fc in feature_controls.items() if f in primary_names}
+    exploratory_controls = {f: fc for f, fc in feature_controls.items() if f not in primary_names}
     existence = nulls_mod.existence_verdicts(
-        feature_controls,
+        primary_controls,
         alpha=config.alpha,
         method=config.multiplicity,
         floor=floor,
-        n_tests=n_tests,
+        n_tests=max(n_tests, len(primary_controls)),
         existence_method=config.existence_method,
-        untrained_bank=bank,
-        real_se=real_ses if bank is not None else None,
+        untrained_bank={f: bank[f] for f in primary_controls} if bank is not None else None,
+        real_se={f: real_ses[f] for f in primary_controls} if bank is not None else None,
     )
+    if exploratory_controls:
+        exp_existence = nulls_mod.existence_verdicts(
+            exploratory_controls,
+            alpha=config.alpha,
+            method=config.multiplicity,
+            floor=floor,
+            n_tests=len(exploratory_controls),
+            existence_method=config.existence_method,
+            untrained_bank={f: bank[f] for f in exploratory_controls} if bank is not None else None,
+            real_se={f: real_ses[f] for f in exploratory_controls} if bank is not None else None,
+        )
+        existence = {f: existence[f] if f in existence else exp_existence[f] for f in features}
 
-    # Phase 3: global entanglement geometry over the existence-passing directions (2A).
-    passing = [f for f in features if existence[f].exceeds_null and f in directions]
+    # Phase 3: global entanglement geometry over the primary existence-passing directions (2A).
+    # Keep exploratory features out of the primary Gram so they do not alter primary mp_edge.
+    passing = [
+        f for f in features if f in primary_names and existence[f].exceeds_null and f in directions
+    ]
     geometry: ent.EntanglementGeometry | None = None
     if len(passing) >= 2:
         # The logistic-vs-CAV cross-check. It has existed in `entanglement.py` since 2A was
@@ -804,12 +924,17 @@ def run_ladder(
         # comparing R1s across buckets needs it as much as a reader of an R4.
         n_tr, pos_tr, n_te, pos_te = counts[feature]
         sd_bar = float(np.std(bank[feature], ddof=1)) if bank is not None else 0.0
+        feat_n_tests = (
+            max(n_tests, len(primary_controls))
+            if feature in primary_names
+            else len(exploratory_controls)
+        )
         margin = nulls_mod.resolvable_margin(
             real_ses[feature],
             sd_bar=sd_bar,
             alpha=config.alpha,
             method=config.multiplicity,
-            n_tests=n_tests,
+            n_tests=feat_n_tests,
             df=(len(bank[feature]) - 1) if bank is not None else None,
         )
         verdicts[feature] = dataclasses.replace(

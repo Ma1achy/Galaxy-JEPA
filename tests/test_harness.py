@@ -341,7 +341,7 @@ def test_probe_frozen_checkpoint_hands_the_floor_record_on(tmp_path, monkeypatch
         built.append(real(**kwargs))
         return built[-1]
 
-    def stop(*_):
+    def stop(*_, **_kw):
         raise _Stop  # the config is built; nothing past it is under test
 
     monkeypatch.setattr(harness_mod, "ProbingConfig", capture)

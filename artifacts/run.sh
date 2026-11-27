@@ -61,10 +61,17 @@ finish() {  # $1 = ok | fail, $2 = why
   sync; say "shutdown: $cmd"; upload_log; eval "$cmd"; exit 0
 }
 fail() { finish fail "$*"; }
-on_term() { trap - EXIT; say "SIGTERM (preemption?): pushing the newest checkpoints, then exiting; rerun resumes"
-  for d in runs/patch_grid/*/ runs/patch_grid_rerun/*/; do [ -f "$d/checkpoints/checkpoints.json" ] && [ ! -f "$d/traces.json" ] && \
-    timeout 45 flock "${d%/}.ckpt.lock" "$PY" artifacts/results.py ckpt-push "${d%/}" "$PREFIX/arms/$(basename "$(dirname "$d")")/$(basename "$d")" >/dev/null 2>&1 & done
-  wait; upload_log; exit 143; }
+on_term() { trap - EXIT; say "SIGTERM (preemption?): stopping workers, pushing the newest checkpoints, then exiting; rerun resumes"
+  kill "$LOGLOOP" "${MASKS:-}" 2>/dev/null || true
+  pkill -TERM -P $$ 2>/dev/null || true
+  local push_pids=()
+  for d in runs/patch_grid/*/ runs/patch_grid_rerun/*/; do
+    [ -f "$d/checkpoints/checkpoints.json" ] && [ ! -f "$d/traces.json" ] || continue
+    timeout 45 flock "${d%/}.ckpt.lock" "$PY" artifacts/results.py ckpt-push "${d%/}" "$PREFIX/arms/$(basename "$(dirname "$d")")/$(basename "$d")" >/dev/null 2>&1 &
+    push_pids+=($!)
+  done
+  [ "${#push_pids[@]}" -gt 0 ] && wait "${push_pids[@]}" 2>/dev/null || true
+  upload_log; exit 143; }
 trap on_term TERM
 trap 'fail "run.sh exited without reaching an end (an unset variable, or a bug)"' EXIT   # subshells don't inherit it: a GPU worker never shuts the box
 
@@ -148,11 +155,13 @@ for f in d.glob("ckpt_*.pt"):
 EOF2
 }
 committed_step() { "$PY" -c "import json,sys; e=json.load(open(sys.argv[1]))['entries']; print(max(int(x['step']) for x in e) if e else 0)" "$1/checkpoints/checkpoints.json" 2>/dev/null || echo 0; }
-is_void() { "$PY" - "$1" <<'EOF'
+is_void() { "$PY" - "$1" "$STOP" <<'EOF'
 import json, sys; sys.path.insert(0, "artifacts")
 from patch_grid_auc import diverged
 r = json.load(open(sys.argv[1] + "/traces.json"))
-sys.exit(0 if r.get("halted") or diverged(r["losses"])["diverged"] else 1)
+stop = int(sys.argv[2])
+incomplete = len(r.get("losses", [])) != stop
+sys.exit(0 if r.get("halted") or incomplete or diverged(r["losses"])["diverged"] else 1)
 EOF
 }
 masks_for() { case $1 in jepa_p4_s*) echo "--masks $NVME/masks/s${1##*_s}";; esac; }
@@ -168,17 +177,20 @@ train_one() {  # $1 arm, $2 out dir, $3 = watch | rerun
     echo "$a" >> "$STATE/holds"; return 1
   fi
   [ -f "$S1/$a.log" ] && mv "$S1/$a.log" "$S1/$a.log.$(date -u +%s)"   # a resumed invocation keeps the earlier log beside it
-  ( last=0; while sleep 60; do s=$(committed_step "$d"); [ "$s" -gt "$last" ] && flock "$d.ckpt.lock" "$PY" artifacts/results.py ckpt-push "$d" "$key" >/dev/null 2>&1 && last=$s && prune_local "$d"; done ) & local sync=$!
+  ( last=0; while sleep 60; do s=$(committed_step "$d"); [ "$s" -gt "$last" ] && flock "$d.ckpt.lock" sh -c '"$1" artifacts/results.py ckpt-push "$2" "$3" >/dev/null 2>&1' _ "$PY" "$d" "$key" && last=$s && flock "$d.ckpt.lock" bash -c "$(declare -f prune_local); PY='$PY'; prune_local '$d'"; done ) & local sync=$!
   local rc=0 ev; ev=$(every_for "$a")
   if [ -n "$ev" ]; then export GJ_CHECKPOINT_EVERY=$ev; say "$a: checkpoint every $ev steps (SPOT)"; else unset GJ_CHECKPOINT_EVERY; fi
   if [ "$3" = watch ]; then "$PY" artifacts/patch_grid_stage1.py watch "$a" --workers "$WORKERS" $(masks_for "$a") || rc=$?
   else "$PY" artifacts/patch_grid_run.py "$a" --workers "$WORKERS" --out "$d" $(masks_for "$a") > "$d.log" 2>&1 || rc=$?; fi
   kill $sync 2>/dev/null; wait $sync 2>/dev/null
   flock "$d.ckpt.lock" "$PY" artifacts/results.py ckpt-push "$d" "$key" >/dev/null || rc=1   # after any push in flight (the lock); the final full checkpoint stays
-  prune_local "$d" 2>/dev/null
+  flock "$d.ckpt.lock" bash -c "$(declare -f prune_local); PY='$PY'; prune_local '$d'" 2>/dev/null
   [ $rc = 0 ] || return $rc
   res put "$d/traces.json" "$key/traces.json" && res put "$d/encoder.pt" "$key/encoder.pt" || return 1
-  [ "$3" = watch ] && res putdir "$S1" "$PREFIX/stage1" >/dev/null
+  if [ "$3" = watch ]; then
+    [ -f "$S1/$a.json" ] && res put "$S1/$a.json" "$PREFIX/stage1/$a.json" >/dev/null || true
+    [ -f "$S1/$a.log" ] && res put "$S1/$a.log" "$PREFIX/stage1/$a.log" >/dev/null || true
+  fi
   return 0
 }
 
@@ -246,6 +258,7 @@ fi
 smoke_rows_ok || fail "the stage 1 checklist records (from the bucket) do not pass: no arm runs"
 
 # --- 5. masks for jepa_p4, beside stage 1 -------------------------------------------------------------------------------------
+rm -f "$STATE/masks_refused"
 ( for s in 0 1 2; do masks_build $s || { echo "SEED $s" >> "$STATE/masks_refused"; }; done ) & MASKS=$!
 
 # --- 6. stage 1: patch 16 and 8, 18 arms; then the judge --------------------------------------------------------------------
@@ -269,7 +282,10 @@ for a in $(for p in 16 8; do for s in 0 1 2; do for o in jepa moco mae; do echo 
 EMB=runs/patch_grid/emb
 mkdir -p "$EMB"
 embed() {  # $1 = an arm, or untrained_p<P>_s<S>
-  res exists "$PREFIX/emb/$1.npz" && return 0
+  if res exists "$PREFIX/emb/$1.npz"; then
+    [ -f "$EMB/$1.npz" ] || res get "$PREFIX/emb/$1.npz" "$EMB/$1.npz" || return 1
+    return 0
+  fi
   if [ "${1%%_*}" = untrained ]; then local p=${1#untrained_p}; "$PY" artifacts/patch_grid_embed.py untrained --patch "${p%_s*}" --seed "${1##*_s}" --out "$EMB" || return 1
   else
     is_void "$(arm_dir "$1")" && { say "$1: VOID, not embedded"; return 0; }

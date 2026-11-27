@@ -149,6 +149,16 @@ def galaxy_zone_metrics(
 
     r = _radial_grid(height, width)
     mask = (r >= inner_px) & (r < outer_px)
+    if not np.any(mask):
+        logger.warning(
+            "petroRad %.2f″ → annulus [%.1f, %.1f) px contains 0 pixels for object %r; "
+            "annulus empty, excluding from faint-retention.",
+            petro_rad_arcsec,
+            inner_px,
+            outer_px,
+            object_id,
+        )
+        return ZoneMetrics(float("nan"), sky_floor, False)
     # Signal level *above the sky background*, so it is comparable to the sky floor and the
     # gap (faint - sky) is a true signal-over-noise margin — not a global-mean-centred level.
     faint_retention = float(np.median(img[:, mask]) - sky_median)

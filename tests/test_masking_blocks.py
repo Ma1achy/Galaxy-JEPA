@@ -57,10 +57,35 @@ def test_masker_shapes_are_rectangular():
     masker = MultiBlockMasker(grid_size=16, config=MaskConfig(beta=0.5))
     in_box = box_to_token_mask(half_width_px=60, stamp_px=256, grid_size=16)
     w = np.stack([token_weight_map(in_box, 0.5)] * 5)  # batch of 5 identical maps
-    ctx, tgt = masker.sample(w, seed=0)
-    assert ctx.shape[0] == 5 and tgt.shape[0] == 5  # batched
-    assert ctx.dim() == 2 and tgt.dim() == 2  # rectangular (min-keep truncation)
-    assert ctx.shape[1] >= 1 and tgt.shape[1] >= 1
+    ctx, tgts = masker.sample(w, seed=0)
+    assert ctx.shape[0] == 5 and len(tgts) == 4  # batched, 4 separate target blocks
+    assert ctx.dim() == 2 and all(t.dim() == 2 and t.shape[0] == 5 for t in tgts)
+    assert ctx.shape[1] >= 1 and all(t.shape[1] >= 1 for t in tgts)
+    # Zero target-into-context leakage for every sample in the batch.
+    for i in range(5):
+        cset = set(ctx[i].tolist())
+        tset = set().union(*(t[i].tolist() for t in tgts))
+        assert cset.isdisjoint(tset)
+
+
+def test_context_block_is_square_and_unbiased_and_randomly_subsampled():
+    from galaxy_jepa.masking.blocks import draw_blocks
+
+    in_box = box_to_token_mask(half_width_px=32, stamp_px=256, grid_size=16)
+    w = np.stack([token_weight_map(in_box, 1.0)] * 32)
+    cfg = MaskConfig(beta=1.0)
+    # Context block has square aspect (h == w) across draws (not landscape-biased).
+    for s in range(20):
+        dims, _ = draw_blocks(16, cfg, w[:1], seed=s)
+        assert dims[-1, 0] == dims[-1, 1]
+    # Min-keep truncation must not systematically drop bottom rows of the grid.
+    masker = MultiBlockMasker(grid_size=16, config=MaskConfig(beta=0.0))
+    uniform = np.ones((32, 16, 16), dtype=np.float64)
+    row_means = []
+    for s in range(40):
+        ctx, _ = masker.sample(uniform, seed=s)
+        row_means.append(float((ctx // 16).float().mean()))
+    assert 6.5 < float(np.mean(row_means)) < 8.5  # centred around 7.5, not skewed to top rows
 
 
 def test_sky_waste_falls_as_beta_rises():

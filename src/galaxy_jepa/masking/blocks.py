@@ -8,26 +8,36 @@ single bias strength ``β``:
 * ``w = 1`` inside the galaxy box, ``w = 1 − β`` on sky;
 * target-block top-left positions are sampled ∝ the mean weight under the block.
 
-``β = 0`` ⇒ uniform weights ⇒ **standard I-JEPA** (the published control). A full-frame box
-⇒ uniform for any ``β``. As ``β`` rises, target blocks concentrate on the galaxy and the
-"sky waste" (target tokens that are sky) falls — the direct evidence the scheme works.
+``β = 0`` ⇒ uniform weights ⇒ **uniform multi-block target sampling** (our unbiased I-JEPA
+masking control). A full-frame box ⇒ uniform for any ``β``. As ``β`` rises, target blocks
+concentrate on the galaxy and the "sky waste" (target tokens that are sky) falls — the direct
+evidence the scheme works.
 
 Everything operates on the **token grid** (``G×G``); pixel→token projection of the box is
-:func:`box_to_token_mask`. The block-size distribution, counts, and context handling are
-I-JEPA's; this module owns only the weighting and the sampling. The masker returns, per
-batch, rectangular ``context``/``target`` index tensors (per-sample positions, sizes shared
-across the batch, context truncated to the batch minimum — the I-JEPA collator trick) so
-the objective can gather tokens without ragged batches.
+:func:`box_to_token_mask`. The block-size distribution, counts, and context-exclusion rule follow
+I-JEPA; this module owns the weighting and sampling. The masker returns, per batch, rectangular
+``context``/``target`` index tensors (per-sample positions, sizes shared across the batch, context
+subsampled uniformly without replacement to the batch minimum rather than Meta's index-order
+truncation) so the objective can gather tokens without ragged batches.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
 import torch
 
-__all__ = ["MaskConfig", "MultiBlockMasker", "box_to_token_mask", "token_weight_map", "sky_waste"]
+__all__ = [
+    "MaskConfig",
+    "MultiBlockMasker",
+    "box_to_token_mask",
+    "draw_blocks",
+    "rebuild_masks",
+    "token_weight_map",
+    "sky_waste",
+]
 
 
 def box_to_token_mask(half_width_px: float, stamp_px: int, grid_size: int) -> np.ndarray:
@@ -96,6 +106,118 @@ def _block_tokens(r: int, c: int, h: int, w: int, g: int) -> np.ndarray:
     return (rr * g + cc).reshape(-1)
 
 
+def _sub_rng(seed: int | None) -> np.random.Generator:
+    """Deterministic sub-generator for context min-keep subsampling, decoupled from block draws."""
+    if seed is None:
+        return np.random.default_rng()
+    return np.random.default_rng([int(seed), 0x517CC1B7])
+
+
+def draw_blocks(
+    grid_size: int,
+    config: MaskConfig,
+    weight_maps: np.ndarray,
+    *,
+    seed: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Draw block dimensions ``(n_target + 1, 2)`` and per-sample top-left corners
+    ``(B, n_target + 1, 2)`` (target blocks first, context block last).
+
+    Target positions are sampled ∝ ``weight_maps`` (galaxy-biased); the context block has
+    square aspect ``(1.0, 1.0)`` and uniform top-left sampling (``docs/masking.md`` §4.3).
+    """
+    rng = np.random.default_rng(seed)
+    g, n = grid_size, grid_size * grid_size
+    dims = [
+        _block_dims(config.target_scale, config.target_aspect, n, g, rng)
+        for _ in range(config.n_target_blocks)
+    ]
+    ctx_h, ctx_w = _block_dims(config.context_scale, (1.0, 1.0), n, g, rng)
+    dims.append((ctx_h, ctx_w))
+    tl = []
+    for w_map in weight_maps:
+        # On tiny test grids (e.g. 4x4), four 2x2 target blocks can occasionally tile every token;
+        # resample target corners until at least one non-target token remains for context (never
+        # fires on real 16x16 / 32x32 / 64x64 grids, and guarantees zero target-in-context leak).
+        row: list[tuple[int, int]] = []
+        for _attempt in range(64):
+            row = [_sample_topleft(w_map, h, w, rng) for (h, w) in dims[:-1]]
+            target_union = np.unique(
+                np.concatenate(
+                    [
+                        _block_tokens(r, c, h, w, g)
+                        for (r, c), (h, w) in zip(row, dims[:-1], strict=True)
+                    ]
+                )
+            )
+            if target_union.size < n:
+                break
+        else:
+            raise ValueError(
+                "target blocks cover the entire token grid; no non-overlapping context exists"
+            )
+        cr = int(rng.integers(0, g - ctx_h + 1))
+        cc = int(rng.integers(0, g - ctx_w + 1))
+        row.append((cr, cc))
+        tl.append(row)
+    return np.asarray(dims, dtype=np.int64), np.asarray(tl, dtype=np.int64)
+
+
+def rebuild_masks(
+    dims: np.ndarray,
+    tl: np.ndarray,
+    grid_size: int,
+    *,
+    seed: int | None = None,
+) -> tuple[torch.Tensor, list[torch.Tensor]]:
+    """Build ``(context_idx, target_blocks)`` from stored block dims and top-left corners.
+
+    Each target block is kept separate (``list[Tensor]`` of length ``n_target_blocks``, each
+    ``(B, h_k * w_k)``) so the predictor runs independently per target block (standard I-JEPA).
+    Context is the context block minus the union of all target tokens; if a sample's targets
+    cover its entire context block, non-target tokens from the rest of the grid are used rather
+    than leaking a target token into context. Min-keep batch truncation subsamples uniformly at
+    random rather than dropping bottom raster rows.
+    """
+    n_t = len(dims) - 1
+    n_tokens = grid_size * grid_size
+    all_tokens = np.arange(n_tokens, dtype=np.int64)
+    per_block: list[list[np.ndarray]] = [[] for _ in range(n_t)]
+    contexts: list[np.ndarray] = []
+
+    for corners in tl:
+        sample_blocks = []
+        for k in range(n_t):
+            r, c = int(corners[k][0]), int(corners[k][1])
+            h, w = int(dims[k][0]), int(dims[k][1])
+            blk = _block_tokens(r, c, h, w, grid_size)
+            sample_blocks.append(blk)
+            per_block[k].append(blk)
+        target_union = np.unique(np.concatenate(sample_blocks))
+        cr, cc = int(corners[n_t][0]), int(corners[n_t][1])
+        ch, cw = int(dims[n_t][0]), int(dims[n_t][1])
+        ctx_tokens = _block_tokens(cr, cc, ch, cw, grid_size)
+        context = np.setdiff1d(ctx_tokens, target_union, assume_unique=True)
+        if context.size == 0:
+            context = np.setdiff1d(all_tokens, target_union, assume_unique=True)
+            if context.size == 0:
+                raise ValueError(
+                    "target blocks cover the entire token grid; no non-overlapping context exists"
+                )
+        contexts.append(context)
+
+    keep = min(c.size for c in contexts)
+    sub_rng = _sub_rng(seed)
+    context_idx = np.stack(
+        [
+            c if c.size == keep else np.sort(sub_rng.choice(c, size=keep, replace=False))
+            for c in contexts
+        ]
+    )
+    target_blocks = [torch.from_numpy(np.stack(blks)).long() for blks in per_block]
+    return torch.from_numpy(context_idx).long(), target_blocks
+
+
 class MultiBlockMasker:
     """Samples context/target token indices for a batch (docs/masking.md §4)."""
 
@@ -106,52 +228,25 @@ class MultiBlockMasker:
 
     def sample(
         self, weight_maps: np.ndarray, *, seed: int | None = None
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return ``(context_idx (B, Lc), target_idx (B, T))`` long tensors for the batch.
+    ) -> tuple[torch.Tensor, list[torch.Tensor]]:
+        """Return ``(context_idx (B, Lc), target_blocks [(B, L_k), ...])`` long tensors.
 
         ``weight_maps`` is ``(B, G, G)`` (from :func:`token_weight_map` per galaxy). Block
-        *sizes* are drawn once per batch (so token counts match and the batch is
-        rectangular); *positions* are sampled per galaxy ∝ its weight map. Context is the
-        context block minus the union of target tokens, truncated to the batch-minimum
-        length (the I-JEPA ``min_keep`` collator trick).
+        *sizes* are drawn once per batch (so token counts match and the batch is rectangular);
+        target *positions* are sampled per galaxy ∝ its weight map; context *position* is
+        uniform with square aspect. Context is the context block minus the union of target
+        tokens, randomly subsampled to the batch-minimum length (the I-JEPA ``min_keep`` trick).
         """
-        rng = np.random.default_rng(seed)
-        cfg = self.config
-        g, n = self.grid_size, self.n_tokens
-
-        # sizes shared across the batch → equal token counts → rectangular gather
-        tgt_dims = [
-            _block_dims(cfg.target_scale, cfg.target_aspect, n, g, rng)
-            for _ in range(cfg.n_target_blocks)
-        ]
-        ctx_h, ctx_w = _block_dims(cfg.context_scale, cfg.context_scale, n, g, rng)
-
-        batch_targets: list[np.ndarray] = []
-        batch_contexts: list[np.ndarray] = []
-        for w_map in weight_maps:
-            target_tokens = np.concatenate(
-                [_block_tokens(*_sample_topleft(w_map, h, w, rng), h, w, g) for (h, w) in tgt_dims]
-            )
-            cr, cc = _sample_topleft(w_map, ctx_h, ctx_w, rng)
-            ctx_tokens = _block_tokens(cr, cc, ctx_h, ctx_w, g)
-            context = np.setdiff1d(ctx_tokens, target_tokens, assume_unique=False)
-            if context.size == 0:  # degenerate: targets ate the context — keep one token
-                context = ctx_tokens[:1]
-            batch_targets.append(target_tokens)
-            batch_contexts.append(context)
-
-        keep = min(c.size for c in batch_contexts)
-        context_idx = np.stack([np.sort(c[:keep]) for c in batch_contexts])
-        target_idx = np.stack(batch_targets)
-        return (
-            torch.from_numpy(context_idx).long(),
-            torch.from_numpy(target_idx).long(),
-        )
+        dims, tl = draw_blocks(self.grid_size, self.config, weight_maps, seed=seed)
+        return rebuild_masks(dims, tl, self.grid_size, seed=seed)
 
 
-def sky_waste(in_box_maps: np.ndarray, target_idx: torch.Tensor) -> float:
+def sky_waste(in_box_maps: np.ndarray, target_idx: torch.Tensor | Sequence[torch.Tensor]) -> float:
     """Fraction of sampled target tokens that are sky (the docs/masking.md §7 diagnostic)."""
     flat = in_box_maps.reshape(in_box_maps.shape[0], -1)
-    idx = target_idx.cpu().numpy()
+    if isinstance(target_idx, torch.Tensor):
+        idx = target_idx.cpu().numpy()
+    else:
+        idx = torch.cat(list(target_idx), dim=1).cpu().numpy()
     in_box = np.take_along_axis(flat, idx, axis=1)
     return float(1.0 - in_box.mean())

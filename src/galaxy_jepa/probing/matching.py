@@ -68,11 +68,37 @@ def stratified_match(
     idx_all = np.nonzero(finite)[0]
     if idx_all.size == 0:
         return np.array([], dtype=np.int64)
-    edges = np.quantile(values[finite], np.linspace(0, 1, n_strata + 1))
-    edges[-1] = np.inf  # include the maximum
+    vals = values[finite]
+    zero_mask = vals == 0.0
+    strata: list[np.ndarray] = []
+
+    def _quantile_strata(sub_idx: np.ndarray, k: int) -> list[np.ndarray]:
+        sub_vals = values[sub_idx]
+        uniq = np.unique(sub_vals)
+        if uniq.size <= k:
+            return [sub_idx[sub_vals == u] for u in uniq]
+        edges = np.unique(np.quantile(sub_vals, np.linspace(0, 1, k + 1)))
+        if edges.size == 1:
+            return [sub_idx]
+        out: list[np.ndarray] = []
+        for s in range(edges.size - 1):
+            if s == edges.size - 2:
+                mask = (sub_vals >= edges[s]) & (sub_vals <= edges[s + 1])
+            else:
+                mask = (sub_vals >= edges[s]) & (sub_vals < edges[s + 1])
+            out.append(sub_idx[mask])
+        return out
+
+    # Isolate large zero point-masses (common in deep GZ2 vote fractions) so tied quantiles
+    # never collapse matching into a single stratum.
+    if 0 < int(zero_mask.sum()) < vals.size and (zero_mask.sum() / vals.size) >= 1.0 / n_strata:
+        strata.append(idx_all[values[idx_all] == 0.0])
+        pos_idx = idx_all[values[idx_all] != 0.0]
+        strata.extend(_quantile_strata(pos_idx, max(1, n_strata - 1)))
+    else:
+        strata.extend(_quantile_strata(idx_all, n_strata))
     kept: list[int] = []
-    for s in range(n_strata):
-        in_stratum = idx_all[(values[idx_all] >= edges[s]) & (values[idx_all] < edges[s + 1])]
+    for in_stratum in strata:
         pos = in_stratum[labels[in_stratum] == 1]
         neg = in_stratum[labels[in_stratum] == 0]
         take = min(len(pos), len(neg))
@@ -243,9 +269,14 @@ def retention_verdict(
     ):
         return RetentionVerdict(UNRESOLVED, None, unmatched, None)
     matched = m - c_m
-    retained = matched / unmatched if unmatched > 0 else 0.0
+    if unmatched <= 0:
+        # Cannot express retention as a fraction of a non-positive unmatched margin; check this
+        # BEFORE COLLAPSES so zero/negative unmatched gain never gets misclassified as COLLAPSES.
+        return RetentionVerdict(UNRESOLVED, None, unmatched, matched)
     if matched <= 0 or m_lo <= c_m:
+        retained = matched / unmatched
         return RetentionVerdict(COLLAPSES, retained, unmatched, matched)
+    retained = matched / unmatched
     if matched >= RETAIN_FRACTION * unmatched:
         return RetentionVerdict(SURVIVES, retained, unmatched, matched)
     return RetentionVerdict(PARTIAL, retained, unmatched, matched)

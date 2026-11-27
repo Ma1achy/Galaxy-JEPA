@@ -30,6 +30,7 @@ and as a merge-blocking invariant test, with no network and no ``data`` extra.
 from __future__ import annotations
 
 import hashlib
+import math
 from collections.abc import Iterable, Mapping
 
 __all__ = [
@@ -131,7 +132,13 @@ def partition_uncertainty(
     middle: set[int] = set()
     for oid, v in vote_fractions.items():
         (oid_int,) = to_object_ids([oid])
-        if v <= low or v >= high:
+        vf = float(v)
+        if not math.isfinite(vf):
+            raise ValueError(
+                f"non-finite vote fraction {v!r} for object_id {oid_int}; filter missing labels "
+                "before partitioning the uncertainty-geometry split"
+            )
+        if vf <= low or vf >= high:
             fit.add(oid_int)
         else:
             middle.add(oid_int)
@@ -144,14 +151,21 @@ def assert_uncertainty_firewall(
     low: float = 0.2,
     high: float = 0.8,
 ) -> None:
-    """Raise :class:`LeakError` if any *fit-set* vote fraction is in the ambiguous middle.
+    """Raise :class:`LeakError` if any *fit-set* vote fraction is ambiguous or non-finite.
 
     The non-circular protocol made structural: the axis is fitted on extremes only, so a
-    middle (``low < v < high``) value in the fit set means the held-out gradient leaked
-    into estimation — and the uncertainty-geometry result would be a tautology. Run this
+    middle (``low < v < high``) or non-finite value in the fit set means the held-out gradient
+    leaked into estimation — and the uncertainty-geometry result would be a tautology. Run this
     on the vote fractions of whatever rows enter the fit, before fitting.
     """
-    offenders = [v for v in fit_vote_fractions if low < v < high]
+    vals = [float(v) for v in fit_vote_fractions]
+    non_finite = [v for v in vals if not math.isfinite(v)]
+    if non_finite:
+        raise LeakError(
+            f"{len(non_finite)} fit-set galaxy(ies) have a non-finite vote fraction — "
+            "refusing to pass missing labels through the uncertainty firewall."
+        )
+    offenders = [v for v in vals if low < v < high]
     if offenders:
         raise LeakError(
             f"{len(offenders)} fit-set galaxy(ies) have an ambiguous vote fraction in "

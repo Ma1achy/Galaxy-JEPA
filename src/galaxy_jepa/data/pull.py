@@ -94,7 +94,8 @@ def with_derived_columns(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             logger.warning("object %s: bad modelMagErr_r; snr_r set NaN", row.get("object_id"))
             row["snr_r"] = float("nan")
         try:
-            suspect = not float(row["petroRad_r"]) <= PETRORAD_SUSPECT_ARCSEC
+            pr = float(row["petroRad_r"])
+            suspect = not (0.0 < pr <= PETRORAD_SUSPECT_ARCSEC)
         except (ValueError, KeyError, TypeError):
             suspect = True
         row["petrorad_suspect"] = int(suspect)
