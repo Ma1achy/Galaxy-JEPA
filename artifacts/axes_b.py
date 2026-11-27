@@ -186,8 +186,28 @@ def resid_ranks(v, N):
     return r - D @ np.linalg.lstsq(D, r, rcond=None)[0]
 
 
-def partial(a, b, N):
-    return float(np.corrcoef(resid_ranks(a, N), resid_ranks(b, N))[0, 1])
+def partial(a, b, N, *, rtol=1e-10):
+    """Partial Spearman on quadratic-nuisance rank residuals with relative residual-norm guard.
+
+    Returns NaN when either variable's rank vector is explained by the quadratic nuisance design
+    up to numerical residue (||resid|| <= rtol * ||r - mean(r)||), preventing spurious +/-1.0
+    correlations of floating-point noise (REG-007).
+    """
+    a64 = np.asarray(a, dtype=np.float64)
+    b64 = np.asarray(b, dtype=np.float64)
+    ra = rankdata(a64)
+    rb = rankdata(b64)
+    base_a = float(np.linalg.norm(ra - ra.mean()))
+    base_b = float(np.linalg.norm(rb - rb.mean()))
+    if base_a == 0.0 or base_b == 0.0:
+        return float("nan")
+    rx = resid_ranks(a64, N)
+    ry = resid_ranks(b64, N)
+    nrx = float(np.linalg.norm(rx))
+    nry = float(np.linalg.norm(ry))
+    if nrx <= rtol * base_a or nry <= rtol * base_b:
+        return float("nan")
+    return float(np.dot(rx, ry) / (nrx * nry))
 
 
 def boot(a, b, seed, n=NBOOT):

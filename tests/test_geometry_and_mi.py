@@ -122,6 +122,22 @@ def test_gram_spectrum_svd_parity_and_empirical_gram_null_calibration() -> None:
     )
     assert float(np.median(null_lowrank.null_tops)) > float(np.median(null_iso.null_tops)) + 0.4
 
+    # Correlated-label null test (X _|_ (Y1..Y5) with identical label columns):
+    # Default mode="joint_rows" preserves label equality -> observed_top=5.0 does NOT reject!
+    # Stronger mode="independent_cols" destroys label equality -> rejects at p < 0.05.
+    rng_cl = np.random.default_rng(2901)
+    x_ind = rng_cl.normal(size=(160, 24))
+    y_shared = rng_cl.integers(0, 2, size=160)
+    dup_labels = {f"c{i}": y_shared for i in range(5)}
+    joint_null = ent.empirical_gram_null(
+        x_ind, dup_labels, observed_top=5.0, c=1.0, n_draws=25, seed=17, mode="joint_rows"
+    )
+    indep_null = ent.empirical_gram_null(
+        x_ind, dup_labels, observed_top=5.0, c=1.0, n_draws=25, seed=17, mode="independent_cols"
+    )
+    assert joint_null.pvalue > 0.50
+    assert indep_null.pvalue < 0.05
+
 
 # ── §7.3 Complete adjudicate_pair truth table ─────────────────────────────────────────────────────
 
@@ -348,3 +364,19 @@ def test_mi_benchmarks_08_09_10_nonlinear_invariance_dpi_and_variational_bound()
         z_null[:150], y_null[:150], z_null[150:], y_null[150:], c=10.0, units="nats"
     )
     assert vb_null.bound < 0.0
+
+    # Zero k-th neighbour radii (discrete/tied or duplicated samples) MUST raise ValueError
+    # rather than silently returning an inflated MI estimate; explicit jitter resolves ties.
+    x_tied = np.tile([0.0, 0.0, 1.0, 1.0], 250)
+    y_tied = np.tile([0.0, 1.0, 0.0, 1.0], 250)
+    with pytest.raises(ValueError, match="zero .* neighbour radius"):
+        info.ksg_mi(x_tied, y_tied, k=5, units="nats")
+    assert abs(info.ksg_mi(x_tied, y_tied, k=5, units="nats", jitter=1e-4, seed=0)) < 0.05
+
+    # Duplicated continuous samples (6 identical copies > k=5) also caught cleanly
+    x_dup = rng.normal(size=200)
+    y_dup = rng.normal(size=200)
+    x_dup[:6] = x_dup[0]
+    y_dup[:6] = y_dup[0]
+    with pytest.raises(ValueError, match="zero .* neighbour radius"):
+        info.ksg_mi(x_dup, y_dup, k=5, units="nats")

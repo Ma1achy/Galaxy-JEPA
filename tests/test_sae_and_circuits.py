@@ -68,17 +68,39 @@ def test_topk_sae_invariants_auxk_permutation_and_planted_dictionary() -> None:
     dots = (sae.W_dec.data * sae.W_dec.grad).sum(dim=0)
     assert torch.allclose(dots, torch.zeros(n), atol=1e-6)
 
-    # 4. AuxK loss produces non-zero gradient on forced-dead latents
+    # 4. AuxK loss produces non-zero gradient specifically on genuinely INACTIVE dead latents
+    #    (excluded from main top-k!) and ZERO gradient on those same rows when AUX_COEF == 0.
     sae.zero_grad(set_to_none=True)
-    # Mark all latents as long-unfired except the first k
-    sae.last_fired.zero_()
-    sae.last_fired[:k] = sae_mod.DEAD_TOKENS + 500
-    # Push b_enc down slightly on dead latents? Keep positive pre-activations so AuxK fires them.
-    sae.b_enc.data.fill_(0.5)
+    with torch.no_grad():
+        # Force first k latents to have huge pre-activations so they ALWAYS win main top-k,
+        # while latents k..n-1 stay positive for AuxK yet strictly excluded from main top-k.
+        sae.b_enc.data.fill_(0.5)
+        sae.b_enc.data[:k] = 50.0
+        sae.last_fired.zero_()
+        sae.last_fired[:k] = sae_mod.DEAD_TOKENS + 500
+    _, z_check = sae(x)
+    assert bool((z_check[:, k:] == 0).all()), "latents k..n-1 must be inactive in main top-k"
+
     loss_aux, stats_aux = sae_mod.losses(sae, x, seen=sae_mod.DEAD_TOKENS + 500)
     assert stats_aux["dead"] > 0.0 and stats_aux["aux"] > 0.0
     loss_aux.backward()
-    assert sae.W_enc.grad is not None and float(sae.W_enc.grad[k:].abs().sum()) > 0.0
+    assert sae.W_enc.grad is not None
+    grad_dead_with_aux = float(sae.W_enc.grad[k:].abs().sum())
+    assert grad_dead_with_aux > 0.0
+
+    # Contrast with AUX_COEF == 0: those exact inactive dead rows MUST get zero gradient!
+    orig_coef = sae_mod.AUX_COEF
+    try:
+        sae_mod.AUX_COEF = 0.0
+        sae.zero_grad(set_to_none=True)
+        sae.last_fired.zero_()
+        sae.last_fired[:k] = sae_mod.DEAD_TOKENS + 500
+        loss_no_aux, _ = sae_mod.losses(sae, x, seen=sae_mod.DEAD_TOKENS + 500)
+        loss_no_aux.backward()
+        assert sae.W_enc.grad is not None
+        assert float(sae.W_enc.grad[k:].abs().sum()) == 0.0
+    finally:
+        sae_mod.AUX_COEF = orig_coef
 
     # 5. Latent permutation invariance: permuting latent indices leaves reconstruction identical
     perm = torch.randperm(n)
@@ -244,6 +266,16 @@ def test_reg018_dd_part4_sha1_preserved_and_erratum_capped_density_exact() -> No
     assert np.allclose(
         err4.capped_token_density(id_sae, empty, chunk=4, device="cpu"), [0.0, 0.0, 0.0]
     )
+
+    # Nonstationary-tail fixture: latent 0 fires in prefix, latent 1 fires ONLY in extra tail.
+    # Proves legacy uncapped chunking can REVERSE latent rankings (not merely uniform +2.4% scale!).
+    id_sae2 = _IdentitySAE(2)
+    tok_tail = np.zeros((256, 2), dtype=np.float32)
+    tok_tail[:2, 0] = 1.0  # prefix count 2 / 250 = 0.008
+    tok_tail[250:256, 1] = 1.0  # tail-only count 6 (0 in prefix!) -> legacy 6/250 = 0.024 > 0.008
+    old_d = err4.legacy_uncapped_token_density(id_sae2, tok_tail, max_tokens=250, chunk=64)
+    new_d = err4.capped_token_density(id_sae2, tok_tail, max_tokens=250, chunk=64)
+    assert old_d[1] > old_d[0] and new_d[0] > new_d[1] and new_d[1] == 0.0
 
 
 # ── §9.4 Removed Energy E(S) = 1_S^T C 1_S & Last-Layer Linear Readout Oracle ────────────────────

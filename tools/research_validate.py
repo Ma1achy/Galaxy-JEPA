@@ -29,6 +29,20 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = 1
+REQUIRED_CHECKS: tuple[str, ...] = (
+    "ruff_check",
+    "ruff_format",
+    "mypy_src",
+    "pytest_validation",
+    "mutation_audit",
+    "credential_check",
+)
+REQUIRED_PINS: tuple[str, ...] = (
+    "configs/pretrain_v2.yaml",
+    "docs/ladder_v2/manifest.yaml",
+    "artifacts/dd_part4.py",
+    "artifacts/dd_part4b.py",
+)
 
 
 def _git(*args: str) -> str:
@@ -153,20 +167,20 @@ def build_manifest(*, skip_slow: bool = True) -> dict[str, Any]:
         ]
 
     hw = _hardware_info()
-    blocked: list[dict[str, str]] = []
-    if not hw["cuda_available"]:
-        blocked.append(
-            {
-                "check": "cuda_gpu_parity",
-                "reason": "CUDA unavailable on this host; GPU tests marked blocked, not passed.",
-            }
-        )
-    blocked.append(
+    # Always disclose GPU parity as unrun/blocked whenever the pytest expression excludes `gpu`,
+    # even on CUDA-capable hosts, so a CPU-only pass can never masquerade as GPU validation.
+    gpu_reason = (
+        "CUDA available on host, but GPU tests were excluded (`not gpu`) from this CPU run."
+        if hw["cuda_available"]
+        else "CUDA unavailable on this host; GPU tests marked blocked, not passed."
+    )
+    blocked: list[dict[str, str]] = [
+        {"check": "cuda_gpu_parity", "reason": gpu_reason},
         {
             "check": "external_sdss_catalogue_reruns",
             "reason": "Requires external SDSS/GZ2 FITS store and explicit user authorisation.",
-        }
-    )
+        },
+    ]
 
     all_passed = all(c["passed"] for c in checks)
     return {
@@ -194,25 +208,75 @@ def verify_manifest(manifest_path: Path, *, allow_dirty: bool = False) -> tuple[
     errors: list[str] = []
     if not manifest_path.exists():
         return False, [f"validation manifest not found: {manifest_path}"]
-    data = json.loads(manifest_path.read_text())
+    try:
+        data = json.loads(manifest_path.read_text())
+    except json.JSONDecodeError as exc:
+        return False, [f"malformed JSON manifest: {exc}"]
+    if not isinstance(data, dict):
+        return False, ["manifest root must be a JSON object"]
     if data.get("schema_version") != SCHEMA_VERSION:
         errors.append(f"unexpected schema_version: {data.get('schema_version')!r}")
-    if not data.get("passed"):
-        errors.append("validation manifest recorded failed checks")
+    if data.get("passed") is not True:
+        errors.append("validation manifest top-level passed flag is not True")
+
+    # Derive acceptance from recorded checks themselves (never trust top-level `passed` alone!)
+    raw_checks = data.get("checks")
+    if not isinstance(raw_checks, list) or not raw_checks:
+        errors.append("manifest is missing required `checks` list")
+    else:
+        by_name: dict[str, dict[str, Any]] = {}
+        for item in raw_checks:
+            if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                errors.append("malformed entry in manifest `checks`")
+                continue
+            by_name[item["name"]] = item
+        for req in REQUIRED_CHECKS:
+            rec = by_name.get(req)
+            if rec is None:
+                errors.append(f"missing required check {req!r}")
+            elif rec.get("passed") is not True or rec.get("returncode") != 0:
+                errors.append(
+                    f"required check {req!r} did not pass "
+                    f"(passed={rec.get('passed')!r}, rc={rec.get('returncode')!r})"
+                )
+
     head = _git("rev-parse", "HEAD")
-    if data.get("git", {}).get("commit") != head:
+    git_info = data.get("git")
+    if not isinstance(git_info, dict) or git_info.get("commit") != head:
         errors.append(
-            f"manifest commit {data.get('git', {}).get('commit')!r} != current HEAD {head!r}"
+            f"manifest commit {git_info.get('commit') if isinstance(git_info, dict) else None!r} "
+            f"!= current HEAD {head!r}"
         )
-    is_dirty = bool(data.get("git", {}).get("dirty")) or bool(_git("status", "--porcelain"))
+    is_dirty = (bool(git_info.get("dirty")) if isinstance(git_info, dict) else True) or bool(
+        _git("status", "--porcelain")
+    )
     if not allow_dirty and is_dirty:
         errors.append("working tree or manifest is dirty; commit clean tree before validation")
-    for rel, want_sha in (data.get("pinned_file_sha256") or {}).items():
-        got_sha = _sha256_file(REPO / rel)
-        if got_sha != want_sha:
-            errors.append(
-                f"pinned file {rel!r} sha256 mismatch: disk={got_sha!r} != manifest={want_sha!r}"
-            )
+
+    pins = data.get("pinned_file_sha256")
+    if not isinstance(pins, dict):
+        errors.append("manifest is missing required `pinned_file_sha256` mapping")
+    else:
+        for req_pin in REQUIRED_PINS:
+            want_sha = pins.get(req_pin)
+            if not isinstance(want_sha, str) or not want_sha:
+                errors.append(f"missing or null required pin {req_pin!r}")
+                continue
+            got_sha = _sha256_file(REPO / req_pin)
+            if got_sha != want_sha:
+                errors.append(
+                    f"pinned file {req_pin!r} sha256 mismatch: "
+                    f"disk={got_sha!r} != manifest={want_sha!r}"
+                )
+        for rel, want_sha in pins.items():
+            if rel in REQUIRED_PINS:
+                continue
+            got_sha = _sha256_file(REPO / rel)
+            if got_sha != want_sha:
+                errors.append(
+                    f"pinned file {rel!r} sha256 mismatch: "
+                    f"disk={got_sha!r} != manifest={want_sha!r}"
+                )
     return len(errors) == 0, errors
 
 

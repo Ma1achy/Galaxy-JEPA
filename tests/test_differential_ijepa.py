@@ -46,13 +46,50 @@ def _independent_scalar_gather(tokens: torch.Tensor, idx: torch.Tensor) -> torch
     return out
 
 
+def _independent_predictor_forward(
+    pred: Predictor,
+    z_c: torch.Tensor,
+    ctx_idx: torch.Tensor,
+    target_idx: torch.Tensor,
+) -> torch.Tensor:
+    """Manual Transformer predictor oracle reading raw tensors only (no Predictor.forward).
+
+    Catches dropped target/context positional embeddings, wrong attention scaling, or wrong slice.
+    """
+    b, lc, _ = z_c.shape
+    pos = pred.pos_embed[0]  # (N, pred_dim)
+    x_ctx = F.linear(z_c, pred.embed.weight, pred.embed.bias) + _independent_scalar_gather(
+        pos.unsqueeze(0).expand(b, -1, -1), ctx_idx
+    )
+    x_tgt = pred.mask_token.expand(b, target_idx.shape[1], -1) + _independent_scalar_gather(
+        pos.unsqueeze(0).expand(b, -1, -1), target_idx
+    )
+    h = torch.cat([x_ctx, x_tgt], dim=1)
+    for blk in pred.blocks:
+        # Pre-norm multi-head self-attention via explicit Q K^T / sqrt(d_h)
+        h1 = F.layer_norm(h, (h.shape[-1],), blk.norm1.weight, blk.norm1.bias, blk.norm1.eps)
+        qkv = F.linear(h1, blk.attn.qkv.weight, blk.attn.qkv.bias)
+        nh, hd = blk.attn.heads, blk.attn.head_dim
+        qkv = qkv.reshape(b, h.shape[1], 3, nh, hd).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        attn = torch.softmax((q @ k.transpose(-2, -1)) / (hd**0.5), dim=-1)
+        out = (attn @ v).transpose(1, 2).reshape(b, h.shape[1], nh * hd)
+        h = h + F.linear(out, blk.attn.proj.weight, blk.attn.proj.bias)
+        # Pre-norm MLP
+        h2 = F.layer_norm(h, (h.shape[-1],), blk.norm2.weight, blk.norm2.bias, blk.norm2.eps)
+        m = F.gelu(F.linear(h2, blk.mlp[0].weight, blk.mlp[0].bias))
+        h = h + F.linear(m, blk.mlp[2].weight, blk.mlp[2].bias)
+    h = F.layer_norm(h, (h.shape[-1],), pred.norm.weight, pred.norm.bias, pred.norm.eps)
+    return F.linear(h[:, lc:, :], pred.head.weight, pred.head.bias)
+
+
 def _independent_ijepa_oracle(
     jepa: Jepa,
     images: torch.Tensor,
     ctx_idx: torch.Tensor,
     target_blocks: list[torch.Tensor],
 ) -> tuple[torch.Tensor, list[torch.Tensor], list[torch.Tensor], torch.Tensor]:
-    """Independent Meta-I-JEPA per-block forward & equal-block MSE oracle (no shared code)."""
+    """Independent per-block gather, manual predictor forward & equal-block MSE oracle."""
     all_tokens = jepa.encoder.patch_embed_tokens(images)
     ctx_tokens = _independent_scalar_gather(all_tokens, ctx_idx)
     z_c = jepa.encoder.run_tokens(ctx_tokens, norm=True)
@@ -65,7 +102,7 @@ def _independent_ijepa_oracle(
     preds: list[torch.Tensor] = []
     block_losses: list[torch.Tensor] = []
     for t_idx in target_blocks:
-        y_hat = jepa.predictor(z_c, ctx_idx, t_idx)
+        y_hat = _independent_predictor_forward(jepa.predictor, z_c, ctx_idx, t_idx)
         y_true = _independent_scalar_gather(teacher_full, t_idx)
         # Explicit hand-computed per-block MSE: mean over (B, n_i, D)
         sq = (y_hat - y_true) ** 2
@@ -80,55 +117,61 @@ def _independent_ijepa_oracle(
 @pytest.mark.regression
 @pytest.mark.differential
 def test_reg001_independent_target_block_prediction_and_gradient_isolation() -> None:
-    """REG-001: Perturbing block B queries must leave block A predictions & gradients unchanged.
-
-    Demonstrates that the old joint-concatenation predictor couples block A to block B queries,
-    whereas the corrected independent-block predictor satisfies strict isolation.
-    """
-    jepa = _tiny_jepa(seed=1).eval()
+    """REG-001: Predictor matches manual oracle, is position-sensitive, and isolates blocks."""
+    jepa = _tiny_jepa(seed=1, dtype=torch.float64).eval()
     torch.manual_seed(2)
-    z_c = torch.randn(2, 5, 16, dtype=torch.float64, requires_grad=True)
+    z_c = torch.randn(2, 5, 16, dtype=torch.float64)
     ctx_idx = torch.tensor([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
     t_a = torch.tensor([[10, 11], [0, 1]])
-    t_b1 = torch.tensor([[12, 13, 14], [2, 3, 4]])
-    t_b2 = torch.tensor([[15, 6], [10, 11]])  # different positions AND different size
+    t_b1 = torch.tensor([[12, 13], [2, 3]])  # equal size to t_b2 (tests location, not length!)
+    t_b2 = torch.tensor([[14, 15], [10, 11]])
 
-    # Independent predictor semantics: block A prediction depends ONLY on (z_c, ctx_idx, t_a).
-    pred_a_with_b1 = jepa.predictor(z_c, ctx_idx, t_a)
+    # 1. Exact parity against independent manual Transformer predictor forward (raw weights only)
+    pred_a = jepa.predictor(z_c, ctx_idx, t_a)
+    pred_a_ref = _independent_predictor_forward(jepa.predictor, z_c, ctx_idx, t_a)
+    assert torch.allclose(pred_a, pred_a_ref, rtol=1e-11, atol=1e-11)
+
+    # 2. Fixed-length target-location AND context-location sensitivity (catches dropped _pos!)
     pred_b1 = jepa.predictor(z_c, ctx_idx, t_b1)
-    pred_a_with_b2 = jepa.predictor(z_c, ctx_idx, t_a)
-    assert torch.allclose(pred_a_with_b1, pred_a_with_b2, rtol=1e-12, atol=1e-12)
+    pred_b2 = jepa.predictor(z_c, ctx_idx, t_b2)
+    assert not torch.allclose(pred_b1, pred_b2, atol=1e-4), "target pos_embed dropped"
+    ctx_shifted = torch.tensor([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]])
+    assert not torch.allclose(pred_a, jepa.predictor(z_c, ctx_shifted, t_a), atol=1e-4), (
+        "context pos_embed dropped"
+    )
 
-    # Historical buggy joint-concatenation reproduction MUST fail the same invariance check:
+    # 3. Historical buggy joint-concatenation MUST couple block A to equal-size block B changes:
     joint_1 = jepa.predictor(z_c, ctx_idx, torch.cat([t_a, t_b1], dim=1))[:, : t_a.shape[1]]
     joint_2 = jepa.predictor(z_c, ctx_idx, torch.cat([t_a, t_b2], dim=1))[:, : t_a.shape[1]]
     assert not torch.allclose(joint_1, joint_2, atol=1e-4), (
         "distinguishing fixture failed: joint concatenation did not couple block A to block B"
     )
 
-    # Permuting target blocks permutes predictions correspondingly and preserves aggregate loss.
-    teacher = torch.randn(2, 16, 16, dtype=torch.float64)
-    y_a = _independent_scalar_gather(teacher, t_a)
-    y_b1 = _independent_scalar_gather(teacher, t_b1)
-    loss_ab = 0.5 * (F.mse_loss(pred_a_with_b1, y_a) + F.mse_loss(pred_b1, y_b1))
-    loss_ba = 0.5 * (
-        F.mse_loss(jepa.predictor(z_c, ctx_idx, t_b1), y_b1)
-        + F.mse_loss(jepa.predictor(z_c, ctx_idx, t_a), y_a)
-    )
-    assert torch.allclose(loss_ab, loss_ba, rtol=1e-12, atol=1e-12)
+    # 4. Production Jepa.loss_parts check: loss(t_a, t_b1) == 0.5 * (loss(t_a) + loss(t_b1)).
+    #    Under joint concatenation, blocks cross-attend so loss([t_a, t_b1]) != average of singles!
+    jepa32 = _tiny_jepa(seed=1, dtype=torch.float32).eval()
+    imgs = torch.randn(2, 3, 32, 32, dtype=torch.float32)
+    batch = {
+        "image": imgs,
+        "petro_rad_arcsec": torch.tensor([2.0, 3.0], dtype=torch.float32),
+        "pixel_scale": torch.tensor([0.396, 0.396], dtype=torch.float32),
+    }
 
-    # Gradient isolation across query inputs (shared weights accumulate, query tensors do not).
-    pos_buf = jepa.predictor.pos_embed.clone().detach().requires_grad_(True)
-    # Run explicit predictor math with separate query tensors q_a, q_b to inspect Jacobian
-    q_a = torch.randn(2, 2, 12, dtype=torch.float64, requires_grad=True)
-    q_b = torch.randn(2, 3, 12, dtype=torch.float64, requires_grad=True)
-    x_ctx = jepa.predictor.embed(z_c) + pos_buf[0, ctx_idx]
-    h_a = torch.cat([x_ctx, q_a], dim=1)
-    for blk in jepa.predictor.blocks:
-        h_a = blk(h_a)
-    out_a = jepa.predictor.head(jepa.predictor.norm(h_a)[:, x_ctx.shape[1] :])
-    grad_qb = torch.autograd.grad(out_a.sum(), q_b, allow_unused=True)[0]
-    assert grad_qb is None
+    def _run_loss(blocks: list[torch.Tensor]) -> float:
+        class _StubMasker:
+            def sample(self, _w: object, *, seed: int) -> tuple[torch.Tensor, list[torch.Tensor]]:
+                return ctx_idx, blocks
+
+        jepa32.masker = _StubMasker()  # type: ignore[assignment]
+        with torch.no_grad():
+            return float(jepa32.loss_parts(batch, seed=0).total)
+
+    l_a = _run_loss([t_a])
+    l_b1 = _run_loss([t_b1])
+    l_ab = _run_loss([t_a, t_b1])
+    l_ba = _run_loss([t_b1, t_a])
+    assert l_ab == pytest.approx(0.5 * (l_a + l_b1), rel=1e-5, abs=1e-6)
+    assert l_ba == pytest.approx(l_ab, rel=1e-6, abs=1e-6)
 
 
 @pytest.mark.regression

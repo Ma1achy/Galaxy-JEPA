@@ -283,7 +283,17 @@ def test_reg007_partial_spearman_vs_reranked_residuals_and_chunked_bootstrap() -
 
     # Constant residual after nuisance projection must return NaN (no cancellation artefacts)
     const_x = 3.0 * z[:, 0] + 1.0
+    const_y = 7.0 * z[:, 0] - 2.0
     assert np.isnan(stats_mod.partial_spearman(const_x, y, z))
+
+    # Production Part B path (`artifacts/axes_b.py`): must also guard residual norm (return NaN
+    # on nuisance-collinear inputs, NOT 1.0!) and run full paired-row quadratic bootstrap.
+    import axes_b
+
+    assert np.isnan(axes_b.partial(const_x, const_y, z[:, :1]))
+    ci_b = axes_b.boot_partial_full(x, y, z, seed=11, n=80)
+    pt_b = axes_b.partial(x, y, z)
+    assert np.isfinite(pt_b) and ci_b[0] < pt_b < ci_b[1]
 
 
 @pytest.mark.regression
@@ -332,22 +342,25 @@ def test_reg010_and_reg014_matching_edge_cases_and_retention() -> None:
     z_kept = k_mix[vals[k_mix] == 0.0]
     assert z_kept.size == 40 and int(y_mix[z_kept].sum()) == 20
 
-    # Non-positive unmatched gain -> UNRESOLVED (never SURVIVES).
-    # Pass n_matched_test >= MIN_MATCHED_TEST (500) AND m_lo > c_m so we actually hit
-    # `if unmatched <= 0:` in matching.retention_verdict rather than short-circuiting early.
-    for a_val, c_val in [(0.50, 0.55), (0.55, 0.55)]:
+    # Non-positive unmatched gain -> UNRESOLVED (never COLLAPSES or SURVIVES), even when
+    # m_lo <= c_m or m_lo > c_m with full sample support (n_matched_test >= 500).
+    for a_val, c_val, m_val, m_lo_val in [
+        (0.50, 0.55, 0.65, 0.60),  # positive matched gain, negative unmatched
+        (0.55, 0.55, 0.65, 0.60),  # positive matched gain, zero unmatched
+        (0.50, 0.55, 0.56, 0.52),  # m_lo == c_m, negative unmatched -> still UNRESOLVED!
+        (0.50, 0.55, 0.51, 0.48),  # negative matched gain, negative unmatched -> UNRESOLVED!
+    ]:
         rv = match.retention_verdict(
             a=a_val,
             c=c_val,
-            m=0.65,
-            m_lo=0.60,
+            m=m_val,
+            m_lo=m_lo_val,
             c_m=0.52,
             n_matched_test=600,
             n_test=600,
         )
         assert rv.verdict == match.UNRESOLVED
         assert rv.retained is None
-        assert rv.matched_margin is not None and rv.matched_margin > 0.0
 
 
 @pytest.mark.regression

@@ -122,28 +122,34 @@ def _mut01_invert_target_exclusion(mutated: bool) -> None:
 
 
 def _mut02_concatenate_target_queries(mutated: bool) -> None:
-    from galaxy_jepa.models.vit import VisionTransformer
+    import test_differential_ijepa as td
     from galaxy_jepa.objectives import jepa as jepa_mod
 
-    torch.manual_seed(2)
-    enc = VisionTransformer(img_size=32, patch_size=8, embed_dim=16, depth=2, heads=2)
-    model = jepa_mod.Jepa(enc, jepa_mod.JepaConfig(pred_dim=12, pred_depth=2, pred_heads=2)).eval()
-    imgs = torch.randn(2, 3, 32, 32)
-    ctx_idx = torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7]])
-    t_a = torch.tensor([[8, 9], [0, 1]])
-    t_b1 = torch.tensor([[10, 11, 12], [2, 3, 4]])
-    t_b2 = torch.tensor([[14, 15], [10, 11]])
+    def _joint_loss_parts(self: Any, batch: dict[str, Any], *, seed: int | None = None) -> Any:
+        images = batch["image"].float()
+        petro = batch["petro_rad_arcsec"].cpu().numpy()
+        pscale = batch["pixel_scale"].cpu().numpy()
+        w_maps = self.weight_maps(petro, pscale)
+        ctx_idx, t_blocks = self.masker.sample(w_maps, seed=seed)
+        ctx_tok = jepa_mod._gather_tokens(self.encoder.patch_embed_tokens(images), ctx_idx)
+        context = self.encoder.run_tokens(ctx_tok)
+        with torch.no_grad():
+            full = self.target_encoder.run_tokens(self.target_encoder.patch_embed_tokens(images))
+            targets = [jepa_mod._gather_tokens(full, t_idx) for t_idx in t_blocks]
+        # Legacy joint-concatenation bug: single predictor call over concatenated target blocks
+        joint_t = torch.cat(t_blocks, dim=1)
+        joint_pred = self.predictor(context, ctx_idx, joint_t)
+        lens = [t.shape[1] for t in t_blocks]
+        preds = list(torch.split(joint_pred, lens, dim=1))
+        losses = [F.mse_loss(p, y) for p, y in zip(preds, targets, strict=True)]
+        pred = torch.stack(losses).mean()
+        return jepa_mod.LossParts(total=pred, prediction=pred, sigreg=None)
 
-    def _run_with(tb: torch.Tensor) -> torch.Tensor:
-        z_c = model.encoder.run_tokens(
-            jepa_mod._gather_tokens(model.encoder.patch_embed_tokens(imgs), ctx_idx)
-        )
-        if mutated:
-            joint = model.predictor(z_c, ctx_idx, torch.cat([t_a, tb], dim=1))
-            return joint[:, : t_a.shape[1]]
-        return model.predictor(z_c, ctx_idx, t_a)
-
-    assert torch.allclose(_run_with(t_b1), _run_with(t_b2), atol=1e-5)
+    if mutated:
+        with mock.patch.object(jepa_mod.Jepa, "loss_parts", _joint_loss_parts):
+            td.test_reg001_independent_target_block_prediction_and_gradient_isolation()
+    else:
+        td.test_reg001_independent_target_block_prediction_and_gradient_isolation()
 
 
 def _mut03_bbox_weights_for_context(mutated: bool) -> None:
@@ -287,6 +293,7 @@ def _mut08_teacher_gradient_leak(mutated: bool) -> None:
 
 
 def _mut09_fit_preprocessing_on_held_out(mutated: bool) -> None:
+    from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
 
     from galaxy_jepa.probing import logistic as log_mod
@@ -296,23 +303,32 @@ def _mut09_fit_preprocessing_on_held_out(mutated: bool) -> None:
     y_tr = (x_tr[:, 0] > 0).astype(int)
     x_te_clean = rng.normal(size=(60, 4))
     x_te_poison = np.full((60, 4), 1e4)
+    y_te = (x_te_clean[:, 0] > 0).astype(int)
     tr_emb = log_mod.Embeddings(x_tr, y_tr, np.where(y_tr == 1, 0.9, 0.1))
+    te_clean = log_mod.Embeddings(x_te_clean, y_te, np.where(y_te == 1, 0.9, 0.1))
+    te_poison = log_mod.Embeddings(x_te_poison, y_te, np.where(y_te == 1, 0.9, 0.1))
 
-    def _run_dir(x_te: np.ndarray) -> log_mod.ConceptDirection:
+    # Mutate production `probe_auc_ci` scaler fitting to leak held-out test inputs
+    orig_fit = log_mod._fit
+
+    def _eval_train_scores(te_emb: log_mod.Embeddings) -> np.ndarray:
         if not mutated:
-            return log_mod.probe_direction(tr_emb, name="f", c=1.0)
-        # Mutated scaler fits on train + held-out test union before logistic fit
-        sc = StandardScaler().fit(np.vstack([x_tr, x_te]))
-        from sklearn.linear_model import LogisticRegression
+            sc, clf = log_mod._fit(tr_emb, c=1.0)
+        else:
 
-        clf = LogisticRegression(C=1.0, max_iter=2000).fit(sc.transform(x_tr), y_tr)
-        w_raw = clf.coef_[0] / sc.scale_
-        bias = float(clf.intercept_[0] - np.sum(clf.coef_[0] * sc.mean_ / sc.scale_))
-        return log_mod.ConceptDirection("f", w_raw / np.linalg.norm(w_raw), w_raw, bias)
+            def _leaky_fit(tr: log_mod.Embeddings, *, c: float = 1.0, max_iter: int = 20000) -> Any:
+                sc_l = StandardScaler().fit(np.vstack([tr.x, te_emb.x]))
+                clf_l = LogisticRegression(C=c, max_iter=max_iter).fit(sc_l.transform(tr.x), tr.y)
+                return sc_l, clf_l
 
-    d_clean = _run_dir(x_te_clean)
-    d_poison = _run_dir(x_te_poison)
-    assert np.allclose(d_clean.w_raw, d_poison.w_raw, atol=1e-9)
+            with mock.patch.object(log_mod, "_fit", side_effect=_leaky_fit):
+                sc, clf = log_mod._fit(tr_emb, c=1.0)
+        _ = orig_fit
+        return clf.coef_[0] / sc.scale_
+
+    w_c = _eval_train_scores(te_clean)
+    w_p = _eval_train_scores(te_poison)
+    assert np.allclose(w_c, w_p, atol=1e-9)
 
 
 def _mut10_misalign_ids(mutated: bool) -> None:

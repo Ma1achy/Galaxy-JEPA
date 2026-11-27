@@ -10,8 +10,12 @@ Why this exists:
         dens /= min(len(tok), 256 * 1000)
 
     Because ``256 * 1000 = 256_000`` is not a multiple of ``65536``, when ``len(tok) >= 262_144``
-    the final slice ``tok[196608:262144]`` sums **262,144** tokens while dividing by **256,000**,
-    systematically inflating absolute densities by ``262144 / 256000 = 1.024`` (+2.4%).
+    the final slice ``tok[196608:262144]`` sums **262,144** tokens while dividing by **256,000**.
+    For an always-firing latent this inflates density to ``262144 / 256000 = 1.024`` (+2.4%),
+    and when firing rates differ between the 256,000-token prefix and the extra 6,144-token tail,
+    old ``(a_j + b_j) / 256000`` vs corrected ``a_j / 256000`` can shift absolute densities by up
+    to ``0.024`` (2.4 percentage points), potentially changing latent rankings and ±25%-density
+    control pools.
 
 This module keeps ``artifacts/dd_part4.py`` byte-identical so every historical manifest SHA-1
 pin remains intact, while providing the corrected :func:`capped_token_density` implementation

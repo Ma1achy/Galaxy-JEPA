@@ -218,6 +218,11 @@ class Jepa(nn.Module):
             context = self.encoder.run_tokens(context_tokens)
 
         with torch.no_grad():
+            # Uses the ViT's learned-affine final LayerNorm output directly (variant note:
+            # Meta's released facebookresearch/ijepa trainer additionally applies functional
+            # F.layer_norm(h, (h.size(-1),)) before gathering; equal-block MSE also differs
+            # from Meta's Smooth-L1 script, and uniform context subsampling differs from
+            # Meta's index-order truncation).
             full = self.target_encoder.run_tokens(self.target_encoder.patch_embed_tokens(images))
             targets = [_gather_tokens(full, t_idx) for t_idx in target_blocks]
 

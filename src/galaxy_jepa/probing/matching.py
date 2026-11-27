@@ -269,12 +269,13 @@ def retention_verdict(
     ):
         return RetentionVerdict(UNRESOLVED, None, unmatched, None)
     matched = m - c_m
-    if matched <= 0 or m_lo <= c_m:
-        retained = matched / unmatched if unmatched > 0 else 0.0
-        return RetentionVerdict(COLLAPSES, retained, unmatched, matched)
     if unmatched <= 0:
-        # Cannot express retention as a fraction of a non-positive unmatched margin.
+        # Cannot express retention as a fraction of a non-positive unmatched margin; check this
+        # BEFORE COLLAPSES so zero/negative unmatched gain never gets misclassified as COLLAPSES.
         return RetentionVerdict(UNRESOLVED, None, unmatched, matched)
+    if matched <= 0 or m_lo <= c_m:
+        retained = matched / unmatched
+        return RetentionVerdict(COLLAPSES, retained, unmatched, matched)
     retained = matched / unmatched
     if matched >= RETAIN_FRACTION * unmatched:
         return RetentionVerdict(SURVIVES, retained, unmatched, matched)

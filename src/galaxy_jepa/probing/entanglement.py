@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import torch
@@ -268,13 +268,18 @@ def empirical_gram_null(
     c: float = 1.0,
     n_draws: int = 50,
     seed: int = 0,
+    mode: Literal["joint_rows", "independent_cols"] = "joint_rows",
 ) -> EmpiricalGramNull:
     """Shuffled-label empirical null for the unit-mean-normalised Gram top eigenvalue.
 
-    Permutes each feature's binary labels independently (testing the null of no feature
-    structure while preserving embedding covariance, prevalence, and L2 regularisation), fits
-    standardised logistic directions via ``probe_direction``, and records the top unit-mean
-    Gram eigenvalue on each draw, returning the add-one p-value ``(1 + count >= obs) / (B + 1)``.
+    * ``mode="joint_rows"`` (default): applies one shared row permutation per draw across all
+      label columns, testing ``X ⟂ (Y_1, ..., Y_k)`` while preserving exact inter-label
+      co-occurrence, prevalence, embedding covariance, and L2 regularisation.
+    * ``mode="independent_cols"``: permutes each feature column independently (stronger null
+      that also destroys inter-label correlation).
+
+    Fits standardised logistic directions via ``probe_direction`` and records the top unit-mean
+    Gram eigenvalue per draw, returning the add-one p-value ``(1 + count >= obs) / (B + 1)``.
     """
     from galaxy_jepa.probing.logistic import probe_direction
 
@@ -284,15 +289,20 @@ def empirical_gram_null(
         raise ValueError("empirical_gram_null requires at least 2 features")
     if n_draws < 1:
         raise ValueError(f"n_draws must be >= 1, got {n_draws!r}")
+    if mode not in ("joint_rows", "independent_cols"):
+        raise ValueError(f"unknown mode {mode!r}; expected 'joint_rows' or 'independent_cols'")
 
     rng = np.random.default_rng(seed)
     null_tops = np.empty(n_draws, dtype=np.float64)
-    zero_frac = np.zeros(x.shape[0], dtype=np.float64)
+    n_rows = x.shape[0]
+    zero_frac = np.zeros(n_rows, dtype=np.float64)
+    label_arrays = {f: np.asarray(labels_by_feature[f], dtype=np.int64) for f in feats}
     for b in range(n_draws):
         dirs = []
+        joint_perm = rng.permutation(n_rows) if mode == "joint_rows" else None
         for f in feats:
-            y = np.asarray(labels_by_feature[f], dtype=np.int64)
-            yp = rng.permutation(y)
+            y = label_arrays[f]
+            yp = y[joint_perm] if joint_perm is not None else rng.permutation(y)
             dirs.append(probe_direction(Embeddings(x, yp, zero_frac), name=f, c=c))
         _, w = stack_directions(dirs)
         ev, _ = gram_eigenspectrum(w)

@@ -238,19 +238,25 @@ def ksg_mi(
 
     # k+1 because index 0 is the point itself at distance 0
     dists, _ = tree_xy.query(joint, k=k + 1, p=np.inf)
-    eps = np.nextafter(dists[:, k], 0.0)
+    kth = dists[:, k]
+    if np.any(kth <= 0.0):
+        n_zero = int(np.sum(kth <= 0.0))
+        raise ValueError(
+            f"ksg_mi encountered {n_zero} observation(s) with zero {k}-th neighbour radius "
+            "(tied/duplicate or discrete inputs violate continuous KSG assumptions); use "
+            "discrete_mi for discrete variables or pass explicit positive jitter."
+        )
+    eps = np.nextafter(kth, 0.0)
 
     # Count points strictly within eps in each marginal (excluding self -> subtract 1)
     nx = np.empty(n, dtype=np.int64)
     ny = np.empty(n, dtype=np.int64)
     for i in range(n):
         r = float(eps[i])
-        if r <= 0.0:
-            nx[i] = 0
-            ny[i] = 0
-        else:
-            nx[i] = max(len(tree_x.query_ball_point(x_work[i], r=r, p=np.inf)) - 1, 0)
-            ny[i] = max(len(tree_y.query_ball_point(y_work[i], r=r, p=np.inf)) - 1, 0)
+        cx = int(tree_x.query_ball_point(x_work[i], r=r, p=np.inf, return_length=True))
+        cy = int(tree_y.query_ball_point(y_work[i], r=r, p=np.inf, return_length=True))
+        nx[i] = max(cx - 1, 0)
+        ny[i] = max(cy - 1, 0)
 
     mi_nats = float(digamma(k) + digamma(n) - np.mean(digamma(nx + 1) + digamma(ny + 1)))
     return convert_units(mi_nats, units)
